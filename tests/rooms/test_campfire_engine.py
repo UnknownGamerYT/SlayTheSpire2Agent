@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sts2sim import legal_actions, new_run, step
+from sts2sim.engine import RunPhase
 from sts2sim.mechanics.campfire import rest_heal_amount
 
 
@@ -57,7 +58,7 @@ def _enter_campfire(*, ascension: int = 0):
         },
     )
 
-    state = step(state, _action(state, "choose_ancient"))
+    state = state.model_copy(update={"phase": RunPhase.MAP, "ancient": None})
     state = step(state, _action(state, "choose_node"))
     state = step(state, _play_card(state, "strike_1"))
     state = step(state, _action(state, "proceed"))

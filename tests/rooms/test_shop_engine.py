@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sts2sim import legal_actions, new_run, step
+from sts2sim.engine import RunPhase
 
 
 def _action(state, action_type: str, target_contains: str | None = None):
@@ -123,7 +124,7 @@ def _try_enter_shop(
             "player": {"hp": hp, "max_hp": 80, "gold": 300, "energy": 3, "max_energy": 3},
         },
     )
-    state = step(state, _action(state, "choose_ancient"))
+    state = state.model_copy(update={"phase": RunPhase.MAP, "ancient": None})
     state = state.model_copy(
         update={
             "player": state.player.model_copy(update={"hp": hp}),

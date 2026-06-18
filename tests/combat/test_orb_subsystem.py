@@ -41,10 +41,7 @@ ORB_DUMMY_ENCOUNTERS = (
 
 
 def _choose_first_ancient(state):
-    return step(
-        state,
-        next(action for action in legal_actions(state) if action.type == "choose_ancient"),
-    )
+    return state.model_copy(update={"phase": RunPhase.MAP, "ancient": None})
 
 
 def _force_next_room(state, room_kind: RoomKind):

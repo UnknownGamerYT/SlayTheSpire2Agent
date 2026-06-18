@@ -90,6 +90,18 @@ def _action(state, action_type: str, target_id: str | None = None):
     )
 
 
+def _play_debug_kill_action(state):
+    assert state.combat is not None
+    debug_card_ids = {
+        card.instance_id for card in state.combat.hand if card.card_id == "debug_kill"
+    }
+    return next(
+        action
+        for action in legal_actions(state)
+        if action.type == "play_card" and action.card_instance_id in debug_card_ids
+    )
+
+
 def _force_next_room(state, room_kind: RoomKind):
     start = MapNodeState(node_id="start", act=1, floor=0, lane=0, kind=RoomKind.START)
     target = MapNodeState(node_id="target", act=1, floor=1, lane=0, kind=room_kind)
@@ -140,7 +152,7 @@ def _reward_after_kill(
         state = state.model_copy(update={"relics": relics})
     state = _force_next_room(state, room_kind)
     state = step(state, _action(state, "choose_node", "target"))
-    return step(state, _action(state, "play_card"))
+    return step(state, _play_debug_kill_action(state))
 
 
 def test_normal_combat_reward_uses_default_gold_and_card_choices() -> None:

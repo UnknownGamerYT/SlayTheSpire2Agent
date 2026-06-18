@@ -205,6 +205,46 @@ def test_ancient_offerings_heal_and_grant_selected_relics() -> None:
     assert state.ancient.chosen_option_ids == (chosen.option_id,)
 
 
+def test_ancient_choice_payload_applies_direct_effects() -> None:
+    state = new_run(seed=43, character_id="TEST", ascension=0)
+    option = AncientOptionState(
+        option_id="test_blessing",
+        name="Test Blessing",
+        kind="positive_relic",
+        relic_id="golden_pearl",
+        description="Gain Golden Pearl and more.",
+        metadata={
+            "choice": {
+                "option_id": "test_blessing",
+                "name": "Test Blessing",
+                "kind": "positive_relic",
+                "relic_id": "golden_pearl",
+                "gold_delta": 20,
+                "max_hp_delta": 5,
+                "fixed_card_ids": ("test_card",),
+                "fixed_potion_ids": ("fire_potion",),
+            }
+        },
+    )
+    state = state.model_copy(
+        update={
+            "ancient": AncientState(act=1, ancient_id="neow", options=(option,)),
+            "player": state.player.model_copy(update={"hp": 40, "max_hp": 50, "gold": 5}),
+        }
+    )
+
+    state = step(state, _action(state, "choose_ancient", "test_blessing"))
+
+    assert state.phase.value == "map"
+    assert state.player.gold == 25
+    assert state.player.max_hp == 55
+    assert state.player.hp == 40
+    assert "golden_pearl" in state.relics
+    assert state.master_deck[-1].card_id == "test_card"
+    assert state.potions == ("fire_potion",)
+    assert any(event.kind == "ancient_card_added" for event in state.replay_log[-1].events)
+
+
 def test_combat_reward_potion_is_visible_but_requires_open_slot() -> None:
     state = new_run(
         seed=90,

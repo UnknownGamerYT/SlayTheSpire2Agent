@@ -10,6 +10,22 @@ from typing import Any, Literal
 
 from sts2sim.content.sources import STS1_COMPAT_SOURCE
 from sts2sim.data import load_cached_json
+from sts2sim.mechanics.ancients import (
+    AncientChoice as MechanicsAncientChoice,
+)
+from sts2sim.mechanics.ancients import (
+    AncientContext as MechanicsAncientContext,
+)
+from sts2sim.mechanics.ancients import (
+    AncientMarker as MechanicsAncientMarker,
+)
+from sts2sim.mechanics.ancients import (
+    AncientResolution as MechanicsAncientResolution,
+)
+from sts2sim.mechanics.ancients import (
+    resolve_ancient_choice,
+    with_generated_ancient_choices,
+)
 from sts2sim.mechanics.campfire import (
     CampfireAction,
     CampfireChoice,
@@ -56,6 +72,11 @@ from sts2sim.mechanics.monsters import (
     spawn_monsters,
     synthetic_encounter,
 )
+from sts2sim.mechanics.potion_triggers import (
+    PotionUseTriggerContext,
+    PotionUseTriggerResult,
+    resolve_potion_use_triggers,
+)
 from sts2sim.mechanics.relic_combat import (
     CombatRelicMarker,
     CombatRelicResolution,
@@ -65,6 +86,11 @@ from sts2sim.mechanics.relic_combat import (
 from sts2sim.mechanics.reward_pools import (
     build_character_card_pool,
     build_colorless_card_pool,
+)
+from sts2sim.mechanics.reward_triggers import (
+    RewardGenerationContext,
+    RewardGenerationResult,
+    resolve_reward_generation_triggers,
 )
 from sts2sim.mechanics.rewards import (
     CardRarity,
@@ -95,7 +121,12 @@ from sts2sim.mechanics.treasure import (
     build_treasure_relic_pool,
     draw_treasure_reward,
 )
-from sts2sim.mechanics.triggers import GameTrigger, TriggerContext, resolve_game_trigger
+from sts2sim.mechanics.triggers import (
+    GameTrigger,
+    TriggerContext,
+    TriggerEffect,
+    resolve_game_trigger,
+)
 
 from .errors import IllegalActionError
 from .models import (
@@ -116,6 +147,7 @@ from .models import (
     MapState,
     MonsterState,
     OrbState,
+    PendingChoiceState,
     PlayerState,
     ReplayEntry,
     RewardState,
@@ -259,19 +291,9 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
     if combat.player.hp <= 0 or not _alive_monsters(combat):
         return _with_potion_discard_actions(state, ())
 
-    discard_choice = _pending_discard_choice(combat)
-    if discard_choice is not None:
-        return tuple(
-            Action(
-                type=ActionType.DISCARD_CARD,
-                card_instance_id=card.instance_id,
-                payload={
-                    "source_card_instance_id": discard_choice.get("source_card_instance_id"),
-                    "remaining": discard_choice["remaining"],
-                },
-            )
-            for card in combat.hand
-        )
+    pending_choice_actions = _pending_choice_actions(combat)
+    if pending_choice_actions:
+        return pending_choice_actions
 
     actions: list[Action] = []
     if not _turn_card_play_limit_reached(combat):
@@ -436,11 +458,6 @@ def _choose_ancient(
     if option is None:
         return state, ()
 
-    relics = state.relics + (option.relic_id,)
-    curses = state.curses
-    if option.kind == "curse_relic":
-        curses = curses + (option.relic_id,)
-
     ancient = state.ancient.model_copy(
         update={
             "chosen_option_ids": state.ancient.chosen_option_ids
@@ -451,12 +468,20 @@ def _choose_ancient(
         update={
             "phase": RunPhase.MAP,
             "ancient": ancient,
-            "relics": relics,
-            "curses": curses,
         }
     )
-    next_state, pickup_events = _apply_relic_pickup_effects(next_state, option.relic_id)
-    return next_state, (
+    rng = random_from_state(state.rng)
+    resolution = resolve_ancient_choice(
+        _ancient_context_from_state(state),
+        option.option_id,
+        rng=rng,
+        relic_pool=_ancient_relic_pool_items(state),
+        potion_pool=_ancient_potion_pool_items(state),
+    )
+    next_state, ancient_events = _apply_ancient_resolution(next_state, resolution, rng)
+    next_state = next_state.model_copy(update={"rng": capture_random_state(rng)})
+    return (
+        next_state,
         (
             EffectEvent(
                 kind="ancient_option_chosen",
@@ -469,8 +494,306 @@ def _choose_ancient(
                 },
             ),
         )
-        + pickup_events
+        + ancient_events,
     )
+
+
+def _ancient_context_from_state(state: RunState) -> MechanicsAncientContext:
+    choices: tuple[MechanicsAncientChoice, ...] = ()
+    if state.ancient is not None:
+        choices = tuple(
+            _mechanics_ancient_choice_from_option(option)
+            for option in state.ancient.options
+        )
+    return MechanicsAncientContext(
+        act=state.act,
+        ancient_id=state.ancient.ancient_id if state.ancient is not None else None,
+        ascension_level=state.ascension,
+        hp=state.player.hp,
+        max_hp=state.player.max_hp,
+        gold=state.player.gold,
+        deck=tuple(card.card_id for card in state.master_deck),
+        relics=state.relics,
+        curses=state.curses,
+        potions=state.potions,
+        flags=state.flags,
+        choices=choices,
+        chosen_option_ids=state.ancient.chosen_option_ids if state.ancient is not None else (),
+    )
+
+
+def _mechanics_ancient_choice_from_option(
+    option: AncientOptionState,
+) -> MechanicsAncientChoice:
+    payload = option.metadata.get("choice")
+    if isinstance(payload, Mapping):
+        return _mechanics_ancient_choice_from_payload(payload)
+    return MechanicsAncientChoice(
+        option_id=option.option_id,
+        name=option.name,
+        kind=option.kind,
+        description=option.description,
+        relic_id=option.relic_id,
+        fixed_relic_ids=(option.relic_id,),
+        metadata=option.metadata,
+    )
+
+
+def _mechanics_ancient_choice_from_payload(
+    payload: Mapping[str, Any],
+) -> MechanicsAncientChoice:
+    marker_payloads = payload.get("markers", ())
+    markers: tuple[MechanicsAncientMarker, ...]
+    if isinstance(marker_payloads, Sequence) and not isinstance(
+        marker_payloads,
+        (str, bytes, bytearray),
+    ):
+        markers = tuple(
+            MechanicsAncientMarker(**dict(marker_payload))
+            for marker_payload in marker_payloads
+            if isinstance(marker_payload, Mapping)
+        )
+    else:
+        markers = ()
+    return MechanicsAncientChoice(
+        option_id=str(payload.get("option_id", "")),
+        name=str(payload.get("name", "")),
+        kind=str(payload.get("kind", "choice")),
+        ancient_id=str(payload["ancient_id"]) if payload.get("ancient_id") is not None else None,
+        act=_optional_int(payload.get("act")),
+        description=str(payload.get("description", "")),
+        relic_id=str(payload["relic_id"]) if payload.get("relic_id") is not None else None,
+        gold_delta=int(payload.get("gold_delta", 0)),
+        set_gold=_optional_int(payload.get("set_gold")),
+        hp_delta=int(payload.get("hp_delta", 0)),
+        heal_amount=_nonnegative_int(payload.get("heal_amount"), 0),
+        heal_percent_missing_hp=float(payload.get("heal_percent_missing_hp", 0.0)),
+        max_hp_delta=int(payload.get("max_hp_delta", 0)),
+        potion_slot_delta=int(payload.get("potion_slot_delta", 0)),
+        fixed_card_ids=_string_tuple(payload.get("fixed_card_ids")),
+        remove_card_ids=_string_tuple(payload.get("remove_card_ids")),
+        fixed_relic_ids=_string_tuple(payload.get("fixed_relic_ids")),
+        random_relic_count=_nonnegative_int(payload.get("random_relic_count"), 0),
+        fixed_potion_ids=_string_tuple(payload.get("fixed_potion_ids")),
+        random_potion_count=_nonnegative_int(payload.get("random_potion_count"), 0),
+        card_reward_count=_nonnegative_int(payload.get("card_reward_count"), 0),
+        card_reward_size=_nonnegative_int(payload.get("card_reward_size"), 3),
+        card_reward_kind=str(payload["card_reward_kind"])
+        if payload.get("card_reward_kind") is not None
+        else None,
+        upgrade_random_count=_nonnegative_int(payload.get("upgrade_random_count"), 0),
+        transform_random_count=_nonnegative_int(payload.get("transform_random_count"), 0),
+        remove_random_count=_nonnegative_int(payload.get("remove_random_count"), 0),
+        set_flags=_mapping_from(payload.get("set_flags")),
+        required_card_ids=_string_tuple(payload.get("required_card_ids")),
+        required_relic_ids=_string_tuple(payload.get("required_relic_ids")),
+        required_gold=_nonnegative_int(payload.get("required_gold"), 0),
+        markers=markers,
+        metadata=_mapping_from(payload.get("metadata")),
+    )
+
+
+def _string_tuple(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        return tuple(str(item) for item in value)
+    return ()
+
+
+def _apply_ancient_resolution(
+    state: RunState,
+    resolution: MechanicsAncientResolution,
+    rng: Random,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    events: list[EffectEvent] = [_ancient_marker_event(marker) for marker in resolution.markers]
+
+    flags = dict(state.flags)
+    flags.update(resolution.flags_set)
+    if resolution.potion_slot_delta:
+        flags["bonus_potion_slots"] = (
+            _flag_int(state, "bonus_potion_slots", 0) + resolution.potion_slot_delta
+        )
+
+    player = state.player.model_copy(
+        update={
+            "gold": resolution.state.gold,
+            "hp": resolution.state.hp,
+            "max_hp": resolution.state.max_hp,
+        }
+    )
+    deck = list(state.master_deck)
+    for card_id in resolution.removed_card_ids:
+        deck, removed = _remove_first_card_by_id(deck, card_id)
+        if removed is not None:
+            events.append(
+                EffectEvent(
+                    kind="ancient_card_removed",
+                    target_id=removed.instance_id,
+                    metadata={"card_id": removed.card_id},
+                )
+            )
+
+    for card_id in resolution.added_card_ids:
+        card = _card_from_spec(_reward_card_spec(state, card_id), len(deck) + 1)
+        deck.append(card)
+        events.append(
+            EffectEvent(
+                kind="ancient_card_added",
+                target_id=card.instance_id,
+                metadata={"card_id": card.card_id},
+            )
+        )
+
+    relics = tuple(dict.fromkeys(state.relics + resolution.relic_ids))
+    curses = tuple(dict.fromkeys(state.curses + resolution.curse_relic_ids))
+    next_state = state.model_copy(
+        update={
+            "player": player,
+            "master_deck": tuple(deck),
+            "relics": relics,
+            "curses": curses,
+            "flags": flags,
+        }
+    )
+
+    potions = list(next_state.potions)
+    capacity = _potion_capacity(next_state)
+    for potion_id in resolution.potion_ids:
+        if len(potions) >= capacity:
+            events.append(
+                EffectEvent(
+                    kind="ancient_potion_blocked",
+                    target_id=potion_id,
+                    metadata={"reason": "no_open_slot", "potion_slots": capacity},
+                )
+            )
+            continue
+        potions.append(potion_id)
+        events.append(
+            EffectEvent(
+                kind="ancient_potion_added",
+                target_id=potion_id,
+                metadata={"potion_slots": capacity},
+            )
+        )
+    next_state = next_state.model_copy(update={"potions": tuple(potions)})
+
+    for relic_id in resolution.relic_ids:
+        next_state, pickup_events = _apply_relic_pickup_effects(next_state, relic_id)
+        events.extend(pickup_events)
+
+    if resolution.upgrade_random_count:
+        next_state, upgrade_events = _upgrade_random_deck_cards(
+            next_state,
+            rng,
+            resolution.upgrade_random_count,
+            source_id="ancient",
+        )
+        events.extend(upgrade_events)
+    if resolution.remove_random_count:
+        next_state, remove_events = _remove_random_deck_cards(
+            next_state,
+            rng,
+            resolution.remove_random_count,
+            source_id="ancient",
+        )
+        events.extend(remove_events)
+    if resolution.transform_random_count:
+        transform_marker = EventFlowMarker(
+            kind=EventFlowMarkerKind.CARD_TRANSFORM,
+            count=resolution.transform_random_count,
+            qualifier="random",
+            metadata={"random": True, "source": "ancient"},
+        )
+        next_state, transform_events, _transformed = _transform_deck_cards(
+            next_state,
+            rng,
+            transform_marker,
+            selected_card_instance_ids=(),
+            source_id="ancient",
+        )
+        events.extend(transform_events)
+
+    if resolution.card_reward_count:
+        flags = dict(next_state.flags)
+        flags["ancient_pending_card_reward_count"] = resolution.card_reward_count
+        flags["ancient_pending_card_reward_size"] = resolution.choice.card_reward_size
+        if resolution.choice.card_reward_kind is not None:
+            flags["ancient_pending_card_reward_kind"] = resolution.choice.card_reward_kind
+        next_state = next_state.model_copy(update={"flags": flags})
+        events.append(
+            EffectEvent(
+                kind="ancient_card_reward_pending",
+                amount=resolution.card_reward_count,
+                metadata={
+                    "size": resolution.choice.card_reward_size,
+                    "kind": resolution.choice.card_reward_kind,
+                },
+            )
+        )
+
+    return next_state, tuple(events)
+
+
+def _ancient_marker_event(marker: MechanicsAncientMarker) -> EffectEvent:
+    metadata = {
+        "marker_kind": marker.kind,
+        "count": marker.count,
+        "qualifier": marker.qualifier,
+        "description": marker.description,
+        **dict(marker.metadata),
+    }
+    return EffectEvent(
+        kind=f"ancient_{marker.kind}",
+        target_id=marker.item_id,
+        amount=marker.amount if marker.amount is not None else marker.count,
+        metadata=metadata,
+    )
+
+
+def _ancient_relic_pool_items(state: RunState) -> tuple[Any, ...]:
+    pool = (
+        _source_items(state.flags.get("ancient_relic_pool"))
+        or _source_items(state.flags.get("relic_pool"))
+        or _cached_relic_source_rows(state)
+    )
+    fallback = ("anchor", "akabeko", "bag_of_marbles", "bronze_scales")
+    return _unique_pool_items_with_fallback(pool, fallback)
+
+
+def _ancient_potion_pool_items(state: RunState) -> tuple[Any, ...]:
+    pool = (
+        _source_items(state.flags.get("ancient_potion_pool"))
+        or _source_items(state.flags.get("potion_pool"))
+        or _cached_source_rows(state, "potions")
+    )
+    fallback = ("fire_potion", "skill_potion", "essence_of_steel")
+    return _unique_pool_items_with_fallback(pool, fallback)
+
+
+def _unique_pool_items_with_fallback(
+    pool: Sequence[Any],
+    fallback: Sequence[str],
+) -> tuple[Any, ...]:
+    items: list[Any] = []
+    seen: set[str] = set()
+    for item in tuple(pool) + tuple(fallback):
+        item_id = _pool_item_identity(item)
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+        items.append(item)
+    return tuple(items)
+
+
+def _pool_item_identity(item: Any) -> str:
+    if isinstance(item, Mapping):
+        for key in ("id", "relic_id", "potion_id", "card_id", "item_id"):
+            value = item.get(key)
+            if value is not None:
+                return _normalized_id(str(value))
+    return _normalized_id(str(item))
 
 
 def _choose_node(state: RunState, action: Action) -> tuple[RunState, tuple[EffectEvent, ...]]:
@@ -2143,6 +2466,20 @@ def _card_reward_choice_count(
     marker: EventFlowMarker | None = None,
     default: int = 3,
 ) -> int:
+    count = _base_card_reward_choice_count(state, marker=marker, default=default)
+    if _has_relic(state, "question_card"):
+        count += 1
+    if _has_relic(state, "busted_crown"):
+        count -= 2
+    return max(0, count)
+
+
+def _base_card_reward_choice_count(
+    state: RunState,
+    *,
+    marker: EventFlowMarker | None = None,
+    default: int = 3,
+) -> int:
     metadata = _mapping_from(marker.metadata) if marker is not None else {}
     explicit = metadata.get("card_reward_choice_count", state.flags.get("card_reward_choice_count"))
     with suppress(TypeError, ValueError):
@@ -2150,10 +2487,6 @@ def _card_reward_choice_count(
             default = int(explicit)
 
     count = default
-    if _has_relic(state, "question_card"):
-        count += 1
-    if _has_relic(state, "busted_crown"):
-        count -= 2
     count += _flag_int(state, "card_reward_choice_bonus", 0)
     count += _flag_int(state, "card_reward_choice_delta", 0)
     return max(0, count)
@@ -3384,6 +3717,28 @@ def _use_potion(
             )
         )
 
+    potion_trigger = resolve_potion_use_triggers(
+        PotionUseTriggerContext(
+            potion=potion_id,
+            slot_index=slot_index,
+            slot_id=slot_id,
+            target_id=action.target_id,
+            use_mode="combat",
+            consumes_potion=True,
+            player_hp=combat.player.hp,
+            player_max_hp=combat.player.max_hp,
+            player_block=combat.player.block,
+            player_statuses=combat.player.statuses,
+            target_statuses=_target_statuses(combat, action.target_id),
+            owned_relics=state.relics,
+        )
+    )
+    combat, potion_trigger_events = _apply_potion_use_trigger_result(
+        combat,
+        potion_trigger,
+    )
+    events.extend(potion_trigger_events)
+
     event_tuple = tuple(events)
     combat = combat.model_copy(update={"last_events": event_tuple})
     return _state_after_combat(
@@ -3391,6 +3746,42 @@ def _use_potion(
         combat,
         rng_state,
     ), event_tuple
+
+
+def _apply_potion_use_trigger_result(
+    combat: CombatState,
+    result: PotionUseTriggerResult,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    player = combat.player
+    if result.max_hp_delta:
+        player = player.model_copy(
+            update={"max_hp": max(1, player.max_hp + result.max_hp_delta)}
+        )
+    if result.hp_delta:
+        player = player.model_copy(
+            update={"hp": min(player.max_hp, max(0, player.hp + result.hp_delta))}
+        )
+    if result.block_delta:
+        player = player.model_copy(update={"block": max(0, player.block + result.block_delta)})
+    if result.energy_delta:
+        player = player.model_copy(update={"energy": max(0, player.energy + result.energy_delta)})
+    if player is not combat.player:
+        combat = combat.model_copy(update={"player": player})
+    return combat, _trigger_effect_events(result.effects)
+
+
+def _target_statuses(
+    combat: CombatState,
+    target_id: str | None,
+) -> Mapping[str, object]:
+    if target_id == PLAYER_TARGET_ID:
+        return combat.player.statuses
+    if target_id is None:
+        return {}
+    for monster in combat.monsters:
+        if monster.monster_id == target_id:
+            return monster.statuses
+    return {}
 
 
 def _apply_direct_potion_effects(
@@ -4760,6 +5151,137 @@ def _event_action_card_instance_ids(action: Action) -> tuple[str, ...]:
     return ()
 
 
+def _pending_choice_actions(combat: CombatState) -> tuple[Action, ...]:
+    choice = _active_pending_choice(combat)
+    if choice is None:
+        return ()
+    if choice.kind == "discard" and choice.zone == "hand":
+        candidate_ids = set(choice.candidate_ids)
+        return tuple(
+            Action(
+                type=ActionType.DISCARD_CARD,
+                card_instance_id=card.instance_id,
+                payload={
+                    "choice_id": choice.choice_id,
+                    "choice_kind": choice.kind,
+                    "source_card_instance_id": choice.source_id,
+                    "remaining": choice.remaining,
+                },
+            )
+            for card in combat.hand
+            if not candidate_ids or card.instance_id in candidate_ids
+        )
+    return ()
+
+
+def _active_pending_choice(combat: CombatState) -> PendingChoiceState | None:
+    for choice in combat.pending_choices:
+        if choice.required and choice.remaining > 0:
+            return choice
+    return None
+
+
+def _pending_choice_by_id(
+    combat: CombatState,
+    choice_id: str | None,
+) -> PendingChoiceState | None:
+    if choice_id is not None:
+        for choice in combat.pending_choices:
+            if choice.choice_id == choice_id and choice.remaining > 0:
+                return choice
+    return _active_pending_choice(combat)
+
+
+def _advance_pending_choice(
+    combat: CombatState,
+    choice: PendingChoiceState | None,
+    *,
+    selected_id: str,
+    remaining: int,
+) -> tuple[PendingChoiceState, ...]:
+    if choice is None:
+        return combat.pending_choices
+
+    next_choices: list[PendingChoiceState] = []
+    for existing in combat.pending_choices:
+        if existing.choice_id != choice.choice_id:
+            next_choices.append(existing)
+            continue
+        if remaining <= 0:
+            continue
+        next_candidates = tuple(
+            candidate_id
+            for candidate_id in existing.candidate_ids
+            if candidate_id != selected_id
+        )
+        next_choices.append(
+            existing.model_copy(
+                update={
+                    "candidate_ids": next_candidates,
+                    "selected_ids": existing.selected_ids + (selected_id,),
+                    "remaining": remaining,
+                }
+            )
+        )
+    return tuple(next_choices)
+
+
+def _set_pending_discard_choice(
+    combat: CombatState,
+    *,
+    source_card: CardInstance,
+    hand: Sequence[CardInstance],
+    count: int,
+) -> tuple[CombatState, int]:
+    pending = _pending_discard_choice(combat)
+    pending_remaining = pending["remaining"] if pending is not None else 0
+    remaining = min(len(hand), pending_remaining + count)
+    if remaining <= 0:
+        return combat, 0
+
+    source_id = source_card.instance_id
+    choice_id = f"discard:{source_id}"
+    existing = next(
+        (
+            choice
+            for choice in combat.pending_choices
+            if choice.choice_id == choice_id and choice.kind == "discard"
+        ),
+        None,
+    )
+    pending_choice = PendingChoiceState(
+        choice_id=choice_id,
+        kind="discard",
+        source_id=source_id,
+        prompt=f"Discard {remaining} card{'s' if remaining != 1 else ''}.",
+        zone="hand",
+        candidate_ids=tuple(card.instance_id for card in hand),
+        selected_ids=existing.selected_ids if existing is not None else (),
+        min_choices=remaining,
+        max_choices=remaining,
+        remaining=remaining,
+        required=True,
+        metadata={"source_card_id": source_card.card_id},
+    )
+    pending_choices = tuple(
+        choice for choice in combat.pending_choices if choice.choice_id != choice_id
+    ) + (pending_choice,)
+
+    metadata = dict(combat.metadata)
+    metadata["pending_card_choice"] = {
+        "choice_id": choice_id,
+        "kind": "discard",
+        "source_card_instance_id": source_id,
+        "remaining": remaining,
+    }
+    return (
+        combat.model_copy(
+            update={"metadata": metadata, "pending_choices": pending_choices}
+        ),
+        remaining,
+    )
+
+
 def _discard_card_from_hand(
     state: RunState,
     action: Action,
@@ -4768,28 +5290,51 @@ def _discard_card_from_hand(
         return state, ()
 
     combat = state.combat
+    payload_choice_id = action.payload.get("choice_id")
+    pending_choice = _pending_choice_by_id(
+        combat,
+        payload_choice_id if isinstance(payload_choice_id, str) else None,
+    )
     discard_choice = _pending_discard_choice(combat)
-    if discard_choice is None:
+    if discard_choice is None and (
+        pending_choice is None or pending_choice.kind != "discard"
+    ):
         return state, ()
 
     discarded = _find_card(combat.hand, action.card_instance_id)
     if discarded is None:
         return state, ()
 
-    remaining = max(0, discard_choice["remaining"] - 1)
+    if pending_choice is not None and pending_choice.kind == "discard":
+        remaining_before = pending_choice.remaining
+        source_id = pending_choice.source_id
+    elif discard_choice is not None:
+        remaining_before = discard_choice["remaining"]
+        source_id = discard_choice.get("source_card_instance_id")
+    else:
+        return state, ()
+    remaining = max(0, remaining_before - 1)
     hand = tuple(card for card in combat.hand if card.instance_id != discarded.instance_id)
     metadata = dict(combat.metadata)
     if remaining > 0 and hand:
         metadata["pending_card_choice"] = {
-            **discard_choice,
+            **(discard_choice or {}),
+            "kind": "discard",
+            "source_card_instance_id": source_id,
             "remaining": remaining,
         }
     else:
         metadata.pop("pending_card_choice", None)
+    pending_choices = _advance_pending_choice(
+        combat,
+        pending_choice,
+        selected_id=discarded.instance_id,
+        remaining=remaining if hand else 0,
+    )
 
     event = EffectEvent(
         kind="card_discarded_by_choice",
-        source_id=discard_choice.get("source_card_instance_id"),
+        source_id=source_id,
         target_id=discarded.instance_id,
         amount=1,
         metadata={
@@ -4802,7 +5347,7 @@ def _discard_card_from_hand(
         (discarded,),
         from_pile="hand",
         to_pile="discard_pile",
-        source_id=discard_choice.get("source_card_instance_id"),
+        source_id=source_id,
         reason="chosen_discard",
         metadata={"remaining": remaining if hand else 0},
     )
@@ -4811,6 +5356,7 @@ def _discard_card_from_hand(
             "hand": hand,
             "discard_pile": combat.discard_pile + (discarded,),
             "metadata": metadata,
+            "pending_choices": pending_choices,
             "last_events": (event,) + movement_events,
         }
     )
@@ -6462,20 +7008,17 @@ def _apply_hand_manipulation_effects(
 
     discard_choice_count = _effect_amount(effect, "discard_choice", 0)
     if discard_choice_count and hand:
-        metadata = dict(combat.metadata)
-        pending = _pending_discard_choice(combat)
-        pending_remaining = pending["remaining"] if pending is not None else 0
-        metadata["pending_card_choice"] = {
-            "kind": "discard",
-            "source_card_instance_id": source_card.instance_id,
-            "remaining": min(len(hand), pending_remaining + discard_choice_count),
-        }
-        combat = combat.model_copy(update={"metadata": metadata})
+        combat, pending_remaining = _set_pending_discard_choice(
+            combat,
+            source_card=source_card,
+            hand=hand,
+            count=discard_choice_count,
+        )
         events.append(
             EffectEvent(
                 kind="card_discard_choice_pending",
                 source_id=source_card.instance_id,
-                amount=metadata["pending_card_choice"]["remaining"],
+                amount=pending_remaining,
                 metadata={
                     "card_instance_ids": [card.instance_id for card in hand],
                     "card_ids": [card.card_id for card in hand],
@@ -6528,6 +7071,16 @@ def _apply_hand_manipulation_effects(
 
 
 def _pending_discard_choice(combat: CombatState) -> dict[str, Any] | None:
+    choice = _active_pending_choice(combat)
+    if choice is not None and choice.kind == "discard":
+        return {
+            "choice_id": choice.choice_id,
+            "kind": "discard",
+            "source_card_instance_id": choice.source_id,
+            "remaining": choice.remaining,
+            "candidate_ids": choice.candidate_ids,
+        }
+
     pending = combat.metadata.get("pending_card_choice")
     if not isinstance(pending, Mapping):
         return None
@@ -7584,6 +8137,14 @@ def _combat_reward_state(
     rng: Random,
 ) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
     encounter = _combat_reward_encounter(state)
+    base_card_count = _combat_reward_card_count(state, encounter)
+    base_relic_count = _combat_reward_relic_count(state, encounter)
+    reward_trigger = _combat_reward_generation_result(
+        state,
+        encounter,
+        card_count=base_card_count,
+        relic_count=base_relic_count,
+    )
     bundle = draw_combat_reward(
         rng,
         card_pool=_combat_card_pool(state),
@@ -7602,8 +8163,8 @@ def _combat_reward_state(
             card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
             potion_chance_bonus=_flag_int(state, "potion_chance_bonus", 0),
         ),
-        card_count=_combat_reward_card_count(state, encounter),
-        relic_count=_combat_reward_relic_count(state, encounter),
+        card_count=reward_trigger.card_choice_count,
+        relic_count=reward_trigger.relic_count,
     )
     flags = dict(state.flags)
     flags["card_non_rare_count"] = bundle.pity_state.card_non_rare_count
@@ -7622,6 +8183,8 @@ def _combat_reward_state(
         rng,
         encounter,
         bundle.pity_state,
+        group_count=reward_trigger.card_reward_group_count,
+        card_count=reward_trigger.card_choice_count,
     )
     flags["card_non_rare_count"] = card_pity_state.card_non_rare_count
     potion_id = _combat_reward_potion_id(state, rng, default_potion_id=bundle.potion_id)
@@ -7659,9 +8222,49 @@ def _combat_reward_state(
             "extra_potion_ids": potion_ids,
             "potion_slots": _potion_capacity(state),
             "current_potions": len(state.potions),
+            "reward_trigger_effects": _trigger_effect_metadata(reward_trigger.effects),
         },
     )
-    return reward, _reward_generated_events(reward), flags
+    return (
+        reward,
+        _reward_generated_events(reward) + _trigger_effect_events(reward_trigger.effects),
+        flags,
+    )
+
+
+def _combat_reward_generation_result(
+    state: RunState,
+    encounter: EncounterType,
+    *,
+    card_count: int | None,
+    relic_count: int | None,
+) -> RewardGenerationResult:
+    effective_card_count = 0 if card_count is None else card_count
+    effective_relic_count = (
+        _default_combat_reward_relic_count(encounter)
+        if relic_count is None
+        else relic_count
+    )
+    return resolve_reward_generation_triggers(
+        RewardGenerationContext(
+            source="combat",
+            encounter_type=encounter,
+            card_choice_count=effective_card_count,
+            card_option_count=effective_card_count,
+            card_option_group_count=0,
+            relic_count=effective_relic_count,
+            owned_relics=state.relics,
+            metadata={
+                "act": state.act,
+                "floor": state.floor,
+                "character_id": state.character_id,
+            },
+        )
+    )
+
+
+def _default_combat_reward_relic_count(encounter: EncounterType) -> int:
+    return 1 if encounter in {EncounterType.ELITE, EncounterType.BOSS} else 0
 
 
 def _combat_extra_card_option_groups(
@@ -7669,26 +8272,34 @@ def _combat_extra_card_option_groups(
     rng: Random,
     encounter: EncounterType,
     pity_state: RewardPityState,
+    *,
+    group_count: int,
+    card_count: int,
 ) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], RewardPityState]:
-    if encounter is not EncounterType.NORMAL or not _has_relic(state, "prayer_wheel"):
+    if group_count <= 0:
         return (), (), pity_state
-    cards, rarities, next_pity = draw_card_reward_options(
-        rng,
-        card_pool=_combat_card_pool(state),
-        context=CombatRewardContext(
-            character_id=state.character_id,
-            encounter=encounter,
-            act=state.act,
-            floor=state.floor,
-            ascension_level=state.ascension,
-            owned_relics=state.relics,
-        ),
-        pity_state=pity_state,
-        card_count=_card_reward_choice_count(state),
-    )
-    if not cards:
-        return (), (), next_pity
-    return (cards,), (rarities,), next_pity
+    groups: list[tuple[str, ...]] = []
+    group_rarities: list[tuple[str, ...]] = []
+    current_pity = pity_state
+    for _ in range(group_count):
+        cards, rarities, current_pity = draw_card_reward_options(
+            rng,
+            card_pool=_combat_card_pool(state),
+            context=CombatRewardContext(
+                character_id=state.character_id,
+                encounter=encounter,
+                act=state.act,
+                floor=state.floor,
+                ascension_level=state.ascension,
+                owned_relics=state.relics,
+            ),
+            pity_state=current_pity,
+            card_count=card_count,
+        )
+        if cards:
+            groups.append(cards)
+            group_rarities.append(rarities)
+    return tuple(groups), tuple(group_rarities), current_pity
 
 
 def _apply_due_delayed_event_rewards(
@@ -7934,7 +8545,7 @@ def _combat_reward_card_count(
         return max(0, _flag_int(state, "elite_reward_card_count", 3))
     if encounter is EncounterType.EVENT:
         return 0
-    return _card_reward_choice_count(state)
+    return _base_card_reward_choice_count(state)
 
 
 def _combat_reward_relic_count(
@@ -8331,6 +8942,34 @@ def _reward_generated_events(
             )
         )
     return tuple(events)
+
+
+def _trigger_effect_events(effects: Sequence[TriggerEffect]) -> tuple[EffectEvent, ...]:
+    return tuple(_trigger_effect_event(effect) for effect in effects)
+
+
+def _trigger_effect_event(effect: TriggerEffect) -> EffectEvent:
+    return EffectEvent(
+        kind=f"trigger_{effect.kind}",
+        source_id=effect.source_id or effect.content_id,
+        target_id=effect.target_id,
+        amount=effect.amount,
+        metadata=_trigger_effect_metadata((effect,))[0],
+    )
+
+
+def _trigger_effect_metadata(
+    effects: Sequence[TriggerEffect],
+) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        {
+            "trigger": effect.trigger.value,
+            "source_kind": effect.source_kind,
+            "content_id": effect.content_id,
+            **dict(effect.metadata),
+        }
+        for effect in effects
+    )
 
 
 def _explicit_reward_id(state: RunState, key: str) -> str | None:
@@ -8806,46 +9445,75 @@ def _apply_ancient_heal(player: PlayerState, ascension: int) -> PlayerState:
 
 
 def _generate_ancient_state(act: int, rng: Random) -> AncientState:
-    curse_relic = rng.choice(ANCIENT_CURSE_RELICS)
-    blocked = ANCIENT_CURSE_BLOCKS.get(curse_relic, frozenset())
-    positive_pool = [relic for relic in ANCIENT_POSITIVE_RELICS if relic not in blocked]
-    if act == 2:
-        positive_pool.append(GOLDEN_COMPASS_RELIC_ID)
-
-    for relic_pair in ANCIENT_POSITIVE_RELIC_PAIRS:
-        pair_candidates = [relic for relic in relic_pair if relic not in blocked]
-        if pair_candidates:
-            positive_pool.append(rng.choice(pair_candidates))
-
-    rng.shuffle(positive_pool)
-    positive_relics = positive_pool[:2]
-    options = [
-        _ancient_option(act, index + 1, relic_id, "positive_relic")
-        for index, relic_id in enumerate(positive_relics)
-    ]
-    options.append(_ancient_option(act, 3, curse_relic, "curse_relic"))
-    return AncientState(act=act, options=tuple(options))
+    context = with_generated_ancient_choices(MechanicsAncientContext(act=act), rng=rng)
+    return AncientState(
+        act=act,
+        ancient_id=context.ancient_id or "neow",
+        options=tuple(_ancient_option_from_choice(choice) for choice in context.choices),
+    )
 
 
-def _ancient_option(
-    act: int,
-    index: int,
-    relic_id: str,
-    kind: Literal["positive_relic", "curse_relic"],
-) -> AncientOptionState:
-    name = ANCIENT_RELIC_NAMES.get(relic_id, relic_id.replace("_", " ").title())
+def _ancient_option_from_choice(choice: MechanicsAncientChoice) -> AncientOptionState:
     return AncientOptionState(
-        option_id=f"a{act}:ancient:{index}",
-        name=name,
-        kind=kind,
-        relic_id=relic_id,
-        description=f"Gain {name}.",
+        option_id=choice.option_id,
+        name=choice.name,
+        kind="curse_relic" if choice.kind == "curse_relic" else "positive_relic",
+        relic_id=choice.relic_id or "",
+        description=choice.description,
         metadata={
-            "act": act,
-            "pool": "curse" if kind == "curse_relic" else "positive",
-            "source_url": ANCIENT_SOURCE_URL,
+            **dict(choice.metadata),
+            "choice": _ancient_choice_payload(choice),
         },
     )
+
+
+def _ancient_choice_payload(choice: MechanicsAncientChoice) -> dict[str, Any]:
+    return {
+        "option_id": choice.option_id,
+        "name": choice.name,
+        "kind": choice.kind,
+        "ancient_id": choice.ancient_id,
+        "act": choice.act,
+        "description": choice.description,
+        "relic_id": choice.relic_id,
+        "gold_delta": choice.gold_delta,
+        "set_gold": choice.set_gold,
+        "hp_delta": choice.hp_delta,
+        "heal_amount": choice.heal_amount,
+        "heal_percent_missing_hp": choice.heal_percent_missing_hp,
+        "max_hp_delta": choice.max_hp_delta,
+        "potion_slot_delta": choice.potion_slot_delta,
+        "fixed_card_ids": choice.fixed_card_ids,
+        "remove_card_ids": choice.remove_card_ids,
+        "fixed_relic_ids": choice.fixed_relic_ids,
+        "random_relic_count": choice.random_relic_count,
+        "fixed_potion_ids": choice.fixed_potion_ids,
+        "random_potion_count": choice.random_potion_count,
+        "card_reward_count": choice.card_reward_count,
+        "card_reward_size": choice.card_reward_size,
+        "card_reward_kind": choice.card_reward_kind,
+        "upgrade_random_count": choice.upgrade_random_count,
+        "transform_random_count": choice.transform_random_count,
+        "remove_random_count": choice.remove_random_count,
+        "set_flags": dict(choice.set_flags),
+        "required_card_ids": choice.required_card_ids,
+        "required_relic_ids": choice.required_relic_ids,
+        "required_gold": choice.required_gold,
+        "markers": tuple(_ancient_marker_payload(marker) for marker in choice.markers),
+        "metadata": dict(choice.metadata),
+    }
+
+
+def _ancient_marker_payload(marker: MechanicsAncientMarker) -> dict[str, Any]:
+    return {
+        "kind": marker.kind,
+        "count": marker.count,
+        "amount": marker.amount,
+        "item_id": marker.item_id,
+        "qualifier": marker.qualifier,
+        "description": marker.description,
+        "metadata": dict(marker.metadata),
+    }
 
 
 def _initial_player(character_id: str, ascension: int, source: Mapping[str, Any]) -> PlayerState:

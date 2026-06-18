@@ -236,9 +236,18 @@ def test_chosen_discard_waits_for_selected_hand_card() -> None:
     assert len(state.combat.discard_pile) == 1
     assert state.combat.discard_pile[0].card_id == "acrobatics"
     assert any(event.kind == "card_discard_choice_pending" for event in state.combat.last_events)
+    assert len(state.combat.pending_choices) == 1
+    assert state.combat.pending_choices[0].kind == "discard"
+    assert state.combat.pending_choices[0].remaining == 1
+    assert set(state.combat.pending_choices[0].candidate_ids) == {
+        card.instance_id for card in state.combat.hand
+    }
 
     discard_actions = [action for action in legal_actions(state) if action.type == "discard_card"]
     assert len(discard_actions) == 2
+    assert {action.payload["choice_id"] for action in discard_actions} == {
+        state.combat.pending_choices[0].choice_id
+    }
     assert not any(action.type == "end_turn" for action in legal_actions(state))
 
     chosen_card_id = discard_actions[0].card_instance_id
@@ -251,6 +260,7 @@ def test_chosen_discard_waits_for_selected_hand_card() -> None:
     assert state.combat.discard_pile[-1].instance_id == chosen.instance_id
     assert all(card.instance_id != chosen.instance_id for card in state.combat.hand)
     assert "pending_card_choice" not in state.combat.metadata
+    assert state.combat.pending_choices == ()
     assert state.combat.last_events[0].kind == "card_discarded_by_choice"
     assert any(
         event.kind == "card_discarded"

@@ -204,6 +204,43 @@ class EffectEvent(EngineModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class PendingChoiceState(EngineModel):
+    choice_id: str
+    kind: str
+    source_id: str | None = None
+    prompt: str = ""
+    zone: str = "hand"
+    candidate_ids: tuple[str, ...] = ()
+    selected_ids: tuple[str, ...] = ()
+    min_choices: int = 1
+    max_choices: int = 1
+    remaining: int = 1
+    required: bool = True
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def normalize_choice(self) -> PendingChoiceState:
+        object.__setattr__(self, "kind", str(self.kind).strip().lower().replace(" ", "_"))
+        object.__setattr__(self, "zone", str(self.zone).strip().lower().replace(" ", "_"))
+        object.__setattr__(
+            self,
+            "candidate_ids",
+            tuple(str(item) for item in self.candidate_ids),
+        )
+        object.__setattr__(
+            self,
+            "selected_ids",
+            tuple(str(item) for item in self.selected_ids),
+        )
+        max_choices = max(0, int(self.max_choices))
+        min_choices = min(max(0, int(self.min_choices)), max_choices)
+        remaining = min(max(0, int(self.remaining)), max_choices)
+        object.__setattr__(self, "max_choices", max_choices)
+        object.__setattr__(self, "min_choices", min_choices)
+        object.__setattr__(self, "remaining", remaining)
+        return self
+
+
 class CombatState(EngineModel):
     turn: int = 1
     player: PlayerState
@@ -216,6 +253,7 @@ class CombatState(EngineModel):
     orb_slots: int = 0
     draw_per_turn: int = 5
     cards_played_this_turn: tuple[str, ...] = ()
+    pending_choices: tuple[PendingChoiceState, ...] = ()
     last_events: tuple[EffectEvent, ...] = ()
     metadata: dict[str, Any] = Field(default_factory=dict)
 

@@ -76,8 +76,7 @@ EVENT_TEST_CARDS = (
 
 
 def _choose_first_ancient(state):
-    action = next(action for action in legal_actions(state) if action.type == "choose_ancient")
-    return step(state, action)
+    return state.model_copy(update={"phase": RunPhase.MAP, "ancient": None})
 
 
 def _force_next_room(state, room_kind: RoomKind):

@@ -58,6 +58,31 @@ def test_fire_potion_is_legal_and_damages_target_from_belt_slot() -> None:
     ]
 
 
+def test_toy_ornithopter_heals_when_potion_is_used() -> None:
+    state = new_run(seed=1306, character_id="TEST", ascension=0)
+    state = state.model_copy(
+        update={
+            "potions": ("fire_potion",),
+            "relics": ("toy_ornithopter",),
+            "player": state.player.model_copy(update={"hp": 47, "max_hp": 50}),
+        }
+    )
+    state = _enter_monster_combat(state)
+
+    assert state.combat is not None
+    monster_id = state.combat.monsters[0].monster_id
+    state = step(state, _use_potion_action(state, target_id=monster_id))
+
+    assert state.combat is not None
+    assert state.combat.player.hp == 50
+    assert any(
+        event.kind == "trigger_potion_use_heal"
+        and event.source_id == "toy_ornithopter"
+        and event.amount == 3
+        for event in state.replay_log[-1].events
+    )
+
+
 def test_block_energy_and_strength_potions_apply_player_effects() -> None:
     state = new_run(seed=1301, character_id="TEST", ascension=0)
     state = state.model_copy(
