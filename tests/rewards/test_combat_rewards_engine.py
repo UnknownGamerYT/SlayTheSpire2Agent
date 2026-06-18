@@ -155,6 +155,61 @@ def test_normal_combat_reward_uses_default_gold_and_card_choices() -> None:
     assert "potion_chance_bonus" in state.flags
 
 
+def test_question_card_and_busted_crown_adjust_card_choice_count() -> None:
+    question_state = _reward_after_kill(
+        RoomKind.MONSTER,
+        seed=214,
+        relics=("question_card",),
+    )
+    crown_state = _reward_after_kill(
+        RoomKind.MONSTER,
+        seed=215,
+        relics=("busted_crown",),
+    )
+
+    assert question_state.reward is not None
+    assert len(question_state.reward.card_options) == 4
+    assert crown_state.reward is not None
+    assert len(crown_state.reward.card_options) == 1
+
+
+def test_prayer_wheel_adds_second_normal_combat_card_reward_group() -> None:
+    state = _reward_after_kill(RoomKind.MONSTER, seed=216, relics=("prayer_wheel",))
+
+    assert state.reward is not None
+    assert len(state.reward.card_options) == 3
+    assert len(state.reward.card_option_groups) == 1
+    assert len(state.reward.card_option_groups[0]) == 3
+    assert any(
+        action.type == "take_reward_card" and action.target_id == "reward:card_group:0:0"
+        for action in legal_actions(state)
+    )
+
+    first_group_card = state.reward.card_options[0]
+    second_group_card = state.reward.card_option_groups[0][0]
+    state = step(state, _action(state, "take_reward_card", "reward:card:0"))
+    state = step(state, _action(state, "take_reward_card", "reward:card_group:0:0"))
+
+    assert state.reward is not None
+    assert state.reward.card_claimed is True
+    assert state.reward.claimed_card_option_group_indices == (0,)
+    assert state.master_deck[-2].card_id.lower() == first_group_card
+    assert state.master_deck[-1].card_id.lower() == second_group_card
+
+
+def test_prayer_wheel_does_not_add_extra_elite_or_boss_card_reward_group() -> None:
+    elite_state = _reward_after_kill(RoomKind.ELITE, seed=217, relics=("prayer_wheel",))
+    boss_state = _reward_after_kill(RoomKind.BOSS, seed=218, relics=("prayer_wheel",))
+
+    assert elite_state.reward is not None
+    assert len(elite_state.reward.card_options) == 3
+    assert elite_state.reward.card_option_groups == ()
+    assert boss_state.reward is not None
+    assert len(boss_state.reward.card_options) == 3
+    assert boss_state.reward.card_option_groups == ()
+    assert boss_state.reward.metadata["card_rarities"] == ("rare", "rare", "rare")
+
+
 def test_elite_combat_reward_adds_random_relic_reward() -> None:
     state = _reward_after_kill(RoomKind.ELITE, seed=202)
 

@@ -1,7 +1,78 @@
 from __future__ import annotations
 
+from random import Random
+
 from sts2sim import legal_actions, new_run, step
 from sts2sim.engine import MapEdgeState, MapNodeState, MapState, RoomKind, RunPhase
+from sts2sim.engine.transitions import _apply_event_flow_markers
+from sts2sim.mechanics.event_flows import EventFlowMarker, EventFlowMarkerKind
+
+EVENT_TEST_CARDS = (
+    {
+        "id": "STRIKE",
+        "name": "Strike",
+        "rarity": "Common",
+        "color": "test",
+        "type": "Attack",
+        "target": "AnyEnemy",
+        "damage": 6,
+    },
+    {
+        "id": "DEFEND",
+        "name": "Defend",
+        "rarity": "Common",
+        "color": "test",
+        "type": "Skill",
+        "target": "Self",
+        "block": 5,
+    },
+    {
+        "id": "POMMEL_STRIKE",
+        "name": "Pommel Strike",
+        "rarity": "Common",
+        "color": "test",
+        "type": "Attack",
+        "target": "AnyEnemy",
+        "damage": 9,
+        "draw": 1,
+    },
+    {
+        "id": "TRUE_GRIT",
+        "name": "True Grit",
+        "rarity": "Uncommon",
+        "color": "test",
+        "type": "Skill",
+        "target": "Self",
+        "block": 7,
+    },
+    {
+        "id": "RARE_POWER",
+        "name": "Rare Power",
+        "rarity": "Rare",
+        "color": "test",
+        "type": "Power",
+        "target": "Self",
+        "effects": {"apply_status": {"target": "self", "strength": 1}},
+    },
+    {
+        "id": "APOTHEOSIS",
+        "name": "Apotheosis",
+        "rarity": "Rare",
+        "color": "colorless",
+        "type": "Skill",
+        "target": "Self",
+        "effects": {"upgrade_all": True},
+    },
+    {
+        "id": "BLIND",
+        "name": "Blind",
+        "rarity": "Uncommon",
+        "color": "colorless",
+        "type": "Skill",
+        "target": "AllEnemies",
+        "effects": {"apply_status": {"target": "enemy", "weak": 2}},
+    },
+)
 
 
 def _choose_first_ancient(state):
@@ -260,6 +331,16 @@ def test_endless_conveyor_transform_marker_replaces_selected_card() -> None:
     state = _force_next_room(state, RoomKind.EVENT)
     state = _choose_first_node(state)
     strike = next(card for card in state.master_deck if card.card_id == "strike")
+    transform_actions = [
+        action
+        for action in legal_actions(state)
+        if action.type == "choose_event" and action.target_id == "JELLY_LIVER"
+    ]
+
+    assert transform_actions
+    assert not any(
+        action.card_instance_id is None and not action.payload for action in transform_actions
+    )
 
     state = step(state, _choose_event_action(state, "JELLY_LIVER", strike.instance_id))
 
@@ -269,3 +350,133 @@ def test_endless_conveyor_transform_marker_replaces_selected_card() -> None:
     assert transformed.card_id != "strike"
     assert transformed.custom["transformed_from_card_id"] == "strike"
     assert any(event.kind == "event_card_transformed" for event in state.replay_log[-1].events)
+
+
+def test_random_transform_marker_resolves_without_selected_card() -> None:
+    state = new_run(
+        seed=1207,
+        character_id="TEST",
+        ascension=0,
+        source_data={
+            "cards": (
+                {
+                    "id": "STRIKE",
+                    "name": "Strike",
+                    "rarity": "Common",
+                    "color": "test",
+                    "type": "Attack",
+                    "target": "AnyEnemy",
+                    "damage": 6,
+                },
+                {
+                    "id": "POMMEL_STRIKE",
+                    "name": "Pommel Strike",
+                    "rarity": "Common",
+                    "color": "test",
+                    "type": "Attack",
+                    "target": "AnyEnemy",
+                    "damage": 9,
+                },
+            ),
+            "deck": (
+                {
+                    "id": "STRIKE",
+                    "name": "Strike",
+                    "type": "Attack",
+                    "target": "AnyEnemy",
+                    "damage": 6,
+                },
+            ),
+        },
+    )
+    marker = EventFlowMarker(
+        kind=EventFlowMarkerKind.CARD_TRANSFORM,
+        description="Transform a random card.",
+    )
+
+    next_state, events = _apply_event_flow_markers(state, (marker,), Random(7))
+
+    assert next_state.master_deck[0].card_id == "pommel_strike"
+    assert events[0].kind == "event_card_transformed"
+
+
+def test_endless_conveyor_fried_eel_adds_random_colorless_card() -> None:
+    state = new_run(
+        seed=1208,
+        character_id="TEST",
+        ascension=0,
+        source_data={
+            "event_id": "ENDLESS_CONVEYOR",
+            "event_flow_page_id": "ALL",
+            "player": {"hp": 50, "max_hp": 80, "gold": 80},
+            "cards": EVENT_TEST_CARDS,
+        },
+    )
+    state = _choose_first_ancient(state)
+    state = _force_next_room(state, RoomKind.EVENT)
+    state = _choose_first_node(state)
+    deck_count = len(state.master_deck)
+
+    state = step(state, _choose_event_action(state, "FRIED_EEL"))
+
+    assert state.player.gold == 40
+    assert len(state.master_deck) == deck_count + 1
+    assert state.master_deck[-1].card_id.lower() in {"apotheosis", "blind"}
+    assert any(
+        event.kind == "event_random_card_added" for event in state.replay_log[-1].events
+    )
+
+
+def test_trial_nondescript_guilty_creates_two_pickable_card_reward_groups() -> None:
+    state = new_run(
+        seed=1209,
+        character_id="TEST",
+        ascension=0,
+        source_data={
+            "event_id": "TRIAL",
+            "event_flow_data": {"trial_case": "NONDESCRIPT"},
+            "player": {"hp": 50, "max_hp": 80},
+            "cards": EVENT_TEST_CARDS,
+        },
+    )
+    state = _choose_first_ancient(state)
+    state = _force_next_room(state, RoomKind.EVENT)
+    state = _choose_first_node(state)
+
+    state = step(state, _choose_event_action(state, "ACCEPT"))
+    state = step(state, _choose_event_action(state, "GUILTY"))
+
+    assert state.reward is not None
+    assert len(state.reward.card_options) == 3
+    assert len(state.reward.card_option_groups) == 1
+    assert len(state.reward.card_option_groups[0]) == 3
+    assert any(card.card_id == "doubt" for card in state.master_deck)
+    assert {
+        action.target_id for action in legal_actions(state) if action.type == "take_reward_card"
+    } >= {"reward:card:0", "reward:card_group:0:0"}
+
+    first_group_card = state.reward.card_options[0]
+    second_group_card = state.reward.card_option_groups[0][0]
+    state = step(
+        state,
+        next(
+            action
+            for action in legal_actions(state)
+            if action.type == "take_reward_card" and action.target_id == "reward:card:0"
+        ),
+    )
+    state = step(
+        state,
+        next(
+            action
+            for action in legal_actions(state)
+            if action.type == "take_reward_card"
+            and action.target_id == "reward:card_group:0:0"
+        ),
+    )
+
+    assert state.reward is not None
+    assert state.reward.card_claimed is True
+    assert state.reward.claimed_card_option_group_indices == (0,)
+    assert state.master_deck[-2].card_id.lower() == first_group_card
+    assert state.master_deck[-1].card_id.lower() == second_group_card

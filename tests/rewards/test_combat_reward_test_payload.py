@@ -7,6 +7,7 @@ from types import ModuleType
 from helpers import project_root
 
 from sts2sim import legal_actions, step
+from sts2sim.engine import RewardState
 
 
 def _load_combat_reward_test() -> ModuleType:
@@ -134,6 +135,23 @@ def test_lantern_key_preset_does_not_award_lantern_relic() -> None:
     assert payload["reward"]["card_ids"] == ["lantern_key"]
     assert len(payload["reward"]["card_options"]) == 3
     assert "lantern" not in payload["relics"]
+
+
+def test_reward_payload_serializes_extra_card_choice_groups() -> None:
+    reward = RewardState(
+        reward_id="test",
+        source="event",
+        card_options=("strike", "defend", "bash"),
+        card_option_groups=(("anger", "shrug_it_off", "inflame"),),
+        claimed_card_option_group_indices=(0,),
+        metadata={"card_group_rarities": (("common", "common", "uncommon"),)},
+    )
+
+    payload = combat_reward_test._reward_payload(reward)
+
+    assert payload is not None
+    assert payload["card_option_groups"] == [["anger", "shrug_it_off", "inflame"]]
+    assert payload["claimed_card_option_group_indices"] == [0]
 
 
 def test_generated_reward_payload_can_claim_first_relic() -> None:

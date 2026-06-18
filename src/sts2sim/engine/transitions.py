@@ -24,6 +24,7 @@ from sts2sim.mechanics.combat_rewards import (
     build_boss_relic_pool,
     build_combat_card_pool,
     build_combat_potion_pool,
+    draw_card_reward_options,
     draw_combat_reward,
     fake_merchant_reward_relic_ids,
 )
@@ -58,13 +59,8 @@ from sts2sim.mechanics.monsters import (
 from sts2sim.mechanics.relic_combat import (
     CombatRelicMarker,
     CombatRelicResolution,
-    resolve_card_played_relics,
-    resolve_combat_end_relics,
     resolve_damage_dealt_relics,
     resolve_damage_taken_relics,
-    resolve_start_of_combat_relics,
-    resolve_turn_end_relics,
-    resolve_turn_start_relics,
 )
 from sts2sim.mechanics.reward_pools import (
     build_character_card_pool,
@@ -99,6 +95,7 @@ from sts2sim.mechanics.treasure import (
     build_treasure_relic_pool,
     draw_treasure_reward,
 )
+from sts2sim.mechanics.triggers import GameTrigger, TriggerContext, resolve_game_trigger
 
 from .errors import IllegalActionError
 from .models import (
@@ -1169,13 +1166,21 @@ def _event_flow_option_state(option: EventFlowOption, gold: int) -> EventOptionS
         metadata["required_gold"] = option.required_gold
     if option.markers:
         metadata["markers"] = tuple(marker.kind.value for marker in option.markers)
-        transform_count = sum(
-            marker.count
+        transform_markers = tuple(
+            marker
             for marker in option.markers
             if marker.kind is EventFlowMarkerKind.CARD_TRANSFORM
         )
+        transform_count = sum(marker.count for marker in transform_markers)
         if transform_count:
             metadata["transform_card_count"] = transform_count
+            transform_random_count = sum(
+                marker.count
+                for marker in transform_markers
+                if _event_transform_marker_is_random(marker)
+            )
+            if transform_random_count:
+                metadata["transform_random_card_count"] = transform_random_count
     return EventOptionState(
         option_id=option.option_id,
         title=option.label or option.option_id,
@@ -1214,17 +1219,27 @@ def _event_transform_count(option: EventOptionState) -> int:
     return _nonnegative_int(option.metadata.get("transform_card_count"), 0)
 
 
+def _event_transform_random_count(option: EventOptionState) -> int:
+    return _nonnegative_int(option.metadata.get("transform_random_card_count"), 0)
+
+
+def _event_transform_choice_count(option: EventOptionState) -> int:
+    return max(0, _event_transform_count(option) - _event_transform_random_count(option))
+
+
 def _legal_event_transform_actions(
     state: RunState,
     option: EventOptionState,
 ) -> tuple[Action, ...]:
-    count = _event_transform_count(option)
-    if count <= 0:
+    total_count = _event_transform_count(option)
+    choice_count = _event_transform_choice_count(option)
+    if total_count <= 0:
         return ()
+    if choice_count <= 0:
+        return (Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id),)
     eligible_cards = tuple(state.master_deck)
-    actions: list[Action] = [Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id)]
-    if count == 1:
-        actions.extend(
+    if choice_count == 1:
+        return tuple(
             Action(
                 type=ActionType.CHOOSE_EVENT,
                 target_id=option.option_id,
@@ -1232,16 +1247,14 @@ def _legal_event_transform_actions(
             )
             for card in eligible_cards
         )
-        return tuple(actions)
-    actions.extend(
+    return tuple(
         Action(
             type=ActionType.CHOOSE_EVENT,
             target_id=option.option_id,
             payload={"card_instance_ids": tuple(card.instance_id for card in card_group)},
         )
-        for card_group in combinations(eligible_cards, count)
+        for card_group in combinations(eligible_cards, choice_count)
     )
-    return tuple(actions)
 
 
 def _legal_event_enchant_actions(
@@ -1377,7 +1390,7 @@ def _choose_event_flow_option(
         update={
             "phase": next_phase,
             "event": event,
-            "reward": None,
+            "reward": next_state.reward,
             "rng": capture_random_state(rng),
         }
     )
@@ -1457,6 +1470,7 @@ def _apply_event_flow_markers(
                 _reward_card_spec(next_state, marker.item_id),
                 len(next_state.master_deck) + 1,
             )
+            card, card_upgrade_event = _upgrade_card_for_add_relics(next_state, card)
             next_state = next_state.model_copy(
                 update={"master_deck": next_state.master_deck + (card,)}
             )
@@ -1467,6 +1481,14 @@ def _apply_event_flow_markers(
                     metadata={"card_id": card.card_id},
                 )
             )
+            if card_upgrade_event is not None:
+                events.append(card_upgrade_event)
+        elif marker.kind is EventFlowMarkerKind.RANDOM_CARD:
+            next_state, card_events = _add_event_flow_random_cards(next_state, rng, marker)
+            events.extend(card_events)
+        elif marker.kind is EventFlowMarkerKind.CARD_REWARD:
+            next_state, reward_events = _add_event_flow_card_rewards(next_state, rng, marker)
+            events.extend(reward_events)
         elif marker.kind is EventFlowMarkerKind.CARD_UPGRADE_RANDOM:
             next_state, upgrade_events = _upgrade_random_deck_cards(
                 next_state,
@@ -1498,8 +1520,11 @@ def _apply_event_flow_markers(
             )
             events.extend(downgrade_events)
         elif marker.kind is EventFlowMarkerKind.CARD_TRANSFORM:
-            selected_for_marker = tuple(selected_card_ids[: marker.count])
-            del selected_card_ids[: marker.count]
+            if _event_transform_marker_is_random(marker):
+                selected_for_marker: tuple[str, ...] = ()
+            else:
+                selected_for_marker = tuple(selected_card_ids[: marker.count])
+                del selected_card_ids[: marker.count]
             next_state, transform_events, transformed_count = _transform_deck_cards(
                 next_state,
                 rng,
@@ -1508,23 +1533,20 @@ def _apply_event_flow_markers(
                 source_id="event_flow",
             )
             events.extend(transform_events)
-            remaining_count = max(0, marker.count - transformed_count)
-            if remaining_count:
-                fallback_marker = EventFlowMarker(
-                    kind=EventFlowMarkerKind.CARD_TRANSFORM,
-                    count=remaining_count,
-                    qualifier=marker.qualifier,
-                    description=marker.description,
-                    metadata=marker.metadata,
+            if not _event_transform_marker_is_random(marker) and transformed_count < marker.count:
+                events.append(
+                    EffectEvent(
+                        kind="event_card_transform_choice_required",
+                        source_id="event_flow",
+                        amount=marker.count - transformed_count,
+                        metadata={
+                            "marker_kind": marker.kind.value,
+                            "count": marker.count,
+                            "selected_count": len(selected_for_marker),
+                            "description": marker.description,
+                        },
+                    )
                 )
-                next_state, random_events, _random_count = _transform_deck_cards(
-                    next_state,
-                    rng,
-                    fallback_marker,
-                    selected_card_instance_ids=(),
-                    source_id="event_flow",
-                )
-                events.extend(random_events)
         elif marker.kind is EventFlowMarkerKind.FIXED_RELIC and marker.item_id:
             next_state, relic_events = _add_event_relic(next_state, marker.item_id)
             events.extend(relic_events)
@@ -1806,10 +1828,12 @@ def _transform_deck_cards(
             for index, card in enumerate(deck)
             if card.instance_id == card_instance_id
         ]
-    else:
+    elif _event_transform_marker_is_random(marker):
         candidate_indices = list(range(len(deck)))
         rng.shuffle(candidate_indices)
         candidate_indices = candidate_indices[: marker.count]
+    else:
+        candidate_indices = []
 
     events: list[EffectEvent] = []
     transformed_count = 0
@@ -1869,6 +1893,270 @@ def _transform_deck_cards(
             )
         )
     return state.model_copy(update={"master_deck": tuple(deck)}), tuple(events), transformed_count
+
+
+def _event_transform_marker_is_random(marker: EventFlowMarker) -> bool:
+    if marker.kind is not EventFlowMarkerKind.CARD_TRANSFORM:
+        return False
+    metadata = _mapping_from(marker.metadata)
+    if _truthy(metadata.get("random")) or _truthy(metadata.get("random_transform")):
+        return True
+    qualifier = _normalized_id(str(marker.qualifier or ""))
+    if qualifier in {"random", "random_card"}:
+        return True
+    description = marker.description.lower()
+    return bool(re.search(r"\brandom(?:ly)?\b", description))
+
+
+def _add_event_flow_random_cards(
+    state: RunState,
+    rng: Random,
+    marker: EventFlowMarker,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    card_ids = _draw_event_flow_card_ids(state, rng, marker, count=marker.count)
+    deck = list(state.master_deck)
+    events: list[EffectEvent] = []
+    next_state = state
+    for card_id in card_ids:
+        card = _card_from_spec(_reward_card_spec(next_state, card_id), len(deck) + 1)
+        card, card_upgrade_event = _upgrade_card_for_add_relics(next_state, card)
+        deck.append(card)
+        next_state = next_state.model_copy(update={"master_deck": tuple(deck)})
+        events.append(
+            EffectEvent(
+                kind="event_random_card_added",
+                source_id="event_flow",
+                target_id=card.instance_id,
+                metadata={
+                    "card_id": card.card_id,
+                    "qualifier": marker.qualifier,
+                    "description": marker.description,
+                },
+            )
+        )
+        if card_upgrade_event is not None:
+            events.append(card_upgrade_event)
+    if not card_ids:
+        events.append(
+            EffectEvent(
+                kind="event_random_card_blocked",
+                source_id="event_flow",
+                metadata={
+                    "reason": "empty_card_pool",
+                    "qualifier": marker.qualifier,
+                    "description": marker.description,
+                },
+            )
+        )
+    return next_state, tuple(events)
+
+
+def _add_event_flow_card_rewards(
+    state: RunState,
+    rng: Random,
+    marker: EventFlowMarker,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    groups, rarities, next_pity = _draw_event_flow_card_reward_groups(state, rng, marker)
+    if not groups:
+        return state, (
+            EffectEvent(
+                kind="event_card_reward_blocked",
+                source_id="event_flow",
+                metadata={
+                    "reason": "empty_card_pool",
+                    "qualifier": marker.qualifier,
+                    "description": marker.description,
+                },
+            ),
+        )
+
+    reward = _reward_with_card_option_groups(
+        state.reward,
+        reward_id=f"event_flow:card_reward:{len(state.room_history)}",
+        groups=groups,
+        rarities=rarities,
+        metadata={
+            "marker_kind": marker.kind.value,
+            "qualifier": marker.qualifier,
+            "description": marker.description,
+            **dict(marker.metadata),
+        },
+    )
+    flags = dict(state.flags)
+    flags["card_non_rare_count"] = next_pity.card_non_rare_count
+    next_state = state.model_copy(update={"reward": reward, "flags": flags})
+    return next_state, _reward_generated_events(reward)
+
+
+def _reward_with_card_option_groups(
+    reward: RewardState | None,
+    *,
+    reward_id: str,
+    groups: Sequence[Sequence[str]],
+    rarities: Sequence[Sequence[str]],
+    metadata: Mapping[str, Any],
+) -> RewardState:
+    normalized_groups = tuple(
+        tuple(_normalized_id(card_id) for card_id in group) for group in groups
+    )
+    normalized_rarities = tuple(
+        tuple(str(rarity) for rarity in group) for group in rarities
+    )
+    if reward is None:
+        card_options = normalized_groups[0] if normalized_groups else ()
+        extra_groups = normalized_groups[1:]
+        reward_metadata = {
+            **dict(metadata),
+            "card_group_rarities": normalized_rarities,
+            "card_reward_group_count": len(normalized_groups),
+        }
+        return RewardState(
+            reward_id=reward_id,
+            source="event",
+            forced=False,
+            card_options=card_options,
+            card_option_groups=extra_groups,
+            metadata=reward_metadata,
+        )
+
+    reward_metadata = dict(reward.metadata)
+    existing_rarities = reward_metadata.get("card_group_rarities", ())
+    if isinstance(existing_rarities, Sequence) and not isinstance(
+        existing_rarities,
+        (str, bytes, bytearray),
+    ):
+        rarity_groups = tuple(tuple(str(item) for item in group) for group in existing_rarities)
+    else:
+        rarity_groups = ()
+    reward_metadata.update(
+        {
+            **dict(metadata),
+            "card_group_rarities": rarity_groups + normalized_rarities,
+            "card_reward_group_count": len(reward.card_option_groups) + len(normalized_groups),
+        }
+    )
+    return reward.model_copy(
+        update={
+            "card_option_groups": reward.card_option_groups + normalized_groups,
+            "metadata": reward_metadata,
+        }
+    )
+
+
+def _draw_event_flow_card_reward_groups(
+    state: RunState,
+    rng: Random,
+    marker: EventFlowMarker,
+) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], RewardPityState]:
+    group_count = max(1, marker.count)
+    card_count = _card_reward_choice_count(state, marker=marker)
+    current_pity = RewardPityState(
+        card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
+        potion_chance_bonus=_flag_int(state, "potion_chance_bonus", 0),
+    )
+    groups: list[tuple[str, ...]] = []
+    rarities: list[tuple[str, ...]] = []
+    for _ in range(group_count):
+        group, group_rarities, current_pity = _draw_event_flow_card_reward_group(
+            state,
+            rng,
+            marker,
+            card_count=card_count,
+            pity_state=current_pity,
+        )
+        if group:
+            groups.append(group)
+            rarities.append(group_rarities)
+    return tuple(groups), tuple(rarities), current_pity
+
+
+def _draw_event_flow_card_reward_group(
+    state: RunState,
+    rng: Random,
+    marker: EventFlowMarker,
+    *,
+    card_count: int,
+    pity_state: RewardPityState,
+) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
+    rarity = _event_flow_card_rarity_qualifier(marker)
+    if rarity is not None:
+        cards = _draw_event_flow_card_ids(state, rng, marker, count=card_count)
+        return cards, tuple(rarity.value for _ in cards), pity_state
+
+    cards, rarities, next_pity = draw_card_reward_options(
+        rng,
+        card_pool=_event_flow_card_pool(state, marker),
+        context=CombatRewardContext(
+            character_id=state.character_id,
+            encounter=EncounterType.NORMAL,
+            act=state.act,
+            floor=state.floor,
+            ascension_level=state.ascension,
+            owned_relics=state.relics,
+        ),
+        pity_state=pity_state,
+        card_count=card_count,
+    )
+    return cards, rarities, next_pity
+
+
+def _draw_event_flow_card_ids(
+    state: RunState,
+    rng: Random,
+    marker: EventFlowMarker,
+    *,
+    count: int,
+) -> tuple[str, ...]:
+    pool = _event_flow_card_pool(state, marker)
+    rarity = _event_flow_card_rarity_qualifier(marker)
+    if rarity is not None:
+        pool = tuple(card for card in pool if card.rarity is rarity)
+    candidates = list(pool)
+    rng.shuffle(candidates)
+    return tuple(card.card_id for card in candidates[: max(0, count)])
+
+
+def _event_flow_card_pool(
+    state: RunState,
+    marker: EventFlowMarker,
+) -> tuple[Any, ...]:
+    qualifier = _normalized_id(str(marker.qualifier or ""))
+    raw_cards = _raw_card_pool_items(state)
+    if qualifier == "colorless":
+        return build_colorless_card_pool(raw_cards)
+    if qualifier in {"character", "class"}:
+        return build_character_card_pool(raw_cards, character_id=state.character_id)
+    return _combat_card_pool(state)
+
+
+def _event_flow_card_rarity_qualifier(marker: EventFlowMarker) -> CardRarity | None:
+    qualifier = _normalized_id(str(marker.qualifier or ""))
+    for rarity in CardRarity:
+        if qualifier == rarity.value:
+            return rarity
+    return None
+
+
+def _card_reward_choice_count(
+    state: RunState,
+    *,
+    marker: EventFlowMarker | None = None,
+    default: int = 3,
+) -> int:
+    metadata = _mapping_from(marker.metadata) if marker is not None else {}
+    explicit = metadata.get("card_reward_choice_count", state.flags.get("card_reward_choice_count"))
+    with suppress(TypeError, ValueError):
+        if explicit is not None:
+            default = int(explicit)
+
+    count = default
+    if _has_relic(state, "question_card"):
+        count += 1
+    if _has_relic(state, "busted_crown"):
+        count -= 2
+    count += _flag_int(state, "card_reward_choice_bonus", 0)
+    count += _flag_int(state, "card_reward_choice_delta", 0)
+    return max(0, count)
 
 
 def _draw_transformed_card_id(
@@ -2099,6 +2387,7 @@ def _drop_enchant_only_reward(reward: RewardState | None) -> RewardState | None:
         and not reward.relic_ids
         and not reward.card_ids
         and not reward.card_options
+        and not reward.card_option_groups
         and reward.potion_id is None
         and not reward.potion_ids
         and set(reward.metadata).issubset(
@@ -3289,6 +3578,10 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
         )
     actions.extend(
         Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
+        for target_id, _card_id in _unclaimed_reward_card_group_targets(reward)
+    )
+    actions.extend(
+        Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
         for target_id, _card_id in _unclaimed_reward_fixed_card_targets(reward)
     )
     if _has_open_potion_slot(state):
@@ -3308,6 +3601,7 @@ def _reward_has_forced_pending_items(state: RunState) -> bool:
         or bool(_unclaimed_reward_relic_targets(reward))
         or bool(_unclaimed_reward_fixed_card_targets(reward))
         or (bool(reward.card_options) and not reward.card_claimed)
+        or bool(_unclaimed_reward_card_group_targets(reward))
         or bool(_unclaimed_reward_potion_targets(reward))
     )
 
@@ -3332,6 +3626,19 @@ def _unclaimed_reward_fixed_card_targets(reward: RewardState) -> tuple[tuple[str
         for index, card_id in enumerate(reward.card_ids)
         if index not in claimed
     )
+
+
+def _unclaimed_reward_card_group_targets(reward: RewardState) -> tuple[tuple[str, str], ...]:
+    claimed_groups = set(reward.claimed_card_option_group_indices)
+    targets: list[tuple[str, str]] = []
+    for group_index, group in enumerate(reward.card_option_groups):
+        if group_index in claimed_groups:
+            continue
+        targets.extend(
+            (f"reward:card_group:{group_index}:{card_index}", card_id)
+            for card_index, card_id in enumerate(group)
+        )
+    return tuple(targets)
 
 
 def _unclaimed_reward_potion_targets(reward: RewardState) -> tuple[tuple[str, str], ...]:
@@ -3487,11 +3794,22 @@ def _take_reward_card(
     if card_target is None:
         return state, ()
 
-    card_id, fixed_index = card_target
+    card_id, fixed_index, group_index = card_target
     card_spec = _reward_card_spec(state, card_id)
     card = _card_from_spec(card_spec, len(state.master_deck) + 1)
     card, card_upgrade_event = _upgrade_card_for_add_relics(state, card)
-    if fixed_index is None:
+    if group_index is not None:
+        reward = state.reward.model_copy(
+            update={
+                "claimed_card_option_group_indices": tuple(
+                    sorted(
+                        set(state.reward.claimed_card_option_group_indices + (group_index,))
+                    )
+                ),
+            }
+        )
+        fixed = False
+    elif fixed_index is None:
         reward = state.reward.model_copy(update={"card_claimed": True})
         fixed = False
     else:
@@ -3515,6 +3833,7 @@ def _take_reward_card(
                 "reward_source": state.reward.source,
                 "card_id": card.card_id,
                 "fixed": fixed,
+                "card_group_index": group_index,
             },
         )
     ]
@@ -3548,20 +3867,27 @@ def _take_reward_card(
 def _reward_card_for_target_id(
     reward: RewardState,
     target_id: str,
-) -> tuple[str, int | None] | None:
+) -> tuple[str, int | None, int | None] | None:
     parts = target_id.split(":")
-    if len(parts) != 3 or parts[0] != "reward":
+    if len(parts) not in {3, 4} or parts[0] != "reward":
         return None
     with suppress(ValueError, IndexError):
-        index = int(parts[2])
-        if parts[1] == "card":
+        if len(parts) == 3 and parts[1] == "card":
+            index = int(parts[2])
             if reward.card_claimed:
                 return None
-            return reward.card_options[index], None
-        if parts[1] == "fixed_card":
+            return reward.card_options[index], None, None
+        if len(parts) == 3 and parts[1] == "fixed_card":
+            index = int(parts[2])
             if index in set(reward.claimed_card_indices):
                 return None
-            return reward.card_ids[index], index
+            return reward.card_ids[index], index, None
+        if len(parts) == 4 and parts[1] == "card_group":
+            group_index = int(parts[2])
+            card_index = int(parts[3])
+            if group_index in set(reward.claimed_card_option_group_indices):
+                return None
+            return reward.card_option_groups[group_index][card_index], None, group_index
     return None
 
 
@@ -4198,7 +4524,8 @@ def _start_combat_for_node(
         draw_per_turn=_flag_int(state, "draw_per_turn", 5),
         metadata={"relic_counters": _relic_counters_from_flags(state)},
     )
-    start_relics = resolve_start_of_combat_relics(
+    start_relics = _resolve_combat_relic_trigger(
+        GameTrigger.COMBAT_START,
         state.relics,
         player_hp=combat.player.hp,
         player_max_hp=combat.player.max_hp,
@@ -4206,7 +4533,8 @@ def _start_combat_for_node(
         relic_counters=_combat_relic_counters(combat),
     )
     combat, start_relic_events = _apply_combat_relic_resolution(combat, start_relics)
-    turn_relics = resolve_turn_start_relics(
+    turn_relics = _resolve_combat_relic_trigger(
+        GameTrigger.TURN_START,
         state.relics,
         turn_number=1,
         player_hp=combat.player.hp,
@@ -4239,6 +4567,22 @@ def _start_combat_for_node(
             metadata={"room_kind": node.kind.value, "act": node.act, "floor": node.floor},
         ),
     ) + start_relic_events + turn_relic_events + bonus_draw_events + draw_events
+
+
+def _resolve_combat_relic_trigger(
+    trigger: GameTrigger,
+    relics: Sequence[str],
+    **context_values: Any,
+) -> CombatRelicResolution:
+    resolution = resolve_game_trigger(
+        trigger,
+        relics=relics,
+        context=TriggerContext(trigger, **context_values),
+    )
+    combat_resolution = resolution.combat_relic_resolution
+    if combat_resolution is None:
+        raise ValueError(f"Trigger {trigger.value!r} does not have a combat relic adapter.")
+    return combat_resolution
 
 
 def _pop_pending_relic_draw(
@@ -4581,7 +4925,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         }
     )
 
-    turn_end_relics = resolve_turn_end_relics(
+    turn_end_relics = _resolve_combat_relic_trigger(
+        GameTrigger.TURN_END,
         state.relics,
         player_hp=combat.player.hp,
         player_max_hp=combat.player.max_hp,
@@ -4642,7 +4987,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             "metadata": _reset_turn_combat_metadata(combat.metadata),
         }
     )
-    turn_start_relics = resolve_turn_start_relics(
+    turn_start_relics = _resolve_combat_relic_trigger(
+        GameTrigger.TURN_START,
         state.relics,
         turn_number=combat.turn,
         player_hp=combat.player.hp,
@@ -4861,7 +5207,8 @@ def _apply_after_card_play_hooks(
         )
     combat = combat.model_copy(update={"player": player})
     attack_count = _metadata_int(combat.metadata, "attacks_played_this_turn", 0)
-    relic_result = resolve_card_played_relics(
+    relic_result = _resolve_combat_relic_trigger(
+        GameTrigger.CARD_PLAYED,
         relics,
         card_type=card.type.value,
         card_id=card.card_id,
@@ -6999,7 +7346,8 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
     events_rng_state = rng_state
     flags = dict(state.flags)
     if phase == RunPhase.REWARD and state.phase == RunPhase.COMBAT:
-        combat_end_relics = resolve_combat_end_relics(
+        combat_end_relics = _resolve_combat_relic_trigger(
+            GameTrigger.COMBAT_END,
             state.relics,
             player_hp=combat.player.hp,
             player_max_hp=combat.player.max_hp,
@@ -7082,6 +7430,13 @@ def _combat_reward_state(
     relic_ids = _combat_reward_relic_ids(state, default_relic_ids=bundle.relic_ids)
     card_ids = _fixed_reward_card_ids(state, "combat_reward_card_ids")
     card_options = _flag_str_sequence(state, "combat_reward_card_options") or bundle.card_ids
+    card_option_groups, card_group_rarities, card_pity_state = _combat_extra_card_option_groups(
+        state,
+        rng,
+        encounter,
+        bundle.pity_state,
+    )
+    flags["card_non_rare_count"] = card_pity_state.card_non_rare_count
     potion_id = _combat_reward_potion_id(state, rng, default_potion_id=bundle.potion_id)
     potion_ids = _reward_potion_ids(
         state,
@@ -7100,12 +7455,14 @@ def _combat_reward_state(
         relic_ids=relic_ids,
         card_ids=card_ids,
         card_options=card_options,
+        card_option_groups=card_option_groups,
         potion_id=potion_id,
         potion_ids=potion_ids,
         metadata={
             "encounter": encounter.value,
             "base_gold": bundle.base_gold,
             "card_rarities": bundle.card_rarities,
+            "card_group_rarities": card_group_rarities,
             "relic_rarities": bundle.relic_rarities,
             "potion_drop": _combat_potion_roll_metadata(
                 state,
@@ -7118,6 +7475,33 @@ def _combat_reward_state(
         },
     )
     return reward, _reward_generated_events(reward), flags
+
+
+def _combat_extra_card_option_groups(
+    state: RunState,
+    rng: Random,
+    encounter: EncounterType,
+    pity_state: RewardPityState,
+) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], RewardPityState]:
+    if encounter is not EncounterType.NORMAL or not _has_relic(state, "prayer_wheel"):
+        return (), (), pity_state
+    cards, rarities, next_pity = draw_card_reward_options(
+        rng,
+        card_pool=_combat_card_pool(state),
+        context=CombatRewardContext(
+            character_id=state.character_id,
+            encounter=encounter,
+            act=state.act,
+            floor=state.floor,
+            ascension_level=state.ascension,
+            owned_relics=state.relics,
+        ),
+        pity_state=pity_state,
+        card_count=_card_reward_choice_count(state),
+    )
+    if not cards:
+        return (), (), next_pity
+    return (cards,), (rarities,), next_pity
 
 
 def _apply_due_delayed_event_rewards(
@@ -7363,7 +7747,7 @@ def _combat_reward_card_count(
         return max(0, _flag_int(state, "elite_reward_card_count", 3))
     if encounter is EncounterType.EVENT:
         return 0
-    return None
+    return _card_reward_choice_count(state)
 
 
 def _combat_reward_relic_count(
@@ -7722,6 +8106,17 @@ def _reward_generated_events(
             EffectEvent(
                 kind="reward_cards_generated",
                 metadata={**metadata, "card_options": reward.card_options},
+            )
+        )
+    for group_index, group in enumerate(reward.card_option_groups):
+        events.append(
+            EffectEvent(
+                kind="reward_card_group_generated",
+                metadata={
+                    **metadata,
+                    "card_group_index": group_index,
+                    "card_options": group,
+                },
             )
         )
     for index, card_id in enumerate(reward.card_ids):
@@ -8778,6 +9173,9 @@ def _initial_flags(source: Mapping[str, Any]) -> dict[str, Any]:
         "event_pool",
         "data_cache_dir",
         "card_non_rare_count",
+        "card_reward_choice_bonus",
+        "card_reward_choice_count",
+        "card_reward_choice_delta",
         "potion_chance_bonus",
         "treasure_chests_opened",
         "combat_encounter",

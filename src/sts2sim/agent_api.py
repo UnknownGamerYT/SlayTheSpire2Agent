@@ -179,7 +179,8 @@ def encode_observation(state: Any, *, include_state: bool = True) -> dict[str, A
     reward_summary = {
         "gold": _int(reward.get("gold")),
         "card_count": len(_sequence(reward.get("card_options")))
-        + len(_sequence(reward.get("card_ids"))),
+        + len(_sequence(reward.get("card_ids")))
+        + sum(len(_sequence(group)) for group in _sequence(reward.get("card_option_groups"))),
         "relic_count": int(bool(reward.get("relic_id")))
         + len(_sequence(reward.get("relic_ids"))),
         "potion_count": int(bool(reward.get("potion_id")))

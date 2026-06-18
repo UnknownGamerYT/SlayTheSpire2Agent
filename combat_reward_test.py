@@ -349,6 +349,10 @@ def _reward_payload(reward: Any | None) -> dict[str, Any] | None:
         "card_ids": list(reward.card_ids),
         "claimed_card_indices": list(reward.claimed_card_indices),
         "card_options": list(reward.card_options),
+        "card_option_groups": [list(group) for group in reward.card_option_groups],
+        "claimed_card_option_group_indices": list(
+            reward.claimed_card_option_group_indices
+        ),
         "card_claimed": reward.card_claimed,
         "potion_id": reward.potion_id,
         "potion_claimed": reward.potion_claimed,
@@ -1164,6 +1168,25 @@ def _html_page() -> str:
               available,
             );
           }});
+      const groupRarities = reward.metadata?.card_group_rarities || [];
+      (reward.card_option_groups || []).forEach((group, groupIndex) => {{
+        const claimed = (reward.claimed_card_option_group_indices || []).includes(groupIndex);
+        const rarityGroupIndex = groupRarities.length === (reward.card_option_groups || []).length
+          ? groupIndex
+          : groupIndex + 1;
+        group.forEach((cardId, cardIndex) => {{
+          const target = `reward:card_group:${{groupIndex}}:${{cardIndex}}`;
+          const available = action("take_reward_card", target);
+          const rarity = groupRarities[rarityGroupIndex]?.[cardIndex] || "card";
+          rows.push(rewardRow(
+            title(cardId),
+            `reward ${{groupIndex + 2}} - ${{rarity}} ${{claimed ? "claimed" : "choice"}}`,
+            "take_reward_card",
+            target,
+            available,
+          ));
+        }});
+      }});
       reward.card_ids.forEach((cardId, index) => {{
         const target = `reward:fixed_card:${{index}}`;
         const available = action("take_reward_card", target);

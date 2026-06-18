@@ -306,6 +306,8 @@ class RewardState(EngineModel):
     claimed_card_indices: tuple[int, ...] = ()
     card_options: tuple[str, ...] = ()
     card_claimed: bool = False
+    card_option_groups: tuple[tuple[str, ...], ...] = ()
+    claimed_card_option_group_indices: tuple[int, ...] = ()
     potion_id: str | None = None
     potion_claimed: bool = False
     potion_ids: tuple[str, ...] = ()
@@ -319,6 +321,14 @@ class RewardState(EngineModel):
             self,
             "card_options",
             tuple(str(card_id) for card_id in self.card_options),
+        )
+        object.__setattr__(
+            self,
+            "card_option_groups",
+            tuple(
+                tuple(str(card_id) for card_id in group)
+                for group in self.card_option_groups
+            ),
         )
         object.__setattr__(
             self,
@@ -339,6 +349,18 @@ class RewardState(EngineModel):
             self,
             "claimed_card_indices",
             tuple(sorted({max(0, int(index)) for index in self.claimed_card_indices})),
+        )
+        object.__setattr__(
+            self,
+            "claimed_card_option_group_indices",
+            tuple(
+                sorted(
+                    {
+                        max(0, int(index))
+                        for index in self.claimed_card_option_group_indices
+                    }
+                )
+            ),
         )
         object.__setattr__(
             self,

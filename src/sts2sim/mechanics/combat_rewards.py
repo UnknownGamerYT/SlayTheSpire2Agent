@@ -289,6 +289,27 @@ def draw_combat_reward(
     )
 
 
+def draw_card_reward_options(
+    rng: Random,
+    *,
+    card_pool: Sequence[CombatRewardCard],
+    context: CombatRewardContext,
+    pity_state: RewardPityState = RewardPityState(),
+    card_count: int | None = None,
+    rules: CombatRewardRules = DEFAULT_COMBAT_REWARD_RULES,
+) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
+    """Generate one card reward choice group using combat reward rarity rules."""
+
+    return _draw_card_options(
+        rng,
+        card_pool,
+        context,
+        pity_state,
+        count=rules.default_card_choices if card_count is None else card_count,
+        rules=rules,
+    )
+
+
 def roll_combat_potion_drop(
     rng: Random,
     state: RewardPityState,
