@@ -479,3 +479,30 @@ def test_trial_nondescript_guilty_creates_two_pickable_card_reward_groups() -> N
     assert state.reward.claimed_card_option_group_indices == (0,)
     assert state.master_deck[-2].card_id.lower() == first_group_card
     assert state.master_deck[-1].card_id.lower() == second_group_card
+
+
+def test_event_card_rewards_use_reward_generation_triggers() -> None:
+    state = new_run(
+        seed=1211,
+        character_id="TEST",
+        ascension=0,
+        source_data={
+            "event_id": "TRIAL",
+            "event_flow_data": {"trial_case": "NONDESCRIPT"},
+            "player": {"hp": 50, "max_hp": 80},
+            "cards": EVENT_TEST_CARDS,
+        },
+    )
+    state = _choose_first_ancient(state)
+    state = state.model_copy(update={"relics": ("question_card",)})
+    state = _force_next_room(state, RoomKind.EVENT)
+    state = _choose_first_node(state)
+
+    state = step(state, _choose_event_action(state, "ACCEPT"))
+    state = step(state, _choose_event_action(state, "GUILTY"))
+
+    assert state.reward is not None
+    assert len(state.reward.card_options) == 4
+    assert len(state.reward.card_option_groups) == 1
+    assert len(state.reward.card_option_groups[0]) == 4
+    assert state.reward.metadata["reward_trigger_effects"][0]["content_id"] == "question_card"

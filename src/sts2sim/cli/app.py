@@ -259,6 +259,105 @@ def _combat_audit_payload(
     return normalized_payload
 
 
+def _card_audit_payload(
+    result: Any,
+    *,
+    status: str | None,
+    color: str | None,
+    card_type: str | None,
+    summary_only: bool,
+) -> Any:
+    """Normalize card audit output and optionally filter card entries."""
+
+    payload = _jsonable(result)
+    if not isinstance(payload, Mapping):
+        return payload
+
+    normalized_payload: dict[str, Any] = {str(key): value for key, value in payload.items()}
+    entries_value = normalized_payload.get("entries", [])
+    entries = list(entries_value) if isinstance(entries_value, list) else []
+    entries = [
+        {str(key): value for key, value in entry.items()}
+        for entry in entries
+        if isinstance(entry, Mapping)
+    ]
+
+    if status is not None:
+        wanted_status = _normalize_card_status(status)
+        entries = [
+            entry
+            for entry in entries
+            if _normalize_card_status(str(entry.get("status", ""))) == wanted_status
+        ]
+    if color is not None:
+        wanted_color = _normalize_card_bucket(color)
+        entries = [
+            entry
+            for entry in entries
+            if _normalize_card_bucket(str(entry.get("color", ""))) == wanted_color
+        ]
+    if card_type is not None:
+        wanted_type = _normalize_card_bucket(card_type)
+        entries = [
+            entry
+            for entry in entries
+            if _normalize_card_bucket(str(entry.get("card_type", ""))) == wanted_type
+        ]
+
+    normalized_payload["total_cards"] = len(entries)
+    normalized_payload["counts_by_status"] = _card_counts_by_status(entries)
+    normalized_payload["counts_by_color"] = _card_counts_by_bucket(entries, "color")
+    normalized_payload["counts_by_type"] = _card_counts_by_bucket(entries, "card_type")
+    normalized_payload["sample_partial_ids"] = _card_sample_ids(entries, "partial")
+    normalized_payload["sample_missing_ids"] = _card_sample_ids(entries, "missing")
+    if summary_only:
+        normalized_payload.pop("entries", None)
+    else:
+        normalized_payload["entries"] = entries
+    return normalized_payload
+
+
+def _card_counts_by_status(entries: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    counts = {"implemented": 0, "partial": 0, "missing": 0}
+    for entry in entries:
+        status = _normalize_card_status(str(entry.get("status", "")))
+        if status in counts:
+            counts[status] += 1
+    return counts
+
+
+def _card_counts_by_bucket(
+    entries: Sequence[Mapping[str, Any]],
+    key: str,
+) -> dict[str, dict[str, int]]:
+    counts: dict[str, dict[str, int]] = {}
+    for entry in entries:
+        bucket_name = _normalize_card_bucket(str(entry.get(key, "unknown")))
+        bucket = counts.setdefault(
+            bucket_name,
+            {"implemented": 0, "partial": 0, "missing": 0},
+        )
+        status = _normalize_card_status(str(entry.get("status", "")))
+        if status in bucket:
+            bucket[status] += 1
+    return counts
+
+
+def _card_sample_ids(
+    entries: Sequence[Mapping[str, Any]],
+    status: str,
+) -> list[str]:
+    wanted_status = _normalize_card_status(status)
+    result: list[str] = []
+    for entry in entries:
+        if _normalize_card_status(str(entry.get("status", ""))) != wanted_status:
+            continue
+        result.append(str(entry.get("content_id", entry.get("normalized_id", ""))))
+        if len(result) >= 10:
+            break
+    return result
+
+
 def _combat_counts_by_category(entries: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, int]]:
     counts: dict[str, dict[str, int]] = {}
     for entry in entries:
@@ -343,6 +442,23 @@ def _normalize_combat_status(value: str) -> str:
         "unknown": "unknown",
     }
     return aliases.get(normalized, normalized)
+
+
+def _normalize_card_status(value: str) -> str:
+    normalized = value.strip().lower().replace("_", "-")
+    aliases = {
+        "blocked": "partial",
+        "done": "implemented",
+        "implemented": "implemented",
+        "missing": "missing",
+        "partial": "partial",
+        "unknown": "missing",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _normalize_card_bucket(value: str) -> str:
+    return value.strip().lower().replace("-", "_").replace(" ", "_")
 
 
 def _backend_error(exc: Exception) -> None:
@@ -647,6 +763,91 @@ def audit_combat(
             result,
             category=category,
             status=status,
+            summary_only=summary_only,
+        )
+    )
+
+
+@app.command("audit-cards")
+def audit_cards(
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--cache-dir",
+            "-d",
+            help="Directory containing cached source JSON files.",
+        ),
+    ] = None,
+    cards_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--cards-path",
+            help="Path to cached cards.json. Defaults to data/cache/eng/cards.json.",
+        ),
+    ] = None,
+    status: Annotated[
+        str | None,
+        typer.Option(
+            "--status",
+            "-s",
+            help="Filter by implemented, partial, or missing.",
+        ),
+    ] = None,
+    color: Annotated[
+        str | None,
+        typer.Option(
+            "--color",
+            "-c",
+            help="Filter by card color/character, e.g. ironclad or colorless.",
+        ),
+    ] = None,
+    card_type: Annotated[
+        str | None,
+        typer.Option(
+            "--type",
+            "-t",
+            help="Filter by attack, skill, power, status, curse, or quest.",
+        ),
+    ] = None,
+    summary_only: Annotated[
+        bool,
+        typer.Option(
+            "--summary-only",
+            help="Print counts and samples without per-card entries.",
+        ),
+    ] = False,
+    sample_size: Annotated[
+        int,
+        typer.Option(
+            "--sample-size",
+            min=0,
+            help="Number of partial/missing sample ids to keep before filtering.",
+        ),
+    ] = 10,
+) -> None:
+    """Audit cached cards as implemented, partial, or missing mechanics."""
+
+    try:
+        backend = _resolve_backend(
+            "audit-cards",
+            ("sts2sim.content.card_coverage", "sts2sim.content"),
+            ("audit_card_coverage",),
+        )
+        result = _call_backend(
+            backend,
+            cache_dir=cache_dir,
+            cards_path=cards_path,
+            sample_size=sample_size,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    _emit(
+        _card_audit_payload(
+            result,
+            status=status,
+            color=color,
+            card_type=card_type,
             summary_only=summary_only,
         )
     )

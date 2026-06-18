@@ -26,6 +26,7 @@ CARD_SPECIAL_EFFECT_KEYS = frozenset(
         "evoke_orb",
         "explicit_blocker",
         "orb_slot_delta",
+        "osty_action",
         "player_resource",
     }
 )
@@ -458,6 +459,8 @@ def _collect_summon_markers(
 ) -> None:
     if "summon" not in sentence:
         return
+    if "whenever osty hits this enemy" in sentence:
+        return
     if _is_timed_or_triggered(sentence):
         _append_blocker(
             blockers,
@@ -500,68 +503,82 @@ def _collect_osty_markers(
     if "osty" not in sentence:
         return
     if sentence.startswith("if osty is alive") or sentence.startswith("if osty's alive"):
-        _append_blocker(
-            blockers,
+        payloads = _conditional_osty_payloads(sentence)
+        if payloads:
+            _append_step(
+                steps,
+                events,
+                card_id=card_id,
+                special="osty_action",
+                effect_key="osty_action",
+                payload=payloads,
+            )
+        return
+
+    if "whenever osty loses hp" in sentence:
+        _append_step(
+            steps,
             events,
             card_id=card_id,
-            kind="osty_state_required",
-            reason="requires Osty companion state before resolving the effect",
-            metadata={"text": sentence},
+            special="osty_loss_damage",
+            effect_key="osty_action",
+            payload={"action": "enable_loss_damage"},
         )
         return
-    if "additional damage equal" in sentence or "for all your other osty attacks" in sentence:
-        _append_blocker(
-            blockers,
-            events,
-            card_id=card_id,
-            kind="dynamic_osty_damage",
-            reason="requires Osty state or combat history to determine damage",
-            metadata={"text": sentence},
-        )
 
     for match in re.finditer(
         r"\bosty(?:'s)?\s+deals\s+(\d+)\s+damage(?:\s+to\s+(all enemies|a random enemy))?",
         sentence,
     ):
-        target = _osty_target(match.group(2) or "")
-        _append_blocker(
-            blockers,
+        target = _osty_target_from_sentence(sentence, match.group(2) or "")
+        payload: dict[str, Any] = {
+            "action": "damage",
+            "amount": int(match.group(1)),
+            "target": target,
+        }
+        payload.update(_osty_damage_modifiers(sentence))
+        _append_step(
+            steps,
             events,
             card_id=card_id,
-            kind="osty_action_required",
-            reason="requires Osty companion state before resolving the action",
-            metadata={"action": "damage", "amount": int(match.group(1)), "target": target},
+            special="osty_action",
+            effect_key="osty_action",
+            payload=payload,
         )
 
     heal_match = re.search(r"\bosty(?:'s)?\s+heals\s+(\d+)\s+hp\b", sentence)
     if heal_match:
-        _append_blocker(
-            blockers,
+        _append_step(
+            steps,
             events,
             card_id=card_id,
-            kind="osty_action_required",
-            reason="requires Osty companion state before resolving the action",
-            metadata={"action": "heal", "amount": int(heal_match.group(1))},
+            special="osty_action",
+            effect_key="osty_action",
+            payload={"action": "heal", "amount": int(heal_match.group(1))},
         )
 
     if re.search(r"\bosty(?:'s)?\s+dies\b", sentence):
-        _append_blocker(
-            blockers,
+        _append_step(
+            steps,
             events,
             card_id=card_id,
-            kind="osty_action_required",
-            reason="requires Osty companion state before resolving the action",
-            metadata={"action": "die"},
+            special="osty_action",
+            effect_key="osty_action",
+            payload={"action": "die"},
         )
 
     if "osty's attacks deal" in sentence:
-        _append_blocker(
-            blockers,
+        modifier_match = re.search(r"\battacks\s+deal\s+(\d+)\s+additional\s+damage\b", sentence)
+        _append_step(
+            steps,
             events,
             card_id=card_id,
-            kind="osty_persistent_modifier",
-            reason="requires a companion modifier that persists beyond this source pass",
-            metadata={"text": sentence},
+            special="osty_damage_modifier",
+            effect_key="osty_action",
+            payload={
+                "action": "modify_damage",
+                "amount": int(modifier_match.group(1)) if modifier_match else 0,
+            },
         )
 
 
@@ -879,6 +896,53 @@ def _normalized_orb(orb: str) -> str:
     if key == "random_orb":
         return "random"
     return key
+
+
+def _conditional_osty_payloads(sentence: str) -> tuple[Mapping[str, Any], ...]:
+    payloads: list[Mapping[str, Any]] = []
+    damage_match = re.search(
+        r"\b(?:osty|he)\s+deals\s+(\d+)\s+damage(?:\s+to\s+(all enemies|a random enemy))?",
+        sentence,
+    )
+    if damage_match:
+        payloads.append(
+            {
+                "action": "damage",
+                "amount": int(damage_match.group(1)),
+                "target": _osty_target_from_sentence(sentence, damage_match.group(2) or ""),
+            }
+        )
+    block_match = re.search(r"\bgain\s+(\d+)\s+block\b", sentence)
+    if block_match:
+        payloads.append({"action": "block", "amount": int(block_match.group(1))})
+    if "gain block equal to double his max hp" in sentence:
+        payloads.append({"action": "block", "amount": "double_max_hp"})
+    if re.search(r"\b(?:osty|he)\s+dies\b", sentence):
+        payloads.append({"action": "die"})
+    return tuple(payloads)
+
+
+def _osty_damage_modifiers(sentence: str) -> dict[str, Any]:
+    modifiers: dict[str, Any] = {}
+    if "additional damage equal to osty's max hp" in sentence:
+        modifiers["bonus"] = "max_hp"
+    elif "additional damage equal to osty's current hp" in sentence:
+        modifiers["bonus"] = "current_hp"
+    elif "for all your other osty attacks" in sentence:
+        modifiers["bonus"] = "other_osty_attacks"
+        amount_match = re.search(r"\bdeals\s+(\d+)\s+additional\s+damage\s+for\b", sentence)
+        modifiers["bonus_per"] = int(amount_match.group(1)) if amount_match else 1
+    if "hits an additional time for each other time he has attacked this turn" in sentence:
+        modifiers["extra_hits"] = "attacks_this_turn"
+    return modifiers
+
+
+def _osty_target_from_sentence(sentence: str, raw_target: str) -> str:
+    if "to a random enemy" in sentence:
+        return "random_enemy"
+    if "all enemies" in sentence:
+        return "all_enemies"
+    return _osty_target(raw_target)
 
 
 def _osty_target(raw_target: str) -> str:

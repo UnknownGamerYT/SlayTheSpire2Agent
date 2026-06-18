@@ -36,6 +36,7 @@ from sts2sim.mechanics.campfire import (
 )
 from sts2sim.mechanics.card_effects import normalize_card_spec
 from sts2sim.mechanics.combat_rewards import (
+    CombatRewardCard,
     CombatRewardContext,
     build_boss_relic_pool,
     build_combat_card_pool,
@@ -168,6 +169,7 @@ SPOILS_MAP_CARD_ID = "spoils_map"
 SPOILS_MAP_GOLD = 600
 GOLDEN_COMPASS_RELIC_ID = "golden_compass"
 _DELAYED_EVENT_REWARDS_FLAG = "delayed_event_rewards"
+MAX_HAND_SIZE = 10
 _CAMPFIRE_ACTION_TYPES = frozenset(
     {
         ActionType.REST,
@@ -298,7 +300,9 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
     actions: list[Action] = []
     if not _turn_card_play_limit_reached(combat):
         for card in combat.hand:
-            cost = _energy_cost(card, combat.player.energy)
+            if _card_is_unplayable(card):
+                continue
+            cost = _energy_cost(card, combat.player.energy, combat=combat)
             if cost > combat.player.energy:
                 continue
             if not _can_pay_resource_costs(combat.player, card):
@@ -354,6 +358,8 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         next_state, events = _discard_potion(state, action)
     elif action.type == ActionType.DISCARD_CARD:
         next_state, events = _discard_card_from_hand(state, action)
+    elif action.type == ActionType.EXHAUST_CARD:
+        next_state, events = _exhaust_card_from_hand(state, action)
     elif action.type == ActionType.PROCEED:
         next_state, events = _proceed(state)
     elif action.type == ActionType.END_TURN:
@@ -716,22 +722,21 @@ def _apply_ancient_resolution(
         events.extend(transform_events)
 
     if resolution.card_reward_count:
-        flags = dict(next_state.flags)
-        flags["ancient_pending_card_reward_count"] = resolution.card_reward_count
-        flags["ancient_pending_card_reward_size"] = resolution.choice.card_reward_size
-        if resolution.choice.card_reward_kind is not None:
-            flags["ancient_pending_card_reward_kind"] = resolution.choice.card_reward_kind
-        next_state = next_state.model_copy(update={"flags": flags})
-        events.append(
-            EffectEvent(
-                kind="ancient_card_reward_pending",
-                amount=resolution.card_reward_count,
-                metadata={
-                    "size": resolution.choice.card_reward_size,
-                    "kind": resolution.choice.card_reward_kind,
-                },
-            )
+        reward, reward_events, reward_flags = _ancient_card_reward_state(
+            next_state,
+            rng,
+            resolution,
         )
+        flags = dict(next_state.flags)
+        flags.update(reward_flags)
+        next_state = next_state.model_copy(
+            update={
+                "phase": RunPhase.REWARD,
+                "reward": reward,
+                "flags": flags,
+            }
+        )
+        events.extend(reward_events)
 
     return next_state, tuple(events)
 
@@ -750,6 +755,215 @@ def _ancient_marker_event(marker: MechanicsAncientMarker) -> EffectEvent:
         amount=marker.amount if marker.amount is not None else marker.count,
         metadata=metadata,
     )
+
+
+def _ancient_card_reward_state(
+    state: RunState,
+    rng: Random,
+    resolution: MechanicsAncientResolution,
+) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
+    base_choice_count = resolution.choice.card_reward_size
+    base_group_count = max(0, resolution.card_reward_count - 1)
+    reward_trigger = _reward_generation_result(
+        state,
+        source="ancient",
+        encounter=EncounterType.EVENT,
+        card_count=base_choice_count,
+        extra_group_count=base_group_count,
+        metadata={
+            "ancient_id": resolution.choice.ancient_id,
+            "option_id": resolution.choice.option_id,
+            "reward_kind": resolution.choice.card_reward_kind,
+            "generates_card_reward": True,
+        },
+    )
+    total_group_count = 1 + reward_trigger.card_reward_group_count
+    groups, rarities, next_pity = _draw_ancient_card_reward_groups(
+        state,
+        rng,
+        resolution,
+        group_count=total_group_count,
+        card_count=reward_trigger.card_choice_count,
+    )
+    reward = _reward_with_card_option_groups(
+        None,
+        reward_id=f"ancient:{resolution.choice.option_id}",
+        source="ancient",
+        groups=groups,
+        rarities=rarities,
+        metadata={
+            "ancient_id": resolution.choice.ancient_id,
+            "option_id": resolution.choice.option_id,
+            "reward_kind": resolution.choice.card_reward_kind,
+            "reward_trigger_effects": _trigger_effect_metadata(reward_trigger.effects),
+        },
+    )
+    reward = reward.model_copy(update={"forced": True})
+    flags = {
+        "card_non_rare_count": next_pity.card_non_rare_count,
+        "potion_chance_bonus": next_pity.potion_chance_bonus,
+    }
+    return (
+        reward,
+        _reward_generated_events(reward) + _trigger_effect_events(reward_trigger.effects),
+        flags,
+    )
+
+
+def _draw_ancient_card_reward_groups(
+    state: RunState,
+    rng: Random,
+    resolution: MechanicsAncientResolution,
+    *,
+    group_count: int,
+    card_count: int,
+) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], RewardPityState]:
+    current_pity = RewardPityState(
+        card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
+        potion_chance_bonus=_flag_int(state, "potion_chance_bonus", 0),
+    )
+    groups: list[tuple[str, ...]] = []
+    rarities: list[tuple[str, ...]] = []
+    for _ in range(max(0, group_count)):
+        group, group_rarities, current_pity = _draw_ancient_card_reward_group(
+            state,
+            rng,
+            resolution,
+            card_count=card_count,
+            pity_state=current_pity,
+        )
+        if group:
+            groups.append(group)
+            rarities.append(group_rarities)
+    return tuple(groups), tuple(rarities), current_pity
+
+
+def _draw_ancient_card_reward_group(
+    state: RunState,
+    rng: Random,
+    resolution: MechanicsAncientResolution,
+    *,
+    card_count: int,
+    pity_state: RewardPityState,
+) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
+    reward_kind = _normalized_id(str(resolution.choice.card_reward_kind or ""))
+    pool = _ancient_card_reward_pool(state, reward_kind)
+    fixed_rarity = _card_rarity_qualifier(reward_kind)
+    if fixed_rarity is not None:
+        candidates = [card for card in pool if card.rarity is fixed_rarity]
+        if not candidates:
+            candidates = list(pool)
+        rng.shuffle(candidates)
+        selected = tuple(card.card_id for card in candidates[: max(0, card_count)])
+        return selected, tuple(fixed_rarity.value for _ in selected), pity_state
+
+    return draw_card_reward_options(
+        rng,
+        card_pool=pool,
+        context=CombatRewardContext(
+            character_id=state.character_id,
+            encounter=EncounterType.NORMAL,
+            act=state.act,
+            floor=state.floor,
+            ascension_level=state.ascension,
+            owned_relics=state.relics,
+        ),
+        pity_state=pity_state,
+        card_count=card_count,
+    )
+
+
+def _ancient_card_reward_pool(
+    state: RunState,
+    reward_kind: str,
+) -> tuple[CombatRewardCard, ...]:
+    raw_cards = _raw_card_pool_items(state)
+    if reward_kind == "colorless":
+        candidates = [
+            card
+            for raw_card in raw_cards
+            if (card := _reward_card_for_ancient(raw_card, include_colorless=True)) is not None
+            and card.color == "colorless"
+        ]
+        return tuple(candidates) or _combat_card_pool(state)
+
+    candidates = [
+        card
+        for raw_card in raw_cards
+        if (card := _reward_card_for_ancient(raw_card)) is not None
+        and _ancient_card_matches_kind(card, raw_card, reward_kind)
+    ]
+    return tuple(candidates) or _combat_card_pool(state)
+
+
+def _reward_card_for_ancient(
+    raw_card: Any,
+    *,
+    include_colorless: bool = False,
+) -> CombatRewardCard | None:
+    if isinstance(raw_card, str):
+        return CombatRewardCard(card_id=_normalized_id(raw_card), rarity=CardRarity.COMMON)
+    if not isinstance(raw_card, Mapping):
+        return None
+    card_id = _first_mapping_value(raw_card, "id", "card_id", "content_id")
+    if card_id is None:
+        return None
+    rarity = _card_rarity_from_mapping(raw_card)
+    color = _normalized_id(
+        str(_first_mapping_value(raw_card, "color", "pool", "character") or "shared")
+    )
+    card_type = _normalized_id(str(_first_mapping_value(raw_card, "type_key", "type") or ""))
+    if color in {"event", "curse", "status", "token", "quest"}:
+        return None
+    if color == "colorless" and not include_colorless:
+        return None
+    if card_type in {"curse", "status"}:
+        return None
+    return CombatRewardCard(
+        card_id=_normalized_id(str(card_id)),
+        rarity=rarity,
+        color=color,
+        name=str(raw_card.get("name", card_id)),
+        source_id=str(card_id),
+    )
+
+
+def _ancient_card_matches_kind(
+    card: CombatRewardCard,
+    raw_card: Any,
+    reward_kind: str,
+) -> bool:
+    if not reward_kind or reward_kind in {"character", "class", "multiplayer"}:
+        return True
+    if _card_rarity_qualifier(reward_kind) is not None:
+        return True
+    if reward_kind in {"attack", "skill", "power"} and isinstance(raw_card, Mapping):
+        card_type = _normalized_id(str(_first_mapping_value(raw_card, "type_key", "type") or ""))
+        return card_type == reward_kind
+    return card.color == reward_kind
+
+
+def _card_rarity_qualifier(value: str) -> CardRarity | None:
+    with suppress(ValueError):
+        return CardRarity(_normalized_id(value))
+    return None
+
+
+def _card_rarity_from_mapping(card: Mapping[str, Any]) -> CardRarity:
+    raw = _normalized_id(str(_first_mapping_value(card, "rarity_key", "rarity") or "common"))
+    if "uncommon" in raw:
+        return CardRarity.UNCOMMON
+    if "rare" in raw:
+        return CardRarity.RARE
+    return CardRarity.COMMON
+
+
+def _first_mapping_value(source: Mapping[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = source.get(key)
+        if value is not None:
+            return value
+    return None
 
 
 def _ancient_relic_pool_items(state: RunState) -> tuple[Any, ...]:
@@ -917,6 +1131,11 @@ def _proceed(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if state.phase == RunPhase.TREASURE:
         return _complete_current_room(state, (EffectEvent(kind="treasure_opened"),))
     if state.phase == RunPhase.REWARD:
+        if state.reward is not None and state.reward.source == "ancient":
+            return (
+                state.model_copy(update={"phase": RunPhase.MAP, "reward": None}),
+                (EffectEvent(kind="ancient_reward_completed"),),
+            )
         return _complete_current_room(state, (EffectEvent(kind="reward_skipped"),))
     return state, ()
 
@@ -1144,9 +1363,13 @@ def _campfire_state(state: RunState) -> CampfireState:
         current_hp=state.player.hp,
         max_hp=state.player.max_hp,
         upgradeable_card_ids=frozenset(
-            card.instance_id for card in state.master_deck if not card.upgraded
+            card.instance_id
+            for card in state.master_deck
+            if not card.upgraded and not _deck_card_mutation_blocked(card)
         ),
-        removable_card_ids=frozenset(card.instance_id for card in state.master_deck),
+        removable_card_ids=frozenset(
+            card.instance_id for card in state.master_deck if not _deck_card_mutation_blocked(card)
+        ),
         has_ruby_key=bool(state.flags.get("has_ruby_key", state.flags.get("ruby_key", False))),
         can_recall=bool(state.flags.get("can_recall", True)),
         has_shovel="shovel" in state.relics,
@@ -1560,7 +1783,9 @@ def _legal_event_transform_actions(
         return ()
     if choice_count <= 0:
         return (Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id),)
-    eligible_cards = tuple(state.master_deck)
+    eligible_cards = tuple(
+        card for card in state.master_deck if not _deck_card_mutation_blocked(card)
+    )
     if choice_count == 1:
         return tuple(
             Action(
@@ -2068,7 +2293,7 @@ def _upgrade_all_deck_cards(
     deck = list(state.master_deck)
     events: list[EffectEvent] = []
     for index, card in enumerate(deck):
-        if card.upgraded:
+        if card.upgraded or _deck_card_mutation_blocked(card):
             continue
         deck[index] = _upgrade_card_instance(card)
         events.append(
@@ -2090,7 +2315,7 @@ def _remove_random_deck_cards(
     source_id: str,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     deck = list(state.master_deck)
-    indices = list(range(len(deck)))
+    indices = [index for index, card in enumerate(deck) if not _deck_card_mutation_blocked(card)]
     rng.shuffle(indices)
     remove_indices = set(indices[: max(0, count)])
     removed = [card for index, card in enumerate(deck) if index in remove_indices]
@@ -2115,7 +2340,11 @@ def _downgrade_random_deck_cards(
     source_id: str,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     deck = list(state.master_deck)
-    candidates = [index for index, card in enumerate(deck) if card.upgraded]
+    candidates = [
+        index
+        for index, card in enumerate(deck)
+        if card.upgraded and not _deck_card_mutation_blocked(card)
+    ]
     rng.shuffle(candidates)
     events: list[EffectEvent] = []
     for index in candidates[: max(0, count)]:
@@ -2152,7 +2381,9 @@ def _transform_deck_cards(
             if card.instance_id == card_instance_id
         ]
     elif _event_transform_marker_is_random(marker):
-        candidate_indices = list(range(len(deck)))
+        candidate_indices = [
+            index for index, card in enumerate(deck) if not _deck_card_mutation_blocked(card)
+        ]
         rng.shuffle(candidate_indices)
         candidate_indices = candidate_indices[: marker.count]
     else:
@@ -2166,6 +2397,16 @@ def _transform_deck_cards(
             continue
         used_indices.add(index)
         old_card = deck[index]
+        if _deck_card_mutation_blocked(old_card):
+            events.append(
+                EffectEvent(
+                    kind="event_card_transform_blocked",
+                    source_id=source_id,
+                    target_id=old_card.instance_id,
+                    metadata={"old_card_id": old_card.card_id, "reason": "eternal"},
+                )
+            )
+            continue
         new_card_id = _draw_transformed_card_id(
             state,
             rng,
@@ -2279,7 +2520,11 @@ def _add_event_flow_card_rewards(
     rng: Random,
     marker: EventFlowMarker,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    groups, rarities, next_pity = _draw_event_flow_card_reward_groups(state, rng, marker)
+    groups, rarities, next_pity, reward_trigger = _draw_event_flow_card_reward_groups(
+        state,
+        rng,
+        marker,
+    )
     if not groups:
         return state, (
             EffectEvent(
@@ -2302,19 +2547,24 @@ def _add_event_flow_card_rewards(
             "marker_kind": marker.kind.value,
             "qualifier": marker.qualifier,
             "description": marker.description,
+            "reward_trigger_effects": _trigger_effect_metadata(reward_trigger.effects),
             **dict(marker.metadata),
         },
     )
     flags = dict(state.flags)
     flags["card_non_rare_count"] = next_pity.card_non_rare_count
     next_state = state.model_copy(update={"reward": reward, "flags": flags})
-    return next_state, _reward_generated_events(reward)
+    return (
+        next_state,
+        _reward_generated_events(reward) + _trigger_effect_events(reward_trigger.effects),
+    )
 
 
 def _reward_with_card_option_groups(
     reward: RewardState | None,
     *,
     reward_id: str,
+    source: Literal["combat", "event", "treasure", "ancient", "other"] = "event",
     groups: Sequence[Sequence[str]],
     rarities: Sequence[Sequence[str]],
     metadata: Mapping[str, Any],
@@ -2335,7 +2585,7 @@ def _reward_with_card_option_groups(
         }
         return RewardState(
             reward_id=reward_id,
-            source="event",
+            source=source,
             forced=False,
             card_options=card_options,
             card_option_groups=extra_groups,
@@ -2370,9 +2620,29 @@ def _draw_event_flow_card_reward_groups(
     state: RunState,
     rng: Random,
     marker: EventFlowMarker,
-) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], RewardPityState]:
-    group_count = max(1, marker.count)
-    card_count = _card_reward_choice_count(state, marker=marker)
+) -> tuple[
+    tuple[tuple[str, ...], ...],
+    tuple[tuple[str, ...], ...],
+    RewardPityState,
+    RewardGenerationResult,
+]:
+    base_group_count = max(0, marker.count - 1)
+    base_card_count = _base_card_reward_choice_count(state, marker=marker)
+    reward_trigger = _reward_generation_result(
+        state,
+        source="event",
+        encounter=EncounterType.EVENT,
+        card_count=base_card_count,
+        extra_group_count=base_group_count,
+        metadata={
+            "marker_kind": marker.kind.value,
+            "qualifier": marker.qualifier,
+            "description": marker.description,
+            "generates_card_reward": True,
+        },
+    )
+    group_count = 1 + reward_trigger.card_reward_group_count
+    card_count = reward_trigger.card_choice_count
     current_pity = RewardPityState(
         card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
         potion_chance_bonus=_flag_int(state, "potion_chance_bonus", 0),
@@ -2390,7 +2660,7 @@ def _draw_event_flow_card_reward_groups(
         if group:
             groups.append(group)
             rarities.append(group_rarities)
-    return tuple(groups), tuple(rarities), current_pity
+    return tuple(groups), tuple(rarities), current_pity, reward_trigger
 
 
 def _draw_event_flow_card_reward_group(
@@ -2691,6 +2961,17 @@ def _apply_event_enchants(
         if card.instance_id not in selected:
             deck.append(card)
             continue
+        if _deck_card_mutation_blocked(card):
+            deck.append(card)
+            events.append(
+                EffectEvent(
+                    kind="card_enchant_blocked",
+                    source_id=state.event.event_id if state.event else None,
+                    target_id=card.instance_id,
+                    metadata={"card_id": card.card_id, "reason": "eternal"},
+                )
+            )
+            continue
         source_id = state.event.event_id if state.event else None
         enchanted = _enchant_card(card, keyword, amount, source_id=source_id)
         deck.append(enchanted)
@@ -2744,7 +3025,8 @@ def _eligible_enchant_cards(
     return tuple(
         card
         for card in state.master_deck
-        if (card_type is None or card.type.value == str(card_type))
+        if not _deck_card_mutation_blocked(card)
+        and (card_type is None or card.type.value == str(card_type))
         and (not allowed_card_ids or _normalized_id(card.card_id) in allowed_card_ids)
         and (not requires_exhaust or card.exhausts or bool(card.effects.get("exhaust_on_play")))
     )
@@ -2982,7 +3264,11 @@ def _upgrade_random_deck_cards(
     source_id: str,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     deck = list(state.master_deck)
-    candidates = [index for index, card in enumerate(deck) if not card.upgraded]
+    candidates = [
+        index
+        for index, card in enumerate(deck)
+        if not card.upgraded and not _deck_card_mutation_blocked(card)
+    ]
     rng.shuffle(candidates)
     events: list[EffectEvent] = []
     for index in candidates[: max(0, count)]:
@@ -3386,6 +3672,8 @@ def _remove_first_card_by_id(
     for index, card in enumerate(deck):
         if _normalized_id(card.card_id) != normalized:
             continue
+        if _deck_card_mutation_blocked(card):
+            continue
         removed = deck.pop(index)
         return deck, removed
     return deck, None
@@ -3435,6 +3723,15 @@ def _apply_event_reward_card_costs(
         for index, card in enumerate(deck):
             if _normalized_id(card.card_id) != card_id:
                 continue
+            if _deck_card_mutation_blocked(card):
+                events.append(
+                    EffectEvent(
+                        kind="event_card_remove_blocked",
+                        target_id=card.instance_id,
+                        metadata={"card_id": card.card_id, "reason": "eternal"},
+                    )
+                )
+                break
             removed = deck.pop(index)
             events.append(
                 EffectEvent(
@@ -3607,6 +3904,14 @@ def _resolve_shop_action(
         update["potions"] = state.potions + (item.item.item_id,)
     elif item.item.kind is ShopItemKind.CARD_REMOVAL and result.removed_card_id is not None:
         removed_card = _find_card(state.master_deck, result.removed_card_id)
+        if removed_card is not None and _deck_card_mutation_blocked(removed_card):
+            return state, (
+                EffectEvent(
+                    kind="shop_card_remove_blocked",
+                    target_id=result.removed_card_id,
+                    metadata={"card_id": removed_card.card_id, "reason": "eternal"},
+                ),
+            )
         update["master_deck"] = tuple(
             deck_card
             for deck_card in state.master_deck
@@ -4230,6 +4535,14 @@ def _take_reward_card(
     ]
     if card_upgrade_event is not None:
         events.append(card_upgrade_event)
+    next_state, trigger_events = _apply_card_reward_taken_trigger(
+        next_state,
+        reward=state.reward,
+        card=card,
+        fixed=fixed,
+        group_index=group_index,
+    )
+    events.extend(trigger_events)
     if _normalized_id(card.card_id) == SPOILS_MAP_CARD_ID:
         next_act = state.act + 1
         if next_act <= _max_acts(state):
@@ -4280,6 +4593,49 @@ def _reward_card_for_target_id(
                 return None
             return reward.card_option_groups[group_index][card_index], None, group_index
     return None
+
+
+def _apply_card_reward_taken_trigger(
+    state: RunState,
+    *,
+    reward: RewardState,
+    card: CardInstance,
+    fixed: bool,
+    group_index: int | None,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    resolution = resolve_game_trigger(
+        GameTrigger.CARD_REWARD_TAKEN,
+        relics=state.relics,
+        context=TriggerContext(
+            GameTrigger.CARD_REWARD_TAKEN,
+            card_id=card.card_id,
+            card_type=card.type.value,
+            player_hp=state.player.hp,
+            player_max_hp=state.player.max_hp,
+            metadata={
+                "reward_id": reward.reward_id,
+                "reward_source": reward.source,
+                "card_instance_id": card.instance_id,
+                "fixed": fixed,
+                "card_group_index": group_index,
+            },
+        ),
+    )
+    next_state = state
+    if resolution.gold_delta or resolution.hp_delta or resolution.max_hp_delta:
+        player = state.player
+        if resolution.max_hp_delta:
+            player = player.model_copy(
+                update={"max_hp": max(1, player.max_hp + resolution.max_hp_delta)}
+            )
+        if resolution.hp_delta:
+            player = player.model_copy(
+                update={"hp": min(player.max_hp, max(0, player.hp + resolution.hp_delta))}
+            )
+        if resolution.gold_delta:
+            player = player.model_copy(update={"gold": max(0, player.gold + resolution.gold_delta)})
+        next_state = state.model_copy(update={"player": player})
+    return next_state, _trigger_effect_events(resolution.effects)
 
 
 def _reward_card_spec(state: RunState, card_id: str) -> dict[str, Any]:
@@ -4523,7 +4879,9 @@ def _shop_room_state(state: RunState) -> ShopRoomState:
     return ShopRoomState(
         gold=state.player.gold,
         inventory=_shop_inventory_from_state(state.shop),
-        removable_card_ids=frozenset(card.instance_id for card in state.master_deck),
+        removable_card_ids=frozenset(
+            card.instance_id for card in state.master_deck if not _deck_card_mutation_blocked(card)
+        ),
         purchased_item_indices=frozenset(
             index for index, item in enumerate(state.shop.items) if item.purchased
         ),
@@ -4905,8 +5263,7 @@ def _start_combat_for_node(
     state: RunState, node: MapNodeState
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     rng = random_from_state(state.rng)
-    draw_pile = list(state.master_deck)
-    rng.shuffle(draw_pile)
+    draw_pile, innate_events = _opening_draw_pile(state.master_deck, rng)
     combat = CombatState(
         player=state.player.model_copy(update={"block": 0, "energy": state.player.max_energy}),
         monsters=_monsters_for_node(state, node, rng),
@@ -4938,7 +5295,7 @@ def _start_combat_for_node(
     combat, turn_relic_events = _apply_combat_relic_resolution(combat, turn_relics)
     combat, bonus_draw, bonus_draw_events = _pop_pending_relic_draw(combat)
     rng_state = capture_random_state(rng)
-    combat, rng_state, draw_events = _draw_cards(
+    combat, rng_state, draw_events = _draw_opening_hand(
         combat,
         rng_state,
         combat.draw_per_turn + bonus_draw,
@@ -4946,6 +5303,7 @@ def _start_combat_for_node(
     combat = combat.model_copy(
         update={
             "last_events": start_relic_events
+            + innate_events
             + turn_relic_events
             + bonus_draw_events
             + draw_events
@@ -4957,7 +5315,43 @@ def _start_combat_for_node(
             target_id=node.node_id,
             metadata={"room_kind": node.kind.value, "act": node.act, "floor": node.floor},
         ),
-    ) + start_relic_events + turn_relic_events + bonus_draw_events + draw_events
+    ) + start_relic_events + innate_events + turn_relic_events + bonus_draw_events + draw_events
+
+
+def _opening_draw_pile(
+    master_deck: Sequence[CardInstance],
+    rng: Random,
+) -> tuple[tuple[CardInstance, ...], tuple[EffectEvent, ...]]:
+    innate_cards = tuple(card for card in master_deck if _card_is_innate(card))
+    other_cards = [card for card in master_deck if not _card_is_innate(card)]
+    rng.shuffle(other_cards)
+    events: tuple[EffectEvent, ...] = ()
+    if innate_cards:
+        events = (
+            EffectEvent(
+                kind="innate_cards_prioritized",
+                amount=len(innate_cards),
+                metadata={
+                    "card_instance_ids": [card.instance_id for card in innate_cards],
+                    "card_ids": [card.card_id for card in innate_cards],
+                },
+            ),
+        )
+    return innate_cards + tuple(other_cards), events
+
+
+def _draw_opening_hand(
+    combat: CombatState,
+    rng_state: RngState,
+    amount: int,
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    innate_count = 0
+    for card in combat.draw_pile:
+        if not _card_is_innate(card):
+            break
+        innate_count += 1
+    draw_amount = min(MAX_HAND_SIZE, max(0, amount, innate_count))
+    return _draw_cards(combat, rng_state, draw_amount)
 
 
 def _resolve_combat_relic_trigger(
@@ -5030,6 +5424,7 @@ def _normalize_action(state: RunState, action: Action) -> Action:
         ActionType.SHOP_LEAVE,
         ActionType.DISCARD_POTION,
         ActionType.DISCARD_CARD,
+        ActionType.EXHAUST_CARD,
         ActionType.THROW_POTION_AT_MERCHANT,
         ActionType.PROCEED,
     }:
@@ -5107,7 +5502,7 @@ def _action_is_legal(action: Action, legal_actions_: Sequence[Action]) -> bool:
         } and legal.target_id == action.target_id:
             return True
         if (
-            legal.type == ActionType.DISCARD_CARD
+            legal.type in {ActionType.DISCARD_CARD, ActionType.EXHAUST_CARD}
             and legal.card_instance_id == action.card_instance_id
         ):
             return True
@@ -5155,11 +5550,16 @@ def _pending_choice_actions(combat: CombatState) -> tuple[Action, ...]:
     choice = _active_pending_choice(combat)
     if choice is None:
         return ()
-    if choice.kind == "discard" and choice.zone == "hand":
+    if choice.kind in {"discard", "exhaust"} and choice.zone == "hand":
         candidate_ids = set(choice.candidate_ids)
+        action_type = (
+            ActionType.DISCARD_CARD
+            if choice.kind == "discard"
+            else ActionType.EXHAUST_CARD
+        )
         return tuple(
             Action(
-                type=ActionType.DISCARD_CARD,
+                type=action_type,
                 card_instance_id=card.instance_id,
                 payload={
                     "choice_id": choice.choice_id,
@@ -5282,6 +5682,62 @@ def _set_pending_discard_choice(
     )
 
 
+def _set_pending_exhaust_choice(
+    combat: CombatState,
+    *,
+    source_card: CardInstance,
+    hand: Sequence[CardInstance],
+    count: int,
+) -> tuple[CombatState, int]:
+    pending = _pending_exhaust_choice(combat)
+    pending_remaining = pending["remaining"] if pending is not None else 0
+    remaining = min(len(hand), pending_remaining + count)
+    if remaining <= 0:
+        return combat, 0
+
+    source_id = source_card.instance_id
+    choice_id = f"exhaust:{source_id}"
+    existing = next(
+        (
+            choice
+            for choice in combat.pending_choices
+            if choice.choice_id == choice_id and choice.kind == "exhaust"
+        ),
+        None,
+    )
+    pending_choice = PendingChoiceState(
+        choice_id=choice_id,
+        kind="exhaust",
+        source_id=source_id,
+        prompt=f"Exhaust {remaining} card{'s' if remaining != 1 else ''}.",
+        zone="hand",
+        candidate_ids=tuple(card.instance_id for card in hand),
+        selected_ids=existing.selected_ids if existing is not None else (),
+        min_choices=remaining,
+        max_choices=remaining,
+        remaining=remaining,
+        required=True,
+        metadata={"source_card_id": source_card.card_id},
+    )
+    pending_choices = tuple(
+        choice for choice in combat.pending_choices if choice.choice_id != choice_id
+    ) + (pending_choice,)
+
+    metadata = dict(combat.metadata)
+    metadata["pending_card_choice"] = {
+        "choice_id": choice_id,
+        "kind": "exhaust",
+        "source_card_instance_id": source_id,
+        "remaining": remaining,
+    }
+    return (
+        combat.model_copy(
+            update={"metadata": metadata, "pending_choices": pending_choices}
+        ),
+        remaining,
+    )
+
+
 def _discard_card_from_hand(
     state: RunState,
     action: Action,
@@ -5357,6 +5813,99 @@ def _discard_card_from_hand(
             "discard_pile": combat.discard_pile + (discarded,),
             "metadata": metadata,
             "pending_choices": pending_choices,
+        }
+    )
+    combat, rng_state, sly_events = _apply_sly_discarded_cards(
+        combat,
+        state.rng,
+        (discarded,),
+        reason="chosen_discard",
+        relics=state.relics,
+    )
+    all_events = (event,) + movement_events + sly_events
+    combat = combat.model_copy(update={"last_events": all_events})
+    return (
+        state.model_copy(update={"combat": combat, "player": combat.player, "rng": rng_state}),
+        all_events,
+    )
+
+
+def _exhaust_card_from_hand(
+    state: RunState,
+    action: Action,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    if state.combat is None or action.card_instance_id is None:
+        return state, ()
+
+    combat = state.combat
+    payload_choice_id = action.payload.get("choice_id")
+    pending_choice = _pending_choice_by_id(
+        combat,
+        payload_choice_id if isinstance(payload_choice_id, str) else None,
+    )
+    exhaust_choice = _pending_exhaust_choice(combat)
+    if exhaust_choice is None and (
+        pending_choice is None or pending_choice.kind != "exhaust"
+    ):
+        return state, ()
+
+    exhausted = _find_card(combat.hand, action.card_instance_id)
+    if exhausted is None:
+        return state, ()
+
+    if pending_choice is not None and pending_choice.kind == "exhaust":
+        remaining_before = pending_choice.remaining
+        source_id = pending_choice.source_id
+    elif exhaust_choice is not None:
+        remaining_before = exhaust_choice["remaining"]
+        source_id = exhaust_choice.get("source_card_instance_id")
+    else:
+        return state, ()
+
+    remaining = max(0, remaining_before - 1)
+    hand = tuple(card for card in combat.hand if card.instance_id != exhausted.instance_id)
+    metadata = dict(combat.metadata)
+    if remaining > 0 and hand:
+        metadata["pending_card_choice"] = {
+            **(exhaust_choice or {}),
+            "kind": "exhaust",
+            "source_card_instance_id": source_id,
+            "remaining": remaining,
+        }
+    else:
+        metadata.pop("pending_card_choice", None)
+    pending_choices = _advance_pending_choice(
+        combat,
+        pending_choice,
+        selected_id=exhausted.instance_id,
+        remaining=remaining if hand else 0,
+    )
+
+    event = EffectEvent(
+        kind="card_exhausted_by_choice",
+        source_id=source_id,
+        target_id=exhausted.instance_id,
+        amount=1,
+        metadata={
+            "card_id": exhausted.card_id,
+            "remaining": remaining if hand else 0,
+        },
+    )
+    movement_events = _card_movement_events(
+        GameTrigger.CARD_EXHAUSTED,
+        (exhausted,),
+        from_pile="hand",
+        to_pile="exhaust_pile",
+        source_id=source_id,
+        reason="chosen_exhaust",
+        metadata={"remaining": remaining if hand else 0},
+    )
+    combat = combat.model_copy(
+        update={
+            "hand": hand,
+            "exhaust_pile": combat.exhaust_pile + (exhausted,),
+            "metadata": metadata,
+            "pending_choices": pending_choices,
             "last_events": (event,) + movement_events,
         }
     )
@@ -5376,7 +5925,7 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         return state, ()
 
     hand = tuple(item for item in combat.hand if item.instance_id != card.instance_id)
-    energy_spent = _energy_cost(card, combat.player.energy)
+    energy_spent = _energy_cost(card, combat.player.energy, combat=combat)
     player, resource_events = _pay_card_resource_costs(
         combat.player.model_copy(update={"energy": combat.player.energy - energy_spent}),
         card,
@@ -5406,7 +5955,12 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         ),
     ) + destination_events + resource_events + effect_events + vigor_events
 
-    combat, hook_events = _apply_after_card_play_hooks(combat, card, state.relics)
+    combat, hook_events = _apply_after_card_play_hooks(
+        combat,
+        card,
+        state.relics,
+        energy_spent=energy_spent,
+    )
     events += hook_events
 
     combat = combat.model_copy(
@@ -5419,6 +5973,99 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
     return _state_after_combat(state, combat, rng_state), events
 
 
+def _apply_end_turn_hand_card_effects(
+    combat: CombatState,
+    cards: Sequence[CardInstance],
+    *,
+    relics: Sequence[str] = (),
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    player = combat.player
+    events: list[EffectEvent] = []
+    for card in cards:
+        text = _plain_card_description(card)
+        if "at the end of your turn" not in text:
+            continue
+        if "if this is in your hand" not in text and "if this is in hand" not in text:
+            continue
+
+        for amount in _description_amounts(text, r"\btake\s+(\d+)\s+damage\b"):
+            player, event = _damage_player(player, amount, card.instance_id, relics=relics)
+            events.append(
+                event.model_copy(
+                    update={
+                        "metadata": {
+                            **event.metadata,
+                            "card_id": card.card_id,
+                            "reason": "end_turn_hand_card",
+                        }
+                    }
+                )
+            )
+
+        for amount in _description_amounts(text, r"\blose\s+(\d+)\s+hp\b"):
+            player, event = _lose_player_hp(player, amount, card.instance_id)
+            events.append(
+                event.model_copy(
+                    update={
+                        "metadata": {
+                            **event.metadata,
+                            "card_id": card.card_id,
+                            "reason": "end_turn_hand_card",
+                        }
+                    }
+                )
+            )
+
+        for amount in _description_amounts(text, r"\blose\s+(\d+)\s+gold\b"):
+            old_gold = player.gold
+            player = player.model_copy(update={"gold": max(0, player.gold - amount)})
+            events.append(
+                EffectEvent(
+                    kind="gold_lost",
+                    source_id=card.instance_id,
+                    target_id=PLAYER_TARGET_ID,
+                    amount=old_gold - player.gold,
+                    metadata={"card_id": card.card_id, "reason": "end_turn_hand_card"},
+                )
+            )
+
+        for status in ("frail", "vulnerable", "weak"):
+            for amount in _description_amounts(text, rf"\bgain\s+(\d+)\s+{status}\b"):
+                statuses, status_event = _apply_status_value(
+                    player.statuses,
+                    status,
+                    amount,
+                    source_id=card.instance_id,
+                    target_id=PLAYER_TARGET_ID,
+                )
+                player = player.model_copy(update={"statuses": statuses})
+                if status_event is None:
+                    continue
+                events.append(
+                    status_event.model_copy(
+                        update={
+                            "metadata": {
+                                **status_event.metadata,
+                                "card_id": card.card_id,
+                                "reason": "end_turn_hand_card",
+                            }
+                        }
+                    )
+                )
+    return combat.model_copy(update={"player": player}), tuple(events)
+
+
+def _plain_card_description(card: CardInstance) -> str:
+    source = _card_source_spec(card)
+    description = str(source.get("description", source.get("description_raw", "")) or "")
+    text = re.sub(r"\[/?[^\]]+\]", "", description)
+    return " ".join(text.lower().split())
+
+
+def _description_amounts(text: str, pattern: str) -> tuple[int, ...]:
+    return tuple(int(amount) for amount in re.findall(pattern, text))
+
+
 def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if state.combat is None:
         return state, ()
@@ -5426,6 +6073,13 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     combat = state.combat
     rng = random_from_state(state.rng)
     events: list[EffectEvent] = []
+    player = combat.player
+    combat, hand_effect_events = _apply_end_turn_hand_card_effects(
+        combat,
+        combat.hand,
+        relics=state.relics,
+    )
+    events.extend(hand_effect_events)
     player = combat.player
     retained_hand: tuple[CardInstance, ...]
     discarded_hand: tuple[CardInstance, ...]
@@ -5525,27 +6179,28 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     player = combat.player
 
     monster_definitions = _monster_definitions(state)
-    monsters: list[MonsterState] = []
-    for monster in combat.monsters:
+    monsters = list(combat.monsters)
+    for monster_index, monster in enumerate(monsters):
         if monster.hp <= 0:
-            monsters.append(monster)
             continue
         monster, poison_events = _apply_monster_poison(monster)
+        monsters[monster_index] = monster
+        combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
         events.extend(poison_events)
         if monster.hp <= 0:
-            monsters.append(monster)
             continue
-        monster, player, monster_events = _execute_monster_turn(
+        combat, monster_events = _execute_monster_turn(
             state=state,
-            monster=monster,
-            player=player,
+            monster_index=monster_index,
+            combat=combat,
             monster_definitions=monster_definitions,
             rng=rng,
         )
+        player = combat.player
+        monsters = list(combat.monsters)
         events.extend(monster_events)
-        monsters.append(monster)
 
-    player = player.model_copy(
+    player = combat.player.model_copy(
         update={
             "block": 0,
             "energy": player.max_energy,
@@ -5641,12 +6296,14 @@ def _card_after_end_turn_retain(card: CardInstance) -> CardInstance:
 def _execute_monster_turn(
     *,
     state: RunState,
-    monster: MonsterState,
-    player: PlayerState,
+    monster_index: int,
+    combat: CombatState,
     monster_definitions: Mapping[str, MonsterDefinition],
     rng: Random,
-) -> tuple[MonsterState, PlayerState, tuple[EffectEvent, ...]]:
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     events: list[EffectEvent] = []
+    monster = combat.monsters[monster_index]
+    player = combat.player
     if monster.block:
         events.append(
             EffectEvent(
@@ -5657,16 +6314,17 @@ def _execute_monster_turn(
             )
         )
         monster = monster.model_copy(update={"block": 0})
+        combat = _combat_with_monster(combat, monster_index, monster)
 
     definition = _definition_for_monster(monster, monster_definitions)
     move = move_by_id(definition, monster.move_id) if definition is not None else None
     if definition is None or move is None:
-        monster, player, fallback_events = _execute_fallback_monster_turn(
-            monster,
-            player,
+        combat, fallback_events = _execute_fallback_monster_turn(
+            combat,
+            monster_index,
             relics=state.relics,
         )
-        return monster, player, tuple(events) + fallback_events
+        return combat, tuple(events) + fallback_events
 
     per_hit_damage = _monster_attack_hit_damage(
         definition,
@@ -5676,14 +6334,156 @@ def _execute_monster_turn(
     )
     if per_hit_damage:
         for hit_index in range(move.hit_count):
-            player, damage_event = _damage_player(
-                player,
+            combat, damage_events = _damage_combat_player(
+                combat,
                 per_hit_damage,
                 monster.monster_id,
                 relics=state.relics,
             )
-            events.append(
-                damage_event.model_copy(
+            for damage_event in damage_events:
+                events.append(
+                    damage_event.model_copy(
+                        update={
+                            "metadata": {
+                                **damage_event.metadata,
+                                "hit_index": hit_index,
+                                "hit_count": move.hit_count,
+                            }
+                        }
+                    )
+                )
+            player = combat.player
+            monster = combat.monsters[monster_index]
+            monster, thorns_events = _apply_player_thorns_to_attacker(
+                monster,
+                player,
+                source_id=monster.monster_id,
+            )
+            combat = _combat_with_monster(combat, monster_index, monster)
+            events.extend(thorns_events)
+            if monster.hp <= 0:
+                break
+
+    monster = combat.monsters[monster_index]
+    player = combat.player
+    if monster.hp <= 0:
+        return combat, tuple(events)
+
+    if move.block:
+        monster = monster.model_copy(update={"block": monster.block + move.block})
+        combat = _combat_with_monster(combat, monster_index, monster)
+        events.append(
+            EffectEvent(
+                kind="monster_block",
+                source_id=monster.monster_id,
+                target_id=monster.monster_id,
+                amount=move.block,
+            )
+        )
+
+    if move.heal:
+        old_hp = monster.hp
+        monster = monster.model_copy(update={"hp": min(monster.max_hp, monster.hp + move.heal)})
+        combat = _combat_with_monster(combat, monster_index, monster)
+        events.append(
+            EffectEvent(
+                kind="monster_healed",
+                source_id=monster.monster_id,
+                target_id=monster.monster_id,
+                amount=monster.hp - old_hp,
+            )
+        )
+
+    for power in move.powers:
+        monster, player, power_event = _apply_monster_power(
+            definition,
+            monster,
+            player,
+            power,
+            ascension_level=state.ascension,
+        )
+        combat = _combat_with_monster(
+            combat.model_copy(update={"player": player}),
+            monster_index,
+            monster,
+        )
+        if power_event is not None:
+            events.append(power_event)
+
+    counts = next_move_counts(_monster_move_counts(monster), move.move_id)
+    next_move = next_monster_move(
+        definition,
+        move.move_id,
+        rng,
+        slot_index=_monster_slot_index(monster),
+        move_counts=counts,
+    )
+    monster = _set_monster_move(
+        monster,
+        definition,
+        next_move,
+        player=player,
+        ascension_level=state.ascension,
+        move_counts=counts,
+    )
+
+    return _combat_with_monster(combat, monster_index, monster), tuple(events)
+
+
+def _combat_with_monster(
+    combat: CombatState,
+    monster_index: int,
+    monster: MonsterState,
+) -> CombatState:
+    monsters = list(combat.monsters)
+    if not 0 <= monster_index < len(monsters):
+        return combat
+    monsters[monster_index] = monster
+    return combat.model_copy(update={"monsters": tuple(monsters)})
+
+
+def _execute_fallback_monster_turn(
+    combat: CombatState,
+    monster_index: int,
+    *,
+    relics: Sequence[str] = (),
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    events: list[EffectEvent] = []
+    monster = combat.monsters[monster_index]
+    if monster.intent_damage:
+        combat, damage_events = _damage_combat_player(
+            combat,
+            monster.intent_damage,
+            monster.monster_id,
+            relics=relics,
+        )
+        events.extend(damage_events)
+        monster = combat.monsters[monster_index]
+        monster, thorns_events = _apply_player_thorns_to_attacker(
+            monster,
+            combat.player,
+            source_id=monster.monster_id,
+        )
+        combat = _combat_with_monster(combat, monster_index, monster)
+        events.extend(thorns_events)
+    if monster.hp <= 0:
+        return combat, tuple(events)
+    if monster.intent_block:
+        monster = monster.model_copy(update={"block": monster.block + monster.intent_block})
+        combat = _combat_with_monster(combat, monster_index, monster)
+        events.append(
+            EffectEvent(
+                kind="monster_block",
+                source_id=monster.monster_id,
+                target_id=monster.monster_id,
+                amount=monster.intent_block,
+            )
+        )
+    return combat, tuple(events)
+
+
+def _legacy_execute_fallback_monster_turn_removed() -> None:
+    return None
                     update={
                         "metadata": {
                             **damage_event.metadata,
@@ -5763,6 +6563,8 @@ def _apply_after_card_play_hooks(
     combat: CombatState,
     card: CardInstance,
     relics: Sequence[str] = (),
+    *,
+    energy_spent: int = 0,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     player = combat.player
     events: list[EffectEvent] = []
@@ -5797,7 +6599,56 @@ def _apply_after_card_play_hooks(
     if card.type == CardType.ATTACK:
         metadata["attacks_played_this_turn"] = attack_count + 1
     combat = combat.model_copy(update={"metadata": metadata})
-    return combat, tuple(events) + relic_events
+    combat, return_events = _return_right_hand_hand_from_discard(combat, card, energy_spent)
+    return combat, tuple(events) + relic_events + return_events
+
+
+def _return_right_hand_hand_from_discard(
+    combat: CombatState,
+    played_card: CardInstance,
+    energy_spent: int,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if energy_spent < 2 or len(combat.hand) >= MAX_HAND_SIZE:
+        return combat, ()
+    returned: list[CardInstance] = []
+    remaining_discard: list[CardInstance] = []
+    open_slots = MAX_HAND_SIZE - len(combat.hand)
+    for card in combat.discard_pile:
+        if (
+            open_slots > 0
+            and card.instance_id != played_card.instance_id
+            and _normalized_id(card.card_id) == "right_hand_hand"
+        ):
+            returned.append(card)
+            open_slots -= 1
+        else:
+            remaining_discard.append(card)
+    if not returned:
+        return combat, ()
+    events = tuple(
+        EffectEvent(
+            kind="card_returned_to_hand",
+            source_id=played_card.instance_id,
+            target_id=card.instance_id,
+            amount=1,
+            metadata={
+                "card_id": card.card_id,
+                "trigger": "played_card_cost_2_or_more",
+                "played_card_id": played_card.card_id,
+                "energy_spent": energy_spent,
+            },
+        )
+        for card in returned
+    )
+    return (
+        combat.model_copy(
+            update={
+                "hand": combat.hand + tuple(returned),
+                "discard_pile": tuple(remaining_discard),
+            }
+        ),
+        events,
+    )
 
 
 def _execute_fallback_monster_turn(
@@ -6092,6 +6943,15 @@ def _apply_effect_step(
     )
     events.extend(orb_events)
 
+    combat, rng_state, osty_events = _apply_osty_action_effect(
+        combat,
+        rng_state,
+        card,
+        effect,
+        relics=relics,
+    )
+    events.extend(osty_events)
+
     draw = _effect_amount(effect, "draw", energy_spent)
     if draw:
         combat, rng_state, draw_events = _draw_cards(combat, rng_state, draw)
@@ -6115,6 +6975,7 @@ def _apply_effect_step(
         rng_state,
         card,
         effect,
+        relics=relics,
     )
     events.extend(hand_events)
 
@@ -6181,6 +7042,380 @@ def _apply_orb_effects(
         events.extend(evoke_events)
 
     return combat, capture_random_state(rng), tuple(events)
+
+
+def _apply_osty_action_effect(
+    combat: CombatState,
+    rng_state: RngState,
+    source_card: CardInstance,
+    effect: Mapping[str, Any],
+    *,
+    relics: Sequence[str] = (),
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    payload = effect.get("osty_action")
+    if payload is None:
+        return combat, rng_state, ()
+
+    rng = random_from_state(rng_state)
+    events: list[EffectEvent] = []
+    osty = _osty_state(combat)
+
+    for action_payload in _osty_action_payloads(payload):
+        action = _normalized_id(str(action_payload.get("action", "damage")))
+        if action in {"damage", "block", "die"} and not _truthy(osty.get("alive", True)):
+            events.append(
+                EffectEvent(
+                    kind="osty_action_blocked",
+                    source_id=source_card.instance_id,
+                    metadata={
+                        "reason": "osty_not_alive",
+                        "card_id": source_card.card_id,
+                        "action": action,
+                    },
+                )
+            )
+            continue
+
+        if action == "damage":
+            amount = _coerce_positive_int(action_payload.get("amount"), default=0)
+            amount = _osty_damage_amount(combat, source_card, osty, amount)
+            if amount <= 0:
+                continue
+            target = _normalized_id(str(action_payload.get("target", "enemy")))
+            hits = _osty_hit_count(combat, source_card, action_payload)
+            for hit_index in range(hits):
+                target_ids = _osty_target_ids(combat, target, rng)
+                if not target_ids:
+                    break
+                monsters, damage_events = _damage_monsters(
+                    combat.monsters,
+                    target_ids,
+                    amount,
+                    source_card.instance_id,
+                    relics=relics,
+                )
+                combat = combat.model_copy(update={"monsters": tuple(monsters)})
+                events.append(
+                    EffectEvent(
+                        kind="osty_damaged_enemies",
+                        source_id=source_card.instance_id,
+                        amount=amount,
+                        metadata={
+                            "card_id": source_card.card_id,
+                            "target": target,
+                            "target_ids": list(target_ids),
+                            "hit_index": hit_index + 1,
+                            "hit_count": hits,
+                        },
+                    )
+                )
+                events.extend(damage_events)
+                combat, hit_events = _apply_osty_hit_triggers(
+                    combat,
+                    source_card,
+                    target_ids,
+                    relics=relics,
+                )
+                events.extend(hit_events)
+            osty = {
+                **osty,
+                "attacks_this_turn": _coerce_int(osty.get("attacks_this_turn"), default=0)
+                + hits,
+            }
+            combat = _set_osty_state(combat, osty)
+            continue
+
+        if action == "block":
+            amount = _osty_state_amount(action_payload.get("amount"), osty)
+            if amount <= 0:
+                continue
+            player = combat.player.model_copy(update={"block": combat.player.block + amount})
+            combat = combat.model_copy(update={"player": player})
+            events.append(
+                EffectEvent(
+                    kind="player_block",
+                    source_id=source_card.instance_id,
+                    target_id=PLAYER_TARGET_ID,
+                    amount=amount,
+                    metadata={"card_id": source_card.card_id, "source": "osty"},
+                )
+            )
+            continue
+
+        if action == "heal":
+            amount = _coerce_positive_int(action_payload.get("amount"), default=0)
+            max_hp = _coerce_positive_int(osty.get("max_hp"), default=20)
+            old_hp = _coerce_positive_int(osty.get("hp"), default=max_hp)
+            osty = {**osty, "max_hp": max_hp, "hp": min(max_hp, old_hp + amount), "alive": True}
+            events.append(
+                EffectEvent(
+                    kind="osty_healed",
+                    source_id=source_card.instance_id,
+                    amount=int(osty["hp"]) - old_hp,
+                    metadata={"card_id": source_card.card_id},
+                )
+            )
+            continue
+
+        if action == "modify_damage":
+            amount = _coerce_int(action_payload.get("amount"), default=0)
+            if amount == 0:
+                continue
+            osty = {
+                **osty,
+                "damage_bonus": max(0, _coerce_int(osty.get("damage_bonus"), default=0) + amount),
+            }
+            events.append(
+                EffectEvent(
+                    kind="osty_damage_bonus_changed",
+                    source_id=source_card.instance_id,
+                    amount=amount,
+                    metadata={
+                        "card_id": source_card.card_id,
+                        "damage_bonus": osty["damage_bonus"],
+                    },
+                )
+            )
+            continue
+
+        if action == "enable_loss_damage":
+            osty = {**osty, "loss_damage_enabled": True}
+            events.append(
+                EffectEvent(
+                    kind="osty_loss_damage_enabled",
+                    source_id=source_card.instance_id,
+                    metadata={"card_id": source_card.card_id},
+                )
+            )
+            continue
+
+        if action == "die":
+            old_hp = _coerce_positive_int(osty.get("hp"), default=20)
+            osty = {**osty, "hp": 0, "alive": False}
+            events.append(
+                EffectEvent(
+                    kind="osty_died",
+                    source_id=source_card.instance_id,
+                    amount=-old_hp,
+                    metadata={"card_id": source_card.card_id},
+                )
+            )
+            combat, loss_events = _apply_osty_hp_loss_triggers(
+                combat,
+                source_card,
+                old_hp,
+                relics=relics,
+            )
+            events.extend(loss_events)
+
+    combat = _set_osty_state(combat, osty)
+    return combat, capture_random_state(rng), tuple(events)
+
+
+def _osty_action_payloads(payload: Any) -> tuple[Mapping[str, Any], ...]:
+    if isinstance(payload, Mapping):
+        return (payload,)
+    if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
+        return tuple(item for item in payload if isinstance(item, Mapping))
+    return ()
+
+
+def _osty_state_amount(value: Any, osty: Mapping[str, Any]) -> int:
+    normalized = _normalized_id(str(value))
+    if normalized == "double_max_hp":
+        return _coerce_positive_int(osty.get("max_hp"), default=20) * 2
+    if normalized in {"max_hp", "osty_max_hp"}:
+        return _coerce_positive_int(osty.get("max_hp"), default=20)
+    if normalized in {"current_hp", "hp", "osty_current_hp"}:
+        return _coerce_positive_int(osty.get("hp"), default=20)
+    return _coerce_positive_int(value, default=0)
+
+
+def _osty_damage_amount(
+    combat: CombatState,
+    source_card: CardInstance,
+    osty: Mapping[str, Any],
+    base_amount: int,
+) -> int:
+    text = _plain_card_description(source_card)
+    comparable_text = text.replace("'", "")
+    amount = base_amount + _coerce_int(osty.get("damage_bonus"), default=0)
+    if "additional damage equal to ostys max hp" in comparable_text:
+        amount += _coerce_positive_int(osty.get("max_hp"), default=20)
+    if "additional damage equal to ostys current hp" in comparable_text:
+        amount += _coerce_positive_int(osty.get("hp"), default=20)
+    if "for all your other osty attacks" in comparable_text:
+        amount += _osty_other_attack_bonus(source_card, combat)
+    return max(0, amount)
+
+
+def _osty_other_attack_bonus(source_card: CardInstance, combat: CombatState) -> int:
+    text = _plain_card_description(source_card)
+    amount_match = re.search(r"\bdeals\s+(\d+)\s+additional\s+damage\s+for\b", text)
+    bonus_per_card = int(amount_match.group(1)) if amount_match else 1
+    return bonus_per_card * _other_osty_attack_count(source_card, combat)
+
+
+def _other_osty_attack_count(source_card: CardInstance, combat: CombatState) -> int:
+    cards = (
+        combat.hand
+        + combat.draw_pile
+        + combat.discard_pile
+        + combat.exhaust_pile
+    )
+    return sum(
+        1
+        for card in cards
+        if card.instance_id != source_card.instance_id and _card_is_osty_attack(card)
+    )
+
+
+def _osty_hit_count(
+    combat: CombatState,
+    source_card: CardInstance,
+    payload: Mapping[str, Any],
+) -> int:
+    text = _plain_card_description(source_card)
+    if (
+        _normalized_id(str(payload.get("extra_hits", ""))) == "attacks_this_turn"
+        or "hits an additional time for each other time he has attacked this turn" in text
+    ):
+        return max(1, 1 + _metadata_int(combat.metadata, "osty_attacks_this_turn", 0))
+    return 1
+
+
+def _apply_osty_hit_triggers(
+    combat: CombatState,
+    source_card: CardInstance,
+    target_ids: Sequence[str],
+    *,
+    relics: Sequence[str],
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    events: list[EffectEvent] = []
+    player = combat.player
+    if _has_relic_id(relics, "bone_flute"):
+        player = player.model_copy(update={"block": player.block + 2})
+        events.append(
+            EffectEvent(
+                kind="player_block",
+                source_id=source_card.instance_id,
+                target_id=PLAYER_TARGET_ID,
+                amount=2,
+                metadata={"card_id": source_card.card_id, "relic_id": "bone_flute"},
+            )
+        )
+
+    summon = 0
+    for monster in combat.monsters:
+        if monster.monster_id in target_ids:
+            summon += _status_amount(monster.statuses, "sicem")
+    if summon > 0:
+        player = _set_player_resource(
+            player,
+            "summon",
+            _player_resource(player, "summon") + summon,
+        )
+        events.append(
+            EffectEvent(
+                kind="player_resource_changed",
+                source_id=source_card.instance_id,
+                target_id=PLAYER_TARGET_ID,
+                amount=summon,
+                metadata={
+                    "resource": "summon",
+                    "value": _player_resource(player, "summon"),
+                    "trigger": "sicem",
+                    "target_ids": list(target_ids),
+                },
+            )
+        )
+
+    if events:
+        combat = combat.model_copy(update={"player": player})
+    return combat, tuple(events)
+
+
+def _apply_osty_hp_loss_triggers(
+    combat: CombatState,
+    source_card: CardInstance,
+    hp_loss: int,
+    *,
+    relics: Sequence[str],
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if hp_loss <= 0:
+        return combat, ()
+    osty = _osty_state(combat)
+    if not _truthy(osty.get("loss_damage_enabled", False)) and _status_amount(
+        combat.player.statuses,
+        "necro_mastery",
+    ) <= 0:
+        return combat, ()
+    target_ids = tuple(monster.monster_id for monster in _alive_monsters(combat))
+    monsters, damage_events = _damage_monsters(
+        combat.monsters,
+        target_ids,
+        hp_loss,
+        source_card.instance_id,
+        relics=relics,
+    )
+    event = EffectEvent(
+        kind="osty_hp_loss_damaged_enemies",
+        source_id=source_card.instance_id,
+        amount=hp_loss,
+        metadata={"card_id": source_card.card_id, "target_ids": list(target_ids)},
+    )
+    return combat.model_copy(update={"monsters": tuple(monsters)}), (event,) + damage_events
+
+
+def _osty_target_ids(
+    combat: CombatState,
+    target: str,
+    rng: Random,
+) -> tuple[str, ...]:
+    alive = _alive_monsters(combat)
+    if target == "all_enemies":
+        return tuple(monster.monster_id for monster in alive)
+    if not alive:
+        return ()
+    if target == "random_enemy" and len(alive) > 1:
+        return (rng.choice(alive).monster_id,)
+    return (alive[0].monster_id,)
+
+
+def _osty_state(combat: CombatState) -> dict[str, Any]:
+    raw = combat.metadata.get("osty")
+    if isinstance(raw, Mapping):
+        return {
+            "alive": _truthy(raw.get("alive", True)),
+            "hp": _coerce_positive_int(raw.get("hp"), default=20),
+            "max_hp": _coerce_positive_int(raw.get("max_hp"), default=20),
+            "damage_bonus": _coerce_int(raw.get("damage_bonus"), default=0),
+            "attacks_this_turn": _coerce_int(raw.get("attacks_this_turn"), default=0),
+            "loss_damage_enabled": _truthy(raw.get("loss_damage_enabled", False)),
+        }
+    return {
+        "alive": True,
+        "hp": 20,
+        "max_hp": 20,
+        "damage_bonus": 0,
+        "attacks_this_turn": _metadata_int(combat.metadata, "osty_attacks_this_turn", 0),
+        "loss_damage_enabled": False,
+    }
+
+
+def _set_osty_state(combat: CombatState, osty: Mapping[str, Any]) -> CombatState:
+    metadata = dict(combat.metadata)
+    attacks_this_turn = _coerce_int(osty.get("attacks_this_turn"), default=0)
+    metadata["osty"] = {
+        "alive": bool(osty.get("alive", True)),
+        "hp": _coerce_positive_int(osty.get("hp"), default=20),
+        "max_hp": _coerce_positive_int(osty.get("max_hp"), default=20),
+        "damage_bonus": _coerce_int(osty.get("damage_bonus"), default=0),
+        "attacks_this_turn": attacks_this_turn,
+        "loss_damage_enabled": _truthy(osty.get("loss_damage_enabled", False)),
+    }
+    metadata["osty_attacks_this_turn"] = attacks_this_turn
+    return combat.model_copy(update={"metadata": metadata})
 
 
 def _change_orb_slots(
@@ -6756,6 +7991,63 @@ def _move_played_card_to_destination(
     return combat, ()
 
 
+def _apply_sly_discarded_cards(
+    combat: CombatState,
+    rng_state: RngState,
+    cards: Sequence[CardInstance],
+    *,
+    reason: str,
+    relics: Sequence[str] = (),
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    if reason == "played_card_destination":
+        return combat, rng_state, ()
+
+    rng = random_from_state(rng_state)
+    events: list[EffectEvent] = []
+    next_rng_state = rng_state
+    for card in cards:
+        if not _card_is_sly(card):
+            continue
+        target_id = _sly_target_id(combat, card, rng)
+        next_rng_state = capture_random_state(rng)
+        combat, next_rng_state, effect_events = _apply_card_effects(
+            combat=combat,
+            rng_state=next_rng_state,
+            card=card,
+            target_id=target_id,
+            energy_spent=0,
+            relics=relics,
+        )
+        rng = random_from_state(next_rng_state)
+        events.append(
+            EffectEvent(
+                kind="sly_card_triggered",
+                source_id=card.instance_id,
+                target_id=target_id,
+                metadata={"card_id": card.card_id, "reason": reason},
+            )
+        )
+        events.extend(effect_events)
+    return combat, capture_random_state(rng), tuple(events)
+
+
+def _sly_target_id(
+    combat: CombatState,
+    card: CardInstance,
+    rng: Random,
+) -> str | None:
+    if card.target == TargetType.SELF:
+        return PLAYER_TARGET_ID
+    if card.target == TargetType.ALL_ENEMIES:
+        return None
+    alive = _alive_monsters(combat)
+    if not alive:
+        return None
+    if len(alive) == 1:
+        return alive[0].monster_id
+    return rng.choice(alive).monster_id
+
+
 def _coerce_int(value: Any, *, default: int = 0) -> int:
     try:
         return int(value)
@@ -6785,6 +8077,8 @@ def _draw_cards(
     drawn_cards: list[CardInstance] = []
 
     for _ in range(amount):
+        if len(hand) >= MAX_HAND_SIZE:
+            break
         if not draw_pile:
             if not discard_pile:
                 break
@@ -6968,12 +8262,15 @@ def _apply_hand_manipulation_effects(
     rng_state: RngState,
     source_card: CardInstance,
     effect: Mapping[str, Any],
+    *,
+    relics: Sequence[str] = (),
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     rng = random_from_state(rng_state)
     hand = list(combat.hand)
     discard_pile = list(combat.discard_pile)
     exhaust_pile = list(combat.exhaust_pile)
     events: list[EffectEvent] = []
+    sly_discarded_cards: list[CardInstance] = []
 
     discard_count = _effect_amount(effect, "discard_random", 0)
     discard_hand = effect.get("discard_hand")
@@ -6987,6 +8284,7 @@ def _apply_hand_manipulation_effects(
         for index in selected:
             discarded.append(hand.pop(index))
         discard_pile.extend(reversed(discarded))
+        sly_discarded_cards.extend(reversed(discarded))
         events.append(
             EffectEvent(
                 kind="cards_discarded",
@@ -7017,6 +8315,26 @@ def _apply_hand_manipulation_effects(
         events.append(
             EffectEvent(
                 kind="card_discard_choice_pending",
+                source_id=source_card.instance_id,
+                amount=pending_remaining,
+                metadata={
+                    "card_instance_ids": [card.instance_id for card in hand],
+                    "card_ids": [card.card_id for card in hand],
+                },
+            )
+        )
+
+    exhaust_choice_count = _effect_amount(effect, "exhaust_choice", 0)
+    if exhaust_choice_count and hand:
+        combat, pending_remaining = _set_pending_exhaust_choice(
+            combat,
+            source_card=source_card,
+            hand=hand,
+            count=exhaust_choice_count,
+        )
+        events.append(
+            EffectEvent(
+                kind="card_exhaust_choice_pending",
                 source_id=source_card.instance_id,
                 amount=pending_remaining,
                 metadata={
@@ -7057,17 +8375,23 @@ def _apply_hand_manipulation_effects(
             )
         )
 
-    return (
-        combat.model_copy(
-            update={
-                "hand": tuple(hand),
-                "discard_pile": tuple(discard_pile),
-                "exhaust_pile": tuple(exhaust_pile),
-            }
-        ),
-        capture_random_state(rng),
-        tuple(events),
+    next_combat = combat.model_copy(
+        update={
+            "hand": tuple(hand),
+            "discard_pile": tuple(discard_pile),
+            "exhaust_pile": tuple(exhaust_pile),
+        }
     )
+    next_rng_state = capture_random_state(rng)
+    next_combat, next_rng_state, sly_events = _apply_sly_discarded_cards(
+        next_combat,
+        next_rng_state,
+        tuple(sly_discarded_cards),
+        reason="random_discard",
+        relics=relics,
+    )
+
+    return next_combat, next_rng_state, tuple(events) + sly_events
 
 
 def _pending_discard_choice(combat: CombatState) -> dict[str, Any] | None:
@@ -7091,6 +8415,32 @@ def _pending_discard_choice(combat: CombatState) -> dict[str, Any] | None:
         return None
     return {
         "kind": "discard",
+        "source_card_instance_id": pending.get("source_card_instance_id"),
+        "remaining": remaining,
+    }
+
+
+def _pending_exhaust_choice(combat: CombatState) -> dict[str, Any] | None:
+    choice = _active_pending_choice(combat)
+    if choice is not None and choice.kind == "exhaust":
+        return {
+            "choice_id": choice.choice_id,
+            "kind": "exhaust",
+            "source_card_instance_id": choice.source_id,
+            "remaining": choice.remaining,
+            "candidate_ids": choice.candidate_ids,
+        }
+
+    pending = combat.metadata.get("pending_card_choice")
+    if not isinstance(pending, Mapping):
+        return None
+    if pending.get("kind") != "exhaust":
+        return None
+    remaining = _int_from_mapping(pending, "remaining", 0)
+    if remaining <= 0:
+        return None
+    return {
+        "kind": "exhaust",
         "source_card_instance_id": pending.get("source_card_instance_id"),
         "remaining": remaining,
     }
@@ -7379,7 +8729,7 @@ def _tick_status_map(
                 metadata={"status": status, "remaining": max(0, next_amount)},
             )
         )
-    for temporary_status in ("temporary_strength", "temporary_dexterity"):
+    for temporary_status in ("temporary_strength", "temporary_dexterity", "sicem"):
         amount = statuses.pop(temporary_status, 0)
         if amount:
             events.append(
@@ -8027,6 +9377,10 @@ def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     updated = dict(metadata)
     updated.pop("turn_card_play_limit", None)
     updated["attacks_played_this_turn"] = 0
+    updated["osty_attacks_this_turn"] = 0
+    osty = updated.get("osty")
+    if isinstance(osty, Mapping):
+        updated["osty"] = {**dict(osty), "attacks_this_turn": 0}
     return updated
 
 
@@ -8245,19 +9599,49 @@ def _combat_reward_generation_result(
         if relic_count is None
         else relic_count
     )
+    return _reward_generation_result(
+        state,
+        source="combat",
+        encounter=encounter,
+        card_count=effective_card_count,
+        extra_group_count=0,
+        relic_count=effective_relic_count,
+        metadata={
+            "act": state.act,
+            "floor": state.floor,
+            "character_id": state.character_id,
+        },
+    )
+
+
+def _reward_generation_result(
+    state: RunState,
+    *,
+    source: str,
+    encounter: EncounterType,
+    card_count: int,
+    extra_group_count: int = 0,
+    relic_count: int = 0,
+    potion_count: int = 0,
+    gold: int = 0,
+    metadata: Mapping[str, object] | None = None,
+) -> RewardGenerationResult:
     return resolve_reward_generation_triggers(
         RewardGenerationContext(
-            source="combat",
+            source=source,
             encounter_type=encounter,
-            card_choice_count=effective_card_count,
-            card_option_count=effective_card_count,
-            card_option_group_count=0,
-            relic_count=effective_relic_count,
+            card_choice_count=card_count,
+            card_option_count=card_count,
+            card_option_group_count=extra_group_count,
+            relic_count=relic_count,
+            potion_count=potion_count,
+            gold=gold,
             owned_relics=state.relics,
             metadata={
                 "act": state.act,
                 "floor": state.floor,
                 "character_id": state.character_id,
+                **dict(metadata or {}),
             },
         )
     )
@@ -9106,12 +10490,28 @@ def _effect_enemy_targets(
     return ()
 
 
-def _energy_cost(card: CardInstance, available_energy: int) -> int:
+def _energy_cost(
+    card: CardInstance,
+    available_energy: int,
+    *,
+    combat: CombatState | None = None,
+) -> int:
     if card.cost is None:
         return 0
     if card.cost < 0:
         return max(0, available_energy)
+    if combat is not None and _card_costs_zero_after_osty_attack(card, combat):
+        return 0
     return max(0, card.cost)
+
+
+def _card_costs_zero_after_osty_attack(card: CardInstance, combat: CombatState) -> bool:
+    if card.cost is None or card.cost <= 0:
+        return False
+    text = _plain_card_description(card)
+    if "costs 0" not in text or "osty has attacked this turn" not in text:
+        return False
+    return _metadata_int(combat.metadata, "osty_attacks_this_turn", 0) > 0
 
 
 def _can_pay_resource_costs(
@@ -9672,11 +11072,16 @@ def _card_from_spec(
         custom["star_cost"] = int(source_spec.get("star_cost", 0))
     if bool(source_spec.get("is_x_star_cost")):
         custom["star_cost"] = "X"
-    keywords = tuple(str(keyword) for keyword in source_spec.get("keywords_key") or ())
-    if any(_normalized_id(keyword) == "exhaust" for keyword in keywords):
+    if bool(source_spec.get("is_x_cost", source_spec.get("x_cost", False))):
+        custom["x_cost"] = True
+    keywords = _source_spec_keywords(source_spec)
+    if "exhaust" in keywords:
         merged["exhausts"] = True
-    if any(_normalized_id(keyword) == "ethereal" for keyword in keywords):
+    if "ethereal" in keywords:
         custom["ethereal"] = True
+    for keyword in ("eternal", "innate", "sly", "unplayable"):
+        if keyword in keywords:
+            custom[keyword] = True
     if _source_spec_has_retain(source_spec):
         custom["retain"] = True
 
@@ -9732,11 +11137,7 @@ def _card_custom_metadata(
 def _source_spec_has_retain(source_spec: Mapping[str, Any]) -> bool:
     if any(_truthy(source_spec.get(key)) for key in ("retain", "retains", "retained")):
         return True
-    keywords = source_spec.get("keywords_key", source_spec.get("keywords", ()))
-    if any(
-        _normalized_tag(keyword) in {"retain", "retained"}
-        for keyword in _string_items(keywords)
-    ):
+    if _source_spec_has_keyword(source_spec, "retain", "retained"):
         return True
     if any(
         _normalized_tag(tag) in {"retain", "retained", "keyword_retain"}
@@ -9755,6 +11156,69 @@ def _description_has_standalone_retain(description: str) -> bool:
     plain = re.sub(r"\[/?[^\]]+\]", "", description)
     sentences = re.split(r"(?:\n|(?<=[.!?])\s+)", plain)
     return any(sentence.strip().strip(".!?").lower() == "retain" for sentence in sentences)
+
+
+def _source_spec_keywords(source_spec: Mapping[str, Any]) -> frozenset[str]:
+    keywords = source_spec.get("keywords_key", source_spec.get("keywords", ()))
+    tags = source_spec.get("tags", ())
+    return frozenset(
+        _normalized_tag(item)
+        for item in (*_string_items(keywords), *_string_items(tags))
+        if item
+    )
+
+
+def _source_spec_has_keyword(source_spec: Mapping[str, Any], *keywords: str) -> bool:
+    wanted = {_normalized_tag(keyword) for keyword in keywords}
+    return bool(_source_spec_keywords(source_spec) & wanted)
+
+
+def _card_source_spec(card: CardInstance) -> Mapping[str, Any]:
+    return _mapping_from(card.custom.get("source_spec"))
+
+
+def _card_has_keyword(card: CardInstance, *keywords: str) -> bool:
+    wanted = {_normalized_tag(keyword) for keyword in keywords}
+    if any(_normalized_tag(tag) in wanted for tag in card.tags):
+        return True
+    if any(_truthy(card.custom.get(keyword)) for keyword in wanted):
+        return True
+    return bool(_source_spec_keywords(_card_source_spec(card)) & wanted)
+
+
+def _card_is_eternal(card: CardInstance) -> bool:
+    return _card_has_keyword(card, "eternal")
+
+
+def _card_is_innate(card: CardInstance) -> bool:
+    return _card_has_keyword(card, "innate")
+
+
+def _card_is_sly(card: CardInstance) -> bool:
+    return _card_has_keyword(card, "sly")
+
+
+def _card_is_osty_attack(card: CardInstance) -> bool:
+    if any(_normalized_tag(tag) in {"ostyattack", "osty_attack"} for tag in card.tags):
+        return True
+    return "osty deals" in _plain_card_description(card)
+
+
+def _card_is_unplayable(card: CardInstance) -> bool:
+    if _card_has_keyword(card, "unplayable"):
+        return True
+    return card.cost is not None and card.cost < 0 and not _card_is_x_cost(card)
+
+
+def _card_is_x_cost(card: CardInstance) -> bool:
+    source = _card_source_spec(card)
+    if _truthy(source.get("is_x_cost", source.get("x_cost", False))):
+        return True
+    return bool(card.custom.get("x_cost"))
+
+
+def _deck_card_mutation_blocked(card: CardInstance) -> bool:
+    return _card_is_eternal(card)
 
 
 def _normalized_tag(value: object) -> str:
@@ -11250,6 +12714,11 @@ def _has_relic(state: RunState, *relic_ids: str) -> bool:
     return any(_normalized_id(relic_id) in owned for relic_id in relic_ids)
 
 
+def _has_relic_id(relics: Sequence[str], *relic_ids: str) -> bool:
+    owned = {_normalized_id(str(relic_id)) for relic_id in relics}
+    return any(_normalized_id(relic_id) in owned for relic_id in relic_ids)
+
+
 def _normalized_id(value: str) -> str:
     return value.lower().replace("'", "").replace(" ", "_").replace("-", "_")
 
@@ -11281,6 +12750,7 @@ _SUPPORTED_EFFECT_KEYS = {
     "max_hp",
     "next_turn",
     "orb_slot_delta",
+    "osty_action",
     "player_resource",
     "resource",
     "retain_hand",

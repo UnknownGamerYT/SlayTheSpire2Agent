@@ -50,6 +50,7 @@ class ActionType(str, Enum):
     SHOP_LEAVE = "shop_leave"
     USE_POTION = "use_potion"
     DISCARD_CARD = "discard_card"
+    EXHAUST_CARD = "exhaust_card"
     DISCARD_POTION = "discard_potion"
     THROW_POTION_AT_MERCHANT = "throw_potion_at_merchant"
     PROCEED = "proceed"
@@ -332,7 +333,7 @@ class ShopState(EngineModel):
 
 class RewardState(EngineModel):
     reward_id: str
-    source: Literal["combat", "event", "treasure", "other"] = "other"
+    source: Literal["combat", "event", "treasure", "ancient", "other"] = "other"
     forced: bool = False
     gold: int = 0
     gold_claimed: bool = False
@@ -471,6 +472,8 @@ class Action(EngineModel):
             raise ValueError("discard_potion actions require target_id")
         if self.type == ActionType.DISCARD_CARD and not self.card_instance_id:
             raise ValueError("discard_card actions require card_instance_id")
+        if self.type == ActionType.EXHAUST_CARD and not self.card_instance_id:
+            raise ValueError("exhaust_card actions require card_instance_id")
         return self
 
 

@@ -47,8 +47,10 @@ EXTENDED_EFFECT_KEYS = frozenset(
         "discard_hand",
         "evoke_orb",
         "discard_random",
+        "exhaust_choice",
         "exhaust_random",
         "orb_slot_delta",
+        "osty_action",
     }
 )
 EXECUTABLE_EFFECT_KEYS = ENGINE_EFFECT_KEYS | EXTENDED_EFFECT_KEYS
@@ -355,7 +357,7 @@ def _steps_from_source_fields(
     steps: list[Mapping[str, Any]] = []
     damage_key = "all_damage" if target == "all_enemies" or "all_damage" in source else "damage"
     damage_amount = _amount_from(source, "all_damage" if "all_damage" in source else "damage")
-    if damage_amount not in (None, 0):
+    if damage_amount not in (None, 0) and not _is_osty_attack_source(source):
         for _ in range(_hit_count(source)):
             steps.append({damage_key: damage_amount})
 
@@ -368,6 +370,10 @@ def _steps_from_source_fields(
         ("heal", "heal"),
         ("hp_loss", "hp_loss"),
     ):
+        if source_key == "block" and _description_has_osty_alive_condition(source):
+            continue
+        if source_key == "energy_gain" and _description_has_triggered_energy_gain(source):
+            continue
         amount = _amount_from(source, source_key)
         if amount not in (None, 0):
             steps.append({effect_key: amount})
@@ -613,14 +619,22 @@ def _description_steps(source: Mapping[str, Any], *, target: str) -> tuple[Mappi
         if discard_match:
             steps.append({"discard_choice": int(discard_match.group(1) or 1)})
 
-    exhaust_match = re.search(r"exhaust\s+(\d+)\s+card", normalized)
-    if exhaust_match:
-        steps.append({"exhaust_random": int(exhaust_match.group(1))})
+    random_exhaust_match = re.search(
+        r"exhaust\s+(?:(\d+)|a|an|one)?\s*random\s+cards?",
+        normalized,
+    )
+    if random_exhaust_match:
+        steps.append({"exhaust_random": int(random_exhaust_match.group(1) or 1)})
+    else:
+        exhaust_match = re.search(r"exhaust\s+(?:(\d+)|a|an|one)\s+cards?", normalized)
+        if exhaust_match:
+            steps.append({"exhaust_choice": int(exhaust_match.group(1) or 1)})
 
     for amount in re.findall(r"\[gold\]forge\[/gold\]\s+(\d+)", normalized):
         steps.append({"player_resource": {"resource": "forge", "amount": int(amount)}})
-    for amount in re.findall(r"\[gold\]summon\[/gold\]\s+(\d+)", normalized):
-        steps.append({"player_resource": {"resource": "summon", "amount": int(amount)}})
+    if not _description_has_triggered_summon(source):
+        for amount in re.findall(r"\[gold\]summon\[/gold\]\s+(\d+)", normalized):
+            steps.append({"player_resource": {"resource": "summon", "amount": int(amount)}})
 
     if "enemy loses" in normalized and target in {"enemy", "all_enemies"}:
         loss_match = re.search(r"enemy loses\s+(\d+)\s+hp", normalized)
@@ -651,6 +665,29 @@ def _generated_card_count(source: Mapping[str, Any]) -> int:
     if "add a " in description or "add an " in description or "add 1 " in description:
         return 1
     return 1
+
+
+def _is_osty_attack_source(source: Mapping[str, Any]) -> bool:
+    tags = {_normalized_id(tag) for tag in _string_tuple(source.get("tags", ()))}
+    if "ostyattack" in tags or "osty_attack" in tags:
+        return True
+    description = _normalized_description(str(source.get("description", "") or ""))
+    return "osty" in description and "deals" in description and "damage" in description
+
+
+def _description_has_osty_alive_condition(source: Mapping[str, Any]) -> bool:
+    description = _normalized_description(str(source.get("description", "") or ""))
+    return "if [gold]osty[/gold] is alive" in description or "if osty is alive" in description
+
+
+def _description_has_triggered_energy_gain(source: Mapping[str, Any]) -> bool:
+    description = _normalized_description(str(source.get("description", "") or ""))
+    return "whenever" in description and "costs [energy:" in description
+
+
+def _description_has_triggered_summon(source: Mapping[str, Any]) -> bool:
+    description = _normalized_description(str(source.get("description", "") or ""))
+    return "whenever" in description and "[gold]summon[/gold]" in description
 
 
 def _has_amount_step(source: Mapping[str, Any], key: str) -> bool:

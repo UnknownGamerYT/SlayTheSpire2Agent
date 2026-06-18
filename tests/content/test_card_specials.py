@@ -88,17 +88,10 @@ def test_summon_osty_and_soul_text_emit_character_markers() -> None:
 
     assert steps == (
         {"player_resource": {"resource": "summon", "amount": 4, "source": "card_special"}},
+        {"osty_action": {"action": "damage", "amount": 6, "target": "random_enemy"}},
         {"add_card_to_draw": (_soul_payload(), _soul_payload())},
     )
-    assert card_special_blockers(card_spec) == (
-        {
-            "explicit_blocker": {
-                "kind": "osty_action_required",
-                "reason": "requires Osty companion state before resolving the action",
-                "metadata": {"action": "damage", "amount": 6, "target": "random_enemy"},
-            }
-        },
-    )
+    assert card_special_blockers(card_spec) == ()
 
 
 def test_stance_and_mantra_text_emit_executable_status_and_resource_steps() -> None:

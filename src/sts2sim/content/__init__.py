@@ -1,5 +1,14 @@
 """Source-backed content registry APIs for the STS2 simulator."""
 
+from .card_coverage import (
+    DEFAULT_CARD_CACHE_DIR,
+    CardCoverageEntry,
+    CardCoverageReport,
+    CardCoverageStatus,
+    audit_card_coverage,
+    audit_card_coverage_from_sources,
+    load_cached_cards,
+)
 from .combat_coverage import (
     DEFAULT_CARDS_PATH,
     DEFAULT_COMBAT_CACHE_DIR,
@@ -75,6 +84,10 @@ __all__ = [
     "CoverageReport",
     "CoverageSeverity",
     "CoverageStatus",
+    "CardCoverageEntry",
+    "CardCoverageReport",
+    "CardCoverageStatus",
+    "DEFAULT_CARD_CACHE_DIR",
     "DEFAULT_CARDS_PATH",
     "DEFAULT_COMBAT_CACHE_DIR",
     "DEFAULT_ENCOUNTERS_PATH",
@@ -98,6 +111,8 @@ __all__ = [
     "SourceRef",
     "UNSUPPORTED_BESPOKE_EVENT_IDS",
     "audit_combat_coverage",
+    "audit_card_coverage",
+    "audit_card_coverage_from_sources",
     "audit_combat_coverage_from_sources",
     "audit_event_coverage",
     "card_definition",
@@ -106,6 +121,7 @@ __all__ = [
     "default_combat_implementation_catalog",
     "discover_event_implementations",
     "load_cached_events",
+    "load_cached_cards",
     "load_cached_combat_content",
     "merge_sources",
     "normalize_event_option_description",

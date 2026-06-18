@@ -380,6 +380,21 @@ def test_shop_card_removal_removes_target_card() -> None:
     assert next_state.replay_log[-1].events[0].kind == "shop_card_removed"
 
 
+def test_eternal_cards_are_not_shop_removal_targets() -> None:
+    state = _enter_shop()
+    eternal = state.master_deck[0].model_copy(
+        update={"custom": {**state.master_deck[0].custom, "eternal": True}}
+    )
+    state = state.model_copy(update={"master_deck": (eternal,) + state.master_deck[1:]})
+
+    removal_targets = {
+        action.target_id for action in legal_actions(state) if action.type == "shop_buy"
+    }
+
+    assert not any(target and target.endswith("remove:strike_1") for target in removal_targets)
+    assert any(target and target.endswith("remove:defend_1") for target in removal_targets)
+
+
 def test_shop_leave_completes_room() -> None:
     state = _enter_shop()
 

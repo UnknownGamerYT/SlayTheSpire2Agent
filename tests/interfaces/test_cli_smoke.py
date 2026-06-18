@@ -27,6 +27,7 @@ def fake_backends(monkeypatch: pytest.MonkeyPatch) -> None:
     data_sync = _module("sts2sim.data.sync")
     data_coverage = _module("sts2sim.data.coverage")
     content_pkg = _module("sts2sim.content")
+    card_coverage = _module("sts2sim.content.card_coverage")
     event_coverage = _module("sts2sim.content.event_coverage")
     combat_coverage = _module("sts2sim.content.combat_coverage")
     api = _module("sts2sim.api")
@@ -62,6 +63,34 @@ def fake_backends(monkeypatch: pytest.MonkeyPatch) -> None:
             "total_ids": 3,
         }
 
+    def audit_card_coverage(**_: Any) -> dict[str, Any]:
+        return {
+            "entries": [
+                {
+                    "content_id": "Strike",
+                    "color": "ironclad",
+                    "card_type": "attack",
+                    "status": "implemented",
+                },
+                {
+                    "content_id": "Osty Strike",
+                    "color": "necrobinder",
+                    "card_type": "attack",
+                    "status": "partial",
+                },
+                {
+                    "content_id": "Mystery",
+                    "color": "silent",
+                    "card_type": "skill",
+                    "status": "missing",
+                },
+            ],
+            "counts_by_status": {},
+            "sample_missing_ids": {},
+            "sample_partial_ids": {},
+            "total_cards": 3,
+        }
+
     def play_run(**kwargs: Any) -> dict[str, Any]:
         return {
             "command": "play-run",
@@ -84,6 +113,7 @@ def fake_backends(monkeypatch: pytest.MonkeyPatch) -> None:
 
     cast(Any, data_sync).sync_data = sync_data
     cast(Any, data_coverage).audit_coverage = audit_coverage
+    cast(Any, card_coverage).audit_card_coverage = audit_card_coverage
     cast(Any, event_coverage).audit_event_coverage = audit_event_coverage
     cast(Any, combat_coverage).audit_combat_coverage = audit_combat_coverage
     cast(Any, api).play_run = play_run
@@ -92,6 +122,7 @@ def fake_backends(monkeypatch: pytest.MonkeyPatch) -> None:
 
     cast(Any, data_pkg).sync = data_sync
     cast(Any, data_pkg).coverage = data_coverage
+    cast(Any, content_pkg).card_coverage = card_coverage
     cast(Any, content_pkg).event_coverage = event_coverage
     cast(Any, content_pkg).combat_coverage = combat_coverage
 
@@ -99,6 +130,7 @@ def fake_backends(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "sts2sim.data.sync", data_sync)
     monkeypatch.setitem(sys.modules, "sts2sim.data.coverage", data_coverage)
     monkeypatch.setitem(sys.modules, "sts2sim.content", content_pkg)
+    monkeypatch.setitem(sys.modules, "sts2sim.content.card_coverage", card_coverage)
     monkeypatch.setitem(sys.modules, "sts2sim.content.event_coverage", event_coverage)
     monkeypatch.setitem(sys.modules, "sts2sim.content.combat_coverage", combat_coverage)
     monkeypatch.setitem(sys.modules, "sts2sim.api", api)
@@ -144,6 +176,19 @@ def test_cli_commands_smoke(fake_backends: None, tmp_path: Path) -> None:
         "relics": {"total": 1, "implemented": 0, "blocked": 0, "unknown": 1}
     }
     assert "entries" not in combat_audit_payload
+
+    card_audit_result = runner.invoke(
+        app,
+        ["audit-cards", "--status", "partial", "--type", "attack", "--summary-only"],
+    )
+    card_audit_payload = _json_output(card_audit_result)
+    assert card_audit_payload["total_cards"] == 1
+    assert card_audit_payload["counts_by_status"] == {
+        "implemented": 0,
+        "partial": 1,
+        "missing": 0,
+    }
+    assert "entries" not in card_audit_payload
 
     play_result = runner.invoke(
         app,

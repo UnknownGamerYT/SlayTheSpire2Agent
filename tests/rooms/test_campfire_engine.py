@@ -188,3 +188,27 @@ def test_campfire_toke_requires_peace_pipe_and_removes_target_card() -> None:
     assert [card.instance_id for card in next_state.master_deck] == ["strike_1"]
     assert next_state.flags["peace_pipe_removed_card_ids"] == ["defend_1"]
     assert next_state.replay_log[-1].events[0].kind == "card_removed"
+
+
+def test_eternal_cards_are_not_peace_pipe_or_smith_targets() -> None:
+    state = _enter_campfire()
+    defend = _card(state, "defend_1")
+    eternal = defend.model_copy(update={"custom": {**defend.custom, "eternal": True}})
+    state = state.model_copy(
+        update={
+            "master_deck": tuple(
+                eternal if card.instance_id == "defend_1" else card
+                for card in state.master_deck
+            )
+        }
+    )
+    state = _with_campfire_unlocks(state, relics=("peace_pipe",))
+
+    assert not any(
+        action.type == "toke" and action.target_id == "defend_1"
+        for action in legal_actions(state)
+    )
+    assert not any(
+        action.type == "smith" and action.target_id == "defend_1"
+        for action in legal_actions(state)
+    )

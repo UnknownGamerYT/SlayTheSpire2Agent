@@ -15,8 +15,47 @@ from sts2sim.mechanics.mapgen import map_layout_from_state, validate_act_map_par
 
 
 def _choose_first_ancient(state):
-    action = next(action for action in legal_actions(state) if action.type == "choose_ancient")
-    return step(state, action)
+    target_id = None
+    if state.ancient is not None:
+        available = [
+            option
+            for option in state.ancient.options
+            if option.option_id not in state.ancient.chosen_option_ids
+        ]
+        preferred = next(
+            (
+                option
+                for option in available
+                if not option.metadata.get("choice", {}).get("card_reward_count")
+            ),
+            available[0] if available else None,
+        )
+        target_id = preferred.option_id if preferred is not None else None
+    action = next(
+        action
+        for action in legal_actions(state)
+        if action.type == "choose_ancient"
+        and (target_id is None or action.target_id == target_id)
+    )
+    return _skip_ancient_reward(step(state, action))
+
+
+def _skip_ancient_reward(state):
+    if (
+        state.phase == RunPhase.REWARD
+        and state.reward is not None
+        and state.reward.source == "ancient"
+    ):
+        while (
+            state.reward is not None
+            and any(action.type == "take_reward_card" for action in legal_actions(state))
+        ):
+            action = next(
+                action for action in legal_actions(state) if action.type == "take_reward_card"
+            )
+            state = step(state, action)
+        return _proceed(state)
+    return state
 
 
 def _choose_ancient_option(state, option_index: int):
@@ -243,6 +282,64 @@ def test_ancient_choice_payload_applies_direct_effects() -> None:
     assert state.master_deck[-1].card_id == "test_card"
     assert state.potions == ("fire_potion",)
     assert any(event.kind == "ancient_card_added" for event in state.replay_log[-1].events)
+
+
+def test_ancient_card_reward_opens_reward_screen_and_uses_reward_triggers() -> None:
+    state = new_run(
+        seed=44,
+        character_id="TEST",
+        ascension=0,
+        source_data={
+            "cards": [
+                {"id": "COMMON_A", "name": "Common A", "rarity": "Common", "type": "Attack"},
+                {"id": "COMMON_B", "name": "Common B", "rarity": "Common", "type": "Skill"},
+                {"id": "COMMON_C", "name": "Common C", "rarity": "Common", "type": "Skill"},
+                {"id": "COMMON_D", "name": "Common D", "rarity": "Common", "type": "Power"},
+                {"id": "COMMON_E", "name": "Common E", "rarity": "Common", "type": "Attack"},
+            ]
+        },
+    )
+    option = AncientOptionState(
+        option_id="choose_cards",
+        name="Choose Cards",
+        kind="positive_relic",
+        relic_id="anchor",
+        metadata={
+            "choice": {
+                "option_id": "choose_cards",
+                "name": "Choose Cards",
+                "kind": "positive_relic",
+                "relic_id": "anchor",
+                "card_reward_count": 1,
+                "card_reward_size": 3,
+            }
+        },
+    )
+    state = state.model_copy(
+        update={
+            "ancient": AncientState(act=1, ancient_id="neow", options=(option,)),
+            "relics": ("question_card",),
+        }
+    )
+
+    state = step(state, _action(state, "choose_ancient", "choose_cards"))
+
+    assert state.phase == RunPhase.REWARD
+    assert state.reward is not None
+    assert state.reward.source == "ancient"
+    assert state.reward.forced is True
+    assert len(state.reward.card_options) == 4
+    assert state.reward.metadata["reward_trigger_effects"][0]["content_id"] == "question_card"
+    assert not any(action.type == "proceed" for action in legal_actions(state))
+
+    chosen = state.reward.card_options[0]
+    state = step(state, _action(state, "take_reward_card", "reward:card:0"))
+    assert state.master_deck[-1].card_id.lower() == chosen
+    assert any(action.type == "proceed" for action in legal_actions(state))
+
+    state = step(state, _action(state, "proceed"))
+    assert state.phase == RunPhase.MAP
+    assert state.reward is None
 
 
 def test_combat_reward_potion_is_visible_but_requires_open_slot() -> None:
