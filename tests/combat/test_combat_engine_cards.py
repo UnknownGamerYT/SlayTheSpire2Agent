@@ -56,6 +56,22 @@ def _play_card(state, card_id: str):
     )
 
 
+def test_initial_draw_emits_per_card_draw_triggers() -> None:
+    state = _enter_combat(
+        (
+            {"id": "DRAW_A", "name": "Draw A", "type": "Skill", "target": "Self", "cost": 0},
+            {"id": "DRAW_B", "name": "Draw B", "type": "Skill", "target": "Self", "cost": 0},
+        ),
+        flags={"draw_per_turn": 2},
+    )
+
+    assert state.combat is not None
+    draw_events = [event for event in state.combat.last_events if event.kind == "card_drawn"]
+    assert len(draw_events) == 2
+    assert {event.metadata["to_pile"] for event in draw_events} == {"hand"}
+    assert {event.metadata["trigger"] for event in draw_events} == {"card_drawn"}
+
+
 def test_source_card_fields_execute_hp_loss_energy_and_star_gain() -> None:
     state = _enter_combat(
         (
@@ -236,6 +252,12 @@ def test_chosen_discard_waits_for_selected_hand_card() -> None:
     assert all(card.instance_id != chosen.instance_id for card in state.combat.hand)
     assert "pending_card_choice" not in state.combat.metadata
     assert state.combat.last_events[0].kind == "card_discarded_by_choice"
+    assert any(
+        event.kind == "card_discarded"
+        and event.target_id == chosen.instance_id
+        and event.metadata["reason"] == "chosen_discard"
+        for event in state.combat.last_events
+    )
 
 
 def test_random_discard_resolves_immediately_without_choice() -> None:
@@ -261,6 +283,35 @@ def test_random_discard_resolves_immediately_without_choice() -> None:
     assert "pending_card_choice" not in state.combat.metadata
     assert not any(action.type == "discard_card" for action in legal_actions(state))
     assert any(event.kind == "cards_discarded" for event in state.combat.last_events)
+    assert any(
+        event.kind == "card_discarded" and event.metadata["reason"] == "random_discard"
+        for event in state.combat.last_events
+    )
+
+
+def test_played_card_destination_emits_discard_or_exhaust_trigger() -> None:
+    state = _enter_combat(
+        (
+            {
+                "id": "BURN_NOW",
+                "name": "Burn Now",
+                "type": "Skill",
+                "target": "Self",
+                "cost": 0,
+                "exhaust": True,
+            },
+        )
+    )
+
+    state = _play_card(state, "burn_now")
+
+    assert state.combat is not None
+    assert [card.card_id for card in state.combat.exhaust_pile] == ["burn_now"]
+    assert any(
+        event.kind == "card_exhausted"
+        and event.metadata["reason"] == "played_card_destination"
+        for event in state.combat.last_events
+    )
 
 
 def test_upgrade_source_cards_mutate_values() -> None:
@@ -519,6 +570,12 @@ def test_end_turn_discards_only_cards_without_retain() -> None:
     assert [card.card_id for card in state.combat.hand] == ["safety"]
     assert [card.card_id for card in state.combat.discard_pile] == ["plain_block"]
     assert any(event.kind == "cards_retained" for event in state.combat.last_events)
+    assert any(
+        event.kind == "card_discarded"
+        and event.metadata["reason"] == "end_turn_discard"
+        and event.metadata["card_id"] == "plain_block"
+        for event in state.combat.last_events
+    )
 
 
 def test_temporary_retain_is_consumed_after_one_end_turn() -> None:

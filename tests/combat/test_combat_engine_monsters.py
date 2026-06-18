@@ -186,3 +186,4 @@ def test_end_turn_cycles_discard_back_into_draw_pile() -> None:
     assert state.combat is not None
     assert [card.card_id for card in state.combat.hand] == ["small_block"]
     assert any(event.kind == "discard_shuffled" for event in state.combat.last_events)
+    assert any(event.kind == "draw_pile_shuffled" for event in state.combat.last_events)

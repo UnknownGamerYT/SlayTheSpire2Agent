@@ -4797,15 +4797,27 @@ def _discard_card_from_hand(
             "remaining": remaining if hand else 0,
         },
     )
+    movement_events = _card_movement_events(
+        GameTrigger.CARD_DISCARDED,
+        (discarded,),
+        from_pile="hand",
+        to_pile="discard_pile",
+        source_id=discard_choice.get("source_card_instance_id"),
+        reason="chosen_discard",
+        metadata={"remaining": remaining if hand else 0},
+    )
     combat = combat.model_copy(
         update={
             "hand": hand,
             "discard_pile": combat.discard_pile + (discarded,),
             "metadata": metadata,
-            "last_events": (event,),
+            "last_events": (event,) + movement_events,
         }
     )
-    return state.model_copy(update={"combat": combat, "player": combat.player}), (event,)
+    return (
+        state.model_copy(update={"combat": combat, "player": combat.player}),
+        (event,) + movement_events,
+    )
 
 
 def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectEvent, ...]]:
@@ -4836,10 +4848,7 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
     combat, vigor_events = _consume_vigor_after_attack(combat, card)
 
     destination = _card_destination(card)
-    if destination == "exhaust":
-        combat = combat.model_copy(update={"exhaust_pile": combat.exhaust_pile + (card,)})
-    elif destination == "discard":
-        combat = combat.model_copy(update={"discard_pile": combat.discard_pile + (card,)})
+    combat, destination_events = _move_played_card_to_destination(combat, card, destination)
 
     events = (
         EffectEvent(
@@ -4849,7 +4858,7 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
             amount=energy_spent,
             metadata={"card_id": card.card_id, "destination": destination},
         ),
-    ) + resource_events + effect_events + vigor_events
+    ) + destination_events + resource_events + effect_events + vigor_events
 
     combat, hook_events = _apply_after_card_play_hooks(combat, card, state.relics)
     events += hook_events
@@ -4909,12 +4918,30 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
                 metadata={"card_instance_ids": [card.instance_id for card in discard_hand]},
             )
         )
+        events.extend(
+            _card_movement_events(
+                GameTrigger.CARD_DISCARDED,
+                discard_hand,
+                from_pile="hand",
+                to_pile="discard_pile",
+                reason="end_turn_discard",
+            )
+        )
     if exhaust_hand:
         events.append(
             EffectEvent(
                 kind="ethereal_cards_exhausted",
                 amount=len(exhaust_hand),
                 metadata={"card_instance_ids": [card.instance_id for card in exhaust_hand]},
+            )
+        )
+        events.extend(
+            _card_movement_events(
+                GameTrigger.CARD_EXHAUSTED,
+                exhaust_hand,
+                from_pile="hand",
+                to_pile="exhaust_pile",
+                reason="ethereal_end_turn",
             )
         )
     combat = combat.model_copy(
@@ -6067,6 +6094,122 @@ def _normalized_orb_id(value: str) -> str:
     return normalized
 
 
+def _card_movement_event(
+    trigger: GameTrigger,
+    card: CardInstance,
+    *,
+    from_pile: str,
+    to_pile: str,
+    source_id: str | None = None,
+    reason: str,
+    metadata: Mapping[str, Any] | None = None,
+) -> EffectEvent:
+    return EffectEvent(
+        kind=trigger.value,
+        source_id=source_id,
+        target_id=card.instance_id,
+        amount=1,
+        metadata={
+            "trigger": trigger.value,
+            "card_id": card.card_id,
+            "from_pile": from_pile,
+            "to_pile": to_pile,
+            "reason": reason,
+            **dict(metadata or {}),
+        },
+    )
+
+
+def _card_movement_events(
+    trigger: GameTrigger,
+    cards: Sequence[CardInstance],
+    *,
+    from_pile: str,
+    to_pile: str,
+    source_id: str | None = None,
+    reason: str,
+    metadata: Mapping[str, Any] | None = None,
+) -> tuple[EffectEvent, ...]:
+    return tuple(
+        _card_movement_event(
+            trigger,
+            card,
+            from_pile=from_pile,
+            to_pile=to_pile,
+            source_id=source_id,
+            reason=reason,
+            metadata=metadata,
+        )
+        for card in cards
+    )
+
+
+def _pile_trigger_event(
+    trigger: GameTrigger,
+    *,
+    source_pile: str,
+    target_pile: str,
+    amount: int,
+    reason: str,
+    metadata: Mapping[str, Any] | None = None,
+) -> EffectEvent:
+    return EffectEvent(
+        kind=trigger.value,
+        amount=amount,
+        metadata={
+            "trigger": trigger.value,
+            "source_pile": source_pile,
+            "target_pile": target_pile,
+            "reason": reason,
+            **dict(metadata or {}),
+        },
+    )
+
+
+def _append_cards_to_pile(
+    combat: CombatState,
+    pile_name: Literal["discard_pile", "exhaust_pile"],
+    cards: Sequence[CardInstance],
+) -> CombatState:
+    if not cards:
+        return combat
+    if pile_name == "discard_pile":
+        return combat.model_copy(update={"discard_pile": combat.discard_pile + tuple(cards)})
+    return combat.model_copy(update={"exhaust_pile": combat.exhaust_pile + tuple(cards)})
+
+
+def _move_played_card_to_destination(
+    combat: CombatState,
+    card: CardInstance,
+    destination: str,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if destination == "discard":
+        return (
+            _append_cards_to_pile(combat, "discard_pile", (card,)),
+            _card_movement_events(
+                GameTrigger.CARD_DISCARDED,
+                (card,),
+                from_pile="play_area",
+                to_pile="discard_pile",
+                source_id=card.instance_id,
+                reason="played_card_destination",
+            ),
+        )
+    if destination == "exhaust":
+        return (
+            _append_cards_to_pile(combat, "exhaust_pile", (card,)),
+            _card_movement_events(
+                GameTrigger.CARD_EXHAUSTED,
+                (card,),
+                from_pile="play_area",
+                to_pile="exhaust_pile",
+                source_id=card.instance_id,
+                reason="played_card_destination",
+            ),
+        )
+    return combat, ()
+
+
 def _coerce_int(value: Any, *, default: int = 0) -> int:
     try:
         return int(value)
@@ -6093,6 +6236,7 @@ def _draw_cards(
     discard_pile = list(combat.discard_pile)
     hand = list(combat.hand)
     events: list[EffectEvent] = []
+    drawn_cards: list[CardInstance] = []
 
     for _ in range(amount):
         if not draw_pile:
@@ -6102,17 +6246,40 @@ def _draw_cards(
             draw_pile = discard_pile
             discard_pile = []
             events.append(EffectEvent(kind="discard_shuffled", amount=len(draw_pile)))
+            events.append(
+                _pile_trigger_event(
+                    GameTrigger.DRAW_PILE_SHUFFLED,
+                    source_pile="discard_pile",
+                    target_pile="draw_pile",
+                    amount=len(draw_pile),
+                    reason="draw_from_empty_draw_pile",
+                    metadata={"card_instance_ids": [card.instance_id for card in draw_pile]},
+                )
+            )
         if not draw_pile:
             break
-        hand.append(draw_pile.pop(0))
+        drawn_card = draw_pile.pop(0)
+        hand.append(drawn_card)
+        drawn_cards.append(drawn_card)
 
-    drawn = len(hand) - len(combat.hand)
-    if drawn:
+    drawn_count = len(hand) - len(combat.hand)
+    if drawn_count:
         events.append(
             EffectEvent(
                 kind="cards_drawn",
-                amount=drawn,
-                metadata={"card_instance_ids": [card.instance_id for card in hand[-drawn:]]},
+                amount=drawn_count,
+                metadata={
+                    "card_instance_ids": [card.instance_id for card in hand[-drawn_count:]]
+                },
+            )
+        )
+        events.extend(
+            _card_movement_events(
+                GameTrigger.CARD_DRAWN,
+                drawn_cards,
+                from_pile="draw_pile",
+                to_pile="hand",
+                reason="draw_cards",
             )
         )
 
@@ -6282,6 +6449,16 @@ def _apply_hand_manipulation_effects(
                 metadata={"card_instance_ids": [card.instance_id for card in discarded]},
             )
         )
+        events.extend(
+            _card_movement_events(
+                GameTrigger.CARD_DISCARDED,
+                tuple(reversed(discarded)),
+                from_pile="hand",
+                to_pile="discard_pile",
+                source_id=source_card.instance_id,
+                reason="random_discard",
+            )
+        )
 
     discard_choice_count = _effect_amount(effect, "discard_choice", 0)
     if discard_choice_count and hand:
@@ -6324,6 +6501,16 @@ def _apply_hand_manipulation_effects(
                 source_id=source_card.instance_id,
                 amount=len(exhausted),
                 metadata={"card_instance_ids": [card.instance_id for card in exhausted]},
+            )
+        )
+        events.extend(
+            _card_movement_events(
+                GameTrigger.CARD_EXHAUSTED,
+                tuple(reversed(exhausted)),
+                from_pile="hand",
+                to_pile="exhaust_pile",
+                source_id=source_card.instance_id,
+                reason="random_exhaust",
             )
         )
 
