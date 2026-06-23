@@ -35,9 +35,19 @@ def test_classifies_draw_energy_and_timed_turn_partials() -> None:
     assert swift.status == "executable"
     assert swift.executable_steps == ({"draw": 3},)
     assert cure_all.executable_steps == ({"energy": 1}, {"draw": 2})
-    assert clarity.status == "partial"
-    assert clarity.executable_steps == ({"draw": 1},)
-    assert _categories(clarity) == ("timed_turn_start_effect",)
+    assert clarity.status == "executable"
+    assert clarity.executable_steps == (
+        {"draw": 1},
+        {
+            "combat_trigger": {
+                "trigger": "turn_start",
+                "duration": "once",
+                "remaining_uses": 3,
+                "effects": ({"draw": 1},),
+            }
+        },
+    )
+    assert clarity.blockers == ()
 
 
 def test_classifies_strength_dexterity_temporary_and_enemy_status_potions() -> None:
@@ -158,12 +168,44 @@ def test_classifies_random_card_duplication_generation_and_escape_blockers() -> 
         _row("SMOKE_BOMB", "Escape combat.", name="Smoke Bomb")
     )
 
-    assert attack.status == "blocked"
-    assert attack.executable_steps == ()
-    assert _categories(attack) == ("random_card_choice",)
-    assert _categories(duplicator) == ("card_duplication",)
-    assert _categories(entropic) == ("potion_generation",)
+    assert attack.status == "executable"
+    assert attack.executable_steps == (
+        {
+            "choose_card": {
+                "action": "move_to_hand",
+                "zone": "generated",
+                "count": 1,
+                "choices": 3,
+                "pool": "character",
+                "free_to_play_this_turn": True,
+                "card_types": ("attack",),
+            }
+        },
+    )
+    assert duplicator.status == "executable"
+    assert duplicator.executable_steps == (
+        {"next_card_extra_play": {"card_type": "any", "amount": 1, "duration": "turn"}},
+    )
+    assert entropic.status == "executable"
+    assert entropic.executable_steps == (
+        {"fill_empty_potion_slots": {"pool": "potion_pool"}},
+    )
     assert _categories(smoke) == ("escape_combat",)
+
+
+def test_classifies_fairy_as_passive_revive_without_blocker() -> None:
+    fairy = classify_potion_effect(
+        _row(
+            "FAIRY_IN_A_BOTTLE",
+            "When your HP would be reduced to 0, heal to 30% of your Max HP instead.",
+        )
+    )
+
+    assert fairy.status == "executable"
+    assert fairy.executable_steps == (
+        {"passive_revive": {"hp_percent": 30, "consumes_potion": True}},
+    )
+    assert fairy.blockers == ()
 
 
 def test_potion_special_coverage_summarizes_steps_and_blockers() -> None:
@@ -181,14 +223,18 @@ def test_potion_special_coverage_summarizes_steps_and_blockers() -> None:
     )
 
     assert summary.total_rows == 5
-    assert summary.executable_rows == 2
-    assert summary.partial_rows == 1
-    assert summary.blocked_rows == 1
+    assert summary.executable_rows == 4
+    assert summary.partial_rows == 0
+    assert summary.blocked_rows == 0
     assert summary.unsupported_rows == 1
     assert summary.covered_rows == 4
-    assert summary.executable_effect_keys == ("draw", "energy", "orb_slot_delta")
+    assert summary.executable_effect_keys == (
+        "choose_card",
+        "draw",
+        "energy",
+        "orb_slot_delta",
+        "randomize_hand_costs",
+    )
     assert summary.blocker_categories == (
-        "cost_randomization",
-        "random_card_choice",
         "unparsed_text",
     )

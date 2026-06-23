@@ -1,0 +1,307 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "menu_screen": "character_select",
+    "options": [
+      "IRONCLAD",
+      "SILENT",
+      "REGENT",
+      "NECROBINDER",
+      "DEFECT",
+      "confirm",
+      "embark",
+      "back"
+    ],
+    "phase": "menu"
+  },
+  "game_version": null,
+  "initial_state": {
+    "menu_screen": "character_select",
+    "options": [
+      "IRONCLAD",
+      "SILENT",
+      "REGENT",
+      "NECROBINDER",
+      "DEFECT",
+      "confirm",
+      "embark",
+      "back"
+    ],
+    "phase": "menu"
+  },
+  "metadata": {
+    "mode": "live_play",
+    "policy": "prefer_attack",
+    "raw_initial_payload": {
+      "characters": [
+        {
+          "description": "Ironclad cards will now appear in rewards and shops.",
+          "energy": 3,
+          "gold": 99,
+          "hp": 80,
+          "id": "IRONCLAD",
+          "locked": false,
+          "name": "The Ironclad",
+          "starting_deck": [
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Bash"
+          ],
+          "starting_relics": [
+            {
+              "description": "At the end of combat, heal 6 HP.",
+              "name": "Burning Blood"
+            }
+          ],
+          "total_cards": 87,
+          "total_potions": 3,
+          "total_relics": 8
+        },
+        {
+          "description": "Silent cards will now appear in rewards and shops.",
+          "energy": 3,
+          "gold": 99,
+          "hp": 70,
+          "id": "SILENT",
+          "locked": false,
+          "name": "The Silent",
+          "starting_deck": [
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Neutralize",
+            "Survivor"
+          ],
+          "starting_relics": [
+            {
+              "description": "At the start of each combat, draw 2 additional cards.",
+              "name": "Ring of the Snake"
+            }
+          ],
+          "total_cards": 88,
+          "total_potions": 3,
+          "total_relics": 8
+        },
+        {
+          "description": "Regent cards will now appear in rewards and shops.",
+          "energy": 3,
+          "gold": 99,
+          "hp": 75,
+          "id": "REGENT",
+          "locked": true,
+          "name": "The Regent",
+          "starting_deck": [
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Falling Star",
+            "Venerate"
+          ],
+          "starting_relics": [
+            {
+              "description": "At the start of each combat, gain [star_icon.png][star_icon.png][star_icon.png].",
+              "name": "Divine Right"
+            }
+          ],
+          "total_cards": 88,
+          "total_potions": 3,
+          "total_relics": 8
+        },
+        {
+          "description": "Necrobinder cards will now appear in rewards and shops.",
+          "energy": 3,
+          "gold": 99,
+          "hp": 66,
+          "id": "NECROBINDER",
+          "locked": true,
+          "name": "The Necrobinder",
+          "starting_deck": [
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Bodyguard",
+            "Unleash"
+          ],
+          "starting_relics": [
+            {
+              "description": "At the start of your turn, Summon 1.",
+              "name": "Bound Phylactery"
+            }
+          ],
+          "total_cards": 88,
+          "total_potions": 3,
+          "total_relics": 8
+        },
+        {
+          "description": "Defect cards will now appear in rewards and shops.",
+          "energy": 3,
+          "gold": 99,
+          "hp": 75,
+          "id": "DEFECT",
+          "locked": true,
+          "name": "The Defect",
+          "starting_deck": [
+            "Strike",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Defend",
+            "Zap",
+            "Dualcast"
+          ],
+          "starting_relics": [
+            {
+              "description": "At the start of each combat, Channel 1 Lightning.",
+              "name": "Cracked Core"
+            }
+          ],
+          "total_cards": 88,
+          "total_potions": 3,
+          "total_relics": 8
+        }
+      ],
+      "menu_screen": "character_select",
+      "message": "Select a character.",
+      "options": [
+        {
+          "enabled": true,
+          "name": "IRONCLAD"
+        },
+        {
+          "enabled": true,
+          "name": "SILENT"
+        },
+        {
+          "enabled": false,
+          "name": "REGENT"
+        },
+        {
+          "enabled": false,
+          "name": "NECROBINDER"
+        },
+        {
+          "enabled": false,
+          "name": "DEFECT"
+        },
+        {
+          "enabled": true,
+          "name": "confirm"
+        },
+        {
+          "enabled": true,
+          "name": "embark"
+        },
+        {
+          "enabled": true,
+          "name": "back"
+        }
+      ],
+      "state_type": "menu"
+    },
+    "stats": {
+      "action_type_counts": {
+        "menu_select": 1
+      },
+      "average_legal_actions": 5.0,
+      "legal_action_counts": [
+        5
+      ],
+      "phase_counts": {
+        "menu": 1
+      },
+      "random_policy_likelihood": 0.2,
+      "random_policy_log_likelihood": -1.6094379124341003,
+      "selected_probabilities": [
+        0.2
+      ],
+      "steps_requested": 1,
+      "steps_taken": 1,
+      "stopped_reason": "max_steps"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [
+    {
+      "action": {},
+      "after": {
+        "menu_screen": "character_select",
+        "options": [
+          "IRONCLAD",
+          "SILENT",
+          "REGENT",
+          "NECROBINDER",
+          "DEFECT",
+          "confirm",
+          "embark",
+          "back"
+        ],
+        "phase": "menu"
+      },
+      "before": {
+        "menu_screen": "character_select",
+        "options": [
+          "IRONCLAD",
+          "SILENT",
+          "REGENT",
+          "NECROBINDER",
+          "DEFECT",
+          "confirm",
+          "embark",
+          "back"
+        ],
+        "phase": "menu"
+      },
+      "external_action": {
+        "action": "menu_select",
+        "option": "embark"
+      },
+      "metadata": {
+        "action_type": "menu_select",
+        "legal_action_count": 5,
+        "raw_action": {
+          "action": "menu_select",
+          "option": "embark"
+        },
+        "response": {
+          "message": "Embarking on run",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.2
+      },
+      "step_index": 0
+    }
+  ],
+  "trace_id": "live-0"
+}

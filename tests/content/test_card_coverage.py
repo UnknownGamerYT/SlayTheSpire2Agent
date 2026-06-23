@@ -69,8 +69,8 @@ def test_card_coverage_classifies_implemented_partial_and_missing_cards() -> Non
     )
 
     assert report.counts_by_status == {
-        "implemented": 4,
-        "partial": 1,
+        "implemented": 5,
+        "partial": 0,
         "missing": 1,
     }
     strike = report.entry_for("strike_test")
@@ -91,9 +91,10 @@ def test_card_coverage_classifies_implemented_partial_and_missing_cards() -> Non
 
     assert golem.status is CardCoverageStatus.MISSING
     assert golem.unknown_keys == ("summon_golem",)
-    assert finishing_blow.status is CardCoverageStatus.PARTIAL
+    assert finishing_blow.status is CardCoverageStatus.IMPLEMENTED
     assert "damage" in finishing_blow.executable_keys
-    assert finishing_blow.blocker_kinds == ("if_kill_resource_gain",)
+    assert "if_kill_resource" in finishing_blow.executable_keys
+    assert finishing_blow.blocker_kinds == ()
     assert bane.status is CardCoverageStatus.IMPLEMENTED
     assert "keyword_ethereal" in bane.executable_keys
     assert "keyword_unplayable" in bane.executable_keys

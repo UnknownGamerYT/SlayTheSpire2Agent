@@ -225,6 +225,7 @@ from .potion_specials import (
 )
 from .potions import (
     DEFAULT_POTION_EFFECTS,
+    ENGINE_RUNTIME_POTION_IDS,
     FOUL_POTION_MERCHANT_EFFECT,
     PotionCapacityResult,
     PotionDiscardDecision,
@@ -238,6 +239,7 @@ from .potions import (
     potion_content_id,
     potion_discard_decision,
     potion_pickup_decision,
+    supported_combat_potion_ids,
     supported_potion_ids,
 )
 from .powers import (
@@ -451,6 +453,7 @@ __all__ = [
     "ELITE_DAMAGE_ASCENSION",
     "ELITE_HP_ASCENSION",
     "ELITE_SPECIAL_MECHANIC",
+    "ENGINE_RUNTIME_POTION_IDS",
     "ENGINE_EFFECT_KEYS",
     "EXECUTABLE_EFFECT_KEYS",
     "EXTENDED_EFFECT_KEYS",
@@ -780,6 +783,7 @@ __all__ = [
     "special_event_options",
     "special_event_room_state",
     "supported_combat_relic_ids",
+    "supported_combat_potion_ids",
     "supported_potion_ids",
     "supported_relic_ids",
     "synthetic_encounter",

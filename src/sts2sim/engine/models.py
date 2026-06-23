@@ -46,9 +46,11 @@ class ActionType(str, Enum):
     TAKE_REWARD_RELIC = "take_reward_relic"
     TAKE_REWARD_CARD = "take_reward_card"
     TAKE_REWARD_POTION = "take_reward_potion"
+    SKIP_REWARD = "skip_reward"
     SHOP_BUY = "shop_buy"
     SHOP_LEAVE = "shop_leave"
     USE_POTION = "use_potion"
+    CHOOSE_CARD = "choose_card"
     DISCARD_CARD = "discard_card"
     EXHAUST_CARD = "exhaust_card"
     DISCARD_POTION = "discard_potion"
@@ -337,20 +339,28 @@ class RewardState(EngineModel):
     forced: bool = False
     gold: int = 0
     gold_claimed: bool = False
+    gold_skipped: bool = False
     relic_id: str | None = None
     relic_claimed: bool = False
+    relic_skipped: bool = False
     relic_ids: tuple[str, ...] = ()
     claimed_relic_ids: tuple[str, ...] = ()
+    skipped_relic_ids: tuple[str, ...] = ()
     card_ids: tuple[str, ...] = ()
     claimed_card_indices: tuple[int, ...] = ()
+    skipped_card_indices: tuple[int, ...] = ()
     card_options: tuple[str, ...] = ()
     card_claimed: bool = False
+    card_skipped: bool = False
     card_option_groups: tuple[tuple[str, ...], ...] = ()
     claimed_card_option_group_indices: tuple[int, ...] = ()
+    skipped_card_option_group_indices: tuple[int, ...] = ()
     potion_id: str | None = None
     potion_claimed: bool = False
+    potion_skipped: bool = False
     potion_ids: tuple[str, ...] = ()
     claimed_potion_indices: tuple[int, ...] = ()
+    skipped_potion_indices: tuple[int, ...] = ()
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -381,6 +391,11 @@ class RewardState(EngineModel):
         )
         object.__setattr__(
             self,
+            "skipped_relic_ids",
+            tuple(str(relic_id) for relic_id in self.skipped_relic_ids),
+        )
+        object.__setattr__(
+            self,
             "card_ids",
             tuple(str(card_id) for card_id in self.card_ids),
         )
@@ -388,6 +403,11 @@ class RewardState(EngineModel):
             self,
             "claimed_card_indices",
             tuple(sorted({max(0, int(index)) for index in self.claimed_card_indices})),
+        )
+        object.__setattr__(
+            self,
+            "skipped_card_indices",
+            tuple(sorted({max(0, int(index)) for index in self.skipped_card_indices})),
         )
         object.__setattr__(
             self,
@@ -403,6 +423,18 @@ class RewardState(EngineModel):
         )
         object.__setattr__(
             self,
+            "skipped_card_option_group_indices",
+            tuple(
+                sorted(
+                    {
+                        max(0, int(index))
+                        for index in self.skipped_card_option_group_indices
+                    }
+                )
+            ),
+        )
+        object.__setattr__(
+            self,
             "potion_ids",
             tuple(str(potion_id) for potion_id in self.potion_ids),
         )
@@ -410,6 +442,11 @@ class RewardState(EngineModel):
             self,
             "claimed_potion_indices",
             tuple(sorted({max(0, int(index)) for index in self.claimed_potion_indices})),
+        )
+        object.__setattr__(
+            self,
+            "skipped_potion_indices",
+            tuple(sorted({max(0, int(index)) for index in self.skipped_potion_indices})),
         )
         return self
 
@@ -464,12 +501,15 @@ class Action(EngineModel):
             ActionType.TAKE_REWARD_RELIC,
             ActionType.TAKE_REWARD_CARD,
             ActionType.TAKE_REWARD_POTION,
+            ActionType.SKIP_REWARD,
         } and not self.target_id:
             raise ValueError(f"{self.type.value} actions require target_id")
         if self.type == ActionType.SHOP_BUY and not self.target_id:
             raise ValueError("shop_buy actions require target_id")
         if self.type == ActionType.DISCARD_POTION and not self.target_id:
             raise ValueError("discard_potion actions require target_id")
+        if self.type == ActionType.CHOOSE_CARD and not self.card_instance_id:
+            raise ValueError("choose_card actions require card_instance_id")
         if self.type == ActionType.DISCARD_CARD and not self.card_instance_id:
             raise ValueError("discard_card actions require card_instance_id")
         if self.type == ActionType.EXHAUST_CARD and not self.card_instance_id:

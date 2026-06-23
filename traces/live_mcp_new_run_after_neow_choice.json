@@ -1,0 +1,100 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "floor": 1,
+    "phase": "event",
+    "player": {
+      "block": 0,
+      "gold": 99,
+      "hp": 80,
+      "max_hp": 80
+    }
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "floor": 1,
+    "phase": "event",
+    "player": {
+      "block": 0,
+      "gold": 99,
+      "hp": 80,
+      "max_hp": 80
+    }
+  },
+  "metadata": {
+    "mode": "capture",
+    "raw_initial_payload": {
+      "event": {
+        "body": null,
+        "event_id": "NEOW",
+        "event_name": "Neow",
+        "in_dialogue": false,
+        "is_ancient": true,
+        "options": [
+          {
+            "description": "",
+            "index": 0,
+            "is_locked": false,
+            "is_proceed": true,
+            "keywords": [],
+            "title": "Proceed",
+            "was_chosen": false
+          }
+        ]
+      },
+      "player": {
+        "block": 0,
+        "character": "The Ironclad",
+        "gold": 99,
+        "hp": 80,
+        "max_hp": 80,
+        "max_potion_slots": 3,
+        "potions": [],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the end of combat, heal 6 HP.",
+            "id": "BURNING_BLOOD",
+            "keywords": [],
+            "name": "Burning Blood"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, add 1 Neow's Fury to your Deck.",
+            "id": "NEOWS_TORMENT",
+            "keywords": [
+              {
+                "description": "Deal 10 damage. Put up to 2 cards from your Discard Pile into your Hand. Exhaust.",
+                "name": "Neow's Fury"
+              },
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Neow's Torment"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1
+      },
+      "state_type": "event"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [],
+  "trace_id": "live-0"
+}

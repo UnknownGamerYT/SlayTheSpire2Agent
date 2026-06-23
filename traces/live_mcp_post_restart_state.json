@@ -1,0 +1,55 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "menu_screen": "main",
+    "options": [
+      "continue",
+      "abandon_run",
+      "multiplayer",
+      "compendium",
+      "timeline",
+      "settings",
+      "quit"
+    ],
+    "phase": "menu"
+  },
+  "game_version": null,
+  "initial_state": {
+    "menu_screen": "main",
+    "options": [
+      "continue",
+      "abandon_run",
+      "multiplayer",
+      "compendium",
+      "timeline",
+      "settings",
+      "quit"
+    ],
+    "phase": "menu"
+  },
+  "metadata": {
+    "mode": "capture",
+    "raw_initial_payload": {
+      "menu_screen": "main",
+      "message": "Main menu.",
+      "options": [
+        "continue",
+        "abandon_run",
+        "multiplayer",
+        "compendium",
+        "timeline",
+        "settings",
+        "quit"
+      ],
+      "state_type": "menu"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [],
+  "trace_id": "live-0"
+}

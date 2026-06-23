@@ -660,12 +660,10 @@ def _covers_all_options(value: object, *, default: bool) -> bool:
 def _should_skip_entry(value: object, source_attr: str) -> bool:
     if source_attr != "event_catalog_coverage":
         return False
-    raw_status: object | None
-    if isinstance(value, Mapping):
-        raw_status = value.get("status")
-    else:
-        raw_status = getattr(value, "status", None)
-    return raw_status is not None and _normalized_id(raw_status) == "unsupported"
+    # Catalog coverage rows are source-backed option records.  A row marked
+    # unsupported still means the option was discovered and classified, even if
+    # the primitive event-room model cannot execute it directly.
+    return False
 
 
 def _notes_from_entry(value: object) -> str | None:

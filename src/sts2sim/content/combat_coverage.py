@@ -110,6 +110,7 @@ class CombatCoverageSummary:
     implemented: int
     blocked: int
     unknown: int
+    sample_blocked_ids: tuple[str, ...] = ()
     sample_unknown_ids: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
@@ -118,6 +119,7 @@ class CombatCoverageSummary:
             CombatCoverageStatus.IMPLEMENTED.value: self.implemented,
             CombatCoverageStatus.BLOCKED.value: self.blocked,
             CombatCoverageStatus.UNKNOWN.value: self.unknown,
+            "sample_blocked_ids": list(self.sample_blocked_ids),
             "sample_unknown_ids": list(self.sample_unknown_ids),
         }
 
@@ -155,6 +157,13 @@ class CombatCoverageReport:
         }
 
     @property
+    def sample_blocked_ids(self) -> dict[str, list[str]]:
+        return {
+            summary.category.value: list(summary.sample_blocked_ids)
+            for summary in self.summaries
+        }
+
+    @property
     def unknown_entries(self) -> tuple[CombatCoverageEntry, ...]:
         return self.entries_for(status=CombatCoverageStatus.UNKNOWN)
 
@@ -171,6 +180,9 @@ class CombatCoverageReport:
         unknown_entries = tuple(
             entry for entry in entries if entry.status is CombatCoverageStatus.UNKNOWN
         )
+        blocked_entries = tuple(
+            entry for entry in entries if entry.status is CombatCoverageStatus.BLOCKED
+        )
         return CombatCoverageSummary(
             category=enum_category,
             total=len(entries),
@@ -179,6 +191,9 @@ class CombatCoverageReport:
             ),
             blocked=sum(1 for entry in entries if entry.status is CombatCoverageStatus.BLOCKED),
             unknown=len(unknown_entries),
+            sample_blocked_ids=tuple(
+                entry.content_id for entry in blocked_entries[: self.unknown_sample_size]
+            ),
             sample_unknown_ids=tuple(
                 entry.content_id for entry in unknown_entries[: self.unknown_sample_size]
             ),
@@ -215,6 +230,7 @@ class CombatCoverageReport:
         return {
             "total_ids": self.total_ids,
             "counts_by_category": self.counts_by_category,
+            "sample_blocked_ids": self.sample_blocked_ids,
             "sample_unknown_ids": self.sample_unknown_ids,
             "entries": [entry.as_dict() for entry in self.entries],
         }
@@ -240,13 +256,24 @@ def combat_implementation_catalog(
 
 def default_combat_implementation_catalog() -> CombatImplementationCatalog:
     from sts2sim.mechanics.card_effects import EXECUTABLE_EFFECT_KEYS
-    from sts2sim.mechanics.potions import supported_potion_ids
+    from sts2sim.mechanics.potions import supported_combat_potion_ids
+    from sts2sim.mechanics.relic_combat import supported_combat_relic_ids
     from sts2sim.mechanics.relics import supported_relic_ids
+    from sts2sim.mechanics.reward_triggers import DEFAULT_REWARD_MODIFIERS
+
+    reward_relic_ids = frozenset(modifier.content_id for modifier in DEFAULT_REWARD_MODIFIERS)
+    blocked_card_ids: Mapping[str, str] = {}
 
     return combat_implementation_catalog(
         implemented_ids_by_category={
-            CombatCoverageCategory.POTIONS: supported_potion_ids(),
-            CombatCoverageCategory.RELICS: supported_relic_ids(),
+            CombatCoverageCategory.CARDS: {"guilty"},
+            CombatCoverageCategory.POTIONS: supported_combat_potion_ids(),
+            CombatCoverageCategory.RELICS: (
+                supported_relic_ids() | supported_combat_relic_ids() | reward_relic_ids
+            ),
+        },
+        blocked_ids_by_category={
+            CombatCoverageCategory.CARDS: blocked_card_ids,
         },
         executable_card_effect_keys=EXECUTABLE_EFFECT_KEYS,
     )
@@ -456,9 +483,18 @@ def _monster_entries(
     monsters: Sequence[CachedCombatRow],
     catalog: CombatImplementationCatalog,
 ) -> tuple[CombatCoverageEntry, ...]:
+    from sts2sim.mechanics.monster_specials import classify_all_monster_specials
     from sts2sim.mechanics.monsters import build_monster_definitions
 
     definitions = build_monster_definitions(monsters)
+    raw_sources = {
+        _source_id(monster, CombatCoverageCategory.MONSTERS, index): monster
+        for index, monster in enumerate(monsters)
+    }
+    classifications = classify_all_monster_specials(
+        definitions,
+        raw_sources=raw_sources,
+    )
     entries: list[CombatCoverageEntry] = []
     implemented_ids = catalog.implemented_ids(CombatCoverageCategory.MONSTERS)
     for index, monster in enumerate(monsters):
@@ -467,6 +503,7 @@ def _monster_entries(
         name = _source_name(monster, content_id)
         blocker_reasons = catalog.blocker_reasons(CombatCoverageCategory.MONSTERS, content_id)
         definition = _definition_for_id(definitions, content_id)
+        classification = classifications.get(content_id)
         implemented_keys: tuple[str, ...]
         blocked_keys: tuple[str, ...]
         unknown_keys: tuple[str, ...]
@@ -495,9 +532,23 @@ def _monster_entries(
             implemented_keys = ()
             blocked_keys = ()
             unknown_keys = (normalized,)
+        elif classification is not None and classification.blocked:
+            status = CombatCoverageStatus.BLOCKED
+            reasons = tuple(
+                blocker.blocker or blocker.detail for blocker in classification.blockers
+            )
+            implemented_keys = ()
+            blocked_keys = _unique_ids(blocker.code for blocker in classification.blockers)
+            unknown_keys = ()
         else:
             status = CombatCoverageStatus.IMPLEMENTED
-            reasons = ("Source monster parsed into executable move definitions.",)
+            if classification is not None and classification.hints:
+                reasons = (
+                    "Source monster parsed into executable move definitions with "
+                    "deterministic special-handling hints.",
+                )
+            else:
+                reasons = ("Source monster parsed into executable move definitions.",)
             implemented_keys = _unique_ids(move.move_id for move in definition.moves)
             blocked_keys = ()
             unknown_keys = ()

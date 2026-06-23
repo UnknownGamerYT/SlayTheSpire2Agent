@@ -1,0 +1,404 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Defend",
+        "Defend",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Slimed",
+        "Slimed"
+      ],
+      "draw_pile": [
+        "Defend",
+        "Defend",
+        "Strike",
+        "Slimed"
+      ],
+      "hand": [
+        "SLIMED",
+        "STRIKE_IRONCLAD",
+        "BASH",
+        "SLIMED"
+      ]
+    },
+    "floor": 2,
+    "phase": "card_select",
+    "player": {
+      "block": 0,
+      "energy": 2,
+      "gold": 99,
+      "hp": 74,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD",
+      "NEOWS_TORMENT"
+    ]
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Defend",
+        "Defend",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Slimed",
+        "Slimed"
+      ],
+      "draw_pile": [
+        "Defend",
+        "Defend",
+        "Strike",
+        "Slimed"
+      ],
+      "hand": [
+        "SLIMED",
+        "STRIKE_IRONCLAD",
+        "BASH",
+        "SLIMED"
+      ]
+    },
+    "floor": 2,
+    "phase": "card_select",
+    "player": {
+      "block": 0,
+      "energy": 2,
+      "gold": 99,
+      "hp": 74,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD",
+      "NEOWS_TORMENT"
+    ]
+  },
+  "metadata": {
+    "mode": "capture",
+    "raw_initial_payload": {
+      "card_select": {
+        "can_cancel": false,
+        "can_confirm": true,
+        "cards": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "type": "Skill"
+          },
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "type": "Skill"
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_IRONCLAD",
+            "index": 2,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "type": "Attack"
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_IRONCLAD",
+            "index": 3,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "type": "Attack"
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_IRONCLAD",
+            "index": 4,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "type": "Attack"
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "id": "SLIMED",
+            "index": 5,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Slimed",
+            "rarity": "Status",
+            "star_cost": null,
+            "type": "Status"
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "id": "SLIMED",
+            "index": 6,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Slimed",
+            "rarity": "Status",
+            "star_cost": null,
+            "type": "Status"
+          }
+        ],
+        "preview_showing": false,
+        "prompt": "Choose up to 2 cards to put into your Hand.",
+        "screen_type": "NCombatPileCardSelectScreen"
+      },
+      "player": {
+        "block": 0,
+        "character": "The Ironclad",
+        "discard_pile": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "name": "Slimed",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "name": "Slimed",
+            "star_cost": null
+          }
+        ],
+        "discard_pile_count": 7,
+        "draw_pile": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "name": "Slimed",
+            "star_cost": null
+          }
+        ],
+        "draw_pile_count": 4,
+        "energy": 2,
+        "exhaust_pile": [],
+        "exhaust_pile_count": 0,
+        "gold": 99,
+        "hand": [
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "id": "SLIMED",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Slimed",
+            "rarity": "Status",
+            "star_cost": null,
+            "target_type": "None",
+            "type": "Status",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_IRONCLAD",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "2",
+            "description": "Deal 8 damage. Apply 2 Vulnerable.",
+            "id": "BASH",
+            "index": 2,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Vulnerable creatures take 50% more damage from Attacks.",
+                "name": "Vulnerable"
+              }
+            ],
+            "name": "Bash",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "id": "SLIMED",
+            "index": 3,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Slimed",
+            "rarity": "Status",
+            "star_cost": null,
+            "target_type": "None",
+            "type": "Status",
+            "unplayable_reason": null
+          }
+        ],
+        "hp": 74,
+        "max_energy": 3,
+        "max_hp": 80,
+        "max_potion_slots": 3,
+        "potions": [],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the end of combat, heal 6 HP.",
+            "id": "BURNING_BLOOD",
+            "keywords": [],
+            "name": "Burning Blood"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, add 1 Neow's Fury to your Deck.",
+            "id": "NEOWS_TORMENT",
+            "keywords": [
+              {
+                "description": "Deal 10 damage. Put up to 2 cards from your Discard Pile into your Hand. Exhaust.",
+                "name": "Neow's Fury"
+              },
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Neow's Torment"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 2
+      },
+      "state_type": "card_select"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [],
+  "trace_id": "live-0"
+}

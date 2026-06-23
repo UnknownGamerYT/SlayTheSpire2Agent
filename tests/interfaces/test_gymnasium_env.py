@@ -44,3 +44,36 @@ def test_env_step_decodes_discrete_action_id(monkeypatch) -> None:
     assert truncated is False
     assert next_observation["phase"] == "map"
     assert next_info["action"]["type"] == "choose_ancient"
+
+
+def test_env_records_policy_output_and_realized_preview_memory(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *args, **kwargs: None)
+    env = Sts2Env(seed=12, character_id="TEST", ascension=0, max_actions=16)
+    observation, info = env.reset()
+
+    assert observation["agent_memory"]["entries"] == []
+
+    first_action_id = info["action_space"][0]["id"]
+    env.set_pending_policy_output(
+        {
+            "action_index": 0,
+            "confidence": 0.5,
+            "log_prob": -0.7,
+            "value": 1.25,
+            "aggression_target": 0.35,
+            "route_preference": 0.8,
+            "boss_readiness": 0.6,
+        }
+    )
+    next_observation, _reward, _terminated, _truncated, next_info = env.step(first_action_id)
+    memory_entry = next_observation["agent_memory"]["entries"][0]
+
+    assert memory_entry["action_type"] == "choose_ancient"
+    assert memory_entry["confidence"] == 0.5
+    assert memory_entry["log_prob"] == -0.7
+    assert memory_entry["value"] == 1.25
+    assert memory_entry["plan_aggression_target"] == 0.35
+    assert memory_entry["plan_route_preference"] == 0.8
+    assert memory_entry["plan_boss_readiness"] == 0.6
+    assert "preview_error" in memory_entry
+    assert next_info["agent_memory"]["entries"][0]["action_type"] == "choose_ancient"

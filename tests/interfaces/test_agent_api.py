@@ -15,6 +15,7 @@ from sts2sim import (
     serialize,
     step,
 )
+from sts2sim.engine import MapEdgeState, MapNodeState, MapState, RoomKind, RunPhase
 
 
 def _action_payload(action):
@@ -86,6 +87,78 @@ def test_encode_observation_is_json_friendly_and_has_numeric_vector() -> None:
     assert observation["legal_actions"]["ids"] == [
         descriptor["id"] for descriptor in action_space(state)
     ]
+    assert observation["agent_memory"]["entries"] == []
+
+
+def test_encode_observation_accepts_agent_memory_features() -> None:
+    state = new_run(seed=12, character_id="TEST", ascension=0)
+
+    observation = encode_observation(
+        state,
+        include_state=False,
+        agent_memory={
+            "entries": (
+                {
+                    "action_type": "choose_node",
+                    "action_type_id": 1,
+                    "action_id": 2,
+                    "confidence": 0.75,
+                    "reward": 1.5,
+                    "floor_delta": 1,
+                },
+            )
+        },
+    )
+
+    assert observation["agent_memory"]["entries"][0]["action_type"] == "choose_node"
+    assert any(name.startswith("agent_memory_0_") for name in observation["vector_schema"])
+    assert len(observation["vector"]) == len(observation["vector_schema"])
+
+
+def test_action_space_includes_card_and_node_learning_context() -> None:
+    state = new_run(
+        seed=6,
+        character_id="TEST",
+        ascension=0,
+        source_data={
+            "deck": (
+                {
+                    "id": "TEST_STRIKE",
+                    "name": "Test Strike",
+                    "type": "Attack",
+                    "target": "AnyEnemy",
+                    "cost": 1,
+                    "damage": 6,
+                },
+            ),
+            "flags": {"draw_per_turn": 1},
+        },
+    )
+    start = MapNodeState(node_id="start", act=state.act, floor=0, lane=0, kind=RoomKind.START)
+    target = MapNodeState(node_id="target", act=state.act, floor=1, lane=0, kind=RoomKind.MONSTER)
+    game_map = MapState(
+        act=state.act,
+        nodes=(start, target),
+        edges=(MapEdgeState(from_id=start.node_id, to_id=target.node_id),),
+        current_node_id=start.node_id,
+        completed_node_ids=(start.node_id,),
+    )
+    state = state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
+
+    node_descriptor = next(
+        descriptor for descriptor in action_space(state) if descriptor["type"] == "choose_node"
+    )
+    assert node_descriptor["node"]["kind"] == "monster"
+
+    state = step(state, decode_action(state, node_descriptor["id"]))
+    card_descriptor = next(
+        descriptor for descriptor in action_space(state) if descriptor["type"] == "play_card"
+    )
+
+    assert card_descriptor["card"]["card_id"] == "test_strike"
+    assert card_descriptor["card"]["type"] == "attack"
+    assert set(card_descriptor["card"]["effect_keys"]) == {"sequence", "damage"}
+    assert card_descriptor["card"]["effect_amounts"]["damage"] == 6
 
 
 def _json_key(payload: dict[str, object]) -> str:

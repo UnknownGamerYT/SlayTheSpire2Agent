@@ -89,6 +89,35 @@ cards to specific piles, channeling or evoking orbs, mutating player or enemy
 statuses, spawning enemies, adding relics and potions, and inspecting the raw
 combat payload are hidden until you click `Show Debug Tools`.
 
+Parity trace comparison:
+
+```powershell
+uv run sts2sim trace-template --output traces/example.parity.json
+uv run sts2sim compare-trace traces/example.parity.json
+uv run sts2sim compare-trace traces/example.parity.json --mode exact
+uv run sts2sim find-run-files "path/to/saves/history"
+uv run sts2sim import-run "path/to/run.run" --trace-output traces/from-run.parity.json
+uv run sts2sim probe-live
+uv run sts2sim capture-live --output traces/live-state.parity.json
+uv run sts2sim live-play --max-steps 5 --policy first --output traces/live-play.parity.json
+```
+
+Parity traces are sparse by default: a captured `before`, `after`, or
+`initial_state` snapshot only needs to include the fields you want to verify.
+That lets us compare live-game captures, run-file imports, or hand-written
+golden cases before every field has a canonical exporter. Use `--mode exact`
+when a snapshot should match the simulator payload without extra fields.
+
+Finished run-history files are useful but usually not action-by-action replays.
+`import-run` summarizes a local `.run`/JSON file and writes a non-replayable
+trace scaffold with the raw payload attached in metadata. For live captures,
+`probe-live`, `capture-live`, and `live-play` know the common STS2MCP and
+STS2-Agent ports. Use `--base-url http://localhost:15526` or
+`--base-url http://127.0.0.1:8080` if you want to force a specific bridge, and
+override `--state-path`, `--actions-path`, or `--action-path` if that mod's
+current endpoint names differ. Local third-party bridge source references live
+under `external/live_bridges/`.
+
 ## Public API
 
 The intended stable API is:
@@ -101,6 +130,15 @@ action = legal_actions(state)[0]
 transition = step(state, action)
 payload = serialize(transition.state)
 restored = load_state(payload)
+```
+
+Golden parity traces can be compared from Python too:
+
+```python
+from sts2sim import compare_trace_file
+
+report = compare_trace_file("traces/example.parity.json")
+assert report.matched
 ```
 
 Full parity is gated by content coverage. A missing card, relic, potion, power,

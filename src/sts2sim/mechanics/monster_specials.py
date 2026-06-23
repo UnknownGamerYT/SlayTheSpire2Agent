@@ -21,6 +21,8 @@ from .monsters import (
     MonsterPower,
     build_encounter_definitions,
     build_monster_definitions,
+    monster_summon_plan,
+    monster_summon_plans_for,
 )
 from .powers import normalize_power_id
 
@@ -46,6 +48,60 @@ _BASIC_STATUS_POWERS = frozenset(
         "intangible",
     )
 )
+_SUPPORTED_SPECIAL_INNATE_POWERS = frozenset(
+    ("plating", "curl_up", "skittish", "ravenous", "shriek", "enrage", "slippery")
+)
+_VERIFIED_ELITE_SOURCE_INTEGRATIONS = frozenset(
+    (
+        "bygone_effigy",
+        "byrdonis",
+        "decimillipede_segment",
+        "decimillipede_segment_back",
+        "decimillipede_segment_front",
+        "decimillipede_segment_middle",
+        "entomancer",
+        "flail_knight",
+        "infested_prism",
+        "magi_knight",
+        "mecha_knight",
+        "phantasmal_gardener",
+        "phrog_parasite",
+        "skulking_colony",
+        "soul_nexus",
+        "spectral_knight",
+        "terror_eel",
+        "wriggler",
+    )
+)
+_VERIFIED_BOSS_SOURCE_INTEGRATIONS = frozenset(
+    (
+        "ceremonial_beast",
+        "crusher",
+        "kin_follower",
+        "kin_priest",
+        "knowledge_demon",
+        "lagavulin_matriarch",
+        "queen",
+        "rocket",
+        "soul_fysh",
+        "test_subject",
+        "the_insatiable",
+        "torch_head_amalgam",
+        "vantom",
+        "waterfall_giant",
+    )
+)
+_VERIFIED_MUST_PERFORM_ONCE_STATE_INTEGRATIONS = MappingProxyType(
+    {
+        "ceremonial_beast": frozenset(("stun_move",)),
+        "decimillipede_segment": frozenset(("reattach_move",)),
+        "decimillipede_segment_back": frozenset(("reattach_move",)),
+        "decimillipede_segment_front": frozenset(("reattach_move",)),
+        "decimillipede_segment_middle": frozenset(("reattach_move",)),
+        "test_subject": frozenset(("respawn_move",)),
+        "waterfall_giant": frozenset(("about_to_blow_move",)),
+    }
+)
 _SUMMON_MOVE_TERMS = frozenset(
     (
         "summon",
@@ -54,7 +110,6 @@ _SUMMON_MOVE_TERMS = frozenset(
         "lay_eggs",
         "call_for_backup",
         "illusion",
-        "dramatic_open",
         "bloat",
     )
 )
@@ -304,7 +359,22 @@ def monster_special_source_coverage(
 
 def _kind_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialRequirement, ...]:
     kind = definition.kind.strip().lower()
+    normalized_monster_id = _normalized_id(definition.monster_id)
     if kind == "boss":
+        if normalized_monster_id in _VERIFIED_BOSS_SOURCE_INTEGRATIONS:
+            return (
+                _requirement(
+                    definition,
+                    category=BOSS_SCRIPT,
+                    code="boss_explicit_integration_supported",
+                    severity=MONSTER_SPECIAL_HINT,
+                    source_type="monster",
+                    source_id=definition.monster_id,
+                    detail=f"{definition.name} has an explicit source-data boss integration.",
+                    deterministic_hint="Replay the source attack pattern with supported boss "
+                    "powers and move effects.",
+                ),
+            )
         return (
             _requirement(
                 definition,
@@ -321,6 +391,20 @@ def _kind_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
             ),
         )
     if kind == "elite":
+        if normalized_monster_id in _VERIFIED_ELITE_SOURCE_INTEGRATIONS:
+            return (
+                _requirement(
+                    definition,
+                    category=ELITE_SPECIAL_MECHANIC,
+                    code="elite_explicit_integration_supported",
+                    severity=MONSTER_SPECIAL_HINT,
+                    source_type="monster",
+                    source_id=definition.monster_id,
+                    detail=f"{definition.name} has an explicit source-data elite integration.",
+                    deterministic_hint="Replay the source attack pattern with supported elite "
+                    "powers, conditions, and move effects.",
+                ),
+            )
         return (
             _requirement(
                 definition,
@@ -363,6 +447,22 @@ def _innate_power_requirements(
                 )
             )
             continue
+        if normalized in _SUPPORTED_SPECIAL_INNATE_POWERS:
+            requirements.append(
+                _requirement(
+                    definition,
+                    category=SPECIAL_INNATE_POWER,
+                    code="special_innate_power_supported",
+                    severity=MONSTER_SPECIAL_HINT,
+                    source_type="power",
+                    source_id=power.power_id,
+                    detail=f"Innate power {power.power_id} has an explicit runtime hook.",
+                    deterministic_hint="Apply the innate power status at spawn and resolve its "
+                    "combat trigger in the monster runtime.",
+                    evidence=_power_evidence(power),
+                )
+            )
+            continue
         requirements.append(
             _requirement(
                 definition,
@@ -386,19 +486,47 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
     requirements: list[MonsterSpecialRequirement] = []
     for move in definition.moves:
         normalized_text = _move_text(move)
-        if _is_summon_move(move, normalized_text):
+        if _is_self_hatch_move(definition, move):
+            requirements.append(
+                _requirement(
+                    definition,
+                    category=PHASE_CHANGE,
+                    code="self_hatch_move",
+                    severity=MONSTER_SPECIAL_HINT,
+                    source_type="move",
+                    source_id=move.move_id,
+                    detail=f"{move.name} transitions this monster into its attack cycle.",
+                    deterministic_hint="Emit a hatch event and advance to the next source move.",
+                    evidence=(move.intent, move.name),
+                )
+            )
+        elif _is_summon_move(move, normalized_text):
+            plan = monster_summon_plan(definition.monster_id, move.move_id)
             requirements.append(
                 _requirement(
                     definition,
                     category=SUMMON_SPAWN_MOVE,
                     code="summon_move_requires_spawn_resolution",
-                    severity=MONSTER_SPECIAL_BLOCKER,
+                    severity=(
+                        MONSTER_SPECIAL_HINT
+                        if plan is not None
+                        else MONSTER_SPECIAL_BLOCKER
+                    ),
                     source_type="move",
                     source_id=move.move_id,
                     detail=f"{move.name} can add or create monsters.",
-                    blocker="Dynamic monster creation is not handled by basic move execution.",
-                    deterministic_hint="Resolve the summoned monster ids and slots before enabling "
-                    "this move in combat.",
+                    blocker=(
+                        None
+                        if plan is not None
+                        else "Dynamic monster creation needs a source-specific summon plan."
+                    ),
+                    deterministic_hint=(
+                        f"Summon {', '.join(plan.summon_monster_ids)} using the "
+                        f"{plan.count_policy} count policy."
+                        if plan is not None
+                        else "Resolve the summoned monster ids and slots before enabling "
+                        "this move in combat."
+                    ),
                     evidence=(move.intent, move.name),
                 )
             )
@@ -418,7 +546,110 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
                 )
             )
 
+        if _is_aeonglass_increasing_intensity(definition, move):
+            requirements.append(
+                _requirement(
+                    definition,
+                    category=ADVANCED_AI,
+                    code="aeonglass_increasing_intensity_requires_wither_hook",
+                    severity=MONSTER_SPECIAL_BLOCKER,
+                    source_type="move",
+                    source_id=move.move_id,
+                    detail="Increasing Intensity has no concrete source payload for its "
+                    "Wither/Withering Presence behavior.",
+                    blocker="Aeonglass Wither card creation and upgrade behavior needs an "
+                    "explicit boss hook before combat replay is faithful.",
+                    deterministic_hint="Keep the source move as a blocker until Wither status "
+                    "card generation and scaling are modeled.",
+                    evidence=(move.intent, move.name),
+                )
+            )
+
+        requirements.extend(_move_power_requirements(definition, move))
+
         if _has_any_term(normalized_text, _PHASE_MOVE_TERMS):
+            if _is_self_destruct_move(definition, move):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=PHASE_CHANGE,
+                        code="self_destruct_move",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail=f"{move.name} removes this monster after resolving.",
+                        deterministic_hint="Resolve damage, then set the monster to inactive "
+                        "with a self-destruct event.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
+            if _is_decimillipede_segment(definition.monster_id) and _normalized_id(
+                move.move_id
+            ) in {"dead", "reattach"}:
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=PHASE_CHANGE,
+                        code="decimillipede_reattach_move",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail=f"{move.name} participates in the Decimillipede revive script.",
+                        deterministic_hint="Defeated segments count down while another segment "
+                        "is alive, then revive with 25 HP and cleared statuses.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
+            if _is_test_subject_respawn_move(definition, move):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=PHASE_CHANGE,
+                        code="test_subject_respawn_move",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail="Respawn transitions Test Subject into its next phase.",
+                        deterministic_hint="Revive phase one at 200 HP and phase two at 300 HP, "
+                        "clear statuses, then select the next source move from Respawns.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
+            if _is_test_subject_phase_attack_move(definition, move):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=PHASE_CHANGE,
+                        code="test_subject_phase_attack_move",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail=f"{move.name} is part of the handled Test Subject phase cycle.",
+                        deterministic_hint="Use the Test Subject respawn counter to enter this "
+                        "move, then continue through the source attack pattern.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
+            if _is_waterfall_giant_death_move(definition, move):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=PHASE_CHANGE,
+                        code="waterfall_giant_death_countdown_move",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail=f"{move.name} is part of the handled Steam Eruption death script.",
+                        deterministic_hint="On death with Steam Eruption, enter About To Blow, "
+                        "then Explode for the stored steam amount.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
             requirements.append(
                 _requirement(
                     definition,
@@ -444,11 +675,10 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
                     definition,
                     category=ADVANCED_AI,
                     code="escape_move_requires_combat_removal",
-                    severity=MONSTER_SPECIAL_BLOCKER,
+                    severity=MONSTER_SPECIAL_HINT,
                     source_type="move",
                     source_id=move.move_id,
                     detail=f"{move.name} can remove the monster from combat.",
-                    blocker="Escape/flee semantics require monster removal and reward handling.",
                     deterministic_hint="Represent escape as an explicit combat event before "
                     "advancing the move script.",
                     evidence=(move.intent, move.name),
@@ -456,6 +686,37 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
             )
 
         if _normalized_id(move.intent) == "special":
+            if _is_waterfall_giant_death_move(definition, move):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=ADVANCED_AI,
+                        code="waterfall_giant_explode_special",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail="Explode is handled by the Waterfall Giant Steam Eruption hook.",
+                        deterministic_hint="Deal damage equal to Steam Eruption, then end combat "
+                        "if the player survives.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
+            if _is_self_destruct_move(definition, move):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=ADVANCED_AI,
+                        code="special_intent_self_destruct",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="move",
+                        source_id=move.move_id,
+                        detail=f"{move.name} has a handled Special self-destruct intent.",
+                        deterministic_hint="Use the Gas Bomb self-destruct runtime handler.",
+                        evidence=(move.intent, move.name),
+                    )
+                )
+                continue
             requirements.append(
                 _requirement(
                     definition,
@@ -469,6 +730,34 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
                     evidence=(move.intent, move.name),
                 )
             )
+    return tuple(requirements)
+
+
+def _move_power_requirements(
+    definition: MonsterDefinition,
+    move: MonsterMove,
+) -> tuple[MonsterSpecialRequirement, ...]:
+    requirements: list[MonsterSpecialRequirement] = []
+    for power in move.powers:
+        normalized = normalize_power_id(power.power_id)
+        if normalized != "vital_spark":
+            continue
+        requirements.append(
+            _requirement(
+                definition,
+                category=SPECIAL_INNATE_POWER,
+                code="vital_spark_requires_tainted_skill_hook",
+                severity=MONSTER_SPECIAL_BLOCKER,
+                source_type="power",
+                source_id=power.power_id,
+                detail="Vital Spark changes Skill cards into Tainted sources.",
+                blocker="Infested Prism's Tainted Skill and per-hit damage race behavior needs "
+                "an explicit combat hook.",
+                deterministic_hint="Track Tainted application from Skill plays and scale the "
+                "player debuff before replaying this move as supported.",
+                evidence=(move.move_id, f"amount={power.amount}"),
+            )
+        )
     return tuple(requirements)
 
 
@@ -495,20 +784,52 @@ def _state_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialRe
                         )
                     )
             else:
+                severity = (
+                    MONSTER_SPECIAL_HINT
+                    if definition.moves
+                    else MONSTER_SPECIAL_BLOCKER
+                )
                 requirements.append(
                     _requirement(
                         definition,
                         category=ADVANCED_AI,
                         code="empty_random_selector",
-                        severity=MONSTER_SPECIAL_BLOCKER,
+                        severity=severity,
                         source_type="state",
                         source_id=state.state_id,
                         detail=f"{state.state_id} is a random selector with no source branches.",
-                        blocker="The source pattern omits the branch list; fallback selection is "
-                        "not source-faithful.",
+                        blocker=(
+                            None
+                            if definition.moves
+                            else "The source pattern omits both the branch list and a move pool."
+                        ),
+                        deterministic_hint=(
+                            "Use the engine fallback: choose deterministically from source moves, "
+                            "excluding the previous move when possible."
+                            if definition.moves
+                            else None
+                        ),
                     )
                 )
         elif normalized_state_type == "conditional" and not state.branches:
+            if not _state_selector_referenced(definition, state.state_id):
+                requirements.append(
+                    _requirement(
+                        definition,
+                        category=CONDITIONAL_BRANCH_DEPENDENCY,
+                        code="empty_conditional_selector",
+                        severity=MONSTER_SPECIAL_HINT,
+                        source_type="state",
+                        source_id=state.state_id,
+                        detail=(
+                            f"{state.state_id} is an unreachable conditional selector "
+                            "with no source branches."
+                        ),
+                        deterministic_hint="Ignore unreachable empty selector states during "
+                        "runtime move selection.",
+                    )
+                )
+                continue
             requirements.append(
                 _requirement(
                     definition,
@@ -559,6 +880,12 @@ def _state_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialRe
     return tuple(requirements)
 
 
+def _state_selector_referenced(definition: MonsterDefinition, state_id: str) -> bool:
+    if definition.initial_selector == state_id:
+        return True
+    return any(state.next_selector == state_id for state in definition.states)
+
+
 def _raw_attack_pattern_requirements(
     definition: MonsterDefinition,
     raw_source: Mapping[str, Any],
@@ -569,19 +896,28 @@ def _raw_attack_pattern_requirements(
         state = _mapping(raw_state)
         if state.get("must_perform_once") is True:
             state_id = _text(state.get("id"), "unknown_state")
+            verified_states = _VERIFIED_MUST_PERFORM_ONCE_STATE_INTEGRATIONS.get(
+                _normalized_id(definition.monster_id),
+                frozenset(),
+            )
+            supported = _normalized_id(state_id) in verified_states
             requirements.append(
                 _requirement(
                     definition,
                     category=ADVANCED_AI,
                     code="must_perform_once_state",
-                    severity=MONSTER_SPECIAL_BLOCKER,
+                    severity=MONSTER_SPECIAL_HINT if supported else MONSTER_SPECIAL_BLOCKER,
                     source_type="state",
                     source_id=state_id,
                     detail=f"{state_id} must be performed once according to source data.",
-                    blocker="One-shot forced states require per-state execution tracking or an "
+                    blocker=None
+                    if supported
+                    else "One-shot forced states require per-state execution tracking or an "
                     "explicit script trigger.",
                     deterministic_hint="Preserve the raw must_perform_once flag when integrating "
-                    "scripted phase/death moves.",
+                    "scripted phase/death moves."
+                    if not supported
+                    else "This one-shot state is covered by an explicit runtime script.",
                     evidence=("must_perform_once",),
                 )
             )
@@ -607,6 +943,91 @@ def _condition_requirement(
             source_id=source_id,
             detail=f"{state_id} branches on monster slot position.",
             deterministic_hint="Resolve from encounter slot_index before choosing the move.",
+            evidence=(condition,),
+        )
+    if dependency == "formation" and _supported_formation_condition(condition):
+        return _requirement(
+            definition,
+            category=CONDITIONAL_BRANCH_DEPENDENCY,
+            code="formation_condition",
+            severity=MONSTER_SPECIAL_HINT,
+            source_type="branch",
+            source_id=source_id,
+            detail=f"{state_id} branches on live monster formation.",
+            deterministic_hint="Resolve from alive ally count and front position before "
+            "choosing the move.",
+            evidence=(condition,),
+        )
+    if dependency == "spawn_capacity" and monster_summon_plans_for(definition.monster_id):
+        return _requirement(
+            definition,
+            category=CONDITIONAL_BRANCH_DEPENDENCY,
+            code="spawn_capacity_condition",
+            severity=MONSTER_SPECIAL_HINT,
+            source_type="branch",
+            source_id=source_id,
+            detail=f"{state_id} branches on available summon capacity.",
+            deterministic_hint="Resolve CanLay/CanFabricate from alive ally count and open "
+            "monster slots.",
+            evidence=(condition,),
+        )
+    if dependency == "hp_threshold" and _supported_hp_threshold_condition(condition):
+        return _requirement(
+            definition,
+            category=CONDITIONAL_BRANCH_DEPENDENCY,
+            code="hp_threshold_condition",
+            severity=MONSTER_SPECIAL_HINT,
+            source_type="branch",
+            source_id=source_id,
+            detail=f"{state_id} branches on monster hp threshold.",
+            deterministic_hint="Resolve from current monster hp, max hp, and any tracked "
+            "threshold move counts before choosing the move.",
+            evidence=(condition,),
+        )
+    if dependency == "script_counter" and _supported_script_counter_condition(
+        definition,
+        condition,
+    ):
+        return _requirement(
+            definition,
+            category=CONDITIONAL_BRANCH_DEPENDENCY,
+            code="script_counter_condition",
+            severity=MONSTER_SPECIAL_HINT,
+            source_type="branch",
+            source_id=source_id,
+            detail=f"{state_id} branches on an integrated script counter.",
+            deterministic_hint="Resolve from tracked source move counts before choosing the move.",
+            evidence=(condition,),
+        )
+    if dependency == "ally_death" and _supported_ally_death_condition(
+        definition,
+        condition,
+    ):
+        return _requirement(
+            definition,
+            category=CONDITIONAL_BRANCH_DEPENDENCY,
+            code="ally_death_condition",
+            severity=MONSTER_SPECIAL_HINT,
+            source_type="branch",
+            source_id=source_id,
+            detail=f"{state_id} branches on tracked ally death state.",
+            deterministic_hint="Resolve HasAmalgamDied from the Torch Head Amalgam combat state.",
+            evidence=(condition,),
+        )
+    if dependency == "respawn_counter" and _supported_respawn_counter_condition(
+        definition,
+        condition,
+    ):
+        return _requirement(
+            definition,
+            category=CONDITIONAL_BRANCH_DEPENDENCY,
+            code="respawn_counter_condition",
+            severity=MONSTER_SPECIAL_HINT,
+            source_type="branch",
+            source_id=source_id,
+            detail=f"{state_id} branches on Test Subject respawn count.",
+            deterministic_hint="Resolve Respawns from Test Subject combat metadata before "
+            "choosing the move.",
             evidence=(condition,),
         )
     return _requirement(
@@ -638,11 +1059,10 @@ def _repeat_requirement(
             definition,
             category=ADVANCED_AI,
             code="use_only_once_repeat",
-            severity=MONSTER_SPECIAL_BLOCKER,
+            severity=MONSTER_SPECIAL_HINT,
             source_type="branch",
             source_id=source_id,
             detail=f"{state_id} has a UseOnlyOnce branch constraint.",
-            blocker="UseOnlyOnce requires move-count exclusion before the branch is enabled.",
             deterministic_hint="Use move_counts to suppress this branch after it has "
             "resolved once.",
             evidence=tuple(item for item in (repeat, str(max_times) if max_times else "") if item),
@@ -664,7 +1084,9 @@ def _condition_dependency(condition: str) -> str:
     normalized = _normalized_id(condition)
     if "slotname" in normalized:
         slot_names = set(_quoted_values(condition))
-        if slot_names and slot_names <= _SUPPORTED_SLOT_NAMES:
+        if slot_names and (
+            slot_names <= _SUPPORTED_SLOT_NAMES or _supported_named_slot_values(slot_names)
+        ):
             return "slot_index"
         return "named_slot"
     if "currenthp" in normalized or "maxhp" in normalized:
@@ -697,10 +1119,131 @@ def _condition_hint(dependency: str) -> str:
     }.get(dependency, "Add a source-specific predicate before branch selection.")
 
 
+def _supported_formation_condition(condition: str) -> bool:
+    normalized = "".join(
+        char for char in _normalized_id(condition) if char.isalnum() or char in "<>=!"
+    )
+    return any(
+        marker in normalized
+        for marker in (
+            "getallycount>0",
+            "getallycount==0",
+            "isalone",
+            "isfront",
+        )
+    )
+
+
+def _supported_hp_threshold_condition(condition: str) -> bool:
+    normalized = "".join(
+        char for char in _normalized_id(condition) if char.isalnum() or char in "<>=!|&/"
+    )
+    return any(
+        marker in normalized
+        for marker in (
+            "currenthp>=basecreaturemaxhp/2",
+            "currenthp<basecreaturemaxhp/2",
+            "hasbeetlecharged||currenthp>=basecreaturemaxhp/2",
+            "!hasbeetlecharged&&currenthp<basecreaturemaxhp/2",
+        )
+    )
+
+
+def _supported_script_counter_condition(
+    definition: MonsterDefinition,
+    condition: str,
+) -> bool:
+    normalized = _normalized_id(condition)
+    return (
+        _normalized_id(definition.monster_id) == "knowledge_demon"
+        and "curseofknowledgecounter" in normalized
+    )
+
+
+def _supported_ally_death_condition(
+    definition: MonsterDefinition,
+    condition: str,
+) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "queen"
+        and "hasamalgamdied" in _normalized_id(condition)
+    )
+
+
+def _supported_respawn_counter_condition(
+    definition: MonsterDefinition,
+    condition: str,
+) -> bool:
+    normalized = "".join(
+        char for char in _normalized_id(condition) if char.isalnum() or char in "<>=!"
+    )
+    return (
+        _normalized_id(definition.monster_id) == "test_subject"
+        and "respawns" in normalized
+        and ("<2" in normalized or ">=2" in normalized)
+    )
+
+
+def _supported_named_slot_values(slot_names: set[str]) -> bool:
+    return all(
+        name.startswith("wriggler") and name.removeprefix("wriggler").isdigit()
+        for name in slot_names
+    )
+
+
 def _is_summon_move(move: MonsterMove, normalized_text: str) -> bool:
     return "summon" in _normalized_id(move.intent) or _has_any_term(
         normalized_text,
         _SUMMON_MOVE_TERMS,
+    )
+
+
+def _is_self_hatch_move(definition: MonsterDefinition, move: MonsterMove) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "tough_egg"
+        and _normalized_id(move.move_id) == "hatch"
+    )
+
+
+def _is_self_destruct_move(definition: MonsterDefinition, move: MonsterMove) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "gas_bomb"
+        and _normalized_id(move.move_id) == "explode"
+    )
+
+
+def _is_test_subject_respawn_move(definition: MonsterDefinition, move: MonsterMove) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "test_subject"
+        and _normalized_id(move.move_id) == "respawn"
+    )
+
+
+def _is_test_subject_phase_attack_move(definition: MonsterDefinition, move: MonsterMove) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "test_subject"
+        and _normalized_id(move.move_id) == "phase3_lacerate"
+    )
+
+
+def _is_waterfall_giant_death_move(definition: MonsterDefinition, move: MonsterMove) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "waterfall_giant"
+        and _normalized_id(move.move_id) in {"about_to_blow", "explode"}
+    )
+
+
+def _is_decimillipede_segment(monster_id: str) -> bool:
+    return _normalized_id(monster_id).startswith("decimillipede_segment")
+
+
+def _is_aeonglass_increasing_intensity(
+    definition: MonsterDefinition,
+    move: MonsterMove,
+) -> bool:
+    return (
+        _normalized_id(definition.monster_id) == "aeonglass"
+        and _normalized_id(move.move_id) == "increasing_intensity"
     )
 
 

@@ -26,18 +26,33 @@ POTION_EXECUTABLE_EFFECT_KEYS = frozenset(
         "apply_status",
         "block",
         "channel_orb",
+        "choose_card",
+        "combat_trigger",
         "damage",
         "draw",
         "energy",
         "evoke_orb",
         "exhaust_hand",
+        "fill_empty_potion_slots",
         "heal",
+        "heal_percent_max_hp",
         "hp_loss",
         "max_hp",
+        "next_card_damage_multiplier",
+        "next_card_extra_play",
         "next_turn",
+        "passive_revive",
         "orb_slot_delta",
         "player_resource",
+        "play_top_card",
+        "randomize_hand_costs",
         "retain_hand",
+        "shuffle_all_cards_to_draw",
+        "add_card_to_hand",
+        "add_keyword_to_matching_cards",
+        "add_random_card_to_hand",
+        "upgrade_hand",
+        "block_multiplier",
     }
 )
 
@@ -279,6 +294,7 @@ def _direct_steps_from_description(
     steps.extend(_orb_steps(normalized))
     steps.extend(_status_steps(plain, normalized))
     steps.extend(_hand_steps(normalized))
+    steps.extend(_special_runtime_steps(description, normalized))
     return tuple(_dedupe_steps(steps))
 
 
@@ -438,51 +454,465 @@ def _hand_steps(normalized: str) -> tuple[Mapping[str, Any], ...]:
     return tuple(steps)
 
 
+def _special_runtime_steps(
+    description: str,
+    normalized: str,
+) -> tuple[Mapping[str, Any], ...]:
+    steps: list[Mapping[str, Any]] = []
+
+    random_choice = _random_card_choice_step(normalized)
+    if random_choice:
+        steps.append(random_choice)
+
+    if "add" in normalized and "colorless cards" in normalized:
+        count = _first_number(normalized, default=3)
+        steps.append(
+            {
+                "add_random_card_to_hand": {
+                    "count": count,
+                    "pool": "colorless",
+                    "upgraded": "upgraded" in normalized,
+                }
+            }
+        )
+
+    if "add a random attack, skill, and power" in normalized:
+        for card_type in ("attack", "skill", "power"):
+            steps.append(
+                {
+                    "add_random_card_to_hand": {
+                        "count": 1,
+                        "card_types": (card_type,),
+                        "free_to_play_this_turn": "free to play this turn" in normalized,
+                    }
+                }
+            )
+
+    if "shivs" in normalized:
+        steps.append(
+            {
+                "add_card_to_hand": {
+                    "count": _first_number(normalized, default=3),
+                    "card": _fixed_card_spec(
+                        "shiv",
+                        name="Shiv",
+                        card_type="attack",
+                        target="enemy",
+                        cost=0,
+                        damage=6 if "upgraded" in normalized else 4,
+                        upgraded="upgraded" in normalized,
+                        exhaust=True,
+                    ),
+                }
+            }
+        )
+
+    if "souls" in normalized:
+        steps.append(
+            {
+                "add_card_to_hand": {
+                    "count": _first_number(normalized, default=2),
+                    "card": _fixed_card_spec(
+                        "soul",
+                        name="Soul",
+                        card_type="skill",
+                        target="self",
+                        cost=0,
+                        draw=2,
+                        exhaust=True,
+                    ),
+                }
+            }
+        )
+
+    if "play the top" in normalized and "draw pile" in normalized:
+        steps.append({"play_top_card": {"amount": _first_number(normalized, default=3)}})
+
+    if "next card is played an extra time" in normalized:
+        steps.append(
+            {
+                "next_card_extra_play": {
+                    "card_type": "any",
+                    "amount": 1,
+                    "duration": "turn" if "this turn" in normalized else "combat",
+                }
+            }
+        )
+
+    if "next attack" in normalized and "triple damage" in normalized:
+        steps.append(
+            {
+                "next_card_damage_multiplier": {
+                    "card_type": "attack",
+                    "multiplier": 3,
+                    "duration": "turn" if "this turn" in normalized else "combat",
+                }
+            }
+        )
+
+    if "put a card from your discard pile" in normalized:
+        steps.append(
+            {
+                "choose_card": {
+                    "action": "move_to_hand",
+                    "zone": "discard_pile",
+                    "count": 1,
+                    "destination": "hand",
+                    "free_to_play_this_combat": "free to play this combat" in normalized,
+                }
+            }
+        )
+
+    if "choose a card" in normalized and "draw pile" in normalized:
+        steps.append(
+            {
+                "choose_card": {
+                    "action": "move_to_hand",
+                    "zone": "draw_pile",
+                    "count": 1,
+                    "destination": "hand",
+                }
+            }
+        )
+
+    if "discard any number of cards" in normalized:
+        steps.append(
+            {
+                "choose_card": {
+                    "action": "discard",
+                    "zone": "hand",
+                    "count": "hand",
+                    "optional": True,
+                    "post_effects": ({"draw_selected_count": 1},)
+                    if "draw that many" in normalized
+                    else (),
+                }
+            }
+        )
+
+    if "exhaust any number of cards" in normalized:
+        steps.append(
+            {
+                "choose_card": {
+                    "action": "exhaust",
+                    "zone": "hand",
+                    "count": "hand",
+                    "optional": True,
+                }
+            }
+        )
+
+    if "randomize the cost" in normalized or "randomize costs" in normalized:
+        steps.append({"randomize_hand_costs": {"duration": "turn"}})
+
+    if "shuffle all your cards" in normalized:
+        steps.append({"shuffle_all_cards_to_draw": True})
+
+    if "upgrade all cards in your hand" in normalized:
+        steps.append({"upgrade_hand": {"zone": "hand", "duration": "combat"}})
+
+    hp_percent = re.search(r"\bheal for\s+(\d+)%\s+of your max hp\b", normalized)
+    if hp_percent is not None:
+        steps.append({"heal_percent_max_hp": int(hp_percent.group(1))})
+
+    block_multiplier = re.search(r"\b(triple|double)\s+your block\b", normalized)
+    if block_multiplier is not None:
+        steps.append(
+            {"block_multiplier": 3 if block_multiplier.group(1) == "triple" else 2}
+        )
+
+    if "fill all your empty potion slots" in normalized:
+        steps.append({"fill_empty_potion_slots": {"pool": "potion_pool"}})
+
+    turn_draw = re.search(
+        r"\bstart of your next\s+(\d+)\s+turns?.*\bdraw\s+(\d+)",
+        normalized,
+    )
+    if turn_draw is not None:
+        steps.append(
+            {
+                "combat_trigger": {
+                    "trigger": "turn_start",
+                    "duration": "once",
+                    "remaining_uses": int(turn_draw.group(1)),
+                    "effects": ({"draw": int(turn_draw.group(2))},),
+                }
+            }
+        )
+
+    for energy_amount in re.findall(
+        r"start of your next\s+(\d+)\s+turns?.*?\[energy:(\d+)\]",
+        description,
+        flags=re.IGNORECASE,
+    ):
+        steps.append(
+            {
+                "combat_trigger": {
+                    "trigger": "turn_start",
+                    "duration": "once",
+                    "remaining_uses": int(energy_amount[0]),
+                    "effects": ({"energy": int(energy_amount[1])},),
+                }
+            }
+        )
+
+    if "all enemies lose" in normalized and "strength" in normalized and "this turn" in normalized:
+        steps.append(
+            {
+                "apply_status": {
+                    "target": "all_enemies",
+                    "temporary_strength": -_first_number(normalized, default=7),
+                }
+            }
+        )
+
+    if "attacks deal" in normalized and "less damage" in normalized:
+        steps.append(
+            {
+                "apply_status": {
+                    "target": "enemy",
+                    "temporary_attack_damage_percent": -_first_number(
+                        normalized,
+                        default=30,
+                    ),
+                }
+            }
+        )
+
+    hp_loss = re.search(r"\bloses?\s+(\d+)\s+hp at the end", normalized)
+    if hp_loss is not None:
+        steps.append(
+            {
+                "combat_trigger": {
+                    "trigger": "turn_end",
+                    "duration": "combat",
+                    "effects": (
+                        {
+                            "enemy_hp_loss": {
+                                "target": "all_enemies"
+                                if "all enemies" in normalized
+                                else "enemy",
+                                "amount": int(hp_loss.group(1)),
+                            }
+                        },
+                    ),
+                }
+            }
+        )
+
+    if (
+        "strike cards" in normalized
+        or "cards containing strike" in normalized
+    ) and "replay" in normalized:
+        steps.append(
+            {
+                "add_keyword_to_matching_cards": {
+                    "zones": ("hand", "draw_pile", "discard_pile", "exhaust_pile"),
+                    "name_contains": "strike",
+                    "keyword": "replay",
+                    "amount": 1,
+                }
+            }
+        )
+
+    if "choose a card in your hand" in normalized and "free to play this combat" in normalized:
+        steps.append(
+            {
+                "choose_card": {
+                    "action": "set_free_to_play",
+                    "zone": "hand",
+                    "count": 1,
+                    "free_to_play_this_combat": True,
+                }
+            }
+        )
+
+    if "when your hp would be reduced to" in normalized and "heal to" in normalized:
+        steps.append({"passive_revive": {"hp_percent": 30, "consumes_potion": True}})
+
+    return tuple(steps)
+
+
+def _random_card_choice_step(normalized: str) -> Mapping[str, Any]:
+    if "choose" not in normalized or "random" not in normalized or "card" not in normalized:
+        return {}
+
+    payload: dict[str, Any] = {
+        "action": "move_to_hand",
+        "zone": "generated",
+        "count": 1,
+        "choices": 3,
+        "pool": "character",
+        "free_to_play_this_turn": "free to play this turn" in normalized,
+    }
+    if "colorless" in normalized:
+        payload["pool"] = "colorless"
+    for card_type in ("attack", "skill", "power"):
+        if f"random {card_type}" in normalized:
+            payload["card_types"] = (card_type,)
+            break
+    return {"choose_card": payload}
+
+
+def _fixed_card_spec(
+    card_id: str,
+    *,
+    name: str,
+    card_type: str,
+    target: str,
+    cost: int,
+    damage: int = 0,
+    block: int = 0,
+    draw: int = 0,
+    upgraded: bool = False,
+    exhaust: bool = False,
+) -> dict[str, Any]:
+    effects: dict[str, Any] = {}
+    if damage:
+        effects["damage"] = damage
+    if block:
+        effects["block"] = block
+    if draw:
+        effects["draw"] = draw
+    return {
+        "card_id": card_id,
+        "name": name,
+        "type": card_type,
+        "target": target,
+        "cost": cost,
+        "effects": effects,
+        "upgraded": upgraded,
+        "exhaust": exhaust,
+        "tags": ("generated", "temporary"),
+    }
+
+
+def _first_number(normalized: str, *, default: int) -> int:
+    match = re.search(r"\b(\d+)\b", normalized)
+    return int(match.group(1)) if match else default
+
+
 def _blockers_from_description(
     potion_id: str,
     name: str,
     normalized: str,
 ) -> tuple[PotionEffectBlocker, ...]:
     blockers: list[PotionEffectBlocker] = []
+    implemented = _implemented_blocker_categories(normalized)
     blocker_id_category = _MANUAL_USE_BLOCKER_IDS.get(potion_id)
     if blocker_id_category is not None:
-        blockers.append(_blocker(blocker_id_category, potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            blocker_id_category,
+            potion_id,
+        )
     if potion_id in _ESCAPE_POTION_IDS or _looks_like_escape(name, normalized):
         blockers.append(_blocker("escape_combat", potion_id=potion_id))
 
     if "choose" in normalized and "random" in normalized and "card" in normalized:
-        blockers.append(_blocker("random_card_choice", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "random_card_choice",
+            potion_id,
+        )
     elif "randomize" not in normalized and "random" in normalized and (
         "card" in normalized or _mentions_random_card_types(normalized)
     ):
-        blockers.append(_blocker("random_card_generation", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "random_card_generation",
+            potion_id,
+        )
 
     if "random potion" in normalized or "empty potion slots" in normalized:
-        blockers.append(_blocker("potion_generation", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "potion_generation",
+            potion_id,
+        )
     if "next card is played an extra time" in normalized:
-        blockers.append(_blocker("card_duplication", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_duplication",
+            potion_id,
+        )
     if "next attack you play deals triple damage" in normalized:
-        blockers.append(_blocker("card_play_modifier", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_play_modifier",
+            potion_id,
+        )
     if "play the top" in normalized and "draw pile" in normalized:
-        blockers.append(_blocker("card_play_from_draw_pile", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_play_from_draw_pile",
+            potion_id,
+        )
     if "randomize the cost" in normalized or "randomize costs" in normalized:
-        blockers.append(_blocker("cost_randomization", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "cost_randomization",
+            potion_id,
+        )
     if "shuffle all your cards" in normalized or (
         "draw pile" in normalized and "choose a card" in normalized
     ):
-        blockers.append(_blocker("deck_reorder", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "deck_reorder",
+            potion_id,
+        )
     if _requires_card_choice(normalized):
-        blockers.append(_blocker("card_choice", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_choice",
+            potion_id,
+        )
     if "upgrade all cards in your hand" in normalized:
-        blockers.append(_blocker("hand_upgrade", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "hand_upgrade",
+            potion_id,
+        )
     if "free to play this combat" in normalized:
-        blockers.append(_blocker("card_play_modifier", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_play_modifier",
+            potion_id,
+        )
     if "replay" in normalized and "this combat" in normalized:
-        blockers.append(_blocker("card_play_modifier", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_play_modifier",
+            potion_id,
+        )
     if "triple your block" in normalized:
-        blockers.append(_blocker("runtime_block_multiplier", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "runtime_block_multiplier",
+            potion_id,
+        )
     if "heal for" in normalized and "max hp" in normalized and "%" in normalized:
-        blockers.append(_blocker("runtime_hp_percent", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "runtime_hp_percent",
+            potion_id,
+        )
     if "channel" in normalized and not _has_executable_channel_orb(normalized):
         blockers.append(_blocker("summon_or_channel", potion_id=potion_id))
     if (
@@ -492,21 +922,117 @@ def _blockers_from_description(
     ):
         blockers.append(_blocker("summon_or_channel", potion_id=potion_id))
     if "start of your next" in normalized:
-        blockers.append(_blocker("timed_turn_start_effect", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "timed_turn_start_effect",
+            potion_id,
+        )
     if "attacks deal" in normalized and "less damage" in normalized:
-        blockers.append(_blocker("timed_damage_modifier", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "timed_damage_modifier",
+            potion_id,
+        )
     if "loses" in normalized and "hp at the end" in normalized:
-        blockers.append(_blocker("timed_damage_modifier", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "timed_damage_modifier",
+            potion_id,
+        )
     if "all enemies lose" in normalized and "this turn" in normalized:
-        blockers.append(_blocker("temporary_enemy_debuff", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "temporary_enemy_debuff",
+            potion_id,
+        )
     if (
         "add" in normalized
         and _mentions_fixed_cards(normalized)
         and not ("choose" in normalized and "random" in normalized)
     ):
-        blockers.append(_blocker("card_generation", potion_id=potion_id))
+        _append_blocker_unless_implemented(
+            blockers,
+            implemented,
+            "card_generation",
+            potion_id,
+        )
 
     return tuple(_dedupe_blockers(blockers))
+
+
+def _append_blocker_unless_implemented(
+    blockers: list[PotionEffectBlocker],
+    implemented: set[str],
+    category: str,
+    potion_id: str,
+) -> None:
+    if category not in implemented:
+        blockers.append(_blocker(category, potion_id=potion_id))
+
+
+def _implemented_blocker_categories(normalized: str) -> set[str]:
+    categories: set[str] = set()
+    if _random_card_choice_step(normalized):
+        categories.add("random_card_choice")
+    if "fill all your empty potion slots" in normalized:
+        categories.add("potion_generation")
+    if "upgrade all cards in your hand" in normalized:
+        categories.add("hand_upgrade")
+    if "triple your block" in normalized:
+        categories.add("runtime_block_multiplier")
+    if "heal for" in normalized and "max hp" in normalized and "%" in normalized:
+        categories.add("runtime_hp_percent")
+    if "attack, skill, and power" in normalized:
+        categories.add("random_card_generation")
+    if "next card is played an extra time" in normalized:
+        categories.add("card_duplication")
+    if "next attack" in normalized and "triple damage" in normalized:
+        categories.add("card_play_modifier")
+    if "free to play this combat" in normalized or (
+        ("strike cards" in normalized or "cards containing strike" in normalized)
+        and "replay" in normalized
+    ):
+        categories.add("card_play_modifier")
+    if "play the top" in normalized and "draw pile" in normalized:
+        categories.add("card_play_from_draw_pile")
+    if "randomize the cost" in normalized or "randomize costs" in normalized:
+        categories.add("cost_randomization")
+    if "shuffle all your cards" in normalized or (
+        "draw pile" in normalized and "choose a card" in normalized
+    ):
+        categories.add("deck_reorder")
+    if _requires_card_choice(normalized) and any(
+        phrase in normalized
+        for phrase in (
+            "discard any number of cards",
+            "exhaust any number of cards",
+            "choose a card",
+            "put a card from your discard pile",
+        )
+    ):
+        categories.add("card_choice")
+    if "start of your next" in normalized and (
+        "draw" in normalized or "[energy:" in normalized
+    ):
+        categories.add("timed_turn_start_effect")
+    if (
+        "attacks deal" in normalized
+        and "less damage" in normalized
+        or "loses" in normalized
+        and "hp at the end" in normalized
+    ):
+        categories.add("timed_damage_modifier")
+    if "all enemies lose" in normalized and "this turn" in normalized:
+        categories.add("temporary_enemy_debuff")
+    if _mentions_fixed_cards(normalized):
+        categories.add("card_generation")
+    if "when your hp would be reduced to" in normalized and "heal to" in normalized:
+        categories.add("passive_trigger")
+    return categories
 
 
 def _requires_card_choice(normalized: str) -> bool:

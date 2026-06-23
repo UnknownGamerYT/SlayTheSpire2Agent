@@ -82,6 +82,17 @@ class PotionUseNormalization:
 def _default_potion_effects() -> dict[str, tuple[PotionEffectRule, ...]]:
     return {
         "block_potion": (PotionEffectRule("block", amount=12, target="self"),),
+        "blessing_of_the_forge": (
+            PotionEffectRule("upgrade_hand", target="self"),
+        ),
+        "bone_brew": (
+            PotionEffectRule(
+                "player_resource",
+                amount=15,
+                target="self",
+                metadata={"resource": "summon"},
+            ),
+        ),
         "cure_all": (
             PotionEffectRule("energy", amount=1, target="self"),
             PotionEffectRule("draw", amount=2, target="self"),
@@ -113,6 +124,9 @@ def _default_potion_effects() -> dict[str, tuple[PotionEffectRule, ...]]:
         "focus_potion": (
             PotionEffectRule("status", amount=2, target="self", status="focus"),
         ),
+        "fortifier": (
+            PotionEffectRule("block_multiplier", amount=3, target="self"),
+        ),
         "foul_potion": (
             PotionEffectRule(
                 "damage",
@@ -125,8 +139,32 @@ def _default_potion_effects() -> dict[str, tuple[PotionEffectRule, ...]]:
             PotionEffectRule("status", amount=1, target="self", status="strength"),
             PotionEffectRule("status", amount=1, target="self", status="dexterity"),
         ),
+        "fruit_juice": (
+            PotionEffectRule("max_hp", amount=5, target="self"),
+        ),
+        "ghost_in_a_jar": (
+            PotionEffectRule("status", amount=1, target="self", status="intangible"),
+        ),
+        "glowwater_potion": (
+            PotionEffectRule("draw", amount=10, target="self"),
+            PotionEffectRule("exhaust_hand", target="self", metadata={"mode": "all"}),
+        ),
         "liquid_bronze": (
             PotionEffectRule("status", amount=3, target="self", status="thorns"),
+        ),
+        "kings_courage": (
+            PotionEffectRule(
+                "player_resource",
+                amount=15,
+                target="self",
+                metadata={"resource": "forge"},
+            ),
+        ),
+        "lucky_tonic": (
+            PotionEffectRule("status", amount=1, target="self", status="buffer"),
+        ),
+        "mazaleths_gift": (
+            PotionEffectRule("status", amount=1, target="self", status="ritual"),
         ),
         "poison_potion": (
             PotionEffectRule("status", amount=6, target="enemy", status="poison"),
@@ -174,6 +212,17 @@ def _default_potion_effects() -> dict[str, tuple[PotionEffectRule, ...]]:
                 duration=1,
             ),
         ),
+        "stable_serum": (
+            PotionEffectRule("status", amount=2, target="self", status="retain_hand"),
+        ),
+        "star_potion": (
+            PotionEffectRule(
+                "player_resource",
+                amount=3,
+                target="self",
+                metadata={"resource": "star"},
+            ),
+        ),
         "strength_potion": (
             PotionEffectRule("status", amount=2, target="self", status="strength"),
         ),
@@ -188,6 +237,74 @@ def _default_potion_effects() -> dict[str, tuple[PotionEffectRule, ...]]:
 
 
 DEFAULT_POTION_EFFECTS = _default_potion_effects()
+ENGINE_RUNTIME_POTION_IDS = frozenset(
+    {
+        "ashwater",
+        "attack_potion",
+        "beetle_juice",
+        "blessing_of_the_forge",
+        "block_potion",
+        "blood_potion",
+        "bone_brew",
+        "bottled_potential",
+        "clarity",
+        "colorless_potion",
+        "cosmic_concoction",
+        "cunning_potion",
+        "cure_all",
+        "dexterity_potion",
+        "distilled_chaos",
+        "droplet_of_precognition",
+        "duplicator",
+        "energy_potion",
+        "entropic_brew",
+        "essence_of_darkness",
+        "essence_of_steel",
+        "explosive_ampoule",
+        "fairy_in_a_bottle",
+        "fire_potion",
+        "flex_potion",
+        "focus_potion",
+        "fortifier",
+        "foul_potion",
+        "fruit_juice",
+        "fysh_oil",
+        "gamblers_brew",
+        "ghost_in_a_jar",
+        "gigantification_potion",
+        "glowwater_potion",
+        "heart_of_iron",
+        "kings_courage",
+        "liquid_bronze",
+        "liquid_memories",
+        "lucky_tonic",
+        "mazaleths_gift",
+        "orobic_acid",
+        "poison_potion",
+        "pot_of_ghouls",
+        "potion_of_binding",
+        "potion_of_capacity",
+        "potion_of_doom",
+        "potion_shaped_rock",
+        "powdered_demise",
+        "power_potion",
+        "radiant_tincture",
+        "regen_potion",
+        "shackling_potion",
+        "ship_in_a_bottle",
+        "skill_potion",
+        "snecko_oil",
+        "soldiers_stew",
+        "speed_potion",
+        "stable_serum",
+        "star_potion",
+        "strength_potion",
+        "swift_potion",
+        "touch_of_insanity",
+        "vulnerable_potion",
+        "weak_potion",
+    }
+)
 FOUL_POTION_MERCHANT_EFFECT = PotionEffectRule(
     "merchant_gold",
     amount=100,
@@ -339,6 +456,15 @@ def supported_potion_ids(
     """Return potion ids with explicit effect normalization mappings."""
 
     return frozenset(effects)
+
+
+def supported_combat_potion_ids(
+    *,
+    effects: Mapping[str, tuple[PotionEffectRule, ...]] = DEFAULT_POTION_EFFECTS,
+) -> frozenset[str]:
+    """Return potion ids with either normalized or runtime combat implementations."""
+
+    return supported_potion_ids(effects=effects) | ENGINE_RUNTIME_POTION_IDS
 
 
 def potion_content_id(potion: PotionInput) -> str:

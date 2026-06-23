@@ -24,6 +24,7 @@ class RelicHook(str, Enum):
     CAMPFIRE_ENTER = "campfire_enter"
     START_COMBAT = "start_combat"
     START_TURN = "start_turn"
+    END_TURN = "end_turn"
     END_COMBAT = "end_combat"
 
 
@@ -110,9 +111,1027 @@ class UnsupportedRelicHandler:
 def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
     return {
         RelicHook.PICKUP: {
+            "arcane_scroll": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=1,
+                        target_id="player",
+                        metadata={"rarity": "rare", "selection": "random"},
+                    ),
+                ),
+            ),
+            "astrolabe": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={"selection": "chosen", "upgrade_transformed": True},
+                    ),
+                ),
+            ),
+            "archaic_tooth": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "match_card_ids": ("strike", "defend"),
+                            "match_name_contains": ("strike", "defend"),
+                            "transform_pool": "ancient",
+                        },
+                    ),
+                ),
+            ),
+            "beautiful_bracelet": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "custom": {"enchant_keyword": "swift", "enchant_amount": 3},
+                        },
+                    ),
+                ),
+            ),
+            "biiig_hug": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "remove_deck_cards",
+                        amount=4,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "shuffle_add_card_to_draw_pile",
+                            "card_id": "soot",
+                            "needed_subsystem": "draw_pile_shuffle_relic_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "big_mushroom": RelicHookRule(
+                max_hp_delta=20,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "bing_bong": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "deck_card_added_duplicate_copy",
+                            "needed_subsystem": "deck_add_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "blood_soaked_rose": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "enthralled"},
+                    ),
+                ),
+            ),
+            "bone_tea": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "relic_counter_changed",
+                        amount=1,
+                        target_id="player",
+                        metadata={"counter": 1},
+                    ),
+                ),
+            ),
+            "book_of_five_rings": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "deck_card_added_count_heal",
+                            "cards": 5,
+                            "heal": 20,
+                            "needed_subsystem": "deck_add_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "bowler_hat": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "gold_gain_bonus_percent",
+                            "bonus_percent": 25,
+                            "needed_subsystem": "gold_gain_modifier",
+                        },
+                    ),
+                ),
+            ),
+            "byrdpip": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "byrd_swoop"},
+                    ),
+                ),
+            ),
+            "calling_bell": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "curse_of_the_bell"},
+                    ),
+                    RelicMarkerSpec("random_relics_gained", amount=3, target_id="player"),
+                ),
+            ),
+            "cauldron": RelicHookRule(
+                markers=(RelicMarkerSpec("random_potions_gained", amount=5),),
+            ),
+            "circlet": RelicHookRule(
+                markers=(RelicMarkerSpec("no_effect"),),
+            ),
+            "claws": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        amount=6,
+                        target_id="player",
+                        metadata={"selection": "chosen", "target_card_id": "maul"},
+                    ),
+                ),
+            ),
+            "cursed_pearl": RelicHookRule(
+                gold_delta=333,
+                markers=(RelicMarkerSpec("gold_gained"),),
+            ),
+            "darkstone_periapt": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "curse_obtained_max_hp_delta_enabled",
+                        amount=6,
+                        target_id="player",
+                        metadata={"trigger": "curse_obtained"},
+                    ),
+                ),
+            ),
+            "dingy_rug": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={"passive": "card_rewards_can_include_colorless"},
+                    ),
+                ),
+            ),
+            "dollys_mirror": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "duplicate_deck_card",
+                        amount=1,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
+            ),
+            "dragon_fruit": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "gold_gain_max_hp_delta",
+                            "max_hp_delta": 1,
+                            "needed_subsystem": "gold_gain_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "driftwood": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={"passive": "card_reward_reroll_once"},
+                    ),
+                ),
+            ),
+            "empty_cage": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "remove_deck_cards",
+                        amount=2,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
+            ),
+            "electric_shrymp": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "card_type": "skill",
+                            "custom": {"enchant_keyword": "imbued"},
+                        },
+                    ),
+                ),
+            ),
+            "fake_merchants_rug": RelicHookRule(
+                markers=(RelicMarkerSpec("no_effect"),),
+            ),
+            "fake_lees_waffle": RelicHookRule(
+                markers=(RelicMarkerSpec("heal_percent_max_hp", amount=10),),
+            ),
+            "fake_mango": RelicHookRule(
+                max_hp_delta=3,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "golden_pearl": RelicHookRule(
+                gold_delta=150,
+                markers=(RelicMarkerSpec("gold_gained"),),
+            ),
+            "fishing_rod": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "normal_combat_count_random_deck_upgrade",
+                            "combat_type": "normal",
+                            "interval": 3,
+                            "upgrade_count": 1,
+                            "selection": "random",
+                            "needed_subsystem": "combat_count_relic_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "golden_compass": RelicHookRule(
+                markers=(RelicMarkerSpec("act2_map_replaced"),),
+            ),
+            "distinguished_cape": RelicHookRule(
+                max_hp_delta=-9,
+                markers=(
+                    RelicMarkerSpec("max_hp_delta"),
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={"card_id": "apparition"},
+                    ),
+                ),
+            ),
+            "dusty_tome": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_pool": "ancient", "selection": "random"},
+                    ),
+                ),
+            ),
+            "fragrant_mushroom": RelicHookRule(
+                hp_delta=-15,
+                markers=(
+                    RelicMarkerSpec("hp_delta"),
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=2,
+                        target_id="player",
+                        metadata={"selection": "random"},
+                    ),
+                ),
+            ),
+            "fresnel_lens": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "deck_added_block_card_enchanted",
+                            "enchant_keyword": "nimble",
+                            "enchant_amount": 2,
+                            "needed_subsystem": "deck_add_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "fur_coat": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "mark_map_rooms",
+                        amount=7,
+                        target_id="map",
+                        metadata={
+                            "room_kind": "combat",
+                            "passive": "marked_combat_enemies_one_hp",
+                            "enemy_hp": 1,
+                            "needed_subsystem": "map_room_markers",
+                        },
+                    ),
+                ),
+            ),
+            "ghost_seed": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        target_id="player",
+                        metadata={
+                            "match_card_ids": ("strike", "defend"),
+                            "match_name_contains": ("strike", "defend"),
+                            "custom": {"ethereal": True},
+                        },
+                    ),
+                ),
+            ),
+            "glass_eye": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=5,
+                        target_id="player",
+                        metadata={"rarities": ("common", "common", "uncommon", "uncommon", "rare")},
+                    ),
+                ),
+            ),
+            "glitter": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={"passive": "card_rewards_enchanted", "enchant_keyword": "glam"},
+                    ),
+                ),
+            ),
+            "gnarled_hammer": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "card_type": "attack",
+                            "custom": {"enchant_keyword": "sharp", "enchant_amount": 3},
+                        },
+                    ),
+                ),
+            ),
+            "jewelry_box": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "apotheosis"},
+                    ),
+                ),
+            ),
+            "kaleidoscope": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=2,
+                        target_id="player",
+                        metadata={
+                            "card_pool": "other_character",
+                            "selection": "choose",
+                            "needed_subsystem": "cross_character_card_reward",
+                        },
+                    ),
+                ),
+            ),
+            "hefty_tablet": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=1,
+                        target_id="player",
+                        metadata={"rarity": "rare", "choices": 3, "selection": "choose"},
+                    ),
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "injury"},
+                    ),
+                ),
+            ),
+            "juzu_bracelet": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "question_rooms_no_regular_enemy_combats",
+                            "needed_subsystem": "event_room_generation",
+                        },
+                    ),
+                ),
+            ),
+            "kifuda": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "custom": {"enchant_keyword": "adroit"},
+                        },
+                    ),
+                ),
+            ),
+            "large_capsule": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec("random_relics_gained", amount=2, target_id="player"),
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "strike"},
+                    ),
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "defend"},
+                    ),
+                ),
+            ),
+            "lasting_candy": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "card_rewards_gain_additional_power_every_other_combat"
+                        },
+                    ),
+                ),
+            ),
+            "leafy_poultice": RelicHookRule(
+                max_hp_delta=-12,
+                markers=(
+                    RelicMarkerSpec("max_hp_delta"),
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "matching",
+                            "match_card_ids": ("strike",),
+                            "match_name_contains": ("strike",),
+                        },
+                    ),
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "matching",
+                            "match_card_ids": ("defend",),
+                            "match_name_contains": ("defend",),
+                        },
+                    ),
+                ),
+            ),
+            "lees_waffle": RelicHookRule(
+                max_hp_delta=7,
+                markers=(RelicMarkerSpec("max_hp_delta"), RelicMarkerSpec("heal_to_full")),
+            ),
+            "lead_paperweight": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_color": "colorless", "choices": 2, "selection": "choose"},
+                    ),
+                ),
+            ),
+            "looming_fruit": RelicHookRule(
+                max_hp_delta=31,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "lost_coffer": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec("card_reward", amount=1, target_id="player"),
+                    RelicMarkerSpec("random_potions_gained", amount=1, target_id="player"),
+                ),
+            ),
+            "massive_scroll": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_pool": "multiplayer", "choices": 3, "selection": "choose"},
+                    ),
+                ),
+            ),
+            "lucky_fysh": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "deck_card_added_gold",
+                            "gold": 15,
+                            "needed_subsystem": "deck_add_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "mango": RelicHookRule(
+                max_hp_delta=14,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "maw_bank": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "floor_climb_gold_until_shop_spend",
+                            "gold": 12,
+                            "needed_subsystem": "floor_transition_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "new_leaf": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
+            ),
+            "neows_bones": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "random_relics_gained",
+                        amount=2,
+                        target_id="player",
+                        metadata={"relic_pool": "neow"},
+                    ),
+                    RelicMarkerSpec("random_curses_gained", amount=1, target_id="player"),
+                ),
+            ),
+            "neows_talisman": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"selection": "random", "match_card_ids": ("strike",)},
+                    ),
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"selection": "random", "match_card_ids": ("defend",)},
+                    ),
+                ),
+            ),
+            "neows_torment": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "neows_fury"},
+                    ),
+                ),
+            ),
+            "nutritious_oyster": RelicHookRule(
+                max_hp_delta=11,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "nutritious_soup": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "match_card_ids": ("strike",),
+                            "match_name_contains": ("strike",),
+                            "operation": "add_damage",
+                            "custom": {"damage_bonus": 3},
+                        },
+                    ),
+                ),
+            ),
             "old_coin": RelicHookRule(
                 gold_delta=300,
                 markers=(RelicMarkerSpec("old_coin_gold_gained"),),
+            ),
+            "orrery": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=5,
+                        target_id="player",
+                        metadata={"selection": "choose"},
+                    ),
+                ),
+            ),
+            "pear": RelicHookRule(
+                max_hp_delta=10,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "planisphere": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "event_room_enter_heal",
+                            "heal": 5,
+                            "needed_subsystem": "room_enter_relic_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "paels_claw": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        target_id="player",
+                        metadata={
+                            "match_card_ids": ("defend",),
+                            "match_name_contains": ("defend",),
+                            "custom": {"enchant_keyword": "goopy"},
+                        },
+                    ),
+                ),
+            ),
+            "paels_growth": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "custom": {"enchant_keyword": "clone"},
+                        },
+                    ),
+                ),
+            ),
+            "paels_horn": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=2,
+                        target_id="player",
+                        metadata={"card_id": "relax"},
+                    ),
+                ),
+            ),
+            "paels_wing": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={"passive": "sacrifice_card_rewards_for_relic_counter"},
+                    ),
+                ),
+            ),
+            "pandoras_box": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "transform_deck_cards",
+                        target_id="player",
+                        metadata={
+                            "selection": "matching",
+                            "match_card_ids": ("strike", "defend"),
+                            "match_name_contains": ("strike", "defend"),
+                        },
+                    ),
+                ),
+            ),
+            "pomander": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
+            ),
+            "precarious_shears": RelicHookRule(
+                hp_delta=-16,
+                markers=(
+                    RelicMarkerSpec("hp_delta"),
+                    RelicMarkerSpec(
+                        "remove_deck_cards",
+                        amount=2,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
+            ),
+            "precise_scissors": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "remove_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
+            ),
+            "preserved_fog": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "remove_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "folly"},
+                    ),
+                ),
+            ),
+            "punch_dagger": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "card_type": "attack",
+                            "custom": {"enchant_keyword": "momentum", "enchant_amount": 5},
+                        },
+                    ),
+                ),
+            ),
+            "royal_stamp": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "match_card_types": ("attack", "skill"),
+                            "custom": {"enchant_keyword": "royally_approved"},
+                        },
+                    ),
+                ),
+            ),
+            "sand_castle": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=6,
+                        target_id="player",
+                        metadata={"selection": "random"},
+                    ),
+                ),
+            ),
+            "scroll_boxes": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_pack_reward",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "choices": 2,
+                            "selection": "choose",
+                            "needed_subsystem": "card_pack_rewards",
+                        },
+                    ),
+                ),
+            ),
+            "silken_tress": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec("set_gold", amount=0, target_id="player"),
+                    RelicMarkerSpec(
+                        "no_effect",
+                        target_id="player",
+                        metadata={
+                            "passive": "first_card_reward_enchanted",
+                            "enchant_keyword": "glam",
+                            "card_reward_index": 1,
+                            "needed_subsystem": "card_reward_enchant_trigger",
+                        },
+                    ),
+                ),
+            ),
+            "sea_glass": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "card_reward",
+                        amount=15,
+                        target_id="player",
+                        metadata={
+                            "card_pool": "other_character",
+                            "selection": "choose_any",
+                            "needed_subsystem": "cross_character_card_reward",
+                        },
+                    ),
+                ),
+            ),
+            "sere_talon": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec("random_curses_gained", amount=2, target_id="player"),
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={"card_id": "wish"},
+                    ),
+                ),
+            ),
+            "signet_ring": RelicHookRule(
+                gold_delta=999,
+                markers=(RelicMarkerSpec("gold_gained"),),
+            ),
+            "silver_crucible": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "relic_counter_changed",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "counter": 3,
+                            "passive": "upgrade_first_card_rewards",
+                            "first_treasure_empty": True,
+                        },
+                    ),
+                ),
+            ),
+            "small_capsule": RelicHookRule(
+                markers=(RelicMarkerSpec("random_relics_gained", amount=1, target_id="player"),),
+            ),
+            "storybook": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "brightest_flame"},
+                    ),
+                ),
+            ),
+            "touch_of_orobas": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "replace_starter_relic",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "replacement_pool": "ancient_starter_relics",
+                            "needed_subsystem": "starter_relic_upgrade",
+                        },
+                    ),
+                ),
+            ),
+            "toy_box": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "random_relics_gained",
+                        amount=4,
+                        target_id="player",
+                        metadata={"relic_pool": "wax"},
+                    ),
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "wax_relic_melts_every_combats",
+                            "combats": 3,
+                            "needed_subsystem": "combat_count_relic_decay",
+                        },
+                    ),
+                ),
+            ),
+            "tri_boomerang": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "modify_deck_cards",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "selection": "chosen",
+                            "card_type": "attack",
+                            "custom": {"enchant_keyword": "instinct"},
+                        },
+                    ),
+                ),
+            ),
+            "strawberry": RelicHookRule(
+                max_hp_delta=7,
+                markers=(RelicMarkerSpec("max_hp_delta"),),
+            ),
+            "tanxs_whistle": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_deck_cards",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_id": "whistle"},
+                    ),
+                ),
+            ),
+            "white_star": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={"passive": "elite_rare_card_reward_delta"},
+                    ),
+                ),
+            ),
+            "wing_charm": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "card_reward_random_card_enchanted",
+                            "enchant_keyword": "swift",
+                            "enchant_amount": 1,
+                        },
+                    ),
+                ),
+            ),
+            "winged_boots": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "relic_counter_changed",
+                        amount=3,
+                        target_id="player",
+                        metadata={
+                            "counter": 3,
+                            "passive": "ignore_map_paths",
+                            "needed_subsystem": "map_path_override",
+                        },
+                    ),
+                ),
+            ),
+            "war_paint": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=2,
+                        target_id="player",
+                        metadata={"selection": "random", "card_type": "skill"},
+                    ),
+                ),
+            ),
+            "whetstone": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=2,
+                        target_id="player",
+                        metadata={"selection": "random", "card_type": "attack"},
+                    ),
+                ),
+            ),
+            "wongo_customer_appreciation_badge": RelicHookRule(
+                markers=(RelicMarkerSpec("no_effect"),),
+            ),
+            "wongos_mystery_ticket": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "relic_counter_changed",
+                        amount=5,
+                        target_id="player",
+                        metadata={
+                            "counter": 5,
+                            "passive": "delayed_random_relics_after_combats",
+                            "random_relics": 3,
+                            "needed_subsystem": "combat_count_delayed_rewards",
+                        },
+                    ),
+                ),
+            ),
+            "yummy_cookie": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_deck_cards",
+                        amount=4,
+                        target_id="player",
+                        metadata={"selection": "chosen"},
+                    ),
+                ),
             ),
             "potion_belt": RelicHookRule(
                 potion_slot_delta=2,
@@ -138,6 +1157,17 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
             ),
         },
         RelicHook.SHOP_ENTER: {
+            "lords_parasol": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "lords_parasol_claimed_shop",
+                        target_id="shop",
+                        metadata={
+                            "engine_handler": "shop_entry_claim_all_non_service_items",
+                        },
+                    ),
+                ),
+            ),
             "meal_ticket": RelicHookRule(
                 hp_delta=15,
                 markers=(RelicMarkerSpec("meal_ticket_healed"),),
@@ -150,6 +1180,18 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
             ),
         },
         RelicHook.SHOP_PURCHASE: {
+            "maw_bank": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "maw_bank_disabled",
+                        target_id="player",
+                        metadata={
+                            "passive": "floor_climb_gold_until_shop_spend",
+                            "needed_subsystem": "shop_purchase_relic_state",
+                        },
+                    ),
+                ),
+            ),
             "the_courier": RelicHookRule(
                 markers=(RelicMarkerSpec("shop_restock_purchased_item"),),
             ),
@@ -158,6 +1200,89 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
             ),
         },
         RelicHook.CAMPFIRE_ENTER: {
+            "dream_catcher": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "rest_add_card_reward",
+                            "needed_subsystem": "campfire_rest_action",
+                        },
+                    ),
+                ),
+            ),
+            "eternal_feather": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "rest_site_enter_heal_per_deck_cards",
+                            "cards_per_heal": 5,
+                            "heal": 3,
+                            "needed_subsystem": "campfire_enter_deck_size",
+                        },
+                    ),
+                ),
+            ),
+            "girya": RelicHookRule(
+                markers=(RelicMarkerSpec("campfire_lift_unlocked"),),
+            ),
+            "meat_cleaver": RelicHookRule(
+                markers=(RelicMarkerSpec("campfire_cook_unlocked"),),
+            ),
+            "miniature_tent": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "campfire_multi_action_unlocked",
+                        metadata={
+                            "passive": "campfire_choose_any_number_of_options",
+                            "needed_subsystem": "campfire_multi_action_resolution",
+                        },
+                    ),
+                ),
+            ),
+            "peace_pipe": RelicHookRule(
+                markers=(RelicMarkerSpec("campfire_toke_unlocked"),),
+            ),
+            "regal_pillow": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "rest_heal_bonus",
+                            "heal": 15,
+                            "needed_subsystem": "campfire_rest_action",
+                        },
+                    ),
+                ),
+            ),
+            "shovel": RelicHookRule(
+                markers=(RelicMarkerSpec("campfire_dig_unlocked"),),
+            ),
+            "stone_humidifier": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "rest_max_hp_delta",
+                            "max_hp_delta": 5,
+                            "needed_subsystem": "campfire_rest_action",
+                        },
+                    ),
+                ),
+            ),
+            "tiny_mailbox": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "no_effect",
+                        metadata={
+                            "passive": "rest_random_potions",
+                            "random_potions": 2,
+                            "needed_subsystem": "campfire_rest_action",
+                        },
+                    ),
+                ),
+            ),
             "venerable_tea_set": RelicHookRule(
                 markers=(RelicMarkerSpec("next_combat_energy", amount=2, target_id="player"),),
             ),
@@ -235,9 +1360,208 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                     ),
                 ),
             ),
+            "divine_destiny": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource",
+                        amount=6,
+                        target_id="player",
+                        metadata={"resource": "star"},
+                    ),
+                ),
+            ),
+            "divine_right": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource",
+                        amount=3,
+                        target_id="player",
+                        metadata={"resource": "star"},
+                    ),
+                ),
+            ),
+            "fencing_manual": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource",
+                        amount=10,
+                        target_id="player",
+                        metadata={"resource": "forge"},
+                    ),
+                ),
+            ),
             "fake_blood_vial": RelicHookRule(
                 hp_delta=1,
                 markers=(RelicMarkerSpec("blood_vial_healed"),),
+            ),
+            "festive_popper": RelicHookRule(
+                markers=(RelicMarkerSpec("all_damage", amount=9, target_id="all_enemies"),),
+            ),
+            "gorget": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=4,
+                        target_id="player",
+                        metadata={"status": "plated_armor"},
+                    ),
+                ),
+            ),
+            "infused_core": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "channel_orb",
+                        amount=3,
+                        target_id="player",
+                        metadata={"orb": "lightning", "lightning_damage_bonus": 1},
+                    ),
+                ),
+            ),
+            "lantern": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "jeweled_mask": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "move_card_type_from_draw_to_hand",
+                        amount=1,
+                        target_id="player",
+                        metadata={"card_type": "power", "free_to_play_this_turn": True},
+                    ),
+                ),
+            ),
+            "oddly_smooth_stone": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=1,
+                        target_id="player",
+                        metadata={"status": "dexterity"},
+                    ),
+                ),
+            ),
+            "philosophers_stone": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "apply_status",
+                        amount=1,
+                        target_id="all_enemies",
+                        metadata={"status": "strength"},
+                    ),
+                ),
+            ),
+            "phylactery_unbound": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource",
+                        amount=5,
+                        target_id="player",
+                        metadata={"resource": "summon"},
+                    ),
+                ),
+            ),
+            "power_cell": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "move_zero_cost_cards_to_hand",
+                        amount=2,
+                        target_id="player",
+                        metadata={"free_to_play_this_turn": True},
+                    ),
+                ),
+            ),
+            "radiant_pearl": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_card_to_hand",
+                        amount=1,
+                        target_id="player",
+                        metadata={
+                            "card_id": "luminesce",
+                            "card_type": "skill",
+                            "target": "self",
+                        },
+                    ),
+                ),
+            ),
+            "ring_of_the_snake": RelicHookRule(
+                markers=(RelicMarkerSpec("draw_cards", amount=2, target_id="player"),),
+            ),
+            "royal_poison": RelicHookRule(
+                markers=(RelicMarkerSpec("lose_hp", amount=4, target_id="player"),),
+            ),
+            "runic_capacitor": RelicHookRule(
+                markers=(RelicMarkerSpec("orb_slot_delta", amount=3, target_id="player"),),
+            ),
+            "snecko_eye": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=1,
+                        target_id="player",
+                        metadata={"status": "confused"},
+                    ),
+                ),
+            ),
+            "fake_snecko_eye": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=1,
+                        target_id="player",
+                        metadata={"status": "confused"},
+                    ),
+                ),
+            ),
+            "ninja_scroll": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_card_to_hand",
+                        amount=3,
+                        target_id="player",
+                        metadata={"card_id": "shiv", "card_type": "attack", "target": "enemy"},
+                    ),
+                ),
+            ),
+            "funerary_mask": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "add_card_to_draw_pile",
+                        amount=3,
+                        target_id="player",
+                        metadata={"card_id": "soul", "card_type": "skill", "target": "self"},
+                    ),
+                ),
+            ),
+            "red_mask": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "apply_status",
+                        amount=1,
+                        target_id="all_enemies",
+                        metadata={"status": "weak"},
+                    ),
+                ),
+            ),
+            "twisted_funnel": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "apply_status",
+                        amount=4,
+                        target_id="all_enemies",
+                        metadata={"status": "poison"},
+                    ),
+                ),
+            ),
+            "symbiotic_virus": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "channel_orb",
+                        amount=1,
+                        target_id="player",
+                        metadata={"orb": "dark"},
+                    ),
+                ),
             ),
             "vajra": RelicHookRule(
                 markers=(
@@ -249,6 +1573,25 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                     ),
                 ),
             ),
+            "sword_of_jade": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=3,
+                        target_id="player",
+                        metadata={"status": "strength"},
+                    ),
+                ),
+            ),
+            "stone_cracker": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "upgrade_draw_pile_cards",
+                        amount=2,
+                        target_id="player",
+                    ),
+                ),
+            ),
             "very_hot_cocoa": RelicHookRule(
                 markers=(RelicMarkerSpec("gain_energy", amount=4, target_id="player"),),
             ),
@@ -256,6 +1599,16 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
         RelicHook.START_TURN: {
             "blessed_antler": RelicHookRule(
                 markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "bound_phylactery": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource",
+                        amount=1,
+                        target_id="player",
+                        metadata={"resource": "summon"},
+                    ),
+                ),
             ),
             "blood_soaked_rose": RelicHookRule(
                 markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
@@ -276,6 +1629,63 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                     ),
                 ),
             ),
+            "ectoplasm": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "mercury_hourglass": RelicHookRule(
+                markers=(RelicMarkerSpec("all_damage", amount=3, target_id="all_enemies"),),
+            ),
+            "paels_blood": RelicHookRule(
+                markers=(RelicMarkerSpec("draw_cards", amount=1, target_id="player"),),
+            ),
+            "philosophers_stone": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "phylactery_unbound": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource",
+                        amount=1,
+                        target_id="player",
+                        metadata={"resource": "summon"},
+                    ),
+                ),
+            ),
+            "prismatic_gem": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "pumpkin_candle": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "sai": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_block", amount=7, target_id="player"),),
+            ),
+            "seal_of_gold": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec("gold_delta", amount=-5, target_id="player"),
+                    RelicMarkerSpec("gain_energy", amount=1, target_id="player"),
+                ),
+            ),
+            "snecko_eye": RelicHookRule(
+                markers=(RelicMarkerSpec("draw_cards", amount=2, target_id="player"),),
+            ),
+            "sozu": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "spiked_gauntlets": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "toasty_mittens": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec("exhaust_top_draw_pile", amount=1, target_id="player"),
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=1,
+                        target_id="player",
+                        metadata={"status": "strength"},
+                    ),
+                ),
+            ),
             "velvet_choker": RelicHookRule(
                 markers=(
                     RelicMarkerSpec("gain_energy", amount=1, target_id="player"),
@@ -286,6 +1696,39 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                     ),
                 ),
             ),
+            "whispering_earring": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
+            ),
+            "pendulum": RelicHookRule(
+                markers=(RelicMarkerSpec("draw_cards", amount=1, target_id="player"),),
+            ),
+            "pollinous_core": RelicHookRule(
+                markers=(RelicMarkerSpec("draw_cards", amount=2, target_id="player"),),
+            ),
+        },
+        RelicHook.END_TURN: {
+            "cloak_clasp": RelicHookRule(
+                markers=(RelicMarkerSpec("gain_block", target_id="player"),),
+            ),
+            "paels_tears": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "gain_status",
+                        amount=2,
+                        target_id="player",
+                        metadata={"status": "next_turn_energy"},
+                    ),
+                ),
+            ),
+            "runic_pyramid": RelicHookRule(
+                markers=(RelicMarkerSpec("retain_hand", amount=1, target_id="player"),),
+            ),
+            "screaming_flagon": RelicHookRule(
+                markers=(RelicMarkerSpec("all_damage", amount=20, target_id="all_enemies"),),
+            ),
+            "stone_calendar": RelicHookRule(
+                markers=(RelicMarkerSpec("all_damage", amount=52, target_id="all_enemies"),),
+            ),
         },
         RelicHook.END_COMBAT: {
             "burning_blood": RelicHookRule(
@@ -295,6 +1738,10 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
             "black_blood": RelicHookRule(
                 hp_delta=12,
                 markers=(RelicMarkerSpec("black_blood_healed"),),
+            ),
+            "chosen_cheese": RelicHookRule(
+                max_hp_delta=1,
+                markers=(RelicMarkerSpec("max_hp_delta", amount=1, target_id="player"),),
             ),
         },
     }
@@ -629,6 +2076,8 @@ def _inferred_hooks(relic: RelicInput) -> tuple[RelicHook, ...]:
         hooks.append(RelicHook.START_COMBAT)
     if "start of each turn" in text:
         hooks.append(RelicHook.START_TURN)
+    if "end your turn" in text or "end of your turn" in text or "end of turn" in text:
+        hooks.append(RelicHook.END_TURN)
     if "end of combat" in text:
         hooks.append(RelicHook.END_COMBAT)
     return tuple(dict.fromkeys(hooks))

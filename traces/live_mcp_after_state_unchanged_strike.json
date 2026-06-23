@@ -1,0 +1,298 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Strike",
+        "Defend",
+        "Defend",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Survivor"
+      ],
+      "draw_pile": [
+        "Defend",
+        "Neutralize"
+      ],
+      "exhaust_pile": [
+        "Master of Strategy"
+      ],
+      "hand": [
+        "STRIKE_SILENT",
+        "DEFEND_SILENT",
+        "DEFEND_SILENT"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 34,
+          "max_hp": 55,
+          "name": "Fuzzy Wurm Crawler"
+        }
+      ]
+    },
+    "floor": 2,
+    "phase": "monster",
+    "player": {
+      "block": 8,
+      "energy": 1,
+      "gold": 99,
+      "hp": 70,
+      "max_hp": 70
+    }
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Strike",
+        "Defend",
+        "Defend",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Survivor"
+      ],
+      "draw_pile": [
+        "Defend",
+        "Neutralize"
+      ],
+      "exhaust_pile": [
+        "Master of Strategy"
+      ],
+      "hand": [
+        "STRIKE_SILENT",
+        "DEFEND_SILENT",
+        "DEFEND_SILENT"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 34,
+          "max_hp": 55,
+          "name": "Fuzzy Wurm Crawler"
+        }
+      ]
+    },
+    "floor": 2,
+    "phase": "monster",
+    "player": {
+      "block": 8,
+      "energy": 1,
+      "gold": 99,
+      "hp": 70,
+      "max_hp": 70
+    }
+  },
+  "metadata": {
+    "mode": "capture",
+    "raw_initial_payload": {
+      "battle": {
+        "enemies": [
+          {
+            "block": 0,
+            "combat_id": 1,
+            "entity_id": "FUZZY_WURM_CRAWLER_0",
+            "hp": 34,
+            "intents": [
+              {
+                "description": "This enemy intends to Attack for 11 damage.",
+                "label": "11",
+                "title": "Aggressive",
+                "type": "Attack"
+              }
+            ],
+            "max_hp": 55,
+            "name": "Fuzzy Wurm Crawler",
+            "status": [
+              {
+                "amount": 7,
+                "description": "Increases attack damage by 7.",
+                "id": "STRENGTH_POWER",
+                "keywords": [],
+                "name": "Strength",
+                "type": "Buff"
+              }
+            ]
+          }
+        ],
+        "is_play_phase": true,
+        "round": 3,
+        "turn": "player"
+      },
+      "player": {
+        "block": 8,
+        "character": "The Silent",
+        "discard_pile": [
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 8 Block. Discard 1 card.",
+            "name": "Survivor",
+            "star_cost": null
+          }
+        ],
+        "discard_pile_count": 7,
+        "draw_pile": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "0",
+            "description": "Deal 3 damage. Apply 1 Weak.",
+            "name": "Neutralize",
+            "star_cost": null
+          }
+        ],
+        "draw_pile_count": 2,
+        "energy": 1,
+        "exhaust_pile": [
+          {
+            "cost": "0",
+            "description": "Draw 3 cards. Exhaust.",
+            "name": "Master of Strategy",
+            "star_cost": null
+          }
+        ],
+        "exhaust_pile_count": 1,
+        "gold": 99,
+        "hand": [
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_SILENT",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_SILENT",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_SILENT",
+            "index": 2,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          }
+        ],
+        "hp": 70,
+        "max_energy": 3,
+        "max_hp": 70,
+        "max_potion_slots": 3,
+        "potions": [],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the start of each combat, draw 2 additional cards.",
+            "id": "RING_OF_THE_SNAKE",
+            "keywords": [],
+            "name": "Ring of the Snake"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, choose 1 of 2 Colorless cards to add to your Deck.",
+            "id": "LEAD_PAPERWEIGHT",
+            "keywords": [],
+            "name": "Lead Paperweight"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 2
+      },
+      "state_type": "monster"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [],
+  "trace_id": "live-0"
+}

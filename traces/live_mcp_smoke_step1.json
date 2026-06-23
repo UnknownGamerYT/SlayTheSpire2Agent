@@ -1,0 +1,115 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "menu_screen": "singleplayer",
+    "options": [
+      "{'name': 'standard', 'enabled': True}",
+      "{'name': 'daily', 'enabled': False}",
+      "{'name': 'custom', 'enabled': False}",
+      "{'name': 'back', 'enabled': True}"
+    ],
+    "phase": "menu"
+  },
+  "game_version": null,
+  "initial_state": {
+    "menu_screen": "main",
+    "options": [
+      "singleplayer",
+      "multiplayer",
+      "compendium",
+      "timeline",
+      "settings",
+      "quit"
+    ],
+    "phase": "menu"
+  },
+  "metadata": {
+    "mode": "live_play",
+    "policy": "first",
+    "raw_initial_payload": {
+      "menu_screen": "main",
+      "message": "Main menu.",
+      "options": [
+        "singleplayer",
+        "multiplayer",
+        "compendium",
+        "timeline",
+        "settings",
+        "quit"
+      ],
+      "state_type": "menu"
+    },
+    "stats": {
+      "action_type_counts": {
+        "menu_select": 1
+      },
+      "average_legal_actions": 6.0,
+      "legal_action_counts": [
+        6
+      ],
+      "phase_counts": {
+        "menu": 1
+      },
+      "random_policy_likelihood": 0.16666666666666666,
+      "random_policy_log_likelihood": -1.791759469228055,
+      "selected_probabilities": [
+        0.16666666666666666
+      ],
+      "steps_requested": 1,
+      "steps_taken": 1,
+      "stopped_reason": "max_steps"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [
+    {
+      "action": {},
+      "after": {
+        "menu_screen": "singleplayer",
+        "options": [
+          "{'name': 'standard', 'enabled': True}",
+          "{'name': 'daily', 'enabled': False}",
+          "{'name': 'custom', 'enabled': False}",
+          "{'name': 'back', 'enabled': True}"
+        ],
+        "phase": "menu"
+      },
+      "before": {
+        "menu_screen": "main",
+        "options": [
+          "singleplayer",
+          "multiplayer",
+          "compendium",
+          "timeline",
+          "settings",
+          "quit"
+        ],
+        "phase": "menu"
+      },
+      "external_action": {
+        "action": "menu_select",
+        "option": "singleplayer"
+      },
+      "metadata": {
+        "action_type": "menu_select",
+        "legal_action_count": 6,
+        "raw_action": {
+          "action": "menu_select",
+          "option": "singleplayer"
+        },
+        "response": {
+          "message": "Selected singleplayer",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.16666666666666666
+      },
+      "step_index": 0
+    }
+  ],
+  "trace_id": "live-0"
+}

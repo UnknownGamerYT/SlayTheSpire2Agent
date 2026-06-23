@@ -8,6 +8,7 @@ simple reward/effect fields already applied or marked for a later engine layer.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from random import Random
 
@@ -186,6 +187,7 @@ def resolve_event_option(
     option = _option_by_id(state, option_id)
     if option.option_id not in legal_event_option_ids(state):
         raise ValueError(f"Event option is not legal: {option_id}")
+    option = _effective_event_option(state, option)
 
     next_max_hp = max(1, state.max_hp + option.max_hp_delta)
     hp_after_max = min(state.hp, next_max_hp)
@@ -272,6 +274,40 @@ def _option_is_legal(option: EventOption, state: EventRoomState) -> bool:
     return set(option.required_card_ids) <= deck and set(option.required_relic_ids) <= relics
 
 
+def _effective_event_option(state: EventRoomState, option: EventOption) -> EventOption:
+    bonus = _mapping(option.metadata.get("multi_lantern_key_bonus"))
+    if not bonus:
+        return option
+    required_key = _normalized_id(bonus.get("required_card_id", "lantern_key"))
+    key_count = sum(1 for card_id in state.deck if _normalized_id(card_id) == required_key)
+    if key_count < _int(bonus.get("required_count"), 2):
+        return option
+
+    remove_all_ids = _normalized_ids(_sequence(bonus.get("remove_all_card_ids")))
+    remove_card_ids = option.remove_card_ids
+    if remove_all_ids:
+        remove_targets = set(remove_all_ids)
+        remove_card_ids = tuple(
+            card_id for card_id in state.deck if _normalized_id(card_id) in remove_targets
+        )
+
+    return replace(
+        option,
+        fixed_relic_ids=option.fixed_relic_ids
+        + _normalized_ids(_sequence(bonus.get("fixed_relic_ids"))),
+        random_relic_count=option.random_relic_count
+        + _int(bonus.get("random_relic_count"), 0),
+        random_potion_count=option.random_potion_count
+        + _int(bonus.get("random_potion_count"), 0),
+        remove_card_ids=remove_card_ids,
+        metadata={
+            **option.metadata,
+            "multi_lantern_key_applied": True,
+            "multi_lantern_key_count": key_count,
+        },
+    )
+
+
 def _remove_fixed_cards(
     deck: tuple[str, ...],
     remove_card_ids: Sequence[str],
@@ -346,6 +382,34 @@ def _heal_amount(max_hp: int, heal_percent_max_hp: float) -> int:
     return max(1, int(max_hp * fraction))
 
 
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _sequence(value: object) -> tuple[str, ...]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return tuple(str(item) for item in value)
+    return ()
+
+
+def _int(value: object, default: int) -> int:
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        with suppress(ValueError):
+            return int(value)
+    try:
+        numeric = value.__int__  # type: ignore[attr-defined]
+    except AttributeError:
+        return default
+    try:
+        return int(numeric())
+    except (TypeError, ValueError):
+        return default
+
+
 def _event_key(event_id: str) -> str:
     key = _normalized_id(event_id)
     return _EVENT_ALIASES.get(key, key)
@@ -384,6 +448,15 @@ _WAR_HISTORIAN_OPTIONS = (
         fixed_relic_ids=("history_course",),
         remove_card_ids=("lantern_key",),
         required_card_ids=("lantern_key",),
+        metadata={
+            "multi_lantern_key_bonus": {
+                "required_card_id": "lantern_key",
+                "required_count": 2,
+                "remove_all_card_ids": ("lantern_key",),
+                "random_potion_count": 2,
+                "random_relic_count": 2,
+            },
+        },
     ),
     EventOption(
         option_id="UNLOCK_CHEST",
@@ -393,6 +466,14 @@ _WAR_HISTORIAN_OPTIONS = (
         random_potion_count=2,
         remove_card_ids=("lantern_key",),
         required_card_ids=("lantern_key",),
+        metadata={
+            "multi_lantern_key_bonus": {
+                "required_card_id": "lantern_key",
+                "required_count": 2,
+                "remove_all_card_ids": ("lantern_key",),
+                "fixed_relic_ids": ("history_course",),
+            },
+        },
     ),
 )
 

@@ -132,6 +132,7 @@ class RewardModifierSpec:
     gold_delta: int = 0
     apply_to_sources: frozenset[str] = field(default_factory=frozenset)
     apply_to_encounters: frozenset[str] = field(default_factory=frozenset)
+    metadata_equals: Mapping[str, object] = field(default_factory=dict)
     requires_card_reward: bool = False
     metadata: Mapping[str, object] = field(default_factory=dict)
 
@@ -156,6 +157,7 @@ class RewardModifierSpec:
             "apply_to_encounters",
             frozenset(_normalized_id(encounter) for encounter in self.apply_to_encounters),
         )
+        object.__setattr__(self, "metadata_equals", dict(self.metadata_equals))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
 
@@ -283,6 +285,9 @@ def _modifier_applies(
     encounter = context.normalized_encounter_type
     if modifier.apply_to_encounters and encounter not in modifier.apply_to_encounters:
         return False
+    for key, expected in modifier.metadata_equals.items():
+        if context.metadata.get(key) != expected:
+            return False
     return not modifier.requires_card_reward or context.has_card_reward_choices
 
 
@@ -309,6 +314,8 @@ def _effect_from_modifier(
         metadata["potion_count_delta"] = modifier.potion_count_delta
     if modifier.gold_delta:
         metadata["gold_delta"] = modifier.gold_delta
+    if modifier.metadata_equals:
+        metadata["metadata_equals"] = dict(modifier.metadata_equals)
 
     return TriggerEffect(
         kind=modifier.kind,
@@ -354,6 +361,14 @@ def _normalized_id(value: object) -> str:
 
 DEFAULT_REWARD_MODIFIERS: tuple[RewardModifierSpec, ...] = (
     RewardModifierSpec(
+        content_id="amethyst_aubergine",
+        kind="reward_gold_delta",
+        amount=15,
+        gold_delta=15,
+        apply_to_sources=frozenset({"combat"}),
+        metadata={"modifier": "amethyst_aubergine"},
+    ),
+    RewardModifierSpec(
         content_id="question_card",
         kind="reward_card_choice_delta",
         card_choice_delta=1,
@@ -376,6 +391,24 @@ DEFAULT_REWARD_MODIFIERS: tuple[RewardModifierSpec, ...] = (
         apply_to_encounters=frozenset({"normal"}),
         requires_card_reward=True,
         metadata={"modifier": "prayer_wheel"},
+    ),
+    RewardModifierSpec(
+        content_id="lava_rock",
+        kind="reward_extra_relic",
+        amount=1,
+        relic_count_delta=1,
+        apply_to_sources=frozenset({"combat"}),
+        apply_to_encounters=frozenset({"boss"}),
+        metadata_equals={"act": 1},
+        metadata={"modifier": "lava_rock", "condition": "act_1_boss"},
+    ),
+    RewardModifierSpec(
+        content_id="white_beast_statue",
+        kind="reward_extra_potion",
+        amount=1,
+        potion_count_delta=1,
+        apply_to_sources=frozenset({"combat"}),
+        metadata={"modifier": "white_beast_statue"},
     ),
 )
 

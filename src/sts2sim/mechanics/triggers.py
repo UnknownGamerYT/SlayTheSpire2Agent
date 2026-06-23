@@ -41,7 +41,16 @@ class GameTrigger(str, Enum):
     CARD_PLAYED = "card_played"
     CARD_DISCARDED = "card_discarded"
     CARD_EXHAUSTED = "card_exhausted"
+    CARD_CREATED = "card_created"
+    CARD_BLOCK_GAINED = "card_block_gained"
     DRAW_PILE_SHUFFLED = "draw_pile_shuffled"
+    ENEMY_BLOCK_BROKEN = "enemy_block_broken"
+    HAND_EMPTY = "hand_empty"
+    ORB_CHANNELED = "orb_channeled"
+    ORB_PASSIVE_TRIGGERED = "orb_passive_triggered"
+    RESOURCE_SPENT = "resource_spent"
+    STATUS_APPLIED = "status_applied"
+    STATUS_GAINED = "status_gained"
     DAMAGE_DEALT = "damage_dealt"
     DAMAGE_TAKEN = "damage_taken"
     MONSTER_KILLED = "monster_killed"
@@ -332,6 +341,14 @@ def game_trigger(value: GameTrigger | str) -> GameTrigger:
         "start_of_combat": GameTrigger.COMBAT_START,
         "end_combat": GameTrigger.COMBAT_END,
         "card_play": GameTrigger.CARD_PLAYED,
+        "block_gained_from_card": GameTrigger.CARD_BLOCK_GAINED,
+        "player_block_gain_from_card": GameTrigger.CARD_BLOCK_GAINED,
+        "empty_hand_after_card_played": GameTrigger.HAND_EMPTY,
+        "first_card_replay": GameTrigger.CARD_PLAYED,
+        "orb_channel": GameTrigger.ORB_CHANNELED,
+        "poison_applied": GameTrigger.STATUS_APPLIED,
+        "debuff_applied": GameTrigger.STATUS_APPLIED,
+        "status_gain": GameTrigger.STATUS_GAINED,
         "shop_enter": GameTrigger.SHOP_ENTERED,
         "shop_purchase": GameTrigger.SHOP_PURCHASED,
         "campfire_enter": GameTrigger.CAMPFIRE_ENTERED,
@@ -346,6 +363,19 @@ _COMBAT_RELIC_TRIGGERS: dict[GameTrigger, CombatRelicHook] = {
     GameTrigger.TURN_START: CombatRelicHook.TURN_START,
     GameTrigger.TURN_END: CombatRelicHook.TURN_END,
     GameTrigger.CARD_PLAYED: CombatRelicHook.CARD_PLAYED,
+    GameTrigger.CARD_EXHAUSTED: CombatRelicHook.CARD_EXHAUSTED,
+    GameTrigger.CARD_DISCARDED: CombatRelicHook.CARD_DISCARDED,
+    GameTrigger.CARD_CREATED: CombatRelicHook.CARD_CREATED,
+    GameTrigger.CARD_BLOCK_GAINED: CombatRelicHook.CARD_BLOCK_GAINED,
+    GameTrigger.DRAW_PILE_SHUFFLED: CombatRelicHook.DRAW_PILE_SHUFFLED,
+    GameTrigger.ENEMY_BLOCK_BROKEN: CombatRelicHook.ENEMY_BLOCK_BROKEN,
+    GameTrigger.HAND_EMPTY: CombatRelicHook.HAND_EMPTY,
+    GameTrigger.ORB_CHANNELED: CombatRelicHook.ORB_CHANNELED,
+    GameTrigger.ORB_PASSIVE_TRIGGERED: CombatRelicHook.ORB_PASSIVE_TRIGGERED,
+    GameTrigger.POTION_USED: CombatRelicHook.POTION_USED,
+    GameTrigger.RESOURCE_SPENT: CombatRelicHook.RESOURCE_SPENT,
+    GameTrigger.STATUS_APPLIED: CombatRelicHook.STATUS_APPLIED,
+    GameTrigger.STATUS_GAINED: CombatRelicHook.STATUS_GAINED,
     GameTrigger.DAMAGE_DEALT: CombatRelicHook.DAMAGE_DEALT,
     GameTrigger.DAMAGE_TAKEN: CombatRelicHook.DAMAGE_TAKEN,
     GameTrigger.MONSTER_KILLED: CombatRelicHook.MONSTER_KILLED,

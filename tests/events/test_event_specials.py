@@ -236,6 +236,30 @@ def test_war_historian_repy_consumes_lantern_key_for_cage_or_chest() -> None:
     assert legal_special_event_option_ids(no_key) == ()
 
 
+def test_war_historian_repy_multi_lantern_keys_remove_duplicates() -> None:
+    state = special_event_room_state(
+        "WAR_HISTORIAN_REPY",
+        hp=50,
+        max_hp=80,
+        deck=("lantern_key", "strike", "lantern_key"),
+    )
+
+    chest = resolve_special_event_option(
+        state,
+        "UNLOCK_CHEST",
+        rng=Random(8),
+        relic_pool=("anchor", "kunai", "shovel"),
+        potion_pool=("fire_potion", "skill_potion", "foul_potion"),
+    )
+
+    assert chest.removed_card_ids == (LANTERN_KEY_CARD_ID, LANTERN_KEY_CARD_ID)
+    assert chest.relic_ids[0] == HISTORY_COURSE_RELIC_ID
+    assert len(chest.relic_ids) == 3
+    assert len(chest.potion_ids) == 2
+    assert chest.state.deck == ("strike",)
+    assert chest.option.metadata["multi_lantern_key_applied"] is True
+
+
 def test_round_tea_party_models_full_heal_poison_and_scripted_fight_reward() -> None:
     state = special_event_room_state("ROUND_TEA_PARTY", hp=23, max_hp=80)
 

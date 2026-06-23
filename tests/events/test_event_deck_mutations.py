@@ -347,8 +347,12 @@ def test_endless_conveyor_transform_marker_replaces_selected_card() -> None:
     assert state.player.gold == 40
     assert transformed.card_id in {"defend", "pommel_strike", "true_grit"}
     assert transformed.card_id != "strike"
-    assert transformed.custom["transformed_from_card_id"] == "strike"
-    assert any(event.kind == "event_card_transformed" for event in state.replay_log[-1].events)
+    assert "transformed_from_card_id" not in transformed.custom
+    transform_event = next(
+        event for event in state.replay_log[-1].events if event.kind == "event_card_transformed"
+    )
+    assert transform_event.metadata["old_card_id"] == "strike"
+    assert transform_event.metadata["new_card_id"] == transformed.card_id
 
 
 def test_random_transform_marker_resolves_without_selected_card() -> None:

@@ -183,7 +183,8 @@ def _event_audit_payload(
     normalized_payload: dict[str, Any] = {
         str(key): value for key, value in payload.items()
     }
-    entries_value = normalized_payload.get("entries", [])
+    entries_key = "entries" if "entries" in normalized_payload else "events"
+    entries_value = normalized_payload.get(entries_key, [])
     entries = list(entries_value) if isinstance(entries_value, list) else []
     entries = [_normalized_event_entry(entry) for entry in entries]
 
@@ -207,8 +208,9 @@ def _event_audit_payload(
     normalized_payload["counts_by_category"] = counts
     if summary_only:
         normalized_payload.pop("entries", None)
+        normalized_payload.pop("events", None)
     else:
-        normalized_payload["entries"] = entries
+        normalized_payload[entries_key] = entries
     return normalized_payload
 
 
@@ -459,6 +461,18 @@ def _normalize_card_status(value: str) -> str:
 
 def _normalize_card_bucket(value: str) -> str:
     return value.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _resolve_lang_cache_dir(cache_dir: Path | None, lang: str = "eng") -> Path | None:
+    """Resolve a synced cache root to the language leaf used by content audits."""
+
+    if cache_dir is None:
+        return None
+    resolved = Path(cache_dir)
+    lang_dir = resolved / lang
+    if lang_dir.is_dir():
+        return lang_dir
+    return resolved
 
 
 def _backend_error(exc: Exception) -> None:
@@ -752,7 +766,7 @@ def audit_combat(
         )
         result = _call_backend(
             backend,
-            cache_dir=cache_dir,
+            cache_dir=_resolve_lang_cache_dir(cache_dir),
             unknown_sample_size=unknown_sample_size,
         )
     except BackendUnavailable as exc:
@@ -835,7 +849,7 @@ def audit_cards(
         )
         result = _call_backend(
             backend,
-            cache_dir=cache_dir,
+            cache_dir=_resolve_lang_cache_dir(cache_dir),
             cards_path=cards_path,
             sample_size=sample_size,
         )
@@ -928,6 +942,1053 @@ def play_run(
     _write_result_if_missing(output_path, payload)
 
 
+@app.command("play-strategic-run")
+def play_strategic_run(
+    seed: Annotated[
+        int,
+        typer.Option(
+            "--seed",
+            "-s",
+            help="Deterministic run seed.",
+        ),
+    ] = 0,
+    character_id: Annotated[
+        str,
+        typer.Option(
+            "--character",
+            "-c",
+            help="Character id for the simulator run.",
+        ),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option(
+            "--ascension",
+            "-a",
+            min=0,
+            help="Ascension level.",
+        ),
+    ] = 0,
+    max_steps: Annotated[
+        int,
+        typer.Option(
+            "--max-steps",
+            min=1,
+            help="Stop after this many strategic decisions.",
+        ),
+    ] = 100,
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional JSON path for the strategic decision trace.",
+        ),
+    ] = None,
+    history_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--history-output",
+            help="Optional JSON path for the readable run history only.",
+        ),
+    ] = None,
+) -> None:
+    """Run one simulator episode with the explainable strategic skeleton agent."""
+
+    try:
+        backend = _resolve_backend(
+            "play-strategic-run",
+            ("sts2sim.agents.runner", "sts2sim.agents"),
+            ("play_strategic_run",),
+        )
+        result = _call_backend(
+            backend,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            max_steps=max_steps,
+            output_path=output_path,
+            history_path=history_path,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("rollout-random")
+def rollout_random(
+    runs: Annotated[
+        int,
+        typer.Option("--runs", "-n", min=1, help="Number of random rollouts."),
+    ] = 1,
+    max_steps: Annotated[
+        int,
+        typer.Option("--max-steps", min=1, help="Maximum steps per rollout."),
+    ] = 500,
+    start_seed: Annotated[
+        int,
+        typer.Option("--start-seed", help="First simulator seed."),
+    ] = 0,
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+    include_steps: Annotated[
+        bool,
+        typer.Option(
+            "--include-steps/--summary-only",
+            help="Include per-step observations/action masks in output.",
+        ),
+    ] = True,
+    include_history: Annotated[
+        bool,
+        typer.Option(
+            "--include-history/--no-history",
+            help="Include the readable run history in rollout output.",
+        ),
+    ] = True,
+    observation_mode: Annotated[
+        str,
+        typer.Option(
+            "--observation-mode",
+            help="Per-step observation payload: compact or rich.",
+        ),
+    ] = "rich",
+    output_path: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Optional JSON path for rollout data."),
+    ] = None,
+) -> None:
+    """Collect self-learning rollouts from a masked random policy."""
+
+    normalized_observation_mode = observation_mode.strip().lower().replace("-", "_")
+    if normalized_observation_mode not in {"compact", "rich"}:
+        raise typer.BadParameter("observation-mode must be 'compact' or 'rich'")
+    try:
+        backend = _resolve_backend(
+            "rollout-random",
+            ("sts2sim.learning.rollout", "sts2sim.learning"),
+            ("collect_random_rollouts",),
+        )
+        result = _call_backend(
+            backend,
+            runs=runs,
+            max_steps=max_steps,
+            start_seed=start_seed,
+            character_id=character_id,
+            ascension=ascension,
+            include_steps=include_steps,
+            include_history=include_history,
+            observation_mode=normalized_observation_mode,
+            output_path=output_path,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("train-learning-agent")
+def train_learning_agent(
+    runs: Annotated[
+        int,
+        typer.Option("--runs", "-n", min=1, help="Number of simulator runs to train on."),
+    ] = 10,
+    max_steps: Annotated[
+        int,
+        typer.Option("--max-steps", min=1, help="Maximum steps per training run."),
+    ] = 500,
+    seed: Annotated[
+        str,
+        typer.Option("--seed", help="Training seed."),
+    ] = "0",
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+    epsilon: Annotated[
+        float,
+        typer.Option("--epsilon", min=0.0, max=1.0, help="Exploration rate."),
+    ] = 0.2,
+    alpha: Annotated[
+        float,
+        typer.Option("--alpha", min=0.0, max=1.0, help="Q-learning update rate."),
+    ] = 0.1,
+    gamma: Annotated[
+        float,
+        typer.Option("--gamma", min=0.0, max=1.0, help="Future reward discount."),
+    ] = 0.99,
+    output_path: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Q-learning checkpoint JSON path."),
+    ] = Path("checkpoints/q_learning_latest.json"),
+    progress_output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--progress-output",
+            help="Optional JSON path for per-run training progress metrics.",
+        ),
+    ] = None,
+    report_output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--report-output",
+            help="Optional standalone HTML learning-progress report path.",
+        ),
+    ] = None,
+    progress_window: Annotated[
+        int,
+        typer.Option(
+            "--progress-window",
+            min=1,
+            help="Rolling window size for progress charts.",
+        ),
+    ] = 10,
+) -> None:
+    """Train the dependency-free self-learning Q baseline."""
+
+    try:
+        backend = _resolve_backend(
+            "train-learning-agent",
+            ("sts2sim.learning.q_learning", "sts2sim.learning"),
+            ("train_q_learning",),
+        )
+        result = _call_backend(
+            backend,
+            runs=runs,
+            max_steps=max_steps,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            epsilon=epsilon,
+            alpha=alpha,
+            gamma=gamma,
+            output_path=output_path,
+            progress_output_path=progress_output_path,
+            report_output_path=report_output_path,
+            progress_window=progress_window,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("train-until-boss")
+def train_until_boss(
+    max_batches: Annotated[
+        int,
+        typer.Option(
+            "--max-batches",
+            min=1,
+            help="Maximum train/evaluate batches before stopping.",
+        ),
+    ] = 5,
+    batch_runs: Annotated[
+        int,
+        typer.Option("--batch-runs", min=1, help="Training runs per batch."),
+    ] = 50,
+    train_max_steps: Annotated[
+        int,
+        typer.Option("--train-max-steps", min=1, help="Maximum steps per training run."),
+    ] = 500,
+    eval_runs: Annotated[
+        int,
+        typer.Option("--eval-runs", min=1, help="Fixed-seed evaluation runs per batch."),
+    ] = 5,
+    eval_max_steps: Annotated[
+        int,
+        typer.Option("--eval-max-steps", min=1, help="Maximum steps per evaluation run."),
+    ] = 500,
+    seed: Annotated[
+        str,
+        typer.Option("--seed", help="Training seed."),
+    ] = "0",
+    eval_start_seed: Annotated[
+        int,
+        typer.Option("--eval-start-seed", help="First fixed evaluation seed."),
+    ] = 10_000,
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+    epsilon: Annotated[
+        float,
+        typer.Option("--epsilon", min=0.0, max=1.0, help="Exploration rate."),
+    ] = 0.2,
+    alpha: Annotated[
+        float,
+        typer.Option("--alpha", min=0.0, max=1.0, help="Q-learning update rate."),
+    ] = 0.1,
+    gamma: Annotated[
+        float,
+        typer.Option("--gamma", min=0.0, max=1.0, help="Future reward discount."),
+    ] = 0.99,
+    target_act: Annotated[
+        int,
+        typer.Option("--target-act", min=1, help="Target act to reach."),
+    ] = 1,
+    target_floor: Annotated[
+        int | None,
+        typer.Option(
+            "--target-floor",
+            min=0,
+            help="Target floor; use 0 for the start of an act.",
+        ),
+    ] = None,
+    target_reward: Annotated[
+        float,
+        typer.Option("--target-reward", help="Extra training reward when target is reached."),
+    ] = 100.0,
+    success_replay_passes: Annotated[
+        int,
+        typer.Option(
+            "--success-replay-passes",
+            min=0,
+            help="Replay target-reaching training trajectories this many times.",
+        ),
+    ] = 0,
+    train_seed_mode: Annotated[
+        str,
+        typer.Option(
+            "--train-seed-mode",
+            help="Training seed schedule: sequential or random.",
+        ),
+    ] = "sequential",
+    eval_seed_mode: Annotated[
+        str,
+        typer.Option(
+            "--eval-seed-mode",
+            help="Evaluation seed schedule: sequential or random holdout.",
+        ),
+    ] = "sequential",
+    target_eval_successes: Annotated[
+        int,
+        typer.Option(
+            "--target-eval-successes",
+            min=1,
+            help="Evaluation target successes required before stopping.",
+        ),
+    ] = 1,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume from --resume-from or existing --model-output checkpoint.",
+        ),
+    ] = True,
+    resume_from_path: Annotated[
+        Path | None,
+        typer.Option("--resume-from", help="Optional checkpoint to resume from."),
+    ] = None,
+    model_output_path: Annotated[
+        Path | None,
+        typer.Option("--model-output", help="Q-learning checkpoint JSON path."),
+    ] = Path("checkpoints/q_learning_until_boss.json"),
+    output_path: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Training target summary JSON path."),
+    ] = Path("reports/q_learning_until_boss_latest.json"),
+    progress_output_path: Annotated[
+        Path | None,
+        typer.Option("--progress-output", help="Per-training-run progress JSON path."),
+    ] = Path("reports/q_learning_until_boss_progress.json"),
+    report_output_path: Annotated[
+        Path | None,
+        typer.Option("--report-output", help="Standalone HTML progress report path."),
+    ] = Path("reports/q_learning_until_boss_latest.html"),
+    progress_window: Annotated[
+        int,
+        typer.Option("--progress-window", min=1, help="Rolling window size."),
+    ] = 10,
+) -> None:
+    """Train Q-learning in batches until evaluation reaches the Act boss."""
+
+    try:
+        backend = _resolve_backend(
+            "train-until-boss",
+            ("sts2sim.learning.train_until", "sts2sim.learning"),
+            ("train_q_learning_until_boss",),
+        )
+        result = _call_backend(
+            backend,
+            max_batches=max_batches,
+            batch_runs=batch_runs,
+            train_max_steps=train_max_steps,
+            eval_runs=eval_runs,
+            eval_max_steps=eval_max_steps,
+            seed=seed,
+            eval_start_seed=eval_start_seed,
+            character_id=character_id,
+            ascension=ascension,
+            epsilon=epsilon,
+            alpha=alpha,
+            gamma=gamma,
+            target_act=target_act,
+            target_floor=target_floor,
+            target_reward=target_reward,
+            success_replay_passes=success_replay_passes,
+            train_seed_mode=train_seed_mode,
+            eval_seed_mode=eval_seed_mode,
+            target_eval_successes=target_eval_successes,
+            resume=resume,
+            resume_from_path=resume_from_path,
+            model_output_path=model_output_path,
+            output_path=output_path,
+            progress_output_path=progress_output_path,
+            report_output_path=report_output_path,
+            progress_window=progress_window,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("train-masked-ppo")
+def train_masked_ppo(
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target",
+            help="Curriculum target: act1-boss, act2-boss, act3-boss, or game-clear.",
+        ),
+    ] = "act1-boss",
+    max_batches: Annotated[
+        int,
+        typer.Option(
+            "--max-batches",
+            min=1,
+            help="Maximum train/evaluate batches before stopping.",
+        ),
+    ] = 20,
+    train_runs_per_batch: Annotated[
+        int,
+        typer.Option(
+            "--train-runs-per-batch",
+            min=1,
+            help="Random-seed simulator runs collected before each PPO update.",
+        ),
+    ] = 64,
+    train_max_steps: Annotated[
+        int,
+        typer.Option("--train-max-steps", min=1, help="Maximum steps per training run."),
+    ] = 1200,
+    eval_runs: Annotated[
+        int,
+        typer.Option("--eval-runs", min=1, help="Random holdout evaluation runs per batch."),
+    ] = 32,
+    eval_max_steps: Annotated[
+        int,
+        typer.Option("--eval-max-steps", min=1, help="Maximum steps per evaluation run."),
+    ] = 1200,
+    seed: Annotated[
+        str,
+        typer.Option("--seed", help="Top-level trainer seed used to sample run seeds."),
+    ] = "ppo",
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+    hidden_size: Annotated[
+        int,
+        typer.Option("--hidden-size", min=16, help="Neural policy hidden layer size."),
+    ] = 256,
+    hidden_layers: Annotated[
+        int,
+        typer.Option(
+            "--hidden-layers",
+            min=1,
+            help="Hidden layers in both state and legal-action encoders.",
+        ),
+    ] = 3,
+    head_hidden_layers: Annotated[
+        int,
+        typer.Option(
+            "--head-hidden-layers",
+            min=1,
+            help="Hidden layers in the policy and value heads.",
+        ),
+    ] = 2,
+    activation: Annotated[
+        str,
+        typer.Option(
+            "--activation",
+            help="MLP activation: silu, gelu, relu, elu, or tanh.",
+        ),
+    ] = "silu",
+    learning_rate: Annotated[
+        float,
+        typer.Option("--learning-rate", min=0.0, help="Adam optimizer learning rate."),
+    ] = 0.0003,
+    gamma: Annotated[
+        float,
+        typer.Option("--gamma", min=0.0, max=1.0, help="Future reward discount."),
+    ] = 0.99,
+    gae_lambda: Annotated[
+        float,
+        typer.Option("--gae-lambda", min=0.0, max=1.0, help="GAE lambda."),
+    ] = 0.95,
+    clip_ratio: Annotated[
+        float,
+        typer.Option("--clip-ratio", min=0.0, help="PPO clipped objective ratio."),
+    ] = 0.2,
+    value_coef: Annotated[
+        float,
+        typer.Option("--value-coef", min=0.0, help="Value loss coefficient."),
+    ] = 0.5,
+    entropy_coef: Annotated[
+        float,
+        typer.Option("--entropy-coef", min=0.0, help="Entropy bonus coefficient."),
+    ] = 0.01,
+    planning_coef: Annotated[
+        float,
+        typer.Option(
+            "--planning-coef",
+            min=0.0,
+            help="Auxiliary planning-head loss coefficient.",
+        ),
+    ] = 0.1,
+    ppo_epochs: Annotated[
+        int,
+        typer.Option("--ppo-epochs", min=1, help="PPO optimization epochs per batch."),
+    ] = 4,
+    minibatch_size: Annotated[
+        int,
+        typer.Option("--minibatch-size", min=1, help="Transitions sampled per PPO update chunk."),
+    ] = 256,
+    target_reward: Annotated[
+        float,
+        typer.Option("--target-reward", help="Extra training reward when target is reached."),
+    ] = 100.0,
+    target_eval_successes: Annotated[
+        int,
+        typer.Option(
+            "--target-eval-successes",
+            min=1,
+            help="Holdout target successes required before stopping.",
+        ),
+    ] = 1,
+    target_consecutive_successes: Annotated[
+        int,
+        typer.Option(
+            "--target-consecutive-successes",
+            min=1,
+            help="Consecutive holdout target successes required before stopping.",
+        ),
+    ] = 1,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume from --resume-from or existing --model-output checkpoint.",
+        ),
+    ] = True,
+    resume_from_path: Annotated[
+        Path | None,
+        typer.Option("--resume-from", help="Optional PPO checkpoint to resume from."),
+    ] = None,
+    model_output_path: Annotated[
+        Path | None,
+        typer.Option("--model-output", help="PPO checkpoint path."),
+    ] = Path("checkpoints/masked_ppo_latest.pt"),
+    output_path: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Training target summary JSON path."),
+    ] = Path("reports/masked_ppo_latest.json"),
+    progress_output_path: Annotated[
+        Path | None,
+        typer.Option("--progress-output", help="Per-training-run progress JSON path."),
+    ] = Path("reports/masked_ppo_progress.json"),
+    report_output_path: Annotated[
+        Path | None,
+        typer.Option("--report-output", help="Standalone HTML progress report path."),
+    ] = Path("reports/masked_ppo_latest.html"),
+    progress_window: Annotated[
+        int,
+        typer.Option("--progress-window", min=1, help="Rolling window size."),
+    ] = 20,
+) -> None:
+    """Train the random-seed masked PPO agent toward a run target."""
+
+    try:
+        backend = _resolve_backend(
+            "train-masked-ppo",
+            ("sts2sim.learning.masked_ppo", "sts2sim.learning"),
+            ("train_masked_ppo",),
+        )
+        result = _call_backend(
+            backend,
+            target=target,
+            max_batches=max_batches,
+            train_runs_per_batch=train_runs_per_batch,
+            train_max_steps=train_max_steps,
+            eval_runs=eval_runs,
+            eval_max_steps=eval_max_steps,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            hidden_size=hidden_size,
+            hidden_layers=hidden_layers,
+            head_hidden_layers=head_hidden_layers,
+            activation=activation,
+            learning_rate=learning_rate,
+            gamma=gamma,
+            gae_lambda=gae_lambda,
+            clip_ratio=clip_ratio,
+            value_coef=value_coef,
+            entropy_coef=entropy_coef,
+            planning_coef=planning_coef,
+            ppo_epochs=ppo_epochs,
+            minibatch_size=minibatch_size,
+            target_reward=target_reward,
+            target_eval_successes=target_eval_successes,
+            target_consecutive_successes=target_consecutive_successes,
+            resume=resume,
+            resume_from_path=resume_from_path,
+            model_output_path=model_output_path,
+            output_path=output_path,
+            progress_output_path=progress_output_path,
+            report_output_path=report_output_path,
+            progress_window=progress_window,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("train-ppo-curriculum")
+def train_ppo_curriculum(
+    stages: Annotated[
+        str,
+        typer.Option(
+            "--stages",
+            help=(
+                "Comma-separated stage targets. Default: "
+                "act1-boss,act2-boss,act3-boss,game-clear."
+            ),
+        ),
+    ] = "act1-boss,act2-boss,act3-boss,game-clear",
+    run_name: Annotated[
+        str,
+        typer.Option("--run-name", help="Prefix for stage checkpoints and reports."),
+    ] = "ppo_curriculum",
+    max_batches: Annotated[
+        int | None,
+        typer.Option(
+            "--max-batches",
+            min=1,
+            help="Override max train/evaluate batches for every stage.",
+        ),
+    ] = None,
+    train_runs_per_batch: Annotated[
+        int,
+        typer.Option(
+            "--train-runs-per-batch",
+            min=1,
+            help="Random-seed simulator runs collected before each PPO update.",
+        ),
+    ] = 128,
+    eval_runs: Annotated[
+        int,
+        typer.Option("--eval-runs", min=1, help="Random holdout evaluation runs per batch."),
+    ] = 32,
+    train_max_steps: Annotated[
+        int | None,
+        typer.Option(
+            "--train-max-steps",
+            min=1,
+            help="Override maximum steps per training run for every stage.",
+        ),
+    ] = None,
+    eval_max_steps: Annotated[
+        int | None,
+        typer.Option(
+            "--eval-max-steps",
+            min=1,
+            help="Override maximum steps per evaluation run for every stage.",
+        ),
+    ] = None,
+    seed: Annotated[
+        str,
+        typer.Option("--seed", help="Top-level curriculum seed."),
+    ] = "ppo-curriculum",
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+    hidden_size: Annotated[
+        int,
+        typer.Option("--hidden-size", min=16, help="Neural policy hidden layer size."),
+    ] = 256,
+    hidden_layers: Annotated[
+        int,
+        typer.Option(
+            "--hidden-layers",
+            min=1,
+            help="Hidden layers in both state and legal-action encoders.",
+        ),
+    ] = 3,
+    head_hidden_layers: Annotated[
+        int,
+        typer.Option(
+            "--head-hidden-layers",
+            min=1,
+            help="Hidden layers in the policy and value heads.",
+        ),
+    ] = 2,
+    activation: Annotated[
+        str,
+        typer.Option(
+            "--activation",
+            help="MLP activation: silu, gelu, relu, elu, or tanh.",
+        ),
+    ] = "silu",
+    learning_rate: Annotated[
+        float,
+        typer.Option("--learning-rate", min=0.0, help="Adam optimizer learning rate."),
+    ] = 0.0003,
+    gamma: Annotated[
+        float,
+        typer.Option("--gamma", min=0.0, max=1.0, help="Future reward discount."),
+    ] = 0.99,
+    gae_lambda: Annotated[
+        float,
+        typer.Option("--gae-lambda", min=0.0, max=1.0, help="GAE lambda."),
+    ] = 0.95,
+    clip_ratio: Annotated[
+        float,
+        typer.Option("--clip-ratio", min=0.0, help="PPO clipped objective ratio."),
+    ] = 0.2,
+    value_coef: Annotated[
+        float,
+        typer.Option("--value-coef", min=0.0, help="Value loss coefficient."),
+    ] = 0.5,
+    entropy_coef: Annotated[
+        float,
+        typer.Option("--entropy-coef", min=0.0, help="Entropy bonus coefficient."),
+    ] = 0.01,
+    planning_coef: Annotated[
+        float,
+        typer.Option(
+            "--planning-coef",
+            min=0.0,
+            help="Auxiliary planning-head loss coefficient.",
+        ),
+    ] = 0.1,
+    ppo_epochs: Annotated[
+        int,
+        typer.Option("--ppo-epochs", min=1, help="PPO optimization epochs per batch."),
+    ] = 4,
+    minibatch_size: Annotated[
+        int,
+        typer.Option("--minibatch-size", min=1, help="Transitions per PPO update chunk."),
+    ] = 256,
+    target_reward: Annotated[
+        float,
+        typer.Option("--target-reward", help="Extra training reward when target is reached."),
+    ] = 100.0,
+    target_eval_successes: Annotated[
+        int | None,
+        typer.Option(
+            "--target-eval-successes",
+            min=1,
+            help="Override holdout target successes required before stage advancement.",
+        ),
+    ] = None,
+    target_consecutive_successes: Annotated[
+        int | None,
+        typer.Option(
+            "--target-consecutive-successes",
+            min=1,
+            help="Override consecutive holdout successes required before stage advancement.",
+        ),
+    ] = None,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume each stage from existing checkpoint files when available.",
+        ),
+    ] = True,
+    resume_from_path: Annotated[
+        Path | None,
+        typer.Option("--resume-from", help="Optional initial PPO checkpoint."),
+    ] = None,
+    checkpoint_dir: Annotated[
+        Path,
+        typer.Option("--checkpoint-dir", help="Directory for stage PPO checkpoints."),
+    ] = Path("checkpoints"),
+    report_dir: Annotated[
+        Path,
+        typer.Option("--report-dir", help="Directory for stage JSON/HTML reports."),
+    ] = Path("reports"),
+    output_path: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Curriculum summary JSON path."),
+    ] = Path("reports/ppo_curriculum_latest.json"),
+    report_output_path: Annotated[
+        Path | None,
+        typer.Option("--report-output", help="Combined curriculum HTML dashboard path."),
+    ] = Path("reports/ppo_curriculum_latest.html"),
+    progress_window: Annotated[
+        int,
+        typer.Option("--progress-window", min=1, help="Rolling window size."),
+    ] = 20,
+) -> None:
+    """Train PPO through staged targets, advancing only when comfortable."""
+
+    try:
+        backend = _resolve_backend(
+            "train-ppo-curriculum",
+            ("sts2sim.learning.curriculum", "sts2sim.learning"),
+            ("train_masked_ppo_curriculum",),
+        )
+        result = _call_backend(
+            backend,
+            stages=stages,
+            run_name=run_name,
+            max_batches=max_batches,
+            train_runs_per_batch=train_runs_per_batch,
+            eval_runs=eval_runs,
+            train_max_steps=train_max_steps,
+            eval_max_steps=eval_max_steps,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            hidden_size=hidden_size,
+            hidden_layers=hidden_layers,
+            head_hidden_layers=head_hidden_layers,
+            activation=activation,
+            learning_rate=learning_rate,
+            gamma=gamma,
+            gae_lambda=gae_lambda,
+            clip_ratio=clip_ratio,
+            value_coef=value_coef,
+            entropy_coef=entropy_coef,
+            planning_coef=planning_coef,
+            ppo_epochs=ppo_epochs,
+            minibatch_size=minibatch_size,
+            target_reward=target_reward,
+            target_eval_successes=target_eval_successes,
+            target_consecutive_successes=target_consecutive_successes,
+            resume=resume,
+            resume_from_path=resume_from_path,
+            checkpoint_dir=checkpoint_dir,
+            report_dir=report_dir,
+            output_path=output_path,
+            report_output_path=report_output_path,
+            progress_window=progress_window,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("learning-progress-report")
+def learning_progress_report(
+    input_path: Annotated[
+        Path,
+        typer.Argument(help="Training, rollout, or evaluation JSON file."),
+    ],
+    output_path: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Standalone HTML report path.",
+        ),
+    ] = Path("reports/learning_progress.html"),
+    title: Annotated[
+        str,
+        typer.Option("--title", help="Report title."),
+    ] = "Learning Progress",
+    window: Annotated[
+        int,
+        typer.Option("--window", min=1, help="Rolling window size for trend lines."),
+    ] = 10,
+) -> None:
+    """Create a static HTML dashboard from learning metrics."""
+
+    try:
+        backend = _resolve_backend(
+            "learning-progress-report",
+            ("sts2sim.learning.progress", "sts2sim.learning"),
+            ("build_learning_progress_report",),
+        )
+        result = _call_backend(
+            backend,
+            input_path=input_path,
+            output_path=output_path,
+            title=title,
+            window=window,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("evaluate-agents")
+def evaluate_agents(
+    runs: Annotated[
+        int,
+        typer.Option("--runs", "-n", min=1, help="Number of fixed seeds to evaluate."),
+    ] = 10,
+    max_steps: Annotated[
+        int,
+        typer.Option("--max-steps", min=1, help="Maximum simulator steps per run."),
+    ] = 500,
+    start_seed: Annotated[
+        int,
+        typer.Option("--start-seed", help="First simulator seed."),
+    ] = 0,
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+    policies: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--policy",
+            "-p",
+            help="Policy to include: random, q_learning, or strategic. Repeatable.",
+        ),
+    ] = None,
+    model_path: Annotated[
+        Path | None,
+        typer.Option("--model", help="Optional Q-learning checkpoint path."),
+    ] = None,
+    output_path: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Baseline comparison JSON path."),
+    ] = Path("reports/agent_baselines.json"),
+    report_output_path: Annotated[
+        Path | None,
+        typer.Option("--report-output", help="Standalone HTML comparison report path."),
+    ] = Path("reports/agent_baselines.html"),
+    progress_window: Annotated[
+        int,
+        typer.Option("--progress-window", min=1, help="Rolling window size."),
+    ] = 10,
+) -> None:
+    """Evaluate random, Q-learning, and strategic baselines side by side."""
+
+    try:
+        backend = _resolve_backend(
+            "evaluate-agents",
+            ("sts2sim.learning.agent_eval", "sts2sim.learning"),
+            ("evaluate_agent_baselines",),
+        )
+        result = _call_backend(
+            backend,
+            runs=runs,
+            max_steps=max_steps,
+            start_seed=start_seed,
+            character_id=character_id,
+            ascension=ascension,
+            policies=tuple(policies) if policies else None,
+            model_path=model_path,
+            output_path=output_path,
+            report_output_path=report_output_path,
+            progress_window=progress_window,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("evaluate-learning-agent")
+def evaluate_learning_agent(
+    policy: Annotated[
+        str,
+        typer.Option("--policy", help="Policy to evaluate: random or q_learning."),
+    ] = "random",
+    model_path: Annotated[
+        Path | None,
+        typer.Option("--model", help="Q-learning checkpoint path."),
+    ] = None,
+    runs: Annotated[
+        int,
+        typer.Option("--runs", "-n", min=1, help="Number of evaluation runs."),
+    ] = 10,
+    max_steps: Annotated[
+        int,
+        typer.Option("--max-steps", min=1, help="Maximum steps per run."),
+    ] = 500,
+    start_seed: Annotated[
+        int,
+        typer.Option("--start-seed", help="First evaluation seed."),
+    ] = 0,
+    character_id: Annotated[
+        str,
+        typer.Option("--character", "-c", help="Character id for simulator runs."),
+    ] = "IRONCLAD",
+    ascension: Annotated[
+        int,
+        typer.Option("--ascension", "-a", min=0, help="Ascension level."),
+    ] = 0,
+) -> None:
+    """Evaluate a self-learning policy over fixed seeds."""
+
+    normalized_policy = policy.strip().lower().replace("-", "_")
+    if normalized_policy not in {"random", "q_learning"}:
+        raise typer.BadParameter("policy must be 'random' or 'q_learning'")
+    try:
+        backend = _resolve_backend(
+            "evaluate-learning-agent",
+            ("sts2sim.learning.evaluate", "sts2sim.learning"),
+            ("evaluate_learning_agent",),
+        )
+        result = _call_backend(
+            backend,
+            policy=normalized_policy,
+            model_path=model_path,
+            runs=runs,
+            max_steps=max_steps,
+            start_seed=start_seed,
+            character_id=character_id,
+            ascension=ascension,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
 @app.command("replay")
 def replay(
     replay_path: Annotated[
@@ -959,6 +2020,513 @@ def replay(
             ("replay", "replay_run", "verify_replay"),
         )
         result = _call_replay_backend(backend, replay_path, data_dir, strict)
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("compare-trace")
+def compare_trace(
+    trace_path: Annotated[
+        Path,
+        typer.Argument(help="Parity trace JSON to compare against the simulator."),
+    ],
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Comparison mode: subset compares only captured fields; exact also flags extras.",
+        ),
+    ] = "subset",
+    ignore_paths: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--ignore-path",
+            "-i",
+            help="Snapshot path to ignore; use path.* to ignore a subtree.",
+        ),
+    ] = None,
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict/--no-strict",
+            help="Exit non-zero after printing the report if mismatches are found.",
+        ),
+    ] = False,
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional JSON path for the comparison report.",
+        ),
+    ] = None,
+) -> None:
+    """Compare a golden parity trace against the simulator."""
+
+    normalized_mode = mode.strip().lower()
+    if normalized_mode not in {"subset", "exact"}:
+        raise typer.BadParameter("mode must be 'subset' or 'exact'")
+
+    try:
+        backend = _resolve_backend(
+            "compare-trace",
+            ("sts2sim.parity",),
+            ("compare_trace_file",),
+        )
+        result = _call_backend(
+            backend,
+            trace_path=trace_path,
+            mode=normalized_mode,
+            ignore_paths=tuple(ignore_paths or ()),
+            strict=False,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+    if strict and isinstance(payload, Mapping) and not payload.get("matched", False):
+        raise typer.Exit(1)
+
+
+@app.command("trace-template")
+def trace_template(
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional JSON path for the template trace.",
+        ),
+    ] = None,
+) -> None:
+    """Print a starter parity trace JSON payload."""
+
+    try:
+        backend = _resolve_backend(
+            "trace-template",
+            ("sts2sim.parity",),
+            ("trace_template",),
+        )
+        result = _call_backend(backend)
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+
+
+@app.command("import-run")
+def import_run(
+    run_path: Annotated[
+        Path,
+        typer.Argument(help="Local .run or run-history JSON file."),
+    ],
+    trace_output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--trace-output",
+            help="Optional path to write a non-replayable parity trace scaffold.",
+        ),
+    ] = None,
+) -> None:
+    """Import a finished run-history file into a summary and parity scaffold."""
+
+    try:
+        backend = _resolve_backend(
+            "import-run",
+            ("sts2sim.run_files",),
+            ("import_run_file",),
+        )
+        result = _call_backend(
+            backend,
+            run_path=run_path,
+            trace_output_path=trace_output_path,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("find-run-files")
+def find_run_files(
+    root: Annotated[
+        Path,
+        typer.Argument(help="Directory to search recursively for .run or run JSON files."),
+    ],
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit",
+            "-n",
+            min=1,
+            help="Maximum number of newest files to return.",
+        ),
+    ] = 20,
+) -> None:
+    """Find local run-history files under a directory."""
+
+    try:
+        backend = _resolve_backend(
+            "find-run-files",
+            ("sts2sim.run_files",),
+            ("find_run_files",),
+        )
+        result = _call_backend(backend, root=root, limit=limit)
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit({"root": str(root), "files": [str(path) for path in result]})
+
+
+@app.command("capture-live")
+def capture_live(
+    base_url: Annotated[
+        str,
+        typer.Option(
+            "--base-url",
+            help="Base URL for a local STS2 live-state mod API, or 'auto'.",
+        ),
+    ] = "auto",
+    state_path: Annotated[
+        str | None,
+        typer.Option(
+            "--state-path",
+            help="Override the live state endpoint path.",
+        ),
+    ] = None,
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional path to write the captured parity trace.",
+        ),
+    ] = None,
+) -> None:
+    """Capture the current live game state without taking an action."""
+
+    try:
+        backend = _resolve_backend(
+            "capture-live",
+            ("sts2sim.live_capture",),
+            ("capture_live_state",),
+        )
+        result = _call_backend(
+            backend,
+            base_url=base_url,
+            state_path=state_path,
+            output_path=output_path,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("live-play")
+def live_play(
+    base_url: Annotated[
+        str,
+        typer.Option(
+            "--base-url",
+            help="Base URL for a local STS2 live-state/action mod API, or 'auto'.",
+        ),
+    ] = "auto",
+    max_steps: Annotated[
+        int,
+        typer.Option(
+            "--max-steps",
+            min=1,
+            help="Maximum live actions to execute.",
+        ),
+    ] = 5,
+    policy: Annotated[
+        str,
+        typer.Option(
+            "--policy",
+            help="Action policy: first, random, or prefer_attack.",
+        ),
+    ] = "first",
+    seed: Annotated[
+        str,
+        typer.Option(
+            "--seed",
+            help="Seed for the random action policy.",
+        ),
+    ] = "0",
+    state_path: Annotated[
+        str | None,
+        typer.Option("--state-path", help="Override the live state endpoint path."),
+    ] = None,
+    actions_path: Annotated[
+        str | None,
+        typer.Option("--actions-path", help="Override the legal-actions endpoint path."),
+    ] = None,
+    action_path: Annotated[
+        str | None,
+        typer.Option("--action-path", help="Override the execute-action endpoint path."),
+    ] = None,
+    action_envelope: Annotated[
+        str,
+        typer.Option(
+            "--action-envelope",
+            help="How to send actions: action, payload, or raw.",
+        ),
+    ] = "action",
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional path to write the live parity trace.",
+        ),
+    ] = None,
+) -> None:
+    """Let a tiny policy take live-game actions and record a parity trace."""
+
+    normalized_policy = policy.strip().lower()
+    if normalized_policy not in {"first", "random", "prefer_attack"}:
+        raise typer.BadParameter("policy must be 'first', 'random', or 'prefer_attack'")
+    normalized_envelope = action_envelope.strip().lower()
+    if normalized_envelope not in {"action", "payload", "raw"}:
+        raise typer.BadParameter("action-envelope must be 'action', 'payload', or 'raw'")
+
+    try:
+        backend = _resolve_backend(
+            "live-play",
+            ("sts2sim.live_capture",),
+            ("live_play",),
+        )
+        result = _call_backend(
+            backend,
+            base_url=base_url,
+            max_steps=max_steps,
+            policy=normalized_policy,
+            seed=seed,
+            state_path=state_path,
+            actions_path=actions_path,
+            action_path=action_path,
+            action_envelope=normalized_envelope,
+            output_path=output_path,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("play-live-agent")
+def play_live_agent(
+    base_url: Annotated[
+        str,
+        typer.Option(
+            "--base-url",
+            help="Base URL for the local STS2MCP live bridge, or 'auto'.",
+        ),
+    ] = "auto",
+    max_steps: Annotated[
+        int,
+        typer.Option(
+            "--max-steps",
+            min=1,
+            help="Maximum real-game actions to execute.",
+        ),
+    ] = 10,
+    seed: Annotated[
+        str,
+        typer.Option(
+            "--seed",
+            help="Seed for random live-start choices.",
+        ),
+    ] = "0",
+    simulator_seed: Annotated[
+        str,
+        typer.Option(
+            "--simulator-seed",
+            help="Simulator seed used for baseline comparison snapshots.",
+        ),
+    ] = "0",
+    start_if_needed: Annotated[
+        bool,
+        typer.Option(
+            "--start-if-needed/--no-start-if-needed",
+            help="Start a new standard run if the bridge is still on the menu.",
+        ),
+    ] = True,
+    character: Annotated[
+        str,
+        typer.Option(
+            "--character",
+            help="Character to start if needed, or 'random'.",
+        ),
+    ] = "random",
+    ascension: Annotated[
+        str,
+        typer.Option(
+            "--ascension",
+            help="Ascension to start if needed: random, max, current, or a number.",
+        ),
+    ] = "random",
+    state_path: Annotated[
+        str | None,
+        typer.Option("--state-path", help="Override the live state endpoint path."),
+    ] = None,
+    action_path: Annotated[
+        str | None,
+        typer.Option("--action-path", help="Override the live action endpoint path."),
+    ] = None,
+    delay_seconds: Annotated[
+        float,
+        typer.Option(
+            "--delay",
+            min=0.0,
+            help="Delay after each live action before the next state query.",
+        ),
+    ] = 0.35,
+    settle_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--settle-timeout",
+            min=0.0,
+            help="Seconds to wait through transient/loading live states.",
+        ),
+    ] = 3.0,
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional path for the live-agent comparison report.",
+        ),
+    ] = Path("live_traces/live_agent_latest.json"),
+) -> None:
+    """Let a conservative live agent play and compare snapshots to the simulator."""
+
+    try:
+        backend = _resolve_backend(
+            "play-live-agent",
+            ("sts2sim.live_agent",),
+            ("play_live_agent",),
+        )
+        result = _call_backend(
+            backend,
+            base_url=base_url,
+            max_steps=max_steps,
+            seed=seed,
+            simulator_seed=simulator_seed,
+            start_if_needed=start_if_needed,
+            character=character,
+            ascension=ascension,
+            state_path=state_path,
+            action_path=action_path,
+            delay_seconds=delay_seconds,
+            settle_timeout_seconds=settle_timeout_seconds,
+            output_path=output_path,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("probe-live")
+def probe_live(
+    base_urls: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--base-url",
+            help="Bridge base URL to probe; may be repeated. Defaults to known ports.",
+        ),
+    ] = None,
+    timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--timeout",
+            min=0.1,
+            help="Per-endpoint HTTP timeout in seconds.",
+        ),
+    ] = 1.0,
+) -> None:
+    """Probe known local live-state bridges and report which are reachable."""
+
+    try:
+        backend = _resolve_backend(
+            "probe-live",
+            ("sts2sim.live_capture",),
+            ("probe_live_bridges",),
+        )
+        result = _call_backend(
+            backend,
+            base_urls=tuple(base_urls) if base_urls else None,
+            timeout_seconds=timeout_seconds,
+        )
+    except BackendUnavailable as exc:
+        _backend_error(exc)
+    _emit({"bridges": result})
+
+
+@app.command("start-live-run")
+def start_live_run(
+    base_url: Annotated[
+        str,
+        typer.Option(
+            "--base-url",
+            help="Base URL for a local STS2 live-state/action mod API, or 'auto'.",
+        ),
+    ] = "auto",
+    character: Annotated[
+        str,
+        typer.Option(
+            "--character",
+            help="Character id/name to start, or 'random' for an unlocked random character.",
+        ),
+    ] = "random",
+    ascension: Annotated[
+        str,
+        typer.Option(
+            "--ascension",
+            help="'random', 'max', 'current', or an explicit unlocked ascension number.",
+        ),
+    ] = "random",
+    seed: Annotated[
+        str,
+        typer.Option(
+            "--seed",
+            help="Seed for random character/ascension selection.",
+        ),
+    ] = "0",
+    max_steps: Annotated[
+        int,
+        typer.Option(
+            "--max-steps",
+            min=1,
+            help="Maximum menu actions to try before stopping.",
+        ),
+    ] = 80,
+    output_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Optional path to write the start result JSON.",
+        ),
+    ] = None,
+) -> None:
+    """Start a standard live singleplayer run with unlocked random choices."""
+
+    try:
+        backend = _resolve_backend(
+            "start-live-run",
+            ("sts2sim.live_start",),
+            ("start_live_run",),
+        )
+        result = _call_backend(
+            backend,
+            base_url=base_url,
+            character=character,
+            ascension=ascension,
+            seed=seed,
+            max_steps=max_steps,
+            output_path=output_path,
+        )
     except BackendUnavailable as exc:
         _backend_error(exc)
     _emit(result)

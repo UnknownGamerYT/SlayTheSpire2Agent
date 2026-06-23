@@ -375,9 +375,11 @@ ANCIENT_RELIC_NAMES: Mapping[str, str] = {
     "arcane_scroll": "Arcane Scroll",
     "booming_conch": "Booming Conch",
     "cursed_pearl": "Cursed Pearl",
+    "fishing_rod": "Fishing Rod",
     "golden_compass": "Golden Compass",
     "golden_pearl": "Golden Pearl",
     "hefty_tablet": "Hefty Tablet",
+    "kaleidoscope": "Kaleidoscope",
     "large_capsule": "Large Capsule",
     "lava_rock": "Lava Rock",
     "lead_paperweight": "Lead Paperweight",
@@ -394,7 +396,10 @@ ANCIENT_RELIC_NAMES: Mapping[str, str] = {
     "precarious_shears": "Precarious Shears",
     "precise_scissors": "Precise Scissors",
     "prismatic_gem": "Prismatic Gem",
+    "pumpkin_candle": "Pumpkin Candle",
     "scroll_boxes": "Scroll Boxes",
+    "seal_of_gold": "Seal of Gold",
+    "silken_tress": "Silken Tress",
     "silver_crucible": "Silver Crucible",
     "small_capsule": "Small Capsule",
     "stone_humidifier": "Stone Humidifier",
@@ -433,11 +438,31 @@ ANCIENT_RELIC_EFFECTS: Mapping[str, AncientEffectSpec] = {
         metadata={"pickup_summary": "Gain 150 Gold."},
         source=NEOW_OFFERING_SOURCE,
     ),
+    "fishing_rod": AncientEffectSpec(
+        markers=(
+            AncientMarker(
+                kind=AncientMarkerKind.CUSTOM.value,
+                item_id="fishing_rod",
+                qualifier="normal_combat_upgrade_counter",
+                description="Every 3 normal combats, upgrade a random card in Deck.",
+                metadata={"combat_type": "normal", "interval": 3, "selection": "random"},
+            ),
+        ),
+        metadata={"pickup_summary": "Every 3 normal combats, upgrade a random card."},
+        source=NEOW_OFFERING_SOURCE,
+    ),
     "hefty_tablet": AncientEffectSpec(
         card_reward_count=1,
         card_reward_size=3,
         card_reward_kind="rare",
         metadata={"pickup_summary": "Choose 1 of 3 Rare cards."},
+        source=NEOW_OFFERING_SOURCE,
+    ),
+    "kaleidoscope": AncientEffectSpec(
+        card_reward_count=2,
+        card_reward_size=3,
+        card_reward_kind="other_character",
+        metadata={"pickup_summary": "Obtain 2 card rewards from other characters."},
         source=NEOW_OFFERING_SOURCE,
     ),
     "large_capsule": AncientEffectSpec(
@@ -523,11 +548,55 @@ ANCIENT_RELIC_EFFECTS: Mapping[str, AncientEffectSpec] = {
         metadata={"pickup_summary": "Card rewards may contain cards from any color."},
         source=OROBAS_PRISMATIC_SOURCE,
     ),
+    "pumpkin_candle": AncientEffectSpec(
+        markers=(
+            AncientMarker(
+                kind=AncientMarkerKind.CUSTOM.value,
+                item_id="pumpkin_candle",
+                qualifier="extinguishing_energy_relic",
+                description=(
+                    "Gain Energy each turn, extinguish after 5 combats, "
+                    "kindle at Rest Sites."
+                ),
+                metadata={"combat_counter": 5, "campfire_action": "kindle"},
+            ),
+        ),
+        metadata={"pickup_summary": "Gain Energy each turn for 5 combats; can be Kindled."},
+        source=NEOW_OFFERING_SOURCE,
+    ),
     "scroll_boxes": AncientEffectSpec(
-        set_gold=0,
         card_reward_count=1,
         card_reward_kind="skill",
-        metadata={"pickup_summary": "Lose all Gold and choose a Skill card."},
+        metadata={"pickup_summary": "Choose 1 of 2 packs of cards to add to your deck."},
+        source=NEOW_OFFERING_SOURCE,
+    ),
+    "seal_of_gold": AncientEffectSpec(
+        markers=(
+            AncientMarker(
+                kind=AncientMarkerKind.CUSTOM.value,
+                item_id="seal_of_gold",
+                qualifier="gold_for_energy",
+                description="At the start of turn, spend 5 Gold to gain Energy.",
+                metadata={"gold_cost": 5, "energy": 1},
+            ),
+        ),
+        metadata={"pickup_summary": "Spend 5 Gold at turn start to gain Energy."},
+        source=NEOW_OFFERING_SOURCE,
+    ),
+    "silken_tress": AncientEffectSpec(
+        set_gold=0,
+        markers=(
+            AncientMarker(
+                kind=AncientMarkerKind.CUSTOM.value,
+                item_id="silken_tress",
+                qualifier="first_card_reward_glam",
+                description="Enchant all cards in the first card reward with Glam.",
+                metadata={"card_reward_index": 1, "enchant_keyword": "glam"},
+            ),
+        ),
+        metadata={
+            "pickup_summary": "Lose all Gold; the first card reward is enchanted with Glam."
+        },
         source=NEOW_OFFERING_SOURCE,
     ),
     "small_capsule": AncientEffectSpec(

@@ -1,0 +1,358 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Strike",
+        "Strike",
+        "Strike",
+        "Neow's Fury",
+        "Strike",
+        "Slimed",
+        "Slimed"
+      ],
+      "draw_pile": [
+        "Defend"
+      ],
+      "hand": [
+        "DEFEND_IRONCLAD",
+        "BASH",
+        "DEFEND_IRONCLAD",
+        "DEFEND_IRONCLAD",
+        "STRIKE_IRONCLAD"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 27,
+          "max_hp": 33,
+          "name": "Leaf Slime (M)"
+        },
+        {
+          "block": 0,
+          "hp": 12,
+          "max_hp": 12,
+          "name": "Leaf Slime (S)"
+        }
+      ]
+    },
+    "floor": 2,
+    "phase": "monster",
+    "player": {
+      "block": 0,
+      "energy": 3,
+      "gold": 99,
+      "hp": 77,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD",
+      "NEOWS_TORMENT"
+    ]
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Strike",
+        "Strike",
+        "Strike",
+        "Neow's Fury",
+        "Strike",
+        "Slimed",
+        "Slimed"
+      ],
+      "draw_pile": [
+        "Defend"
+      ],
+      "hand": [
+        "DEFEND_IRONCLAD",
+        "BASH",
+        "DEFEND_IRONCLAD",
+        "DEFEND_IRONCLAD",
+        "STRIKE_IRONCLAD"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 27,
+          "max_hp": 33,
+          "name": "Leaf Slime (M)"
+        },
+        {
+          "block": 0,
+          "hp": 12,
+          "max_hp": 12,
+          "name": "Leaf Slime (S)"
+        }
+      ]
+    },
+    "floor": 2,
+    "phase": "monster",
+    "player": {
+      "block": 0,
+      "energy": 3,
+      "gold": 99,
+      "hp": 77,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD",
+      "NEOWS_TORMENT"
+    ]
+  },
+  "metadata": {
+    "mode": "capture",
+    "raw_initial_payload": {
+      "battle": {
+        "enemies": [
+          {
+            "block": 0,
+            "combat_id": 2,
+            "entity_id": "LEAF_SLIME_M_0",
+            "hp": 27,
+            "intents": [
+              {
+                "description": "This enemy intends to Attack for 8 damage.",
+                "label": "8",
+                "title": "Aggressive",
+                "type": "Attack"
+              }
+            ],
+            "max_hp": 33,
+            "name": "Leaf Slime (M)",
+            "status": []
+          },
+          {
+            "block": 0,
+            "combat_id": 3,
+            "entity_id": "LEAF_SLIME_S_0",
+            "hp": 12,
+            "intents": [
+              {
+                "description": "This enemy intends to give you 1 Status card.",
+                "label": "1",
+                "title": "Strategic",
+                "type": "StatusCard"
+              }
+            ],
+            "max_hp": 12,
+            "name": "Leaf Slime (S)",
+            "status": []
+          }
+        ],
+        "is_play_phase": true,
+        "round": 2,
+        "turn": "player"
+      },
+      "player": {
+        "block": 0,
+        "character": "The Ironclad",
+        "discard_pile": [
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 10 damage. Put up to 2 cards from your Discard Pile into your Hand. Exhaust.",
+            "name": "Neow's Fury",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "name": "Slimed",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Draw 1 card. Exhaust.",
+            "name": "Slimed",
+            "star_cost": null
+          }
+        ],
+        "discard_pile_count": 7,
+        "draw_pile": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          }
+        ],
+        "draw_pile_count": 1,
+        "energy": 3,
+        "exhaust_pile": [],
+        "exhaust_pile_count": 0,
+        "gold": 99,
+        "hand": [
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "2",
+            "description": "Deal 8 damage. Apply 2 Vulnerable.",
+            "id": "BASH",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Vulnerable creatures take 50% more damage from Attacks.",
+                "name": "Vulnerable"
+              }
+            ],
+            "name": "Bash",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 2,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 3,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_IRONCLAD",
+            "index": 4,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          }
+        ],
+        "hp": 77,
+        "max_energy": 3,
+        "max_hp": 80,
+        "max_potion_slots": 3,
+        "potions": [],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the end of combat, heal 6 HP.",
+            "id": "BURNING_BLOOD",
+            "keywords": [],
+            "name": "Burning Blood"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, add 1 Neow's Fury to your Deck.",
+            "id": "NEOWS_TORMENT",
+            "keywords": [
+              {
+                "description": "Deal 10 damage. Put up to 2 cards from your Discard Pile into your Hand. Exhaust.",
+                "name": "Neow's Fury"
+              },
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Neow's Torment"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 2
+      },
+      "state_type": "monster"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [],
+  "trace_id": "live-0"
+}

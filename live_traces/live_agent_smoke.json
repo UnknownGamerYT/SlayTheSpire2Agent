@@ -1,0 +1,262 @@
+{
+  "base_url": "http://localhost:15526",
+  "final": {
+    "act": 1,
+    "ascension": 0,
+    "character": "The Ironclad",
+    "character_id": "IRONCLAD",
+    "floor": 0,
+    "map": {
+      "boss": {
+        "id": "VANTOM_BOSS",
+        "name": "Vantom"
+      },
+      "next_option_count": 0
+    },
+    "max_potion_slots": 3,
+    "phase": "map",
+    "player": {
+      "block": 0,
+      "gold": 99,
+      "hp": 80,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD"
+    ],
+    "state_type": "map"
+  },
+  "final_state_type": "map",
+  "health": {
+    "message": "Hello from STS2 MCP v0.4.0",
+    "status": "ok"
+  },
+  "initial": {
+    "act": 1,
+    "ascension": 0,
+    "character": "The Ironclad",
+    "character_id": "IRONCLAD",
+    "floor": 0,
+    "map": {
+      "boss": {
+        "id": "VANTOM_BOSS",
+        "name": "Vantom"
+      },
+      "next_option_count": 1
+    },
+    "max_potion_slots": 3,
+    "phase": "map",
+    "player": {
+      "block": 0,
+      "gold": 99,
+      "hp": 80,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD"
+    ],
+    "state_type": "map"
+  },
+  "output_path": "live_traces\\live_agent_smoke.json",
+  "start_result": null,
+  "started_run": false,
+  "steps": [
+    {
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "character": "The Ironclad",
+        "character_id": "IRONCLAD",
+        "floor": 0,
+        "map": {
+          "boss": {
+            "id": "VANTOM_BOSS",
+            "name": "Vantom"
+          },
+          "next_option_count": 0
+        },
+        "max_potion_slots": 3,
+        "phase": "map",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 80,
+          "max_hp": 80
+        },
+        "relics": [
+          "BURNING_BLOOD"
+        ],
+        "state_type": "map"
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "character": "The Ironclad",
+        "character_id": "IRONCLAD",
+        "floor": 0,
+        "map": {
+          "boss": {
+            "id": "VANTOM_BOSS",
+            "name": "Vantom"
+          },
+          "next_option_count": 1
+        },
+        "max_potion_slots": 3,
+        "phase": "map",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 80,
+          "max_hp": 80
+        },
+        "relics": [
+          "BURNING_BLOOD"
+        ],
+        "state_type": "map"
+      },
+      "comparison_after": {
+        "ascension": 0,
+        "character_id": "IRONCLAD",
+        "live_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 0,
+          "phase": "map",
+          "player": {
+            "block": 0,
+            "gold": 99,
+            "hp": 80,
+            "max_hp": 80
+          },
+          "relics": [
+            "BURNING_BLOOD"
+          ]
+        },
+        "mismatch_count": 3,
+        "mismatches": [
+          {
+            "actual": "ancient",
+            "expected": "map",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "phase"
+          },
+          {
+            "actual": 0,
+            "expected": 99,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "player.gold"
+          },
+          {
+            "actual": null,
+            "expected": "BURNING_BLOOD",
+            "kind": "missing",
+            "message": "Expected array item is missing.",
+            "path": "relics[0]"
+          }
+        ],
+        "note": "Baseline snapshot comparison only; bridge actions are not replayed in the simulator yet.",
+        "simulator_seed": "0",
+        "simulator_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 0,
+          "phase": "ancient",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 0,
+            "hp": 80,
+            "max_energy": 3,
+            "max_hp": 80
+          },
+          "relics": []
+        },
+        "supported": true
+      },
+      "comparison_before": {
+        "ascension": 0,
+        "character_id": "IRONCLAD",
+        "live_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 0,
+          "phase": "map",
+          "player": {
+            "block": 0,
+            "gold": 99,
+            "hp": 80,
+            "max_hp": 80
+          },
+          "relics": [
+            "BURNING_BLOOD"
+          ]
+        },
+        "mismatch_count": 3,
+        "mismatches": [
+          {
+            "actual": "ancient",
+            "expected": "map",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "phase"
+          },
+          {
+            "actual": 0,
+            "expected": 99,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "player.gold"
+          },
+          {
+            "actual": null,
+            "expected": "BURNING_BLOOD",
+            "kind": "missing",
+            "message": "Expected array item is missing.",
+            "path": "relics[0]"
+          }
+        ],
+        "note": "Baseline snapshot comparison only; bridge actions are not replayed in the simulator yet.",
+        "simulator_seed": "0",
+        "simulator_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 0,
+          "phase": "ancient",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 0,
+            "hp": 80,
+            "max_energy": 3,
+            "max_hp": 80
+          },
+          "relics": []
+        },
+        "supported": true
+      },
+      "decision": {
+        "action": {
+          "action": "choose_map_node",
+          "index": 0
+        },
+        "reason": "choose_first_map_node",
+        "state_type": "map"
+      },
+      "response": {
+        "message": "Traveling to Monster at (3,0)",
+        "status": "ok"
+      },
+      "state_type": "map",
+      "step_index": 0
+    }
+  ],
+  "steps_requested": 1,
+  "steps_taken": 1,
+  "stopped_reason": "max_steps"
+}

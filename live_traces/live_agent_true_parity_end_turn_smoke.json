@@ -1,0 +1,622 @@
+{
+  "base_url": "http://localhost:15526",
+  "final": {
+    "act": 1,
+    "ascension": 0,
+    "character": "The Ironclad",
+    "character_id": "IRONCLAD",
+    "combat": {
+      "discard_pile_count": 5,
+      "draw_pile_count": 0,
+      "enemies": [
+        {
+          "block": 0,
+          "entity_id": "NIBBIT_0",
+          "hp": 28,
+          "max_hp": 45,
+          "name": "Nibbit"
+        }
+      ],
+      "exhaust_pile_count": 0,
+      "hand_count": 5,
+      "is_play_phase": true,
+      "round": 2,
+      "turn": "player"
+    },
+    "floor": 1,
+    "max_potion_slots": 3,
+    "phase": "combat",
+    "player": {
+      "block": 0,
+      "energy": 3,
+      "gold": 99,
+      "hp": 68,
+      "max_energy": 3,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD"
+    ],
+    "state_type": "monster"
+  },
+  "final_state_type": "monster",
+  "health": {
+    "message": "Hello from STS2 MCP v0.4.0",
+    "status": "ok"
+  },
+  "initial": {
+    "act": 1,
+    "ascension": 0,
+    "character": "The Ironclad",
+    "character_id": "IRONCLAD",
+    "combat": {
+      "discard_pile_count": 2,
+      "draw_pile_count": 5,
+      "enemies": [
+        {
+          "block": 0,
+          "entity_id": "NIBBIT_0",
+          "hp": 28,
+          "max_hp": 45,
+          "name": "Nibbit"
+        }
+      ],
+      "exhaust_pile_count": 0,
+      "hand_count": 3,
+      "is_play_phase": true,
+      "round": 1,
+      "turn": "player"
+    },
+    "floor": 1,
+    "max_potion_slots": 3,
+    "phase": "combat",
+    "player": {
+      "block": 0,
+      "energy": 0,
+      "gold": 99,
+      "hp": 80,
+      "max_energy": 3,
+      "max_hp": 80
+    },
+    "relics": [
+      "BURNING_BLOOD"
+    ],
+    "state_type": "monster"
+  },
+  "output_path": "live_traces\\live_agent_true_parity_end_turn_smoke.json",
+  "start_result": null,
+  "started_run": false,
+  "steps": [
+    {
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "character": "The Ironclad",
+        "character_id": "IRONCLAD",
+        "combat": {
+          "discard_pile_count": 5,
+          "draw_pile_count": 0,
+          "enemies": [
+            {
+              "block": 0,
+              "entity_id": "NIBBIT_0",
+              "hp": 28,
+              "max_hp": 45,
+              "name": "Nibbit"
+            }
+          ],
+          "exhaust_pile_count": 0,
+          "hand_count": 5,
+          "is_play_phase": true,
+          "round": 2,
+          "turn": "player"
+        },
+        "floor": 1,
+        "max_potion_slots": 3,
+        "phase": "combat",
+        "player": {
+          "block": 0,
+          "energy": 3,
+          "gold": 99,
+          "hp": 68,
+          "max_energy": 3,
+          "max_hp": 80
+        },
+        "relics": [
+          "BURNING_BLOOD"
+        ],
+        "state_type": "monster"
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "character": "The Ironclad",
+        "character_id": "IRONCLAD",
+        "combat": {
+          "discard_pile_count": 2,
+          "draw_pile_count": 5,
+          "enemies": [
+            {
+              "block": 0,
+              "entity_id": "NIBBIT_0",
+              "hp": 28,
+              "max_hp": 45,
+              "name": "Nibbit"
+            }
+          ],
+          "exhaust_pile_count": 0,
+          "hand_count": 3,
+          "is_play_phase": true,
+          "round": 1,
+          "turn": "player"
+        },
+        "floor": 1,
+        "max_potion_slots": 3,
+        "phase": "combat",
+        "player": {
+          "block": 0,
+          "energy": 0,
+          "gold": 99,
+          "hp": 80,
+          "max_energy": 3,
+          "max_hp": 80
+        },
+        "relics": [
+          "BURNING_BLOOD"
+        ],
+        "state_type": "monster"
+      },
+      "comparison_after": {
+        "ascension": 0,
+        "character_id": "IRONCLAD",
+        "live_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 1,
+          "phase": "combat",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 99,
+            "hp": 68,
+            "max_energy": 3,
+            "max_hp": 80
+          },
+          "relics": [
+            "BURNING_BLOOD"
+          ]
+        },
+        "mismatch_count": 5,
+        "mismatches": [
+          {
+            "actual": "ancient",
+            "expected": "combat",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "phase"
+          },
+          {
+            "actual": 0,
+            "expected": 1,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "floor"
+          },
+          {
+            "actual": 80,
+            "expected": 68,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "player.hp"
+          },
+          {
+            "actual": 0,
+            "expected": 99,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "player.gold"
+          },
+          {
+            "actual": null,
+            "expected": "BURNING_BLOOD",
+            "kind": "missing",
+            "message": "Expected array item is missing.",
+            "path": "relics[0]"
+          }
+        ],
+        "note": "Baseline snapshot comparison only; bridge actions are not replayed in the simulator yet.",
+        "simulator_seed": "0",
+        "simulator_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 0,
+          "phase": "ancient",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 0,
+            "hp": 80,
+            "max_energy": 3,
+            "max_hp": 80
+          },
+          "relics": []
+        },
+        "supported": true
+      },
+      "comparison_before": {
+        "ascension": 0,
+        "character_id": "IRONCLAD",
+        "live_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 1,
+          "phase": "combat",
+          "player": {
+            "block": 0,
+            "energy": 0,
+            "gold": 99,
+            "hp": 80,
+            "max_energy": 3,
+            "max_hp": 80
+          },
+          "relics": [
+            "BURNING_BLOOD"
+          ]
+        },
+        "mismatch_count": 5,
+        "mismatches": [
+          {
+            "actual": "ancient",
+            "expected": "combat",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "phase"
+          },
+          {
+            "actual": 0,
+            "expected": 1,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "floor"
+          },
+          {
+            "actual": 3,
+            "expected": 0,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "player.energy"
+          },
+          {
+            "actual": 0,
+            "expected": 99,
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "player.gold"
+          },
+          {
+            "actual": null,
+            "expected": "BURNING_BLOOD",
+            "kind": "missing",
+            "message": "Expected array item is missing.",
+            "path": "relics[0]"
+          }
+        ],
+        "note": "Baseline snapshot comparison only; bridge actions are not replayed in the simulator yet.",
+        "simulator_seed": "0",
+        "simulator_summary": {
+          "act": 1,
+          "ascension": 0,
+          "character_id": "IRONCLAD",
+          "floor": 0,
+          "phase": "ancient",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 0,
+            "hp": 80,
+            "max_energy": 3,
+            "max_hp": 80
+          },
+          "relics": []
+        },
+        "supported": true
+      },
+      "decision": {
+        "action": {
+          "action": "end_turn"
+        },
+        "reason": "no_playable_cards",
+        "state_type": "monster"
+      },
+      "response": {
+        "message": "Ending turn",
+        "status": "ok"
+      },
+      "state_type": "monster",
+      "step_index": 0,
+      "true_step_comparison": {
+        "live_after": {
+          "act": 1,
+          "ascension": 0,
+          "combat": {
+            "discard_pile_count": 5,
+            "draw_pile_count": 0,
+            "exhaust_pile_count": 0,
+            "hand": [
+              {
+                "card_id": "DEFEND_IRONCLAD",
+                "cost": 1,
+                "name": "Defend",
+                "type": "skill"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              },
+              {
+                "card_id": "DEFEND_IRONCLAD",
+                "cost": 1,
+                "name": "Defend",
+                "type": "skill"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              }
+            ],
+            "monsters": [
+              {
+                "block": 0,
+                "hp": 28,
+                "max_hp": 45,
+                "monster_id": "NIBBIT_0",
+                "name": "Nibbit",
+                "statuses": {
+                  "vulnerable": 1
+                }
+              }
+            ],
+            "player": {
+              "block": 0,
+              "energy": 3,
+              "gold": 99,
+              "hp": 68,
+              "max_energy": 3,
+              "max_hp": 80,
+              "statuses": {}
+            },
+            "turn": 2
+          },
+          "floor": 1,
+          "phase": "combat",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 99,
+            "hp": 68,
+            "max_energy": 3,
+            "max_hp": 80,
+            "statuses": {}
+          },
+          "potions": [],
+          "relics": [
+            "burning_blood"
+          ]
+        },
+        "live_before": {
+          "act": 1,
+          "ascension": 0,
+          "combat": {
+            "discard_pile_count": 2,
+            "draw_pile_count": 5,
+            "exhaust_pile_count": 0,
+            "hand": [
+              {
+                "card_id": "DEFEND_IRONCLAD",
+                "cost": 1,
+                "name": "Defend",
+                "type": "skill"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              },
+              {
+                "card_id": "DEFEND_IRONCLAD",
+                "cost": 1,
+                "name": "Defend",
+                "type": "skill"
+              }
+            ],
+            "monsters": [
+              {
+                "block": 0,
+                "hp": 28,
+                "max_hp": 45,
+                "monster_id": "NIBBIT_0",
+                "name": "Nibbit",
+                "statuses": {
+                  "vulnerable": 2
+                }
+              }
+            ],
+            "player": {
+              "block": 0,
+              "energy": 0,
+              "gold": 99,
+              "hp": 80,
+              "max_energy": 3,
+              "max_hp": 80,
+              "statuses": {}
+            },
+            "turn": 1
+          },
+          "floor": 1,
+          "phase": "combat",
+          "player": {
+            "block": 0,
+            "energy": 0,
+            "gold": 99,
+            "hp": 80,
+            "max_energy": 3,
+            "max_hp": 80,
+            "statuses": {}
+          },
+          "potions": [],
+          "relics": [
+            "burning_blood"
+          ]
+        },
+        "mismatch_count": 6,
+        "mismatches": [
+          {
+            "actual": "DEFEND_IRONCLAD",
+            "expected": "STRIKE_IRONCLAD",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "combat.hand[1].card_id"
+          },
+          {
+            "actual": "Defend",
+            "expected": "Strike",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "combat.hand[1].name"
+          },
+          {
+            "actual": "skill",
+            "expected": "attack",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "combat.hand[1].type"
+          },
+          {
+            "actual": "STRIKE_IRONCLAD",
+            "expected": "DEFEND_IRONCLAD",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "combat.hand[2].card_id"
+          },
+          {
+            "actual": "Strike",
+            "expected": "Defend",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "combat.hand[2].name"
+          },
+          {
+            "actual": "attack",
+            "expected": "skill",
+            "kind": "value",
+            "message": "Values differ.",
+            "path": "combat.hand[2].type"
+          }
+        ],
+        "reason": "",
+        "sim_action": {
+          "card_instance_id": null,
+          "payload": {},
+          "target_id": null,
+          "type": "end_turn"
+        },
+        "simulator_after": {
+          "act": 1,
+          "ascension": 0,
+          "combat": {
+            "discard_pile_count": 5,
+            "draw_pile_count": 0,
+            "exhaust_pile_count": 0,
+            "hand": [
+              {
+                "card_id": "DEFEND_IRONCLAD",
+                "cost": 1,
+                "name": "Defend",
+                "type": "skill"
+              },
+              {
+                "card_id": "DEFEND_IRONCLAD",
+                "cost": 1,
+                "name": "Defend",
+                "type": "skill"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              },
+              {
+                "card_id": "STRIKE_IRONCLAD",
+                "cost": 1,
+                "name": "Strike",
+                "type": "attack"
+              }
+            ],
+            "monsters": [
+              {
+                "block": 0,
+                "hp": 28,
+                "max_hp": 45,
+                "monster_id": "NIBBIT_0",
+                "name": "Nibbit",
+                "statuses": {
+                  "vulnerable": 1
+                }
+              }
+            ],
+            "player": {
+              "block": 0,
+              "energy": 3,
+              "gold": 99,
+              "hp": 68,
+              "max_energy": 3,
+              "max_hp": 80,
+              "statuses": {}
+            },
+            "turn": 2
+          },
+          "floor": 1,
+          "phase": "combat",
+          "player": {
+            "block": 0,
+            "energy": 3,
+            "gold": 99,
+            "hp": 68,
+            "max_energy": 3,
+            "max_hp": 80,
+            "statuses": {}
+          },
+          "potions": [],
+          "relics": [
+            "burning_blood"
+          ]
+        },
+        "supported": true
+      }
+    }
+  ],
+  "steps_requested": 1,
+  "steps_taken": 1,
+  "stopped_reason": "max_steps"
+}

@@ -1,0 +1,129 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "menu_screen": "character_select",
+    "options": [
+      "IRONCLAD",
+      "SILENT",
+      "REGENT",
+      "NECROBINDER",
+      "DEFECT",
+      "confirm",
+      "embark",
+      "back"
+    ],
+    "phase": "menu"
+  },
+  "game_version": null,
+  "initial_state": {
+    "menu_screen": "singleplayer",
+    "options": [
+      "standard",
+      "daily",
+      "custom",
+      "back"
+    ],
+    "phase": "menu"
+  },
+  "metadata": {
+    "mode": "live_play",
+    "policy": "first",
+    "raw_initial_payload": {
+      "menu_screen": "singleplayer",
+      "message": "Select game mode.",
+      "options": [
+        {
+          "enabled": true,
+          "name": "standard"
+        },
+        {
+          "enabled": false,
+          "name": "daily"
+        },
+        {
+          "enabled": false,
+          "name": "custom"
+        },
+        {
+          "enabled": true,
+          "name": "back"
+        }
+      ],
+      "state_type": "menu"
+    },
+    "stats": {
+      "action_type_counts": {
+        "menu_select": 1
+      },
+      "average_legal_actions": 2.0,
+      "legal_action_counts": [
+        2
+      ],
+      "phase_counts": {
+        "menu": 1
+      },
+      "random_policy_likelihood": 0.5,
+      "random_policy_log_likelihood": -0.6931471805599453,
+      "selected_probabilities": [
+        0.5
+      ],
+      "steps_requested": 1,
+      "steps_taken": 1,
+      "stopped_reason": "max_steps"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [
+    {
+      "action": {},
+      "after": {
+        "menu_screen": "character_select",
+        "options": [
+          "IRONCLAD",
+          "SILENT",
+          "REGENT",
+          "NECROBINDER",
+          "DEFECT",
+          "confirm",
+          "embark",
+          "back"
+        ],
+        "phase": "menu"
+      },
+      "before": {
+        "menu_screen": "singleplayer",
+        "options": [
+          "standard",
+          "daily",
+          "custom",
+          "back"
+        ],
+        "phase": "menu"
+      },
+      "external_action": {
+        "action": "menu_select",
+        "option": "standard"
+      },
+      "metadata": {
+        "action_type": "menu_select",
+        "legal_action_count": 2,
+        "raw_action": {
+          "action": "menu_select",
+          "option": "standard"
+        },
+        "response": {
+          "message": "Selected standard",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.5
+      },
+      "step_index": 0
+    }
+  ],
+  "trace_id": "live-0"
+}

@@ -95,6 +95,28 @@ def test_no_cached_events_remain_unsupported() -> None:
     assert frozenset() == UNSUPPORTED_BESPOKE_EVENT_IDS
 
 
+def test_every_cached_event_option_has_source_backed_coverage() -> None:
+    report = audit_event_coverage()
+
+    missing = {
+        entry.event_id: entry.missing_option_ids
+        for entry in report.entries
+        if entry.missing_option_ids
+    }
+
+    assert missing == {}
+
+
+def test_unsupported_catalog_options_are_covered_not_missing() -> None:
+    report = audit_event_coverage()
+    entry = report.entry_for("BRAIN_LEECH")
+
+    assert "SHARE_KNOWLEDGE" in entry.cached_option_ids
+    assert "share_knowledge" in entry.implemented_option_ids
+    assert entry.missing_option_ids == ()
+    assert entry.category is EventCoverageCategory.PRIMITIVE
+
+
 def test_missing_optional_modules_do_not_block_audit() -> None:
     report = audit_event_coverage(
         optional_module_names=("sts2sim.mechanics.definitely_missing_event_catalog",)

@@ -8,6 +8,7 @@ from sts2sim.mechanics.event_flows import (
     EventFlowMarker,
     EventFlowMarkerContext,
     EventFlowMarkerKind,
+    current_event_flow_page,
     event_flow_state,
     is_event_flow_terminal,
     legal_event_flow_option_ids,
@@ -123,6 +124,39 @@ def test_slippery_bridge_hold_on_steps_and_loop_damage_escalates() -> None:
     second_loop = resolve_event_flow_option(first_loop.state, "HOLD_ON_LOOP")
     assert first_loop.hp_delta == -11
     assert second_loop.hp_delta == -12
+
+
+def test_slippery_bridge_offer_targets_do_not_repeat_until_deck_seen() -> None:
+    state = event_flow_state(
+        "SLIPPERY_BRIDGE",
+        hp=45,
+        max_hp=70,
+        data={"bridge_deck": ("strike", "defend", "bash")},
+    )
+
+    first_offer = current_event_flow_page(state).options[0]
+    assert first_offer.option_id == "OVERCOME"
+    assert first_offer.metadata["offered_card_id"] == "strike"
+
+    first_hold = resolve_event_flow_option(state, "HOLD_ON_0")
+    second_offer = current_event_flow_page(first_hold.state).options[0]
+    assert second_offer.metadata["offered_card_id"] == "defend"
+
+    second_hold = resolve_event_flow_option(first_hold.state, "HOLD_ON_1")
+    third_offer = current_event_flow_page(second_hold.state).options[0]
+    assert third_offer.metadata["offered_card_id"] == "bash"
+
+    third_hold = resolve_event_flow_option(second_hold.state, "HOLD_ON_2")
+    cycled_offer = current_event_flow_page(third_hold.state).options[0]
+    assert cycled_offer.metadata["offered_card_id"] == "strike"
+
+    overcome = resolve_event_flow_option(first_hold.state, "OVERCOME")
+    application = resolve_event_flow_markers(
+        overcome.markers,
+        EventFlowMarkerContext(deck=("strike", "defend", "bash")),
+    )
+    assert application.removed_card_ids == ("defend",)
+    assert application.context.deck == ("strike", "bash")
 
 
 def test_tablet_of_truth_decipher_chain_locks_out_smash_and_finishes_at_one_max_hp() -> None:

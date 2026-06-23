@@ -111,6 +111,8 @@ class Sts2Env:
         self.include_serialized_state = include_serialized_state
         self.state: Any | None = None
         self.steps = 0
+        self._agent_memory: list[dict[str, Any]] = []
+        self._pending_policy_output: dict[str, Any] = {}
 
         self._gymnasium = _optional_import("gymnasium")
         self._numpy = _optional_import("numpy") if self._gymnasium is not None else None
@@ -134,6 +136,8 @@ class Sts2Env:
             source_data=options.get("source_data", self.source_data),
         )
         self.steps = 0
+        self._agent_memory = []
+        self._pending_policy_output = {}
         return self._observation(), self._info()
 
     def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
@@ -145,6 +149,8 @@ class Sts2Env:
 
         previous_state = self.state
         engine_action = decode_action(previous_state, action)
+        previous_action_space = agent_action_space(previous_state)
+        action_descriptor = _descriptor_for_action_id(previous_action_space, action)
         self.state = step_state(previous_state, engine_action)
         self.steps += 1
 
@@ -155,6 +161,12 @@ class Sts2Env:
             and not terminated
         )
         reward = float(self.reward_fn(previous_state, self.state))
+        self._record_agent_memory(
+            action_descriptor=action_descriptor,
+            action_id=action,
+            reward=reward,
+            done=terminated or truncated,
+        )
         return self._observation(), reward, terminated, truncated, self._info(engine_action)
 
     def render(self) -> None:
@@ -162,6 +174,11 @@ class Sts2Env:
 
     def close(self) -> None:
         """No-op close hook for Gymnasium compatibility."""
+
+    def set_pending_policy_output(self, payload: Mapping[str, Any] | None) -> None:
+        """Attach policy diagnostics to the next memory entry."""
+
+        self._pending_policy_output = dict(payload or {})
 
     def _make_spaces(self) -> tuple[Any, Any]:
         if self.using_gymnasium:
@@ -198,16 +215,19 @@ class Sts2Env:
         observation = encode_observation(
             self.state,
             include_state=self.include_serialized_state,
+            agent_memory={"entries": self._agent_memory},
         )
         observation["action_mask"] = list(action_mask(self.state, max_actions=self.max_actions))
         return observation
 
     def _info(self, action: Any | None = None) -> dict[str, Any]:
         assert self.state is not None
+        descriptors = agent_action_space(self.state)
         info: dict[str, Any] = {
             "action_mask": list(action_mask(self.state, max_actions=self.max_actions)),
-            "action_space": agent_action_space(self.state),
-            "legal_action_count": len(agent_action_space(self.state)),
+            "action_space": descriptors,
+            "legal_action_count": len(descriptors),
+            "agent_memory": {"entries": list(self._agent_memory)},
             "gymnasium_available": self.using_gymnasium,
         }
         if action is not None:
@@ -217,6 +237,57 @@ class Sts2Env:
                 else action
             )
         return info
+
+    def _record_agent_memory(
+        self,
+        *,
+        action_descriptor: Mapping[str, Any],
+        action_id: Any,
+        reward: float,
+        done: bool,
+    ) -> None:
+        preview = _mapping(action_descriptor.get("preview"))
+        action_index = _to_int(action_id)
+        policy = dict(self._pending_policy_output)
+        self._pending_policy_output = {}
+        entry = {
+            "age": 0,
+            "action_type": str(action_descriptor.get("type", "")),
+            "action_type_id": _to_int(action_descriptor.get("action_type_id")),
+            "action_id": _to_int(action_descriptor.get("id", action_index)),
+            "action_index": _to_int(policy.get("action_index", action_index)),
+            "confidence": _to_float(policy.get("confidence")),
+            "log_prob": _to_float(policy.get("log_prob")),
+            "value": _to_float(policy.get("value")),
+            "reward": reward,
+            "hp_delta": _to_int(preview.get("player_hp_delta")),
+            "block_delta": _to_int(preview.get("player_block_delta")),
+            "energy_delta": _to_int(preview.get("player_energy_delta")),
+            "gold_delta": _to_int(preview.get("player_gold_delta")),
+            "floor_delta": _to_int(preview.get("floor_delta")),
+            "phase_changed": _to_int(preview.get("phase_changed")),
+            "target_hp_delta": _to_int(preview.get("target_hp_delta")),
+            "monster_hp_total_delta": _to_int(preview.get("monster_hp_total_delta")),
+            "kills": _to_int(preview.get("kills")),
+            "incoming_damage_delta": _to_int(preview.get("incoming_damage_delta")),
+            "preview_error": _to_int(preview.get("preview_error")),
+            "done": int(done),
+            "plan_aggression_target": _to_float(policy.get("aggression_target")),
+            "plan_hp_floor": _to_float(policy.get("hp_floor")),
+            "plan_hp_spend_budget": _to_float(policy.get("hp_spend_budget")),
+            "plan_combat_pace": _to_float(policy.get("combat_pace")),
+            "plan_route_preference": _to_float(policy.get("route_preference")),
+            "plan_potion_policy": _to_float(policy.get("potion_policy")),
+            "plan_reward_pickiness": _to_float(policy.get("reward_pickiness")),
+            "plan_expected_hp_loss": _to_float(policy.get("expected_hp_loss")),
+            "plan_expected_turns_to_kill": _to_float(policy.get("expected_turns_to_kill")),
+            "plan_boss_readiness": _to_float(policy.get("boss_readiness")),
+        }
+        aged_entries = [
+            {**entry, "age": min(index + 1, 99)}
+            for index, entry in enumerate(self._agent_memory)
+        ]
+        self._agent_memory = [entry, *aged_entries][:4]
 
 
 SlayTheSpire2Env = Sts2Env
@@ -250,3 +321,46 @@ def _zero_reward(_previous_state: Any, _next_state: Any) -> float:
 def _is_terminal(state: Any) -> bool:
     phase = getattr(getattr(state, "phase", None), "value", getattr(state, "phase", ""))
     return str(phase) in {"complete", "failed"}
+
+
+def _descriptor_for_action_id(
+    descriptors: list[dict[str, Any]],
+    action_id: Any,
+) -> Mapping[str, Any]:
+    wanted = _to_int(action_id)
+    for descriptor in descriptors:
+        if _to_int(descriptor.get("id")) == wanted:
+            return descriptor
+    return {}
+
+
+def _mapping(value: object) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    return {}
+
+
+def _to_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int | float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _to_float(value: object) -> float:
+    if isinstance(value, bool):
+        return float(int(value))
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0

@@ -1,0 +1,23 @@
+{
+  "base_url": "http://localhost:15526",
+  "final": {
+    "phase": "menu",
+    "state_type": "menu"
+  },
+  "final_state_type": "menu",
+  "health": {
+    "message": "Hello from STS2 MCP v0.4.0",
+    "status": "ok"
+  },
+  "initial": {
+    "phase": "menu",
+    "state_type": "menu"
+  },
+  "output_path": "live_traces\\live_agent_post_restart.json",
+  "start_result": null,
+  "started_run": false,
+  "steps": [],
+  "steps_requested": 1,
+  "steps_taken": 0,
+  "stopped_reason": "menu_state_requires_start_live_run"
+}

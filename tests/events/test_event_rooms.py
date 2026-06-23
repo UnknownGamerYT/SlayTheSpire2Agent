@@ -56,6 +56,43 @@ def test_war_historian_cage_and_chest_rewards_consume_lantern_key() -> None:
     assert "lantern_key" not in chest.state.deck
 
 
+def test_war_historian_multi_lantern_keys_unlock_both_rewards_and_clean_duplicates() -> None:
+    state = event_room_state(
+        "WAR_HISTORIAN_REPY",
+        hp=50,
+        max_hp=80,
+        deck=("lantern_key", "strike", "lantern_key", "defend", "lantern_key"),
+    )
+
+    cage = resolve_event_option(
+        state,
+        "UNLOCK_CAGE",
+        rng=Random(6),
+        relic_pool=("anchor", "kunai", "shovel"),
+        potion_pool=("fire_potion", "skill_potion", "foul_potion"),
+    )
+
+    assert cage.removed_card_ids == ("lantern_key", "lantern_key", "lantern_key")
+    assert cage.state.deck == ("strike", "defend")
+    assert cage.relic_ids[0] == "history_course"
+    assert len(cage.relic_ids) == 3
+    assert len(cage.potion_ids) == 2
+    assert cage.option.metadata["multi_lantern_key_applied"] is True
+
+    chest = resolve_event_option(
+        state,
+        "UNLOCK_CHEST",
+        rng=Random(7),
+        relic_pool=("anchor", "kunai", "shovel"),
+        potion_pool=("fire_potion", "skill_potion", "foul_potion"),
+    )
+
+    assert chest.removed_card_ids == ("lantern_key", "lantern_key", "lantern_key")
+    assert chest.relic_ids[0] == "history_course"
+    assert len(chest.relic_ids) == 3
+    assert len(chest.potion_ids) == 2
+
+
 def test_war_historian_options_require_lantern_key() -> None:
     state = event_room_state("WAR_HISTORIAN_REPY", hp=50, max_hp=80, deck=("strike",))
 

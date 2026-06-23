@@ -1,0 +1,247 @@
+{
+  "base_url": "http://localhost:15526",
+  "final_menu_screen": "character_select",
+  "final_state": {
+    "characters": [
+      {
+        "description": "Ironclad cards will now appear in rewards and shops.",
+        "energy": 3,
+        "gold": 99,
+        "hp": 80,
+        "id": "IRONCLAD",
+        "locked": false,
+        "name": "The Ironclad",
+        "starting_deck": [
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Bash"
+        ],
+        "starting_relics": [
+          {
+            "description": "At the end of combat, heal 6 HP.",
+            "name": "Burning Blood"
+          }
+        ],
+        "total_cards": 87,
+        "total_potions": 3,
+        "total_relics": 8
+      },
+      {
+        "description": "Silent cards will now appear in rewards and shops.",
+        "energy": 3,
+        "gold": 99,
+        "hp": 70,
+        "id": "SILENT",
+        "locked": true,
+        "name": "The Silent",
+        "starting_deck": [
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Neutralize",
+          "Survivor"
+        ],
+        "starting_relics": [
+          {
+            "description": "At the start of each combat, draw 2 additional cards.",
+            "name": "Ring of the Snake"
+          }
+        ],
+        "total_cards": 88,
+        "total_potions": 3,
+        "total_relics": 8
+      },
+      {
+        "description": "Regent cards will now appear in rewards and shops.",
+        "energy": 3,
+        "gold": 99,
+        "hp": 75,
+        "id": "REGENT",
+        "locked": true,
+        "name": "The Regent",
+        "starting_deck": [
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Falling Star",
+          "Venerate"
+        ],
+        "starting_relics": [
+          {
+            "description": "At the start of each combat, gain [star_icon.png][star_icon.png][star_icon.png].",
+            "name": "Divine Right"
+          }
+        ],
+        "total_cards": 88,
+        "total_potions": 3,
+        "total_relics": 8
+      },
+      {
+        "description": "Necrobinder cards will now appear in rewards and shops.",
+        "energy": 3,
+        "gold": 99,
+        "hp": 66,
+        "id": "NECROBINDER",
+        "locked": true,
+        "name": "The Necrobinder",
+        "starting_deck": [
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Bodyguard",
+          "Unleash"
+        ],
+        "starting_relics": [
+          {
+            "description": "At the start of your turn, Summon 1.",
+            "name": "Bound Phylactery"
+          }
+        ],
+        "total_cards": 88,
+        "total_potions": 3,
+        "total_relics": 8
+      },
+      {
+        "description": "Defect cards will now appear in rewards and shops.",
+        "energy": 3,
+        "gold": 99,
+        "hp": 75,
+        "id": "DEFECT",
+        "locked": true,
+        "name": "The Defect",
+        "starting_deck": [
+          "Strike",
+          "Strike",
+          "Strike",
+          "Strike",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Zap",
+          "Dualcast"
+        ],
+        "starting_relics": [
+          {
+            "description": "At the start of each combat, Channel 1 Lightning.",
+            "name": "Cracked Core"
+          }
+        ],
+        "total_cards": 88,
+        "total_potions": 3,
+        "total_relics": 8
+      }
+    ],
+    "menu_screen": "character_select",
+    "message": "Select a character.",
+    "options": [
+      {
+        "enabled": true,
+        "name": "IRONCLAD"
+      },
+      {
+        "enabled": false,
+        "name": "SILENT"
+      },
+      {
+        "enabled": false,
+        "name": "REGENT"
+      },
+      {
+        "enabled": false,
+        "name": "NECROBINDER"
+      },
+      {
+        "enabled": false,
+        "name": "DEFECT"
+      },
+      {
+        "enabled": false,
+        "name": "confirm"
+      },
+      {
+        "enabled": false,
+        "name": "embark"
+      },
+      {
+        "enabled": false,
+        "name": "back"
+      }
+    ],
+    "run": {
+      "act": 1,
+      "ascension": 0,
+      "floor": 0
+    },
+    "state_type": "menu"
+  },
+  "final_state_type": "menu",
+  "run": {
+    "act": 1,
+    "ascension": 0,
+    "floor": 0
+  },
+  "selected_ascension": 0,
+  "selected_character_id": "IRONCLAD",
+  "selected_character_name": "The Ironclad",
+  "started": false,
+  "steps": [
+    {
+      "option": "singleplayer",
+      "response": {
+        "message": "Selected singleplayer",
+        "status": "ok"
+      },
+      "screen": "main"
+    },
+    {
+      "option": "IRONCLAD",
+      "response": {
+        "message": "Selected The Ironclad. Use 'confirm' to embark.",
+        "status": "ok"
+      },
+      "screen": "character_select"
+    },
+    {
+      "option": "confirm",
+      "response": {
+        "message": "Embarking on run",
+        "status": "ok"
+      },
+      "screen": "character_select"
+    },
+    {
+      "option": "no",
+      "response": {
+        "message": "Tutorials: disabled",
+        "status": "ok"
+      },
+      "screen": "tutorial_prompt"
+    }
+  ],
+  "stopped_reason": "no_supported_option_on_character_select"
+}

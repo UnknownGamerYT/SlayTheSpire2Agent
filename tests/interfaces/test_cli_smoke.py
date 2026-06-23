@@ -11,7 +11,7 @@ import pytest
 pytest.importorskip("typer")
 from typer.testing import CliRunner
 
-from sts2sim.cli.app import app
+from sts2sim.cli.app import _event_audit_payload, _resolve_lang_cache_dir, app
 
 
 def _module(name: str) -> types.ModuleType:
@@ -165,6 +165,7 @@ def test_cli_commands_smoke(fake_backends: None, tmp_path: Path) -> None:
     assert event_audit_payload["total_events"] == 1
     assert event_audit_payload["counts_by_category"] == {"unsupported/bespoke": 1}
     assert "entries" not in event_audit_payload
+    assert "events" not in event_audit_payload
 
     combat_audit_result = runner.invoke(
         app,
@@ -214,3 +215,32 @@ def test_cli_commands_smoke(fake_backends: None, tmp_path: Path) -> None:
         ["fuzz-run", "--count", "3", "--start-seed", "10"],
     )
     assert _json_output(fuzz_result)["seeds"] == [10, 11, 12]
+
+
+def test_event_audit_payload_summarizes_report_event_key() -> None:
+    payload = _event_audit_payload(
+        {
+            "events": [
+                {"event_id": "A", "category": "primitive"},
+                {"event_id": "B", "category": "unsupported/bespoke"},
+            ],
+            "optional_module_errors": [],
+        },
+        category="unsupported",
+        summary_only=True,
+    )
+
+    assert payload["total_events"] == 1
+    assert payload["counts_by_category"] == {"unsupported/bespoke": 1}
+    assert "entries" not in payload
+    assert "events" not in payload
+
+
+def test_audit_cache_dir_accepts_sync_root_or_language_leaf(tmp_path: Path) -> None:
+    cache_root = tmp_path / "cache"
+    lang_leaf = cache_root / "eng"
+    lang_leaf.mkdir(parents=True)
+
+    assert _resolve_lang_cache_dir(cache_root) == lang_leaf
+    assert _resolve_lang_cache_dir(lang_leaf) == lang_leaf
+    assert _resolve_lang_cache_dir(None) is None

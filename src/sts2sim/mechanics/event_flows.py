@@ -21,6 +21,7 @@ class EventFlowMarkerKind(str, Enum):
 
     CARD_ADD = "card_add"
     CARD_REWARD = "card_reward"
+    CARD_REMOVE = "card_remove"
     CARD_REMOVE_RANDOM = "card_remove_random"
     CARD_TRANSFORM = "card_transform"
     CARD_UPGRADE_ALL = "card_upgrade_all"
@@ -243,6 +244,7 @@ class EventFlowMarkerApplication:
 
     context: EventFlowMarkerContext
     added_card_ids: tuple[str, ...] = ()
+    removed_card_ids: tuple[str, ...] = ()
     relic_ids: tuple[str, ...] = ()
     potion_ids: tuple[str, ...] = ()
     reward_requests: tuple[EventFlowRewardRequest, ...] = ()
@@ -250,6 +252,7 @@ class EventFlowMarkerApplication:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "added_card_ids", _normalized_ids(self.added_card_ids))
+        object.__setattr__(self, "removed_card_ids", _normalized_ids(self.removed_card_ids))
         object.__setattr__(self, "relic_ids", _normalized_ids(self.relic_ids))
         object.__setattr__(self, "potion_ids", _normalized_ids(self.potion_ids))
         object.__setattr__(self, "reward_requests", tuple(self.reward_requests))
@@ -387,6 +390,7 @@ def resolve_event_flow_markers(
 
     current = EventFlowMarkerContext() if context is None else context
     added_card_ids: list[str] = []
+    removed_card_ids: list[str] = []
     relic_ids: list[str] = []
     potion_ids: list[str] = []
     reward_requests: list[EventFlowRewardRequest] = []
@@ -400,6 +404,17 @@ def resolve_event_flow_markers(
                 continue
             current = replace(current, deck=current.deck + (item_id,))
             added_card_ids.append(item_id)
+        elif marker.kind is EventFlowMarkerKind.CARD_REMOVE:
+            item_id = _marker_item_id(marker)
+            if item_id is None:
+                blocked_markers.append(_blocked_marker(marker, "missing_card_id"))
+                continue
+            deck_after_removal, removed = _remove_marker_card(current.deck, item_id)
+            if not removed:
+                blocked_markers.append(_blocked_marker(marker, "card_not_in_deck"))
+                continue
+            current = replace(current, deck=deck_after_removal)
+            removed_card_ids += list(removed)
         elif marker.kind is EventFlowMarkerKind.FIXED_RELIC:
             item_id = _marker_item_id(marker)
             if item_id is None:
@@ -476,6 +491,7 @@ def resolve_event_flow_markers(
     return EventFlowMarkerApplication(
         context=current,
         added_card_ids=tuple(added_card_ids),
+        removed_card_ids=tuple(removed_card_ids),
         relic_ids=tuple(relic_ids),
         potion_ids=tuple(potion_ids),
         reward_requests=tuple(reward_requests),
@@ -499,6 +515,20 @@ def _marker_item_id(marker: EventFlowMarker) -> str | None:
         return None
     item_id = _normalized_id(marker.item_id)
     return item_id or None
+
+
+def _remove_marker_card(
+    deck: tuple[str, ...],
+    card_id: str,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    target = _normalized_id(card_id)
+    next_deck = list(deck)
+    for index, deck_card_id in enumerate(next_deck):
+        if _normalized_id(deck_card_id) != target:
+            continue
+        removed = next_deck.pop(index)
+        return tuple(next_deck), (_normalized_id(removed),)
+    return deck, ()
 
 
 def _reward_request_from_marker(marker: EventFlowMarker) -> EventFlowRewardRequest:
@@ -651,6 +681,8 @@ def _next_data(
     option: EventFlowOption,
 ) -> Mapping[str, object]:
     data = dict(state.data)
+    if state.event_id == "SLIPPERY_BRIDGE" and option.option_id.startswith("HOLD_ON"):
+        data.update(_bridge_next_offer_data(state))
     if state.event_id == "TINKER_TIME" and state.page_id == "CHOOSE_CARD_TYPE":
         card_type = option.metadata.get("custom_card_type")
         if card_type is not None:
@@ -945,26 +977,14 @@ def _slippery_bridge_page(state: EventFlowState) -> EventFlowPage:
             "INITIAL",
             "Rain and wind buffet a rickety bridge.",
             (
-                EventFlowOption(
-                    option_id="OVERCOME",
-                    label="Overcome",
-                    description="A random card is removed from your Deck.",
-                    next_page_id="OVERCOME",
-                    terminal=True,
-                    markers=(
-                        EventFlowMarker(
-                            kind=EventFlowMarkerKind.CARD_REMOVE_RANDOM,
-                            description="Remove a random card from your deck.",
-                        ),
-                    ),
-                ),
+                _bridge_overcome_option(state),
                 EventFlowOption(
                     option_id="HOLD_ON_0",
                     label="Hold On",
                     description="Lose 3 HP. The card above is randomized.",
                     next_page_id="HOLD_ON_0",
                     hp_delta=-3,
-                    markers=(_bridge_randomized_marker(),),
+                    markers=(_bridge_randomized_marker(state),),
                 ),
             ),
         )
@@ -977,6 +997,7 @@ def _slippery_bridge_page(state: EventFlowState) -> EventFlowPage:
             "HOLD_ON_LOOP",
             "There is no additional bridge text for holding on this long.",
             (
+                _bridge_overcome_option(state),
                 EventFlowOption(
                     option_id="HOLD_ON_LOOP",
                     label="Hold On",
@@ -984,7 +1005,7 @@ def _slippery_bridge_page(state: EventFlowState) -> EventFlowPage:
                     next_page_id="HOLD_ON_LOOP",
                     hp_delta=-damage,
                     repeatable=True,
-                    markers=(_bridge_randomized_marker(),),
+                    markers=(_bridge_randomized_marker(state),),
                 ),
             ),
         )
@@ -997,24 +1018,137 @@ def _slippery_bridge_page(state: EventFlowState) -> EventFlowPage:
         state.page_id,
         "You keep holding on.",
         (
+            _bridge_overcome_option(state),
             EventFlowOption(
                 option_id=next_option_id,
                 label="Hold On",
                 description=f"Lose {damage} HP. The card above is randomized.",
                 next_page_id=next_page_id,
                 hp_delta=-damage,
-                markers=(_bridge_randomized_marker(),),
+                markers=(_bridge_randomized_marker(state),),
             ),
         ),
     )
 
 
-def _bridge_randomized_marker() -> EventFlowMarker:
+def _bridge_overcome_option(state: EventFlowState) -> EventFlowOption:
+    offer = _bridge_current_offer(state)
+    if offer is None:
+        marker = EventFlowMarker(
+            kind=EventFlowMarkerKind.CARD_REMOVE_RANDOM,
+            description="Remove a random card from your deck.",
+            metadata={"offer_policy": "no_repeat_until_all_cards_offered"},
+        )
+        description = "A random card is removed from your Deck."
+        metadata: dict[str, object] = {
+            "offer_policy": "no_repeat_until_all_cards_offered",
+        }
+    else:
+        marker = EventFlowMarker(
+            kind=EventFlowMarkerKind.CARD_REMOVE,
+            item_id=offer,
+            description=f"Remove {offer} from your deck.",
+            metadata={"offer_policy": "no_repeat_until_all_cards_offered"},
+        )
+        description = f"Remove {offer} from your Deck."
+        metadata = {
+            "offer_policy": "no_repeat_until_all_cards_offered",
+            "offered_card_id": offer,
+            "offered_card_ids": _bridge_offered_card_ids(state),
+        }
+    return EventFlowOption(
+        option_id="OVERCOME",
+        label="Overcome",
+        description=description,
+        next_page_id="OVERCOME",
+        terminal=True,
+        markers=(marker,),
+        metadata=metadata,
+    )
+
+
+def _bridge_randomized_marker(state: EventFlowState) -> EventFlowMarker:
+    next_offer_data = _bridge_next_offer_data(state)
+    metadata: dict[str, object] = {
+        "effect": "reroll_visible_card_removal_target",
+        "offer_policy": "no_repeat_until_all_cards_offered",
+    }
+    next_offer = next_offer_data.get("bridge_current_offer")
+    if isinstance(next_offer, str) and next_offer:
+        metadata["next_offered_card_id"] = next_offer
     return EventFlowMarker(
         kind=EventFlowMarkerKind.UNKNOWN,
         description="The Overcome card-removal target is randomized again.",
-        metadata={"effect": "reroll_visible_card_removal_target"},
+        metadata=metadata,
     )
+
+
+def _bridge_current_offer(state: EventFlowState) -> str | None:
+    deck = _bridge_deck(state)
+    if not deck:
+        return None
+    raw_current = state.data.get("bridge_current_offer")
+    current = _normalized_id(raw_current) if raw_current is not None else ""
+    if current in deck:
+        return current
+    offered = set(_bridge_offered_card_ids(state))
+    for card_id in deck:
+        if card_id not in offered:
+            return card_id
+    return deck[0]
+
+
+def _bridge_next_offer_data(state: EventFlowState) -> Mapping[str, object]:
+    deck = _bridge_deck(state)
+    if not deck:
+        return {}
+
+    offered: list[str] = list(_bridge_offered_card_ids(state))
+    current = _bridge_current_offer(state)
+    if current is not None and current not in offered:
+        offered.append(current)
+
+    offered_set = set(offered)
+    candidates = tuple(card_id for card_id in deck if card_id not in offered_set)
+    if candidates:
+        next_offer = candidates[0]
+    else:
+        offered = []
+        next_offer = deck[0]
+    offered.append(next_offer)
+    return {
+        "bridge_current_offer": next_offer,
+        "bridge_offered_card_ids": tuple(offered),
+    }
+
+
+def _bridge_deck(state: EventFlowState) -> tuple[str, ...]:
+    raw_deck = state.data.get("bridge_deck", ())
+    if not isinstance(raw_deck, Sequence) or isinstance(raw_deck, (str, bytes, bytearray)):
+        return ()
+    seen: set[str] = set()
+    deck: list[str] = []
+    for raw_card_id in raw_deck:
+        card_id = _normalized_id(raw_card_id)
+        if not card_id or card_id in seen:
+            continue
+        seen.add(card_id)
+        deck.append(card_id)
+    return tuple(deck)
+
+
+def _bridge_offered_card_ids(state: EventFlowState) -> tuple[str, ...]:
+    raw_offered = state.data.get("bridge_offered_card_ids", ())
+    if not isinstance(raw_offered, Sequence) or isinstance(raw_offered, (str, bytes, bytearray)):
+        return ()
+    deck = set(_bridge_deck(state))
+    offered: list[str] = []
+    for raw_card_id in raw_offered:
+        card_id = _normalized_id(raw_card_id)
+        if not card_id or card_id not in deck or card_id in offered:
+            continue
+        offered.append(card_id)
+    return tuple(offered)
 
 
 def _tablet_of_truth_page(state: EventFlowState) -> EventFlowPage:

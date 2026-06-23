@@ -1,0 +1,42 @@
+{
+  "downloaded_at": "2026-06-19",
+  "repos_dir": "external/live_bridges/repos",
+  "bridges": [
+    {
+      "name": "STS2MCP",
+      "local_path": "external/live_bridges/repos/STS2MCP",
+      "source": "https://github.com/Gennadiyev/STS2MCP",
+      "commit": "20eadeb",
+      "default_base_url": "http://localhost:15526",
+      "kind": "rest-and-mcp",
+      "notes": "Best first choice for live state/actions."
+    },
+    {
+      "name": "STS2-Agent",
+      "local_path": "external/live_bridges/repos/STS2-Agent",
+      "source": "https://github.com/CharTyr/STS2-Agent",
+      "commit": "2617fb1",
+      "default_base_url": "http://127.0.0.1:8080",
+      "kind": "rest-and-mcp",
+      "notes": "Alternative live state/actions bridge; health endpoint documented at /health."
+    },
+    {
+      "name": "BoberInSpire",
+      "local_path": "external/live_bridges/repos/BoberInSpire",
+      "source": "https://github.com/S0ul3r/BoberInSpire",
+      "commit": "67263f2",
+      "default_base_url": "ws://127.0.0.1:18765",
+      "kind": "json-export-and-overlay",
+      "notes": "Useful design reference for read-only assistant/overlay behavior."
+    },
+    {
+      "name": "CLI-Anything",
+      "local_path": "external/live_bridges/repos/CLI-Anything",
+      "source": "https://github.com/HKUDS/CLI-Anything",
+      "commit": "bf3cc39",
+      "default_base_url": "http://localhost:15526",
+      "kind": "cli-bridge-reference",
+      "notes": "Useful reference for normalized command-line game control."
+    }
+  ]
+}

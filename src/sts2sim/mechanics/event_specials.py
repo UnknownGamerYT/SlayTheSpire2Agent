@@ -373,6 +373,15 @@ def war_historian_repy_options() -> tuple[EventOption, ...]:
             fixed_relic_ids=(HISTORY_COURSE_RELIC_ID,),
             remove_card_ids=(LANTERN_KEY_CARD_ID,),
             required_card_ids=(LANTERN_KEY_CARD_ID,),
+            metadata={
+                "multi_lantern_key_bonus": {
+                    "required_card_id": LANTERN_KEY_CARD_ID,
+                    "required_count": 2,
+                    "remove_all_card_ids": (LANTERN_KEY_CARD_ID,),
+                    "random_potion_count": 2,
+                    "random_relic_count": 2,
+                },
+            },
         ),
         EventOption(
             option_id="UNLOCK_CHEST",
@@ -382,6 +391,14 @@ def war_historian_repy_options() -> tuple[EventOption, ...]:
             random_relic_count=2,
             remove_card_ids=(LANTERN_KEY_CARD_ID,),
             required_card_ids=(LANTERN_KEY_CARD_ID,),
+            metadata={
+                "multi_lantern_key_bonus": {
+                    "required_card_id": LANTERN_KEY_CARD_ID,
+                    "required_count": 2,
+                    "remove_all_card_ids": (LANTERN_KEY_CARD_ID,),
+                    "fixed_relic_ids": (HISTORY_COURSE_RELIC_ID,),
+                },
+            },
         ),
     )
 

@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Any, TypeVar
 
 from sts2sim.mechanics.ancients import (
+    ANCIENT_CURSE_RELICS,
     ANCIENT_POSITIVE_RELIC_PAIRS,
     ANCIENT_POSITIVE_RELICS,
+    ANCIENT_RELIC_EFFECTS,
     AncientChoice,
     AncientContext,
     AncientMarkerKind,
@@ -160,3 +162,52 @@ def test_act_specific_ancient_ids_and_act_two_special_options() -> None:
     assert generated.ancient_id == "orobas"
     assert positive_relic_ids == {"golden_compass", "prismatic_gem"}
     assert all(choice.metadata["ancient_id"] == "orobas" for choice in generated.choices)
+
+
+def test_major_update_neow_relics_are_registered_without_shifting_legacy_seed_pool() -> None:
+    assert "fishing_rod" not in ANCIENT_POSITIVE_RELICS
+    assert "kaleidoscope" not in ANCIENT_POSITIVE_RELICS
+    assert "pumpkin_candle" not in ANCIENT_CURSE_RELICS
+    assert "seal_of_gold" not in ANCIENT_CURSE_RELICS
+    assert "silken_tress" not in ANCIENT_CURSE_RELICS
+    for relic_id in (
+        "fishing_rod",
+        "kaleidoscope",
+        "pumpkin_candle",
+        "seal_of_gold",
+        "silken_tress",
+    ):
+        assert relic_id in ANCIENT_RELIC_EFFECTS
+
+
+def test_scroll_boxes_no_longer_removes_gold_but_silken_tress_does() -> None:
+    scroll_effect = ANCIENT_RELIC_EFFECTS["scroll_boxes"]
+    tress_effect = ANCIENT_RELIC_EFFECTS["silken_tress"]
+    scroll_boxes = AncientChoice(
+        option_id="scroll_boxes",
+        kind="curse_relic",
+        relic_id="scroll_boxes",
+        set_gold=scroll_effect.set_gold,
+        card_reward_count=scroll_effect.card_reward_count,
+        card_reward_kind=scroll_effect.card_reward_kind,
+        markers=scroll_effect.markers,
+    )
+    silken_tress = AncientChoice(
+        option_id="silken_tress",
+        kind="curse_relic",
+        relic_id="silken_tress",
+        set_gold=tress_effect.set_gold,
+        markers=tress_effect.markers,
+    )
+
+    scroll_result = resolve_ancient_choice(
+        AncientContext(act=1, gold=77, choices=(scroll_boxes,)),
+        "scroll_boxes",
+    )
+    tress_result = resolve_ancient_choice(
+        AncientContext(act=1, gold=77, choices=(silken_tress,)),
+        "silken_tress",
+    )
+
+    assert scroll_result.state.gold == 77
+    assert tress_result.state.gold == 0

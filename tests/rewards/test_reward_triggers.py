@@ -72,6 +72,74 @@ def test_prayer_wheel_adds_extra_group_only_for_normal_combat_card_rewards() -> 
     assert event.effects == ()
 
 
+def test_lava_rock_adds_extra_act_one_boss_relic_reward() -> None:
+    act_one_boss = resolve_reward_generation_triggers(
+        RewardGenerationContext(
+            source="combat",
+            encounter_type="boss",
+            relic_count=1,
+            owned_relics=("lava_rock",),
+            metadata={"act": 1},
+        )
+    )
+    act_two_boss = resolve_reward_generation_triggers(
+        RewardGenerationContext(
+            source="combat",
+            encounter_type="boss",
+            relic_count=1,
+            owned_relics=("lava_rock",),
+            metadata={"act": 2},
+        )
+    )
+    elite = resolve_reward_generation_triggers(
+        RewardGenerationContext(
+            source="combat",
+            encounter_type="elite",
+            relic_count=1,
+            owned_relics=("lava_rock",),
+            metadata={"act": 1},
+        )
+    )
+
+    assert act_one_boss.relic_count_delta == 1
+    assert act_one_boss.relic_count == 2
+    assert [(effect.kind, effect.amount, effect.content_id) for effect in act_one_boss.effects] == [
+        ("reward_extra_relic", 1, "lava_rock")
+    ]
+    assert act_one_boss.effects[0].metadata["metadata_equals"] == {"act": 1}
+    assert act_two_boss.effects == ()
+    assert elite.effects == ()
+
+
+def test_gold_and_potion_reward_relics_apply_to_combat_rewards() -> None:
+    result = resolve_reward_generation_triggers(
+        RewardGenerationContext(
+            source="combat",
+            encounter_type="normal",
+            card_choice_count=3,
+            owned_relics=("amethyst_aubergine", "white_beast_statue"),
+        )
+    )
+    event = resolve_reward_generation_triggers(
+        RewardGenerationContext(
+            source="event",
+            encounter_type="normal",
+            card_choice_count=3,
+            owned_relics=("amethyst_aubergine", "white_beast_statue"),
+        )
+    )
+
+    assert result.gold_delta == 15
+    assert result.potion_count_delta == 1
+    assert result.potion_count == 1
+    assert [(effect.kind, effect.amount, effect.content_id) for effect in result.effects] == [
+        ("reward_gold_delta", 15, "amethyst_aubergine"),
+        ("reward_extra_potion", 1, "white_beast_statue"),
+    ]
+    assert event.gold_delta == 0
+    assert event.potion_count_delta == 0
+
+
 def test_reward_modifier_specs_provide_generic_future_marker_plumbing() -> None:
     result = resolve_reward_generation_triggers(
         RewardGenerationContext(source="event", card_choice_count=0, potion_count=1),

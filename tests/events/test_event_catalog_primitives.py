@@ -179,3 +179,10 @@ def test_coverage_metadata_exposes_unsupported_and_bespoke_categories() -> None:
 
     with pytest.raises(ValueError, match="Unknown event id"):
         known_event_catalog_options("missing_event")
+
+
+def test_followup_page_options_are_covered_without_becoming_initial_choices() -> None:
+    doll_options = {option.option_id for option in known_event_catalog_options("doll_room")}
+
+    assert _coverage("doll_room", "take").status == "supported"
+    assert "take" not in doll_options

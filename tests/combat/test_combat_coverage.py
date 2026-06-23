@@ -74,6 +74,13 @@ def test_combat_coverage_counts_registry_blockers_and_unknown_samples() -> None:
         "monsters": ["EMPTY_MONSTER"],
         "encounters": ["MISSING_MONSTER_ENCOUNTER"],
     }
+    assert report.sample_blocked_ids == {
+        "cards": ["BLOCKED_CARD"],
+        "relics": ["SCRIPTED_RELIC"],
+        "potions": ["ASHWATER"],
+        "monsters": ["SCRIPTED_BOSS"],
+        "encounters": ["BLOCKED_ENCOUNTER"],
+    }
 
 
 def test_combat_coverage_entries_expose_reasons_and_keys() -> None:
@@ -108,6 +115,62 @@ def test_combat_coverage_entries_expose_reasons_and_keys() -> None:
     assert mystery.status is CombatCoverageStatus.UNKNOWN
     assert mystery.unknown_keys == ("summon_golem",)
     assert report.as_dict()["counts_by_category"]["cards"]["unknown"] == 1
+    assert report.as_dict()["sample_blocked_ids"]["cards"] == ["BLOCKED_CARD"]
+
+
+def test_combat_coverage_blocks_monsters_with_unintegrated_special_requirements() -> None:
+    report = audit_combat_coverage_from_sources(
+        cards=(),
+        monsters=(
+            {
+                "id": "SCRIPTED_BOSS",
+                "name": "Scripted Boss",
+                "type": "Boss",
+                "min_hp": 80,
+                "max_hp": 80,
+                "moves": (
+                    {
+                        "id": "RESPAWN",
+                        "name": "Respawn",
+                        "intent": "Special",
+                    },
+                ),
+            },
+            {
+                "id": "BASIC_SLIME",
+                "name": "Basic Slime",
+                "type": "Normal",
+                "min_hp": 10,
+                "max_hp": 10,
+                "moves": (
+                    {
+                        "id": "TACKLE",
+                        "name": "Tackle",
+                        "intent": "Attack",
+                        "damage": {"normal": 3},
+                    },
+                ),
+            },
+        ),
+        encounters=(
+            _encounter("BOSS_FIGHT", "SCRIPTED_BOSS"),
+            _encounter("SAFE_FIGHT", "BASIC_SLIME"),
+        ),
+        implementation_catalog=combat_implementation_catalog(
+            executable_card_effect_keys={"damage"}
+        ),
+    )
+
+    boss = report.entry_for("monsters", "SCRIPTED_BOSS")
+    safe = report.entry_for("monsters", "BASIC_SLIME")
+    boss_fight = report.entry_for("encounters", "BOSS_FIGHT")
+
+    assert boss.status is CombatCoverageStatus.BLOCKED
+    assert "boss_script_requires_explicit_integration" in boss.blocked_keys
+    assert "special_intent_requires_handler" in boss.blocked_keys
+    assert safe.status is CombatCoverageStatus.IMPLEMENTED
+    assert boss_fight.status is CombatCoverageStatus.BLOCKED
+    assert boss_fight.blocked_keys == ("scripted_boss",)
 
 
 def test_default_combat_catalog_reflects_current_mechanics_registries() -> None:
@@ -115,7 +178,14 @@ def test_default_combat_catalog_reflects_current_mechanics_registries() -> None:
 
     assert "damage" in catalog.executable_card_effect_keys
     assert "fire_potion" in catalog.implemented_ids("potions")
+    assert "attack_potion" in catalog.implemented_ids("potions")
+    assert "fairy_in_a_bottle" in catalog.implemented_ids("potions")
+    assert "star_potion" in catalog.implemented_ids("potions")
     assert "akabeko" in catalog.implemented_ids("relics")
+    assert "strike_dummy" in catalog.implemented_ids("relics")
+    assert "amethyst_aubergine" in catalog.implemented_ids("relics")
+    assert catalog.blocker_reasons("cards", "IGNITION") == ()
+    assert catalog.blocker_reasons("cards", "MIMIC") == ()
 
 
 def _monster(monster_id: str, *, move_id: str) -> dict[str, object]:

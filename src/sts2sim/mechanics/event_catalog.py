@@ -176,6 +176,7 @@ def _build_event_catalog() -> tuple[
         all_event_ids.add(event_id)
 
         options: list[EventOption] = []
+        covered_option_ids: set[str] = set()
         for option in _initial_options(event):
             converted, marker = _convert_option(
                 event,
@@ -184,8 +185,22 @@ def _build_event_catalog() -> tuple[
                 has_followup_options=_has_followup_options(event, option),
             )
             coverage.append(marker)
+            covered_option_ids.add(marker.option_id)
             if converted is not None:
                 options.append(converted)
+
+        for option in _followup_page_options(event):
+            option_id = _normalized_id(option.get("id", option.get("title", "")))
+            if not option_id or option_id in covered_option_ids:
+                continue
+            _converted, marker = _convert_option(
+                event,
+                option,
+                lookups,
+                has_followup_options=False,
+            )
+            coverage.append(marker)
+            covered_option_ids.add(marker.option_id)
 
         if options:
             catalog[event_id] = tuple(options)
@@ -843,6 +858,15 @@ def _has_followup_options(event: Mapping[str, Any], option: Mapping[str, Any]) -
             continue
         return bool(_mapping_sequence(page.get("options")))
     return False
+
+
+def _followup_page_options(event: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    options: list[Mapping[str, Any]] = []
+    for page in _mapping_sequence(event.get("pages")):
+        if _normalized_id(page.get("id", "")) == "initial":
+            continue
+        options.extend(_mapping_sequence(page.get("options")))
+    return tuple(options)
 
 
 def _load_rows(dataset: str) -> tuple[Mapping[str, Any], ...]:

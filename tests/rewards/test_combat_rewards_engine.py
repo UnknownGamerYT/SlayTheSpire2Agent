@@ -73,6 +73,12 @@ REWARD_RELICS = (
     {"id": "UNCOMMON_RELIC", "name": "Uncommon Relic", "rarity_key": "Uncommon", "pool": "shared"},
     {"id": "RARE_RELIC", "name": "Rare Relic", "rarity_key": "Rare", "pool": "shared"},
     {"id": "BOSS_RELIC", "name": "Boss Relic", "rarity_key": "Ancient", "pool": "shared"},
+    {
+        "id": "BOSS_RELIC_TWO",
+        "name": "Boss Relic Two",
+        "rarity_key": "Ancient",
+        "pool": "shared",
+    },
 )
 
 
@@ -167,6 +173,23 @@ def test_normal_combat_reward_uses_default_gold_and_card_choices() -> None:
     assert "potion_chance_bonus" in state.flags
 
 
+def test_gold_and_potion_relics_modify_combat_reward_state() -> None:
+    state = _reward_after_kill(
+        RoomKind.MONSTER,
+        seed=219,
+        relics=("amethyst_aubergine", "white_beast_statue"),
+    )
+
+    assert state.reward is not None
+    assert 25 <= state.reward.gold <= 35
+    assert len(state.reward.potion_ids) == 1
+    assert state.reward.metadata["extra_potion_ids"] == state.reward.potion_ids
+    assert [
+        effect["content_id"]
+        for effect in state.reward.metadata["reward_trigger_effects"]
+    ] == ["amethyst_aubergine", "white_beast_statue"]
+
+
 def test_question_card_and_busted_crown_adjust_card_choice_count() -> None:
     question_state = _reward_after_kill(
         RoomKind.MONSTER,
@@ -239,6 +262,83 @@ def test_elite_combat_reward_adds_random_relic_reward() -> None:
     assert state.reward.claimed_relic_ids == (relic_id,)
 
 
+def test_optional_reward_screen_can_take_one_reward_then_skip_remaining() -> None:
+    state = _reward_after_kill(RoomKind.ELITE, seed=202)
+
+    assert state.reward is not None
+    relic_id = state.reward.relic_ids[0]
+    deck_count = len(state.master_deck)
+    state = step(state, _action(state, "take_reward_relic", "reward:relic:0"))
+
+    assert relic_id in state.relics
+    assert state.reward is not None
+    assert state.reward.card_claimed is False
+    assert any(action.type == "proceed" for action in legal_actions(state))
+
+    state = step(state, _action(state, "proceed"))
+
+    assert state.phase == RunPhase.MAP
+    assert state.reward is None
+    assert len(state.master_deck) == deck_count
+
+
+def test_optional_reward_screen_can_skip_one_group_then_take_multiple_rewards() -> None:
+    state = _reward_after_kill(RoomKind.ELITE, seed=212, relics=("black_star",))
+
+    assert state.reward is not None
+    assert len(state.reward.relic_ids) == 2
+    deck_count = len(state.master_deck)
+    first_relic, second_relic = state.reward.relic_ids
+
+    state = step(state, _action(state, "skip_reward", "reward:card_options"))
+
+    assert state.phase == RunPhase.REWARD
+    assert state.reward is not None
+    assert state.reward.card_skipped is True
+    assert not any(action.type == "take_reward_card" for action in legal_actions(state))
+    assert _action(state, "take_reward_relic", "reward:relic:0")
+    assert _action(state, "take_reward_relic", "reward:relic:1")
+    assert _action(state, "take_reward_gold", "reward:gold")
+
+    state = step(state, _action(state, "take_reward_relic", "reward:relic:0"))
+    state = step(state, _action(state, "take_reward_gold", "reward:gold"))
+    state = step(state, _action(state, "take_reward_relic", "reward:relic:1"))
+
+    assert first_relic in state.relics
+    assert second_relic in state.relics
+    assert state.reward is not None
+    assert state.reward.claimed_relic_ids == (first_relic, second_relic)
+    assert state.reward.gold_claimed is True
+    assert len(state.master_deck) == deck_count
+
+    state = step(state, _action(state, "proceed"))
+
+    assert state.phase == RunPhase.MAP
+    assert state.reward is None
+
+
+def test_optional_reward_screen_can_skip_one_relic_and_take_the_other() -> None:
+    state = _reward_after_kill(RoomKind.ELITE, seed=212, relics=("black_star",))
+
+    assert state.reward is not None
+    skipped_relic, taken_relic = state.reward.relic_ids
+
+    state = step(state, _action(state, "skip_reward", "reward:relic:0"))
+
+    assert state.reward is not None
+    assert state.reward.skipped_relic_ids == (skipped_relic,)
+    assert not any(
+        action.type == "take_reward_relic" and action.target_id == "reward:relic:0"
+        for action in legal_actions(state)
+    )
+    assert _action(state, "take_reward_relic", "reward:relic:1")
+
+    state = step(state, _action(state, "take_reward_relic", "reward:relic:1"))
+
+    assert skipped_relic not in state.relics
+    assert taken_relic in state.relics
+
+
 def test_black_star_adds_extra_default_elite_relic_reward() -> None:
     state = _reward_after_kill(RoomKind.ELITE, seed=212, relics=("black_star",))
 
@@ -275,8 +375,22 @@ def test_boss_combat_reward_adds_gold_rare_cards_and_boss_relic() -> None:
     assert state.reward.gold == 100
     assert len(state.reward.card_options) == 3
     assert state.reward.metadata["card_rarities"] == ("rare", "rare", "rare")
-    assert state.reward.relic_ids == ("boss_relic",)
+    assert len(state.reward.relic_ids) == 1
+    assert state.reward.relic_ids[0] in {"boss_relic", "boss_relic_two"}
     assert state.reward.metadata["relic_rarities"] == ("ancient",)
+
+
+def test_lava_rock_adds_second_act_one_boss_relic_reward() -> None:
+    state = _reward_after_kill(RoomKind.BOSS, seed=220, relics=("lava_rock",))
+
+    assert state.reward is not None
+    assert state.reward.metadata["encounter"] == "boss"
+    assert len(state.reward.relic_ids) == 2
+    assert state.reward.metadata["relic_rarities"] == ("ancient", "ancient")
+    assert [
+        effect["content_id"]
+        for effect in state.reward.metadata["reward_trigger_effects"]
+    ] == ["lava_rock"]
 
 
 def test_fake_merchant_event_combat_reward_gives_rug_and_unsold_relics() -> None:

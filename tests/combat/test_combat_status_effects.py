@@ -244,6 +244,23 @@ def test_poison_ticks_before_monster_attack_and_decrements() -> None:
     assert any(event.kind == "monster_poison_damage" for event in state.combat.last_events)
 
 
+def test_poison_at_one_is_removed_after_tick() -> None:
+    state = _enter_status_combat(
+        (_combat_card("wait", card_type="skill", effects={"block": 10}, target="Self"),),
+        monster_statuses={"poison": 1},
+    )
+
+    state = _end_turn(state)
+
+    assert state.combat is not None
+    assert state.combat.monsters[0].hp == 49
+    assert "poison" not in state.combat.monsters[0].statuses
+    poison_event = next(
+        event for event in state.combat.last_events if event.kind == "monster_poison_damage"
+    )
+    assert poison_event.metadata["remaining_poison"] == 0
+
+
 def test_artifact_blocks_one_debuff_application() -> None:
     state = _enter_status_combat(
         (

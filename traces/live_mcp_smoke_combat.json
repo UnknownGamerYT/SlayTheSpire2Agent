@@ -1,0 +1,978 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Strike"
+      ],
+      "draw_pile": [
+        "Defend",
+        "Defend",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Survivor"
+      ],
+      "hand": [
+        "DEFEND_SILENT",
+        "MASTER_OF_STRATEGY",
+        "NEUTRALIZE",
+        "DEFEND_SILENT",
+        "DEFEND_SILENT"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 49,
+          "max_hp": 55,
+          "name": "Fuzzy Wurm Crawler"
+        }
+      ]
+    },
+    "floor": 2,
+    "phase": "monster",
+    "player": {
+      "block": 0,
+      "energy": 1,
+      "gold": 99,
+      "hp": 70,
+      "max_hp": 70
+    }
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "draw_pile": [
+        "Defend",
+        "Defend",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Survivor"
+      ],
+      "hand": [
+        "STRIKE_SILENT",
+        "STRIKE_SILENT",
+        "DEFEND_SILENT",
+        "MASTER_OF_STRATEGY",
+        "NEUTRALIZE",
+        "DEFEND_SILENT",
+        "DEFEND_SILENT"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 55,
+          "max_hp": 55,
+          "name": "Fuzzy Wurm Crawler"
+        }
+      ]
+    },
+    "floor": 2,
+    "phase": "monster",
+    "player": {
+      "block": 0,
+      "energy": 3,
+      "gold": 99,
+      "hp": 70,
+      "max_hp": 70
+    }
+  },
+  "metadata": {
+    "mode": "live_play",
+    "policy": "prefer_attack",
+    "raw_initial_payload": {
+      "battle": {
+        "enemies": [
+          {
+            "block": 0,
+            "combat_id": 1,
+            "entity_id": "FUZZY_WURM_CRAWLER_0",
+            "hp": 55,
+            "intents": [
+              {
+                "description": "This enemy intends to Attack for 4 damage.",
+                "label": "4",
+                "title": "Aggressive",
+                "type": "Attack"
+              }
+            ],
+            "max_hp": 55,
+            "name": "Fuzzy Wurm Crawler",
+            "status": []
+          }
+        ],
+        "is_play_phase": true,
+        "round": 1,
+        "turn": "player"
+      },
+      "player": {
+        "block": 0,
+        "character": "The Silent",
+        "discard_pile": [],
+        "discard_pile_count": 0,
+        "draw_pile": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Gain 8 Block. Discard 1 card.",
+            "name": "Survivor",
+            "star_cost": null
+          }
+        ],
+        "draw_pile_count": 6,
+        "energy": 3,
+        "exhaust_pile": [],
+        "exhaust_pile_count": 0,
+        "gold": 99,
+        "hand": [
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_SILENT",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "id": "STRIKE_SILENT",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [],
+            "name": "Strike",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_SILENT",
+            "index": 2,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "0",
+            "description": "Draw 3 cards. Exhaust.",
+            "id": "MASTER_OF_STRATEGY",
+            "index": 3,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Master of Strategy",
+            "rarity": "Rare",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "0",
+            "description": "Deal 3 damage. Apply 1 Weak.",
+            "id": "NEUTRALIZE",
+            "index": 4,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Weakened creatures deal 25% less damage with Attacks.",
+                "name": "Weak"
+              }
+            ],
+            "name": "Neutralize",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_SILENT",
+            "index": 5,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_SILENT",
+            "index": 6,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          }
+        ],
+        "hp": 70,
+        "max_energy": 3,
+        "max_hp": 70,
+        "max_potion_slots": 3,
+        "potions": [],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the start of each combat, draw 2 additional cards.",
+            "id": "RING_OF_THE_SNAKE",
+            "keywords": [],
+            "name": "Ring of the Snake"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, choose 1 of 2 Colorless cards to add to your Deck.",
+            "id": "LEAD_PAPERWEIGHT",
+            "keywords": [],
+            "name": "Lead Paperweight"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 2
+      },
+      "state_type": "monster"
+    },
+    "stats": {
+      "action_type_counts": {
+        "play_card": 6
+      },
+      "average_legal_actions": 7.166666666666667,
+      "legal_action_counts": [
+        8,
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "phase_counts": {
+        "monster": 6
+      },
+      "random_policy_likelihood": 7.437377283274824e-06,
+      "random_policy_log_likelihood": -11.808992286956403,
+      "selected_probabilities": [
+        0.125,
+        0.14285714285714285,
+        0.14285714285714285,
+        0.14285714285714285,
+        0.14285714285714285,
+        0.14285714285714285
+      ],
+      "steps_requested": 6,
+      "steps_taken": 6,
+      "stopped_reason": "max_steps"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 55,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 55,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 3,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "FUZZY_WURM_CRAWLER_0"
+      },
+      "metadata": {
+        "action_type": "play_card",
+        "legal_action_count": 8,
+        "raw_action": {
+          "action": "play_card",
+          "card_index": 0,
+          "target": "FUZZY_WURM_CRAWLER_0"
+        },
+        "response": {
+          "message": "Playing 'Strike' targeting Fuzzy Wurm Crawler",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.125
+      },
+      "step_index": 0
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 55,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 55,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "FUZZY_WURM_CRAWLER_0"
+      },
+      "metadata": {
+        "action_type": "play_card",
+        "legal_action_count": 7,
+        "raw_action": {
+          "action": "play_card",
+          "card_index": 0,
+          "target": "FUZZY_WURM_CRAWLER_0"
+        },
+        "response": {
+          "message": "Playing 'Strike' targeting Fuzzy Wurm Crawler",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.14285714285714285
+      },
+      "step_index": 1
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 55,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "FUZZY_WURM_CRAWLER_0"
+      },
+      "metadata": {
+        "action_type": "play_card",
+        "legal_action_count": 7,
+        "raw_action": {
+          "action": "play_card",
+          "card_index": 0,
+          "target": "FUZZY_WURM_CRAWLER_0"
+        },
+        "response": {
+          "message": "Playing 'Strike' targeting Fuzzy Wurm Crawler",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.14285714285714285
+      },
+      "step_index": 2
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "FUZZY_WURM_CRAWLER_0"
+      },
+      "metadata": {
+        "action_type": "play_card",
+        "legal_action_count": 7,
+        "raw_action": {
+          "action": "play_card",
+          "card_index": 0,
+          "target": "FUZZY_WURM_CRAWLER_0"
+        },
+        "response": {
+          "message": "Playing 'Strike' targeting Fuzzy Wurm Crawler",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.14285714285714285
+      },
+      "step_index": 3
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "discard_pile": [
+            "Strike"
+          ],
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "FUZZY_WURM_CRAWLER_0"
+      },
+      "metadata": {
+        "action_type": "play_card",
+        "legal_action_count": 7,
+        "raw_action": {
+          "action": "play_card",
+          "card_index": 0,
+          "target": "FUZZY_WURM_CRAWLER_0"
+        },
+        "response": {
+          "message": "Playing 'Strike' targeting Fuzzy Wurm Crawler",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.14285714285714285
+      },
+      "step_index": 4
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "discard_pile": [
+            "Strike"
+          ],
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 1,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "combat": {
+          "discard_pile": [
+            "Strike"
+          ],
+          "draw_pile": [
+            "Defend",
+            "Defend",
+            "Strike",
+            "Strike",
+            "Strike",
+            "Survivor"
+          ],
+          "hand": [
+            "STRIKE_SILENT",
+            "DEFEND_SILENT",
+            "MASTER_OF_STRATEGY",
+            "NEUTRALIZE",
+            "DEFEND_SILENT",
+            "DEFEND_SILENT"
+          ],
+          "monsters": [
+            {
+              "block": 0,
+              "hp": 49,
+              "max_hp": 55,
+              "name": "Fuzzy Wurm Crawler"
+            }
+          ]
+        },
+        "floor": 2,
+        "phase": "monster",
+        "player": {
+          "block": 0,
+          "energy": 2,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "play_card",
+        "card_index": 0,
+        "target": "FUZZY_WURM_CRAWLER_0"
+      },
+      "metadata": {
+        "action_type": "play_card",
+        "legal_action_count": 7,
+        "raw_action": {
+          "action": "play_card",
+          "card_index": 0,
+          "target": "FUZZY_WURM_CRAWLER_0"
+        },
+        "response": {
+          "message": "Playing 'Defend'",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.14285714285714285
+      },
+      "step_index": 5
+    }
+  ],
+  "trace_id": "live-0"
+}

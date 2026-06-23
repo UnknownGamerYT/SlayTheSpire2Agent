@@ -1,0 +1,366 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Defend",
+        "Pommel Strike"
+      ],
+      "draw_pile": [
+        "Strike",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Headbutt"
+      ],
+      "exhaust_pile": [
+        "Neow's Fury",
+        "Tremble"
+      ],
+      "hand": [
+        "DEFEND_IRONCLAD",
+        "DEFEND_IRONCLAD",
+        "DEFEND_IRONCLAD",
+        "BASH"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 1,
+          "max_hp": 45,
+          "name": "Nibbit"
+        }
+      ]
+    },
+    "floor": 5,
+    "phase": "monster",
+    "player": {
+      "block": 5,
+      "energy": 1,
+      "gold": 145,
+      "hp": 24,
+      "max_hp": 80
+    },
+    "potions": [
+      "COLORLESS_POTION"
+    ],
+    "relics": [
+      "BURNING_BLOOD",
+      "NEOWS_TORMENT"
+    ]
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "combat": {
+      "discard_pile": [
+        "Defend",
+        "Pommel Strike"
+      ],
+      "draw_pile": [
+        "Strike",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Strike",
+        "Headbutt"
+      ],
+      "exhaust_pile": [
+        "Neow's Fury",
+        "Tremble"
+      ],
+      "hand": [
+        "DEFEND_IRONCLAD",
+        "DEFEND_IRONCLAD",
+        "DEFEND_IRONCLAD",
+        "BASH"
+      ],
+      "monsters": [
+        {
+          "block": 0,
+          "hp": 1,
+          "max_hp": 45,
+          "name": "Nibbit"
+        }
+      ]
+    },
+    "floor": 5,
+    "phase": "monster",
+    "player": {
+      "block": 5,
+      "energy": 1,
+      "gold": 145,
+      "hp": 24,
+      "max_hp": 80
+    },
+    "potions": [
+      "COLORLESS_POTION"
+    ],
+    "relics": [
+      "BURNING_BLOOD",
+      "NEOWS_TORMENT"
+    ]
+  },
+  "metadata": {
+    "mode": "capture",
+    "raw_initial_payload": {
+      "battle": {
+        "enemies": [
+          {
+            "block": 0,
+            "combat_id": 2,
+            "entity_id": "NIBBIT_0",
+            "hp": 1,
+            "intents": [
+              {
+                "description": "This enemy intends to use a Buff.",
+                "label": "",
+                "title": "Empower",
+                "type": "Buff"
+              }
+            ],
+            "max_hp": 45,
+            "name": "Nibbit",
+            "status": [
+              {
+                "amount": 4,
+                "description": "Increases attack damage by 4.",
+                "id": "STRENGTH_POWER",
+                "keywords": [],
+                "name": "Strength",
+                "type": "Buff"
+              },
+              {
+                "amount": 1,
+                "description": "Receive 50% more damage from Attacks for 1 turn.",
+                "id": "VULNERABLE_POWER",
+                "keywords": [],
+                "name": "Vulnerable",
+                "type": "Debuff"
+              }
+            ]
+          }
+        ],
+        "is_play_phase": true,
+        "round": 7,
+        "turn": "player"
+      },
+      "player": {
+        "block": 5,
+        "character": "The Ironclad",
+        "discard_pile": [
+          {
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "name": "Defend",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 13 damage. Draw 1 card.",
+            "name": "Pommel Strike",
+            "star_cost": null
+          }
+        ],
+        "discard_pile_count": 2,
+        "draw_pile": [
+          {
+            "cost": "1",
+            "description": "Deal 9 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 9 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 9 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 9 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 6 damage.",
+            "name": "Strike",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Deal 9 damage. Put a card from your Discard Pile on top of your Draw Pile.",
+            "name": "Headbutt",
+            "star_cost": null
+          }
+        ],
+        "draw_pile_count": 6,
+        "energy": 1,
+        "exhaust_pile": [
+          {
+            "cost": "1",
+            "description": "Deal 10 damage. Put up to 2 cards from your Discard Pile into your Hand. Exhaust.",
+            "name": "Neow's Fury",
+            "star_cost": null
+          },
+          {
+            "cost": "1",
+            "description": "Apply 3 Vulnerable. Exhaust.",
+            "name": "Tremble",
+            "star_cost": null
+          }
+        ],
+        "exhaust_pile_count": 2,
+        "gold": 145,
+        "hand": [
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": true,
+            "cost": "1",
+            "description": "Gain 5 Block.",
+            "id": "DEFEND_IRONCLAD",
+            "index": 2,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              }
+            ],
+            "name": "Defend",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "Self",
+            "type": "Skill",
+            "unplayable_reason": null
+          },
+          {
+            "can_play": false,
+            "cost": "2",
+            "description": "Deal 8 damage. Apply 2 Vulnerable.",
+            "id": "BASH",
+            "index": 3,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Vulnerable creatures take 50% more damage from Attacks.",
+                "name": "Vulnerable"
+              }
+            ],
+            "name": "Bash",
+            "rarity": "Basic",
+            "star_cost": null,
+            "target_type": "AnyEnemy",
+            "type": "Attack",
+            "unplayable_reason": "EnergyCostTooHigh"
+          }
+        ],
+        "hp": 24,
+        "max_energy": 3,
+        "max_hp": 80,
+        "max_potion_slots": 3,
+        "potions": [
+          {
+            "can_use_in_combat": true,
+            "description": "Choose 1 of 3 random Colorless cards to add into your Hand. It's free to play this turn.",
+            "id": "COLORLESS_POTION",
+            "keywords": [],
+            "name": "Colorless Potion",
+            "slot": 0,
+            "target_type": "Self"
+          }
+        ],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the end of combat, heal 6 HP.",
+            "id": "BURNING_BLOOD",
+            "keywords": [],
+            "name": "Burning Blood"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, add 1 Neow's Fury to your Deck.",
+            "id": "NEOWS_TORMENT",
+            "keywords": [
+              {
+                "description": "Deal 10 damage. Put up to 2 cards from your Discard Pile into your Hand. Exhaust.",
+                "name": "Neow's Fury"
+              },
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Neow's Torment"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 5
+      },
+      "state_type": "monster"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [],
+  "trace_id": "live-0"
+}

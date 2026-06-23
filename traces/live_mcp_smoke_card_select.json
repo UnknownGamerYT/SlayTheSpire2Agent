@@ -1,0 +1,286 @@
+{
+  "ascension": 0,
+  "character_id": "UNKNOWN",
+  "final_state": {
+    "act": 1,
+    "ascension": 0,
+    "floor": 1,
+    "phase": "map",
+    "player": {
+      "block": 0,
+      "gold": 99,
+      "hp": 70,
+      "max_hp": 70
+    }
+  },
+  "game_version": null,
+  "initial_state": {
+    "act": 1,
+    "ascension": 0,
+    "floor": 1,
+    "phase": "card_select",
+    "player": {
+      "block": 0,
+      "gold": 99,
+      "hp": 70,
+      "max_hp": 70
+    }
+  },
+  "metadata": {
+    "mode": "live_play",
+    "policy": "prefer_attack",
+    "raw_initial_payload": {
+      "card_select": {
+        "can_cancel": true,
+        "can_confirm": false,
+        "can_skip": true,
+        "cards": [
+          {
+            "cost": "0",
+            "description": "Draw 3 cards. Exhaust.",
+            "id": "MASTER_OF_STRATEGY",
+            "index": 0,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Removed until the end of combat.",
+                "name": "Exhaust"
+              }
+            ],
+            "name": "Master of Strategy",
+            "rarity": "Rare",
+            "star_cost": null,
+            "type": "Skill"
+          },
+          {
+            "cost": "1",
+            "description": "Gain an additional 4 Block from Defend cards.",
+            "id": "FASTEN",
+            "index": 1,
+            "is_upgraded": false,
+            "keywords": [
+              {
+                "description": "Until next turn, prevents damage.",
+                "name": "Block"
+              },
+              {
+                "description": "Gain 5 Block.",
+                "name": "Defend"
+              }
+            ],
+            "name": "Fasten",
+            "rarity": "Uncommon",
+            "star_cost": null,
+            "type": "Power"
+          }
+        ],
+        "preview_showing": false,
+        "prompt": "Choose a card.",
+        "screen_type": "choose"
+      },
+      "player": {
+        "block": 0,
+        "character": "The Silent",
+        "gold": 99,
+        "hp": 70,
+        "max_hp": 70,
+        "max_potion_slots": 3,
+        "potions": [],
+        "relics": [
+          {
+            "counter": null,
+            "description": "At the start of each combat, draw 2 additional cards.",
+            "id": "RING_OF_THE_SNAKE",
+            "keywords": [],
+            "name": "Ring of the Snake"
+          },
+          {
+            "counter": null,
+            "description": "Upon pickup, choose 1 of 2 Colorless cards to add to your Deck.",
+            "id": "LEAD_PAPERWEIGHT",
+            "keywords": [],
+            "name": "Lead Paperweight"
+          }
+        ],
+        "status": []
+      },
+      "run": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1
+      },
+      "state_type": "card_select"
+    },
+    "stats": {
+      "action_type_counts": {
+        "choose_event_option": 1,
+        "choose_map_node": 1,
+        "select_card": 1
+      },
+      "average_legal_actions": 2.3333333333333335,
+      "legal_action_counts": [
+        3,
+        1,
+        3
+      ],
+      "phase_counts": {
+        "card_select": 1,
+        "event": 1,
+        "map": 1
+      },
+      "random_policy_likelihood": 0.1111111111111111,
+      "random_policy_log_likelihood": -2.1972245773362196,
+      "selected_probabilities": [
+        0.3333333333333333,
+        1.0,
+        0.3333333333333333
+      ],
+      "steps_requested": 3,
+      "steps_taken": 3,
+      "stopped_reason": "max_steps"
+    },
+    "trace_note": "Live traces use external action payloads and are not replayable yet."
+  },
+  "schema_version": 1,
+  "seed": 0,
+  "simulator_replayable": false,
+  "source": "live",
+  "steps": [
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1,
+        "phase": "event",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1,
+        "phase": "card_select",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "select_card",
+        "index": 0
+      },
+      "metadata": {
+        "action_type": "select_card",
+        "legal_action_count": 3,
+        "raw_action": {
+          "action": "select_card",
+          "index": 0
+        },
+        "response": {
+          "message": "Choosing card: Master of Strategy",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.3333333333333333
+      },
+      "step_index": 0
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1,
+        "phase": "map",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1,
+        "phase": "event",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "choose_event_option",
+        "index": 0
+      },
+      "metadata": {
+        "action_type": "choose_event_option",
+        "legal_action_count": 1,
+        "raw_action": {
+          "action": "choose_event_option",
+          "index": 0
+        },
+        "response": {
+          "message": "Choosing event option: Proceed",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 1.0
+      },
+      "step_index": 1
+    },
+    {
+      "action": {},
+      "after": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1,
+        "phase": "map",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "before": {
+        "act": 1,
+        "ascension": 0,
+        "floor": 1,
+        "phase": "map",
+        "player": {
+          "block": 0,
+          "gold": 99,
+          "hp": 70,
+          "max_hp": 70
+        }
+      },
+      "external_action": {
+        "action": "choose_map_node",
+        "index": 0
+      },
+      "metadata": {
+        "action_type": "choose_map_node",
+        "legal_action_count": 3,
+        "raw_action": {
+          "action": "choose_map_node",
+          "index": 0
+        },
+        "response": {
+          "message": "Traveling to Monster at (0,1)",
+          "status": "ok"
+        },
+        "selected_probability_if_uniform": 0.3333333333333333
+      },
+      "step_index": 2
+    }
+  ],
+  "trace_id": "live-0"
+}

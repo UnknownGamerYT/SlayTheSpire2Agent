@@ -3,8 +3,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.codex_tmp/
+.dotnet/
 dist/
 build/
 *.egg-info/
 data/cache/
 generated_maps/
+external/live_bridges/repos/
