@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 
@@ -278,15 +279,645 @@ def action_to_payload(action: Any) -> dict[str, Any]:
     return {"type": str(action)}
 
 
-def write_run_history(history: RunHistory, path: Path | str) -> None:
+def write_run_history(history: RunHistory | Mapping[str, Any], path: Path | str) -> None:
     """Write history as formatted JSON."""
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        json.dumps(history.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+        json.dumps(_history_payload(history), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def write_run_history_html(history: RunHistory | Mapping[str, Any], path: Path | str) -> None:
+    """Write a standalone readable HTML run timeline."""
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(run_history_html(history), encoding="utf-8")
+
+
+def write_run_history_map_text(history: RunHistory | Mapping[str, Any], path: Path | str) -> None:
+    """Write a compact text map with the chosen path marked."""
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(run_history_map_text(history) + "\n", encoding="utf-8")
+
+
+def run_history_map_text(history: RunHistory | Mapping[str, Any]) -> str:
+    """Return a compact floor-by-floor map with visited nodes underlined by marker."""
+
+    payload = _history_payload(history)
+    map_payload = _largest_map_payload(payload)
+    if not map_payload:
+        return "No map was generated for this history."
+
+    nodes = tuple(_mapping(node) for node in _sequence(map_payload.get("nodes")))
+    edges = tuple(_mapping(edge) for edge in _sequence(map_payload.get("edges")))
+    chosen_ids = set(_chosen_node_ids(payload))
+    completed_ids = {
+        str(node_id)
+        for node_id in _sequence(map_payload.get("completed_node_ids"))
+        if str(node_id)
+    }
+    current_id = _optional_str(map_payload.get("current_node_id"))
+    by_floor: dict[int, list[Mapping[str, Any]]] = {}
+    for node in nodes:
+        by_floor.setdefault(_int(node.get("floor")), []).append(node)
+
+    lines = [
+        f"Act {_int(map_payload.get('act'))} map",
+        "Legend: * visited/chosen, _node_ chosen path marker, -> reachable edges",
+    ]
+    for floor in sorted(by_floor):
+        lane_chunks: list[str] = []
+        for node in sorted(by_floor[floor], key=lambda item: _int(item.get("lane"))):
+            node_id = str(node.get("node_id", ""))
+            kind = _room_letter(str(node.get("kind", "")))
+            marker = "*" if node_id in chosen_ids or node_id in completed_ids else " "
+            current = "!" if current_id == node_id else " "
+            label = f"{kind}{marker}{current}:{node_id}"
+            if node_id in chosen_ids:
+                label = f"_{label}_"
+            lane_chunks.append(f"L{_int(node.get('lane'))}:{label}")
+        lines.append(f"F{floor:02d}  " + "  ".join(lane_chunks))
+        floor_edges = [
+            f"{edge.get('from_id')}->{edge.get('to_id')}"
+            for edge in edges
+            if _node_floor(nodes, str(edge.get("from_id"))) == floor
+        ]
+        if floor_edges:
+            lines.append("      " + ", ".join(floor_edges[:12]))
+    return "\n".join(lines)
+
+
+def run_history_html(
+    history: RunHistory | Mapping[str, Any],
+    *,
+    title: str = "Run History",
+) -> str:
+    """Render a readable standalone HTML report for a simulator run history."""
+
+    payload = _history_payload(history)
+    summary = _mapping(payload.get("summary"))
+    initial = _mapping(payload.get("initial"))
+    final = _mapping(payload.get("final"))
+    steps = tuple(_mapping(step) for step in _sequence(payload.get("steps")))
+    safe_title = html_escape(title)
+    overview = {
+        "seed": payload.get("seed", ""),
+        "character": payload.get("character_id", ""),
+        "ascension": payload.get("ascension", 0),
+        "policy": payload.get("policy", ""),
+        "steps": summary.get("steps_taken", len(steps)),
+        "final": (
+            f"act {final.get('act', 0)} floor {final.get('floor', 0)} "
+            f"{final.get('phase', '')}"
+        ),
+        "cards played": summary.get("cards_played", 0),
+        "nodes chosen": summary.get("nodes_chosen", 0),
+        "rewards taken": summary.get("rewards_taken", 0),
+    }
+    overview_items = "\n".join(
+        "<div>"
+        f"<strong>{html_escape(str(key).title())}</strong>"
+        f"<span>{html_escape(str(value))}</span>"
+        "</div>"
+        for key, value in overview.items()
+    )
+    timeline = "\n".join(_step_html(step) for step in steps)
+    if not timeline:
+        timeline = '<p class="muted">No steps were recorded.</p>'
+    map_text = html_escape(run_history_map_text(payload))
+    reward_overview = _context_panel_html("Initial", initial) + _context_panel_html("Final", final)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{safe_title}</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #62707a;
+      --line: #d9e0e5;
+      --panel: #fff;
+      --paper: #f5f7f8;
+      --accent: #2459a6;
+      --good: #177245;
+      --warn: #a26114;
+      --bad: #b3332f;
+    }}
+    body {{
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 14px/1.45 system-ui, sans-serif;
+    }}
+    main {{
+      width: min(1280px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }}
+    h1 {{ margin: 0 0 4px; font-size: 28px; }}
+    h2 {{ margin: 28px 0 12px; font-size: 19px; }}
+    h3 {{ margin: 0 0 8px; font-size: 16px; }}
+    .muted {{ color: var(--muted); }}
+    .summary {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 18px 0;
+    }}
+    .summary div, article, .panel {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }}
+    .summary strong {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }}
+    .summary span {{ display: block; margin-top: 4px; font-weight: 700; }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }}
+    article {{ margin-bottom: 12px; }}
+    .step-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }}
+    .badge {{
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #f8fafb;
+    }}
+    .narrative {{ margin: 0 0 10px; padding-left: 18px; }}
+    .narrative li {{ margin: 3px 0; }}
+    pre {{
+      overflow: auto;
+      background: #111820;
+      color: #edf4f7;
+      border-radius: 8px;
+      padding: 12px;
+      line-height: 1.35;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }}
+    th, td {{
+      padding: 6px 7px;
+      border-bottom: 1px solid #e7ecef;
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }}
+    .cards, .events {{ display: flex; flex-wrap: wrap; gap: 5px; }}
+    .pill {{
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #f9fbfc;
+      font-size: 12px;
+    }}
+    .diff-good {{ color: var(--good); font-weight: 700; }}
+    .diff-bad {{ color: var(--bad); font-weight: 700; }}
+  </style>
+</head>
+<body>
+<main>
+  <h1>{safe_title}</h1>
+  <p class="muted">
+    Step-by-step simulator trace with map path, combat state, rewards, shops,
+    events, and engine replay events.
+  </p>
+  <section class="summary">{overview_items}</section>
+  <h2>Map Path</h2>
+  <pre>{map_text}</pre>
+  <h2>Run Start And Finish</h2>
+  <div class="grid">{reward_overview}</div>
+  <h2>Timeline</h2>
+  {timeline}
+</main>
+</body>
+</html>
+"""
+
+
+def _history_payload(history: RunHistory | Mapping[str, Any]) -> Mapping[str, Any]:
+    if isinstance(history, RunHistory):
+        return history.model_dump(mode="json")
+    return history
+
+
+def _step_html(step: Mapping[str, Any]) -> str:
+    context_before = _mapping(step.get("context_before"))
+    context_after = _mapping(step.get("context_after"))
+    events = tuple(_mapping(event) for event in _sequence(step.get("events")))
+    decision = _mapping(step.get("decision"))
+    meta = [
+        f"phase {step.get('phase_before', '')} -> {step.get('phase_after', '')}",
+        f"reward {step.get('reward', 0)}",
+        f"before {str(step.get('state_hash_before', ''))[:10]}",
+        f"after {str(step.get('state_hash_after', ''))[:10]}",
+    ]
+    meta_html = "".join(f'<span class="badge">{html_escape(item)}</span>' for item in meta)
+    narrative = "".join(
+        f"<li>{html_escape(item)}</li>"
+        for item in _step_narrative(step, context_before, context_after)
+    )
+    if not narrative:
+        narrative = "<li>No detailed state context was available.</li>"
+    before_panel = _context_panel_html("Before", context_before)
+    after_panel = _context_panel_html("After", context_after)
+    events_html = _events_html(events)
+    decision_html = _decision_html(decision)
+    return (
+        "<article>"
+        f"<h3>Step {_int(step.get('step_index'))}: "
+        f"{html_escape(str(step.get('action_summary', 'Action')))}</h3>"
+        f'<div class="step-meta">{meta_html}</div>'
+        f'<ul class="narrative">{narrative}</ul>'
+        f'<div class="grid">{before_panel}{after_panel}</div>'
+        f"{events_html}{decision_html}"
+        "</article>"
+    )
+
+
+def _step_narrative(
+    step: Mapping[str, Any],
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    lines = [
+        f"Action selected: {step.get('action_summary', 'unknown')}.",
+    ]
+    before_combat = _mapping(before.get("combat"))
+    after_combat = _mapping(after.get("combat"))
+    if before_combat:
+        before_player = _mapping(before_combat.get("player"))
+        lines.append(
+            "Turn "
+            f"{_int(before_combat.get('turn'))} start: "
+            f"HP {_int(before_player.get('hp'))}/{_int(before_player.get('max_hp'))}, "
+            f"block {_int(before_player.get('block'))}, "
+            f"energy {_int(before_player.get('energy'))}, "
+            f"hand {_card_names(before_combat.get('hand'))}."
+        )
+        intents = _monster_intents(before_combat)
+        if intents:
+            lines.append(f"Enemy intentions: {intents}.")
+    if after_combat:
+        after_player = _mapping(after_combat.get("player"))
+        lines.append(
+            "After action: "
+            f"HP {_int(after_player.get('hp'))}/{_int(after_player.get('max_hp'))}, "
+            f"block {_int(after_player.get('block'))}, "
+            f"energy {_int(after_player.get('energy'))}, "
+            f"hand {_card_names(after_combat.get('hand'))}."
+        )
+        lines.append(
+            "Piles after action: "
+            f"draw {_zone_count(after_combat, 'draw_pile')}, "
+            f"discard {_zone_count(after_combat, 'discard_pile')}, "
+            f"exhaust {_zone_count(after_combat, 'exhaust_pile')}."
+        )
+        after_intents = _monster_intents(after_combat)
+        if after_intents:
+            lines.append(f"Enemy state after action: {after_intents}.")
+    if not before_combat and after_combat:
+        lines.append(
+            "Combat started; opening hand and enemy intents are visible in the after panel."
+        )
+    if before_combat and not after_combat:
+        lines.append("Combat ended and rewards or the next room state opened.")
+
+    before_reward = _mapping(before.get("reward"))
+    after_reward = _mapping(after.get("reward"))
+    if before_reward:
+        lines.append(f"Reward screen before action: {_reward_line(before_reward)}.")
+    if after_reward and after_reward != before_reward:
+        lines.append(f"Reward screen after action: {_reward_line(after_reward)}.")
+
+    before_shop = _mapping(before.get("shop"))
+    after_shop = _mapping(after.get("shop"))
+    if before_shop:
+        lines.append(f"Shop before action: {_shop_line(before_shop)}.")
+    if after_shop and after_shop != before_shop:
+        lines.append(f"Shop after action: {_shop_line(after_shop)}.")
+
+    before_event = _mapping(before.get("event"))
+    after_event = _mapping(after.get("event"))
+    if before_event:
+        lines.append(f"Event before action: {_event_line(before_event)}.")
+    if after_event and after_event != before_event:
+        lines.append(f"Event after action: {_event_line(after_event)}.")
+
+    before_map = _mapping(before.get("map"))
+    after_map = _mapping(after.get("map"))
+    if before_map and str(_mapping(step.get("action")).get("type")) == "choose_node":
+        lines.append(f"Map choice opened: {_map_line(before_map)}.")
+    if after_map and after_map != before_map:
+        lines.append(f"Map after action: {_map_line(after_map)}.")
+    return tuple(lines)
+
+
+def _context_panel_html(title: str, context: Mapping[str, Any]) -> str:
+    if not context:
+        return (
+            f'<section class="panel"><h3>{html_escape(title)}</h3>'
+            '<p class="muted">Empty.</p></section>'
+        )
+    player = _mapping(context.get("player"))
+    combat = _mapping(context.get("combat"))
+    reward = _mapping(context.get("reward"))
+    shop = _mapping(context.get("shop"))
+    event = _mapping(context.get("event"))
+    game_map = _mapping(context.get("map"))
+    lines = [
+        f"<p><strong>Phase:</strong> {html_escape(str(context.get('phase', '')))} "
+        f"<strong>Act/Floor:</strong> {_int(context.get('act'))}/{_int(context.get('floor'))}</p>",
+    ]
+    if player:
+        potions = ", ".join(str(item) for item in _sequence(player.get("potions"))) or "-"
+        relics = ", ".join(str(item) for item in _sequence(player.get("relics"))) or "-"
+        lines.append(
+            "<p><strong>Player:</strong> "
+            f"HP {_int(player.get('hp'))}/{_int(player.get('max_hp'))}, "
+            f"block {_int(player.get('block'))}, energy {_int(player.get('energy'))}, "
+            f"gold {_int(player.get('gold'))}, "
+            f"potions {html_escape(potions)}, "
+            f"relics {html_escape(relics)}"
+            "</p>"
+        )
+    if combat:
+        lines.append(_combat_panel_html(combat))
+    if reward:
+        lines.append(f"<p><strong>Reward:</strong> {html_escape(_reward_line(reward))}</p>")
+    if shop:
+        lines.append(f"<p><strong>Shop:</strong> {html_escape(_shop_line(shop))}</p>")
+    if event:
+        lines.append(f"<p><strong>Event:</strong> {html_escape(_event_line(event))}</p>")
+    if game_map:
+        lines.append(f"<p><strong>Map:</strong> {html_escape(_map_line(game_map))}</p>")
+    flags = _mapping(context.get("flags"))
+    if flags:
+        lines.append(f"<p><strong>Flags:</strong> {html_escape(_compact_json(flags))}</p>")
+    return f'<section class="panel"><h3>{html_escape(title)}</h3>{"".join(lines)}</section>'
+
+
+def _combat_panel_html(combat: Mapping[str, Any]) -> str:
+    monsters = tuple(_mapping(monster) for monster in _sequence(combat.get("monsters")))
+    monster_rows = "".join(
+        "<tr>"
+        f"<td>{html_escape(str(monster.get('name') or monster.get('monster_id')))}</td>"
+        f"<td>{_int(monster.get('hp'))}/{_int(monster.get('max_hp'))}</td>"
+        f"<td>{_int(monster.get('block'))}</td>"
+        f"<td>{html_escape(str(monster.get('intent') or '-'))} "
+        f"{_int(monster.get('intent_damage'))}x{max(1, _int(monster.get('hit_count')))}</td>"
+        f"<td>{html_escape(_compact_json(_mapping(monster.get('statuses'))))}</td>"
+        "</tr>"
+        for monster in monsters
+    )
+    if not monster_rows:
+        monster_rows = '<tr><td colspan="5" class="muted">No monsters.</td></tr>'
+    zones = "".join(
+        "<p>"
+        f"<strong>{html_escape(label)}:</strong> "
+        f'<span class="cards">{_card_pills(combat.get(zone))}</span>'
+        "</p>"
+        for label, zone in (
+            ("Hand", "hand"),
+            ("Draw", "draw_pile"),
+            ("Discard", "discard_pile"),
+            ("Exhaust", "exhaust_pile"),
+        )
+    )
+    return (
+        f"<p><strong>Combat Turn:</strong> {_int(combat.get('turn'))}</p>"
+        "<table><thead><tr><th>Enemy</th><th>HP</th><th>Block</th>"
+        "<th>Intent</th><th>Status</th></tr></thead>"
+        f"<tbody>{monster_rows}</tbody></table>"
+        f"{zones}"
+    )
+
+
+def _events_html(events: Sequence[Mapping[str, Any]]) -> str:
+    if not events:
+        return ""
+    event_items = "".join(
+        '<span class="pill">'
+        f"{html_escape(str(event.get('kind', event.get('value', 'event'))))}: "
+        f"{html_escape(_compact_json(_mapping(event.get('metadata'))))}"
+        "</span>"
+        for event in events
+    )
+    return f'<h3>Engine Events</h3><div class="events">{event_items}</div>'
+
+
+def _decision_html(decision: Mapping[str, Any]) -> str:
+    if not decision:
+        return ""
+    cells = "".join(
+        "<tr>"
+        f"<th>{html_escape(str(key).replace('_', ' ').title())}</th>"
+        f"<td>{html_escape(str(value))}</td>"
+        "</tr>"
+        for key, value in sorted(decision.items())
+    )
+    return f"<h3>Policy Output</h3><table><tbody>{cells}</tbody></table>"
+
+
+def _largest_map_payload(history_payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    maps: list[Mapping[str, Any]] = []
+    for context_key in ("initial", "final"):
+        game_map = _mapping(_mapping(history_payload.get(context_key)).get("map"))
+        if game_map:
+            maps.append(game_map)
+    for step in (_mapping(raw) for raw in _sequence(history_payload.get("steps"))):
+        for context_key in ("context_before", "context_after"):
+            game_map = _mapping(_mapping(step.get(context_key)).get("map"))
+            if game_map:
+                maps.append(game_map)
+    if not maps:
+        return {}
+    return max(maps, key=lambda game_map: len(_sequence(game_map.get("nodes"))))
+
+
+def _chosen_node_ids(history_payload: Mapping[str, Any]) -> tuple[str, ...]:
+    chosen: list[str] = []
+    for step in (_mapping(raw) for raw in _sequence(history_payload.get("steps"))):
+        action = _mapping(step.get("action"))
+        if str(action.get("type")) == "choose_node":
+            target_id = _optional_str(action.get("target_id"))
+            if target_id:
+                chosen.append(target_id)
+    final_map = _mapping(_mapping(history_payload.get("final")).get("map"))
+    chosen.extend(str(item) for item in _sequence(final_map.get("completed_node_ids")))
+    return tuple(dict.fromkeys(chosen))
+
+
+def _node_floor(nodes: Sequence[Mapping[str, Any]], node_id: str) -> int:
+    for node in nodes:
+        if str(node.get("node_id")) == node_id:
+            return _int(node.get("floor"))
+    return -1
+
+
+def _room_letter(kind: str) -> str:
+    normalized = kind.lower()
+    return {
+        "start": "S",
+        "monster": "M",
+        "elite": "L",
+        "boss": "B",
+        "rest": "F",
+        "shop": "$",
+        "event": "?",
+        "treasure": "T",
+    }.get(normalized, (kind[:1] or "?").upper())
+
+
+def _card_names(cards: object) -> str:
+    names = [
+        str(_mapping(card).get("name") or _mapping(card).get("card_id") or "")
+        for card in _sequence(cards)
+    ]
+    return ", ".join(name for name in names if name) or "-"
+
+
+def _card_pills(cards: object) -> str:
+    labels = [
+        str(_mapping(card).get("name") or _mapping(card).get("card_id") or "")
+        for card in _sequence(cards)
+    ]
+    if not labels:
+        return '<span class="pill">empty</span>'
+    return "".join(f'<span class="pill">{html_escape(label)}</span>' for label in labels if label)
+
+
+def _monster_intents(combat: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    for monster in (_mapping(raw) for raw in _sequence(combat.get("monsters"))):
+        name = str(monster.get("name") or monster.get("monster_id") or "enemy")
+        statuses = _mapping(monster.get("statuses"))
+        status_text = f", statuses {_compact_json(statuses)}" if statuses else ""
+        parts.append(
+            f"{name} HP {_int(monster.get('hp'))}/{_int(monster.get('max_hp'))}, "
+            f"block {_int(monster.get('block'))}, "
+            f"intent {monster.get('intent') or '-'} "
+            f"{_int(monster.get('intent_damage'))}x{max(1, _int(monster.get('hit_count')))}"
+            f"{status_text}"
+        )
+    return "; ".join(parts)
+
+
+def _reward_line(reward: Mapping[str, Any]) -> str:
+    parts = [
+        f"source {reward.get('source', '')}",
+        f"gold {_int(reward.get('gold'))}{' claimed' if reward.get('gold_claimed') else ''}",
+    ]
+    relics = list(_sequence(reward.get("relic_ids")))
+    relic_id = _optional_str(reward.get("relic_id"))
+    if relic_id:
+        relics.insert(0, relic_id)
+    if relics:
+        parts.append("relics " + ", ".join(str(item) for item in relics))
+    card_groups = _sequence(reward.get("card_option_groups"))
+    card_options = _sequence(reward.get("card_options"))
+    fixed_cards = _sequence(reward.get("card_ids"))
+    if card_groups:
+        parts.append(
+            "card groups "
+            + " | ".join(
+                "[" + ", ".join(str(item) for item in _sequence(group)) + "]"
+                for group in card_groups
+            )
+        )
+    if card_options:
+        parts.append("cards " + ", ".join(str(item) for item in card_options))
+    if fixed_cards:
+        parts.append("fixed cards " + ", ".join(str(item) for item in fixed_cards))
+    potions = list(_sequence(reward.get("potion_ids")))
+    potion_id = _optional_str(reward.get("potion_id"))
+    if potion_id:
+        potions.insert(0, potion_id)
+    if potions:
+        parts.append("potions " + ", ".join(str(item) for item in potions))
+    claimed: list[str] = []
+    claimed.extend(str(item) for item in _sequence(reward.get("claimed_relic_ids")))
+    claimed.extend(f"potion#{item}" for item in _sequence(reward.get("claimed_potion_indices")))
+    if claimed:
+        parts.append("claimed " + ", ".join(claimed))
+    return "; ".join(parts)
+
+
+def _shop_line(shop: Mapping[str, Any]) -> str:
+    items = [
+        f"{item.get('slot_id')}={item.get('kind')}:{item.get('item_id')} "
+        f"{_int(item.get('price'))}g{' sold' if item.get('purchased') else ''}"
+        for item in (_mapping(raw) for raw in _sequence(shop.get("items")))
+    ]
+    return f"{len(items)} items; " + "; ".join(items[:8])
+
+
+def _event_line(event: Mapping[str, Any]) -> str:
+    options = [
+        (
+            f"{option.get('option_id')}:{option.get('title')}"
+            f"{' disabled' if option.get('disabled') else ''}"
+        )
+        for option in (_mapping(raw) for raw in _sequence(event.get("options")))
+    ]
+    return (
+        f"{event.get('name') or event.get('event_id')} page {event.get('page_id', '')}; "
+        + "; ".join(options)
+    )
+
+
+def _map_line(game_map: Mapping[str, Any]) -> str:
+    reachable = [
+        f"{node.get('node_id')}({node.get('kind')},F{node.get('floor')},L{node.get('lane')})"
+        for node in (_mapping(raw) for raw in _sequence(game_map.get("reachable")))
+    ]
+    return (
+        f"current {game_map.get('current_node_id')}, "
+        f"completed {len(_sequence(game_map.get('completed_node_ids')))}, "
+        f"nodes {len(_sequence(game_map.get('nodes')))}, "
+        f"reachable {', '.join(reachable) or '-'}"
+    )
+
+
+def _zone_count(combat: Mapping[str, Any], zone: str) -> int:
+    return len(_sequence(combat.get(zone)))
+
+
+def _compact_json(value: Mapping[str, Any]) -> str:
+    if not value:
+        return "{}"
+    return json.dumps(dict(value), sort_keys=True, separators=(",", ":"))
 
 
 def _history_summary(
@@ -348,6 +979,14 @@ def _map_summary(game_map: Mapping[str, Any]) -> dict[str, Any]:
         "boss_node_id": _optional_str(game_map.get("boss_node_id")),
         "node_count": len(nodes),
         "edge_count": len(edges),
+        "nodes": [_node_summary(node) for node in nodes],
+        "edges": [
+            {
+                "from_id": str(edge.get("from_id", "")),
+                "to_id": str(edge.get("to_id", "")),
+            }
+            for edge in edges
+        ],
         "reachable": [
             _node_summary(node_by_id[node_id])
             for node_id in reachable_ids

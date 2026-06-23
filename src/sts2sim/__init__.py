@@ -9,8 +9,12 @@ from sts2sim.history import (
     RunHistoryStep,
     append_history_step,
     record_history_step,
+    run_history_html,
+    run_history_map_text,
     start_run_history,
     write_run_history,
+    write_run_history_html,
+    write_run_history_map_text,
 )
 from sts2sim.learning import (
     build_learning_progress_report,
@@ -64,10 +68,14 @@ __all__ = [
     "progress_from_runs",
     "record_history_step",
     "replay",
+    "run_history_html",
+    "run_history_map_text",
     "serialize",
     "start_run_history",
     "step",
     "train_q_learning",
     "write_learning_progress_report",
     "write_run_history",
+    "write_run_history_html",
+    "write_run_history_map_text",
 ]

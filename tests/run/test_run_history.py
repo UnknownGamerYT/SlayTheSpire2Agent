@@ -8,7 +8,15 @@ from sts2sim import legal_actions, new_run, step
 from sts2sim.agents import play_strategic_run
 from sts2sim.cli.app import app
 from sts2sim.engine import MapEdgeState, MapNodeState, MapState, RoomKind, RunPhase
-from sts2sim.history import append_history_step, record_history_step, start_run_history
+from sts2sim.history import (
+    append_history_step,
+    record_history_step,
+    run_history_html,
+    run_history_map_text,
+    start_run_history,
+    write_run_history_html,
+    write_run_history_map_text,
+)
 from sts2sim.learning import collect_random_rollouts
 
 
@@ -45,6 +53,53 @@ def test_history_records_readable_ancient_and_map_steps() -> None:
     assert "Choose map node" in history.steps[1].action_summary
     assert history.steps[1].context_before["map"]["reachable"]
     assert history.summary["nodes_chosen"] == 1
+
+
+def test_history_renders_html_and_text_map_for_chosen_path(tmp_path) -> None:
+    state = new_run(seed=80, character_id="TEST", ascension=0)
+    history = start_run_history(state, policy="test")
+    ancient_action = next(
+        action for action in legal_actions(state) if action.type == "choose_ancient"
+    )
+    after_ancient = step(state, ancient_action)
+    history = append_history_step(
+        history,
+        record_history_step(
+            step_index=0,
+            before_state=state,
+            action=ancient_action,
+            after_state=after_ancient,
+        ),
+        after_ancient,
+    )
+    map_action = next(
+        action for action in legal_actions(after_ancient) if action.type == "choose_node"
+    )
+    after_map = step(after_ancient, map_action)
+    history = append_history_step(
+        history,
+        record_history_step(
+            step_index=1,
+            before_state=after_ancient,
+            action=map_action,
+            after_state=after_map,
+        ),
+        after_map,
+    )
+
+    html = run_history_html(history)
+    text_map = run_history_map_text(history)
+    html_path = tmp_path / "history.html"
+    map_path = tmp_path / "history_map.txt"
+    write_run_history_html(history, html_path)
+    write_run_history_map_text(history, map_path)
+
+    assert "Map Path" in html
+    assert "Timeline" in html
+    assert "Choose map node" in html
+    assert f":{map_action.target_id}_" in text_map
+    assert html_path.read_text(encoding="utf-8").startswith("<!doctype html>")
+    assert "Legend:" in map_path.read_text(encoding="utf-8")
 
 
 def test_history_records_combat_card_context_and_events() -> None:

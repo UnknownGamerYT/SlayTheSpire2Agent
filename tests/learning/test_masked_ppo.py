@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from sts2sim.cli.app import app
+from sts2sim.learning.content_vocab import (
+    CONTENT_IDENTITY_EMBED_DIM,
+    CONTENT_IDENTITY_SLOTS,
+    load_content_vocab,
+)
 from sts2sim.learning.masked_ppo import (
     ACTION_FEATURE_DIM,
     PLANNING_HEAD_DIM,
@@ -86,9 +92,11 @@ def test_masked_ppo_architecture_can_scale_up() -> None:
 
     model_class = _masked_actor_critic_class(nn)
     observation_dim = len(_empty_observation_vector())
+    vocab = load_content_vocab()
     small = model_class(
         observation_dim=observation_dim,
         action_feature_dim=ACTION_FEATURE_DIM,
+        content_vocab_size=vocab.size,
         hidden_size=128,
         hidden_layers=1,
         head_hidden_layers=1,
@@ -97,6 +105,7 @@ def test_masked_ppo_architecture_can_scale_up() -> None:
     larger = model_class(
         observation_dim=observation_dim,
         action_feature_dim=ACTION_FEATURE_DIM,
+        content_vocab_size=vocab.size,
         hidden_size=256,
         hidden_layers=3,
         head_hidden_layers=2,
@@ -107,11 +116,16 @@ def test_masked_ppo_architecture_can_scale_up() -> None:
     larger_params = sum(parameter.numel() for parameter in larger.parameters())
     obs = torch.zeros((1, observation_dim), dtype=torch.float32)
     actions = torch.zeros((1, 3, ACTION_FEATURE_DIM), dtype=torch.float32)
-    logits, value, planning = larger(obs, actions)
+    action_ids = torch.zeros((1, 3, CONTENT_IDENTITY_SLOTS), dtype=torch.long)
+    logits, value, planning = larger(obs, actions, action_ids)
 
     assert small_params < 1_500_000
     assert larger_params > small_params
     assert larger_params > 2_000_000
+    assert larger.action_encoder[0].in_features == (
+        ACTION_FEATURE_DIM + CONTENT_IDENTITY_SLOTS * CONTENT_IDENTITY_EMBED_DIM
+    )
+    assert "content_embedding.weight" in larger.state_dict()
     assert tuple(logits.shape) == (1, 3)
     assert tuple(value.shape) == (1,)
     assert tuple(planning.shape) == (1, PLANNING_HEAD_DIM)
@@ -165,10 +179,28 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert [batch["batch_index"] for batch in second["batch_summaries"]] == [1, 2]
     assert [point["run_index"] for point in second["progress"]] == [0, 1]
     assert second["progress"][0]["seed"] != second["progress"][1]["seed"]
-    assert second["metadata"]["network_schema_version"] == 4
+    assert second["metadata"]["network_schema_version"] == 5
+    assert second["metadata"]["content_vocab_size"] == load_content_vocab().size
+    assert "content_vocab_checksum" in second["metadata"]
     assert second["metadata"]["planning_head_schema"] == list(PLANNING_HEAD_SCHEMA)
     assert "planning_output_averages" in second["batch_summaries"][-1]
-    assert "Planning Head Trends" in report_path.read_text(encoding="utf-8")
+    histories = second["highlight_run_histories"]
+    for role in ("best", "worst"):
+        entry = histories[role]
+        html_path = Path(entry["html_path"])
+        json_path = Path(entry["json_path"])
+        map_path = Path(entry["map_path"])
+        assert html_path.exists()
+        assert json_path.exists()
+        assert map_path.exists()
+        assert "Map Path" in html_path.read_text(encoding="utf-8")
+        assert "Timeline" in html_path.read_text(encoding="utf-8")
+        assert json.loads(json_path.read_text(encoding="utf-8"))["steps"]
+        assert "Legend:" in map_path.read_text(encoding="utf-8")
+    report_text = report_path.read_text(encoding="utf-8")
+    assert "Planning Head Trends" in report_text
+    assert "Best And Worst Evaluation Run Histories" in report_text
+    assert "ppo_best_run_history.html" in report_text
 
 
 def test_train_masked_ppo_rejects_incompatible_old_checkpoint(tmp_path: Path) -> None:
@@ -181,7 +213,7 @@ def test_train_masked_ppo_rejects_incompatible_old_checkpoint(tmp_path: Path) ->
     torch.save(
         {
             "architecture": {
-                "network_schema_version": 3,
+                "network_schema_version": 4,
                 "observation_dim": 1,
                 "action_feature_dim": 1,
                 "hidden_size": 1,

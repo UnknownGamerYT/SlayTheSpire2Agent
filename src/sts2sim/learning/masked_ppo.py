@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import json
 import math
+import os
 import random
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -18,6 +19,22 @@ from pathlib import Path
 from typing import Any
 
 from sts2sim.gymnasium_env import Sts2Env
+from sts2sim.history import (
+    RunHistory,
+    append_history_step,
+    record_history_step,
+    start_run_history,
+    write_run_history,
+    write_run_history_html,
+    write_run_history_map_text,
+)
+from sts2sim.learning.content_vocab import (
+    CONTENT_IDENTITY_EMBED_DIM,
+    CONTENT_IDENTITY_SLOTS,
+    content_vocab_metadata,
+    descriptor_identity_ids,
+    load_content_vocab,
+)
 from sts2sim.learning.models import LearningProgressPoint, LearningRunResult
 from sts2sim.learning.progress import (
     with_moving_averages,
@@ -40,7 +57,7 @@ from sts2sim.mechanics.synergy import (
     profile_value_vector as synergy_value_vector,
 )
 
-NETWORK_SCHEMA_VERSION = 4
+NETWORK_SCHEMA_VERSION = 5
 PLANNING_HEAD_SCHEMA: tuple[str, ...] = (
     "aggression_target",
     "hp_floor",
@@ -264,6 +281,7 @@ class _ResumeState:
 class _Transition:
     observation_vector: tuple[float, ...]
     action_features: tuple[tuple[float, ...], ...]
+    action_identity_ids: tuple[tuple[int, ...], ...]
     action_index: int
     old_log_prob: float
     value: float
@@ -318,6 +336,8 @@ def train_masked_ppo(
     model_class = _masked_actor_critic_class(nn)
     observation_dim = len(_empty_observation_vector())
     activation_name = _normalize_activation_name(activation)
+    content_vocab = load_content_vocab()
+    content_metadata = content_vocab_metadata(content_vocab)
     architecture = {
         "observation_dim": observation_dim,
         "action_feature_dim": ACTION_FEATURE_DIM,
@@ -328,6 +348,7 @@ def train_masked_ppo(
         "planning_head_schema": list(PLANNING_HEAD_SCHEMA),
         "planning_head_dim": PLANNING_HEAD_DIM,
         "network_schema_version": NETWORK_SCHEMA_VERSION,
+        **content_metadata,
         "hidden_size": hidden_size,
         "hidden_layers": max(1, hidden_layers),
         "head_hidden_layers": max(1, head_hidden_layers),
@@ -338,6 +359,9 @@ def train_masked_ppo(
     model = model_class(
         observation_dim=observation_dim,
         action_feature_dim=ACTION_FEATURE_DIM,
+        content_vocab_size=content_vocab.size,
+        content_identity_slots=CONTENT_IDENTITY_SLOTS,
+        content_identity_embedding_dim=CONTENT_IDENTITY_EMBED_DIM,
         hidden_size=hidden_size,
         hidden_layers=hidden_layers,
         head_hidden_layers=head_hidden_layers,
@@ -394,6 +418,7 @@ def train_masked_ppo(
     _advance_run_seed_rng(train_rng, len(training_points))
     _advance_run_seed_rng(eval_rng, len(evaluation_points))
 
+    highlight_run_histories = _resume_highlight_run_histories(previous_result)
     start_batch = len(batch_summaries) + 1
     for batch_index in range(start_batch, max(0, max_batches) + 1):
         transitions: list[_Transition] = []
@@ -435,7 +460,7 @@ def train_masked_ppo(
                 planning_coef=planning_coef,
                 ppo_epochs=ppo_epochs,
                 minibatch_size=minibatch_size,
-            )
+        )
 
         eval_results = tuple(
             _evaluate_one_run(
@@ -447,8 +472,15 @@ def train_masked_ppo(
                 max_steps=eval_max_steps,
                 character_id=character_id,
                 ascension=ascension,
+                include_history=True,
             )
             for eval_index in range(max(0, eval_runs))
+        )
+        highlight_run_histories = _select_highlight_run_histories(
+            eval_results,
+            target=resolved_target,
+            report_output_path=report_output_path,
+            output_path=output_path,
         )
         eval_progress = tuple(
             _progress_from_run(run, "masked_ppo_eval") for run in eval_results
@@ -492,6 +524,7 @@ def train_masked_ppo(
             training_points=training_points,
             evaluation_points=evaluation_points,
             batch_summaries=batch_summaries,
+            highlight_run_histories=highlight_run_histories,
             metadata=metadata,
         )
         _persist_ppo(
@@ -525,6 +558,7 @@ def train_masked_ppo(
         training_points=training_points,
         evaluation_points=evaluation_points,
         batch_summaries=batch_summaries,
+        highlight_run_histories=highlight_run_histories,
         metadata=metadata,
     )
     _persist_ppo(
@@ -623,6 +657,7 @@ def _collect_training_run(
                 log_prob,
                 value,
                 action_features,
+                action_identity_ids,
                 decision_context,
             ) = decision
             env.set_pending_policy_output(decision_context)
@@ -634,6 +669,7 @@ def _collect_training_run(
                 _Transition(
                     observation_vector=_observation_vector(observation),
                     action_features=action_features,
+                    action_identity_ids=action_identity_ids,
                     action_index=action_index,
                     old_log_prob=log_prob,
                     value=value,
@@ -689,6 +725,7 @@ def _evaluate_one_run(
     max_steps: int,
     character_id: str,
     ascension: int,
+    include_history: bool = False,
 ) -> LearningRunResult:
     env = Sts2Env(
         seed=seed,
@@ -705,17 +742,37 @@ def _evaluate_one_run(
     error: str | None = None
     failed_to_continue = False
     observation: dict[str, Any] = {}
+    history: RunHistory | None = None
     try:
         observation, info = env.reset()
-        for _step_index in range(max_steps):
+        if include_history and env.state is not None:
+            history = start_run_history(env.state, policy="masked_ppo_eval")
+        for step_index in range(max_steps):
             decision = _choose_action(torch, model, observation, info, deterministic=True)
             if decision is None:
                 failed_to_continue = True
                 error = "No legal action id was available before target or terminal state."
                 break
             action_id = decision[0]
-            env.set_pending_policy_output(decision[5])
+            before_state = env.state
+            action_payload = _action_for_id(info, action_id)
+            env.set_pending_policy_output(decision[6])
             observation, reward, terminated, truncated, info = env.step(action_id)
+            if history is not None and before_state is not None and env.state is not None:
+                if not action_payload:
+                    action_payload = dict(_mapping(info.get("action")))
+                history = append_history_step(
+                    history,
+                    record_history_step(
+                        step_index=step_index,
+                        before_state=before_state,
+                        action=action_payload,
+                        after_state=env.state,
+                        reward=reward,
+                        decision=_history_decision_context(decision),
+                    ),
+                    env.state,
+                )
             total_reward += float(reward)
             steps_taken += 1
             if terminated or truncated or target.reached(observation):
@@ -743,8 +800,39 @@ def _evaluate_one_run(
         final_floor=_lookup_vector_int(observation, "floor"),
         error=error,
         failed_to_continue=failed_to_continue,
+        history=history.model_dump(mode="json") if history is not None else None,
         steps=(),
     )
+
+
+def _action_for_id(info: Mapping[str, Any], action_id: int) -> dict[str, Any]:
+    for descriptor in _action_space(info):
+        if _int(descriptor.get("id")) == int(action_id):
+            action = descriptor.get("action")
+            return dict(action) if isinstance(action, Mapping) else {}
+    return {}
+
+
+def _history_decision_context(
+    decision: tuple[
+        int,
+        int,
+        float,
+        float,
+        tuple[tuple[float, ...], ...],
+        tuple[tuple[int, ...], ...],
+        dict[str, float],
+    ],
+) -> dict[str, Any]:
+    context = dict(decision[6])
+    context["action_id"] = decision[0]
+    context["action_index"] = decision[1]
+    context["value"] = round(float(decision[3]), 6)
+    context["legal_action_count"] = len(decision[4])
+    return {
+        key: round(value, 6) if isinstance(value, float) else value
+        for key, value in context.items()
+    }
 
 
 def _choose_action(
@@ -754,15 +842,27 @@ def _choose_action(
     info: Mapping[str, Any],
     *,
     deterministic: bool,
-) -> tuple[int, int, float, float, tuple[tuple[float, ...], ...], dict[str, float]] | None:
+) -> tuple[
+    int,
+    int,
+    float,
+    float,
+    tuple[tuple[float, ...], ...],
+    tuple[tuple[int, ...], ...],
+    dict[str, float],
+] | None:
     descriptors = _action_space(info)
     if not descriptors:
         return None
     obs_vector = torch.tensor([_observation_vector(observation)], dtype=torch.float32)
     action_features_tuple = tuple(_action_features(descriptor) for descriptor in descriptors)
+    action_identity_ids_tuple = tuple(
+        descriptor_identity_ids(descriptor) for descriptor in descriptors
+    )
     action_tensor = torch.tensor([action_features_tuple], dtype=torch.float32)
+    identity_tensor = torch.tensor([action_identity_ids_tuple], dtype=torch.long)
     with torch.no_grad():
-        logits, value, planning_outputs = model(obs_vector, action_tensor)
+        logits, value, planning_outputs = model(obs_vector, action_tensor, identity_tensor)
         logits = logits[0]
         distribution = torch.distributions.Categorical(logits=logits)
         action_index_tensor = torch.argmax(logits) if deterministic else distribution.sample()
@@ -782,7 +882,15 @@ def _choose_action(
     }
     for index, key in enumerate(PLANNING_HEAD_SCHEMA):
         decision_context[key] = float(planning_values[index].item())
-    return action_id, action_index, log_prob, state_value, action_features_tuple, decision_context
+    return (
+        action_id,
+        action_index,
+        log_prob,
+        state_value,
+        action_features_tuple,
+        action_identity_ids_tuple,
+        decision_context,
+    )
 
 
 def _ppo_update(
@@ -823,7 +931,15 @@ def _ppo_update(
                     [transition.action_features],
                     dtype=torch.float32,
                 )
-                logits, value, planning_outputs = model(obs_tensor, action_tensor)
+                identity_tensor = torch.tensor(
+                    [transition.action_identity_ids],
+                    dtype=torch.long,
+                )
+                logits, value, planning_outputs = model(
+                    obs_tensor,
+                    action_tensor,
+                    identity_tensor,
+                )
                 distribution = torch.distributions.Categorical(logits=logits[0])
                 action_index = torch.tensor(transition.action_index)
                 log_prob = distribution.log_prob(action_index)
@@ -887,12 +1003,22 @@ def _masked_actor_critic_class(nn: Any) -> Any:
             *,
             observation_dim: int,
             action_feature_dim: int,
+            content_vocab_size: int = 2,
+            content_identity_slots: int = CONTENT_IDENTITY_SLOTS,
+            content_identity_embedding_dim: int = CONTENT_IDENTITY_EMBED_DIM,
             hidden_size: int,
             hidden_layers: int,
             head_hidden_layers: int,
             activation: str,
         ) -> None:
             super().__init__()
+            self.content_identity_slots = max(0, int(content_identity_slots))
+            self.content_identity_embedding_dim = max(0, int(content_identity_embedding_dim))
+            self.content_embedding = nn.Embedding(
+                max(2, int(content_vocab_size)),
+                max(1, self.content_identity_embedding_dim),
+            )
+            identity_dim = self.content_identity_slots * self.content_identity_embedding_dim
             self.observation_encoder = _mlp(
                 nn,
                 input_dim=observation_dim,
@@ -902,7 +1028,7 @@ def _masked_actor_critic_class(nn: Any) -> Any:
             )
             self.action_encoder = _mlp(
                 nn,
-                input_dim=action_feature_dim,
+                input_dim=action_feature_dim + identity_dim,
                 hidden_size=hidden_size,
                 hidden_layers=hidden_layers,
                 activation=activation,
@@ -932,9 +1058,43 @@ def _masked_actor_critic_class(nn: Any) -> Any:
                 output_dim=PLANNING_HEAD_DIM,
             )
 
-        def forward(self, observation: Any, action_features: Any) -> tuple[Any, Any, Any]:
+        def forward(
+            self,
+            observation: Any,
+            action_features: Any,
+            action_identity_ids: Any | None = None,
+        ) -> tuple[Any, Any, Any]:
             state_hidden = self.observation_encoder(observation)
-            action_hidden = self.action_encoder(action_features)
+            if self.content_identity_slots:
+                if action_identity_ids is None:
+                    action_identity_ids = action_features.new_zeros(
+                        (
+                            action_features.shape[0],
+                            action_features.shape[1],
+                            self.content_identity_slots,
+                        )
+                    ).long()
+                action_identity_ids = action_identity_ids.clamp(
+                    min=0,
+                    max=self.content_embedding.num_embeddings - 1,
+                )
+                identity_features = self.content_embedding(action_identity_ids).reshape(
+                    action_features.shape[0],
+                    action_features.shape[1],
+                    self.content_identity_slots * self.content_identity_embedding_dim,
+                )
+                action_input = action_features.new_empty(
+                    (
+                        action_features.shape[0],
+                        action_features.shape[1],
+                        action_features.shape[2] + identity_features.shape[2],
+                    )
+                )
+                action_input[..., : action_features.shape[2]] = action_features
+                action_input[..., action_features.shape[2] :] = identity_features
+            else:
+                action_input = action_features
+            action_hidden = self.action_encoder(action_input)
             combined = action_hidden + state_hidden.unsqueeze(1)
             logits = self.policy_head(combined).squeeze(-1)
             value = self.value_head(state_hidden).squeeze(-1)
@@ -1667,6 +1827,97 @@ def _planning_output_averages(values: Sequence[Sequence[float]]) -> dict[str, fl
     }
 
 
+def _select_highlight_run_histories(
+    eval_results: Sequence[LearningRunResult],
+    *,
+    target: TrainingTarget,
+    report_output_path: Path | str | None,
+    output_path: Path | str | None,
+) -> dict[str, Any]:
+    runs_with_history = tuple(run for run in eval_results if run.history is not None)
+    if not runs_with_history:
+        return {}
+    best = max(runs_with_history, key=lambda run: _highlight_quality_key(run, target))
+    worst = min(runs_with_history, key=lambda run: _highlight_quality_key(run, target))
+    base = _highlight_artifact_base(report_output_path, output_path)
+    return {
+        "schema_version": 1,
+        "best": _highlight_history_entry("best", best, target=target, base=base),
+        "worst": _highlight_history_entry("worst", worst, target=target, base=base),
+    }
+
+
+def _resume_highlight_run_histories(previous_result: Mapping[str, Any]) -> dict[str, Any]:
+    payload = previous_result.get("highlight_run_histories")
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _highlight_quality_key(
+    run: LearningRunResult,
+    target: TrainingTarget,
+) -> tuple[int, int, int, int, float, int, int]:
+    return (
+        int(not run.failed_to_continue and run.error is None),
+        int(_run_reached_target(run, target)),
+        run.final_act,
+        run.final_floor,
+        run.total_reward,
+        run.steps_taken,
+        -run.run_index,
+    )
+
+
+def _highlight_history_entry(
+    role: str,
+    run: LearningRunResult,
+    *,
+    target: TrainingTarget,
+    base: Path | None,
+) -> dict[str, Any]:
+    paths = _highlight_paths(base, role) if base is not None else {}
+    return {
+        "role": role,
+        "run_index": run.run_index,
+        "seed": run.seed,
+        "character_id": run.character_id,
+        "ascension": run.ascension,
+        "steps_taken": run.steps_taken,
+        "total_reward": run.total_reward,
+        "terminated": run.terminated,
+        "truncated": run.truncated,
+        "final_phase": run.final_phase,
+        "final_act": run.final_act,
+        "final_floor": run.final_floor,
+        "target_reached": _run_reached_target(run, target),
+        "failed_to_continue": run.failed_to_continue,
+        "error": run.error,
+        "json_path": str(paths["json"]) if "json" in paths else None,
+        "html_path": str(paths["html"]) if "html" in paths else None,
+        "map_path": str(paths["map"]) if "map" in paths else None,
+        "history": dict(run.history or {}),
+    }
+
+
+def _highlight_artifact_base(
+    report_output_path: Path | str | None,
+    output_path: Path | str | None,
+) -> Path | None:
+    source = report_output_path if report_output_path is not None else output_path
+    if source is None:
+        return None
+    target = Path(source)
+    return target.parent / target.stem
+
+
+def _highlight_paths(base: Path, role: str) -> dict[str, Path]:
+    safe_role = role.lower().replace(" ", "_")
+    return {
+        "json": base.with_name(f"{base.name}_{safe_role}_run_history.json"),
+        "html": base.with_name(f"{base.name}_{safe_role}_run_history.html"),
+        "map": base.with_name(f"{base.name}_{safe_role}_run_map.txt"),
+    }
+
+
 def _ppo_result(
     *,
     target: TrainingTarget,
@@ -1683,6 +1934,7 @@ def _ppo_result(
     training_points: Sequence[LearningProgressPoint],
     evaluation_points: Sequence[LearningProgressPoint],
     batch_summaries: Sequence[Mapping[str, Any]],
+    highlight_run_histories: Mapping[str, Any],
     metadata: Mapping[str, Any],
 ) -> dict[str, Any]:
     completed_runs = max(1, len(training_points))
@@ -1713,6 +1965,7 @@ def _ppo_result(
         "batch_summaries": list(batch_summaries),
         "progress": [point.model_dump(mode="json") for point in progress],
         "evaluation_progress": [point.model_dump(mode="json") for point in eval_progress],
+        "highlight_run_histories": dict(highlight_run_histories),
         "metadata": dict(metadata),
     }
 
@@ -1743,6 +1996,7 @@ def _persist_ppo(
         )
     if output_path is not None:
         _write_json(result, output_path)
+    _write_highlight_run_history_artifacts(result)
     progress = [
         LearningProgressPoint.model_validate(point)
         for point in result.get("progress", [])
@@ -1762,6 +2016,96 @@ def _persist_ppo(
             progress=progress,
             window=progress_window,
         )
+
+
+def _write_highlight_run_history_artifacts(result: Mapping[str, Any]) -> None:
+    histories = _mapping(result.get("highlight_run_histories"))
+    for role in ("best", "worst"):
+        entry = _mapping(histories.get(role))
+        history = _mapping(entry.get("history"))
+        if not history:
+            continue
+        json_path = _optional_path(entry.get("json_path"))
+        html_path = _optional_path(entry.get("html_path"))
+        map_path = _optional_path(entry.get("map_path"))
+        if json_path is not None:
+            write_run_history(history, json_path)
+        if html_path is not None:
+            title = (
+                f"{role.title()} PPO Evaluation Run "
+                f"(seed {entry.get('seed', '')}, reward {entry.get('total_reward', 0)})"
+            )
+            write_run_history_html(history, html_path)
+            html_text = html_path.read_text(encoding="utf-8")
+            title_tag = f"<title>{html_escape(title)}</title>"
+            heading = f"<h1>{html_escape(title)}</h1>"
+            html_path.write_text(
+                html_text.replace("<title>Run History</title>", title_tag).replace(
+                    "<h1>Run History</h1>",
+                    heading,
+                ),
+                encoding="utf-8",
+            )
+        if map_path is not None:
+            write_run_history_map_text(history, map_path)
+
+
+def _highlight_links_html(
+    result: Mapping[str, Any],
+    *,
+    report_output_path: object,
+) -> str:
+    histories = _mapping(result.get("highlight_run_histories"))
+    rows: list[str] = []
+    for role in ("best", "worst"):
+        entry = _mapping(histories.get(role))
+        if not entry:
+            continue
+        links = []
+        for label, key in (("Timeline", "html_path"), ("JSON", "json_path"), ("Map", "map_path")):
+            path = entry.get(key)
+            if path:
+                href = _relative_link(report_output_path, path)
+                links.append(f'<a href="{html_escape(href)}">{label}</a>')
+        link_html = " / ".join(links) or "-"
+        rows.append(
+            "<tr>"
+            f"<td>{html_escape(role.title())}</td>"
+            f"<td>{html_escape(str(entry.get('run_index', '')))}</td>"
+            f"<td>{html_escape(str(entry.get('seed', '')))}</td>"
+            f"<td>{_float(entry.get('total_reward')):.3f}</td>"
+            f"<td>{_int(entry.get('final_act'))}</td>"
+            f"<td>{_int(entry.get('final_floor'))}</td>"
+            f"<td>{html_escape(str(entry.get('final_phase', '')))}</td>"
+            f"<td>{link_html}</td>"
+            "</tr>"
+        )
+    if not rows:
+        return ""
+    return (
+        "<h2>Best And Worst Evaluation Run Histories</h2>"
+        '<div class="scroll"><table>'
+        "<thead><tr><th>Role</th><th>Run</th><th>Seed</th><th>Reward</th>"
+        "<th>Act</th><th>Floor</th><th>Phase</th><th>Artifacts</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _relative_link(report_output_path: object, target_path: object) -> str:
+    target = Path(str(target_path))
+    if report_output_path in {None, ""}:
+        return target.as_posix()
+    report = Path(str(report_output_path))
+    try:
+        return os.path.relpath(target, start=report.parent).replace("\\", "/")
+    except ValueError:
+        return target.as_posix()
+
+
+def _optional_path(value: object) -> Path | None:
+    if value in {None, ""}:
+        return None
+    return Path(str(value))
 
 
 def _write_ppo_progress_report(
@@ -1794,6 +2138,10 @@ def _ppo_progress_html(
     )
     last_batch = _mapping(batches[-1]) if batches else {}
     planning_rows = _planning_rows_html(batches[-12:])
+    highlight_links = _highlight_links_html(
+        result,
+        report_output_path=result.get("report_output_path"),
+    )
     summary = {
         "runs_trained": _int(result.get("runs_trained")),
         "total_steps": _int(result.get("total_steps")),
@@ -1906,6 +2254,7 @@ def _ppo_progress_html(
   <h1>Masked PPO Training Progress</h1>
   <p class="muted">{schema_text}</p>
   <section class="summary">{summary_items}</section>
+  {highlight_links}
   <h2>Planning Head Trends</h2>
   <div class="scroll">
     <table>
@@ -2058,6 +2407,13 @@ def _checkpoint_architecture(result: Mapping[str, Any]) -> dict[str, Any]:
         "network_schema_version": _int(metadata.get("network_schema_version")),
         "observation_dim": _int(metadata.get("observation_dim")),
         "action_feature_dim": _int(metadata.get("action_feature_dim")),
+        "content_vocab_schema_version": _int(metadata.get("content_vocab_schema_version")),
+        "content_vocab_size": _int(metadata.get("content_vocab_size")),
+        "content_vocab_checksum": str(metadata.get("content_vocab_checksum", "")),
+        "content_identity_slots": _int(metadata.get("content_identity_slots")),
+        "content_identity_embedding_dim": _int(
+            metadata.get("content_identity_embedding_dim")
+        ),
         "planning_head_dim": _int(metadata.get("planning_head_dim")),
         "planning_head_schema": list(_sequence(metadata.get("planning_head_schema"))),
         "hidden_size": _int(metadata.get("hidden_size")),
@@ -2075,6 +2431,11 @@ def _architecture_matches(
         "network_schema_version",
         "observation_dim",
         "action_feature_dim",
+        "content_vocab_schema_version",
+        "content_vocab_size",
+        "content_vocab_checksum",
+        "content_identity_slots",
+        "content_identity_embedding_dim",
         "planning_head_dim",
         "planning_head_schema",
         "hidden_size",
