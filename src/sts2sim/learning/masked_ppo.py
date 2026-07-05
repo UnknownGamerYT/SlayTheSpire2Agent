@@ -331,6 +331,7 @@ def train_masked_ppo(
     target_reward: float = 100.0,
     target_eval_successes: int = 1,
     target_consecutive_successes: int = 1,
+    target_success_rate: float = 0.0,
     resume: bool = True,
     resume_from_path: Path | str | None = None,
     model_output_path: Path | str | None = Path("checkpoints/masked_ppo_latest.pt"),
@@ -347,6 +348,7 @@ def train_masked_ppo(
     torch, nn, optim = _load_torch()
     torch_device = _resolve_torch_device(torch, device)
     resolved_target = resolve_ppo_target(target)
+    success_rate_threshold = _success_rate_threshold(target_success_rate)
     train_rng = random.Random(f"{seed}:ppo-train")
     eval_rng = random.Random(f"{seed}:ppo-eval")
     model_class = _masked_actor_critic_class(nn)
@@ -405,6 +407,7 @@ def train_masked_ppo(
         "ascension": ascension,
         "target_eval_successes": max(1, target_eval_successes),
         "target_consecutive_successes": max(1, target_consecutive_successes),
+        "target_success_rate": success_rate_threshold,
         **architecture,
         "parameter_count": _parameter_count(model),
         **_torch_device_metadata(torch, torch_device, requested_device=device),
@@ -608,10 +611,12 @@ def train_masked_ppo(
         target_successes = sum(
             1 for run in eval_results if _run_reached_target(run, resolved_target)
         )
+        target_success_rate = target_successes / len(eval_results) if eval_results else 0.0
         max_consecutive = max_consecutive_target_successes(eval_results, resolved_target)
         batch_reached = (
             target_successes >= max(1, target_eval_successes)
             and max_consecutive >= max(1, target_consecutive_successes)
+            and target_success_rate >= success_rate_threshold
         )
         if batch_reached and reached_batch is None:
             reached_batch = batch_index
@@ -623,6 +628,7 @@ def train_masked_ppo(
                 train_total_steps=total_steps,
                 eval_results=eval_results,
                 target_successes=target_successes,
+                target_success_rate_threshold=success_rate_threshold,
                 max_consecutive=max_consecutive,
                 reached_target=batch_reached,
                 planning_outputs=batch_planning_outputs,
@@ -675,8 +681,9 @@ def train_masked_ppo(
             evaluation_average_reward=_average(run.total_reward for run in eval_results),
             evaluation_average_floor=_average(run.final_floor for run in eval_results),
             evaluation_target_success_rate=(
-                target_successes / len(eval_results) if eval_results else 0.0
+                target_success_rate
             ),
+            target_success_rate_threshold=success_rate_threshold,
             reached_target=batch_reached,
             model_path=str(model_output_path) if model_output_path is not None else None,
             output_path=str(output_path) if output_path is not None else None,
@@ -776,6 +783,10 @@ def max_consecutive_target_successes(
         else:
             current = 0
     return best
+
+
+def _success_rate_threshold(value: object) -> float:
+    return max(0.0, min(1.0, _float(value)))
 
 
 def _collect_training_run(
@@ -2235,6 +2246,7 @@ def _ppo_batch_summary(
     train_total_steps: int,
     eval_results: Sequence[LearningRunResult],
     target_successes: int,
+    target_success_rate_threshold: float,
     max_consecutive: int,
     reached_target: bool,
     planning_outputs: Sequence[Sequence[float]] = (),
@@ -2263,6 +2275,7 @@ def _ppo_batch_summary(
         ),
         "evaluation_target_successes": target_successes,
         "evaluation_target_success_rate": round(target_successes / max(1, completed), 6),
+        "target_success_rate_threshold": round(target_success_rate_threshold, 6),
         "evaluation_max_consecutive_successes": max_consecutive,
         "evaluation_errors": sum(1 for run in eval_results if run.error is not None),
         "evaluation_failed_to_continue": sum(

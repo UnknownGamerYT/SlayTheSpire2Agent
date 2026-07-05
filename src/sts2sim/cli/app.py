@@ -1864,6 +1864,15 @@ def train_masked_ppo(
             help="Consecutive holdout target successes required before stopping.",
         ),
     ] = 1,
+    target_success_rate: Annotated[
+        float,
+        typer.Option(
+            "--target-success-rate",
+            min=0.0,
+            max=1.0,
+            help="Minimum holdout target success rate required before stopping.",
+        ),
+    ] = 0.0,
     resume: Annotated[
         bool,
         typer.Option(
@@ -1953,6 +1962,7 @@ def train_masked_ppo(
                 target_reward=target_reward,
                 target_eval_successes=target_eval_successes,
                 target_consecutive_successes=target_consecutive_successes,
+                target_success_rate=target_success_rate,
                 resume=resume,
                 resume_from_path=resume_from_path,
                 model_output_path=model_output_path,
@@ -2137,6 +2147,15 @@ def train_ppo_curriculum(
             help="Override consecutive holdout successes required before stage advancement.",
         ),
     ] = None,
+    target_success_rate: Annotated[
+        float,
+        typer.Option(
+            "--target-success-rate",
+            min=0.0,
+            max=1.0,
+            help="Minimum holdout target success rate required before stage advancement.",
+        ),
+    ] = 0.0,
     resume: Annotated[
         bool,
         typer.Option(
@@ -2217,6 +2236,7 @@ def train_ppo_curriculum(
             target_reward=target_reward,
             target_eval_successes=target_eval_successes,
             target_consecutive_successes=target_consecutive_successes,
+            target_success_rate=target_success_rate,
             resume=resume,
             resume_from_path=resume_from_path,
             checkpoint_dir=checkpoint_dir,

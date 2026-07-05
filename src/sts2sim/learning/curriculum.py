@@ -94,6 +94,7 @@ def train_masked_ppo_curriculum(
     target_reward: float = 100.0,
     target_eval_successes: int | None = None,
     target_consecutive_successes: int | None = None,
+    target_success_rate: float = 0.0,
     resume: bool = True,
     resume_from_path: Path | str | None = None,
     checkpoint_dir: Path | str = Path("checkpoints"),
@@ -157,6 +158,7 @@ def train_masked_ppo_curriculum(
                         eval_runs=eval_runs,
                         target_eval_successes=target_eval_successes,
                         target_consecutive_successes=target_consecutive_successes,
+                        target_success_rate=target_success_rate,
                         hidden_size=hidden_size,
                         hidden_layers=hidden_layers,
                         head_hidden_layers=head_hidden_layers,
@@ -216,6 +218,7 @@ def train_masked_ppo_curriculum(
                         eval_runs=eval_runs,
                         target_eval_successes=target_eval_successes,
                         target_consecutive_successes=target_consecutive_successes,
+                        target_success_rate=target_success_rate,
                         hidden_size=hidden_size,
                         hidden_layers=hidden_layers,
                         head_hidden_layers=head_hidden_layers,
@@ -264,6 +267,7 @@ def train_masked_ppo_curriculum(
                     target_consecutive_successes
                     or defaults.target_consecutive_successes
                 ),
+                target_success_rate=target_success_rate,
                 resume=stage_should_resume,
                 resume_from_path=stage_resume_from,
                 model_output_path=model_path,
@@ -312,6 +316,7 @@ def train_masked_ppo_curriculum(
                         eval_runs=eval_runs,
                         target_eval_successes=target_eval_successes,
                         target_consecutive_successes=target_consecutive_successes,
+                        target_success_rate=target_success_rate,
                         hidden_size=hidden_size,
                         hidden_layers=hidden_layers,
                         head_hidden_layers=head_hidden_layers,
@@ -346,6 +351,7 @@ def train_masked_ppo_curriculum(
         eval_runs=eval_runs,
         target_eval_successes=target_eval_successes,
         target_consecutive_successes=target_consecutive_successes,
+        target_success_rate=target_success_rate,
         hidden_size=hidden_size,
         hidden_layers=hidden_layers,
         head_hidden_layers=head_hidden_layers,
@@ -510,6 +516,7 @@ def _curriculum_result(
     eval_runs: int,
     target_eval_successes: int | None,
     target_consecutive_successes: int | None,
+    target_success_rate: float,
     hidden_size: int,
     hidden_layers: int,
     head_hidden_layers: int,
@@ -559,6 +566,7 @@ def _curriculum_result(
             "requested_device": device,
             "target_eval_successes_override": target_eval_successes,
             "target_consecutive_successes_override": target_consecutive_successes,
+            "target_success_rate": max(0.0, min(1.0, _float(target_success_rate))),
         },
     }
 

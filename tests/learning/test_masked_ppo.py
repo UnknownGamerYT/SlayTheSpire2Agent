@@ -82,6 +82,7 @@ def test_train_masked_ppo_help_lists_success_streak_controls() -> None:
     assert "--planning-coef" in result.output
     assert "--teacher-mix" in result.output
     assert "--imitation-coef" in result.output
+    assert "--target-succes" in result.output
     assert "--device" in result.output
     assert "--until-stopped" in result.output
     assert "--terminal-prog" in result.output
@@ -233,6 +234,7 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert second["metadata"]["content_vocab_size"] == load_content_vocab().size
     assert "content_vocab_checksum" in second["metadata"]
     assert second["metadata"]["planning_head_schema"] == list(PLANNING_HEAD_SCHEMA)
+    assert second["metadata"]["target_success_rate"] == 0.0
     assert second["metadata"]["reward_schema_version"] == 5
     assert "planning_output_averages" in second["batch_summaries"][-1]
     assert "reward_component_averages" in second["batch_summaries"][-1]
