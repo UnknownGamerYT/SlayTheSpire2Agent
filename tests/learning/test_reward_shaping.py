@@ -10,6 +10,7 @@ from sts2sim.learning.rewards import (
     deck_delta_summary,
     learning_reward,
     learning_reward_breakdown,
+    starter_dependency_summary,
 )
 
 
@@ -334,11 +335,15 @@ def test_terminal_starter_similarity_penalizes_unchanged_starter_deck() -> None:
     deck = _starter_deck()
 
     breakdown = learning_reward_breakdown(
-        _base_payload(floor=5, deck=deck),
-        _base_payload(phase="failed", floor=5, deck=deck),
+        _base_payload(floor=8, deck=deck),
+        _base_payload(phase="failed", floor=8, deck=deck),
     )
+    summary = starter_dependency_summary(_base_payload(phase="failed", floor=8, deck=deck))
 
     assert breakdown.starter_deck_similarity_penalty < 0.0
+    assert summary["starter_retention"] == 1.0
+    assert summary["starter_share"] == 1.0
+    assert summary["dependency_score"] > summary["threshold"]
 
 
 def test_starter_similarity_penalty_respects_deck_improvements() -> None:
@@ -346,18 +351,100 @@ def test_starter_similarity_penalty_respects_deck_improvements() -> None:
     upgraded = tuple(card | {"upgraded": True} for card in starter)
 
     unchanged = learning_reward_breakdown(
-        _base_payload(floor=5, deck=starter),
-        _base_payload(phase="failed", floor=5, deck=starter),
+        _base_payload(floor=8, deck=starter),
+        _base_payload(phase="failed", floor=8, deck=starter),
     )
     improved = learning_reward_breakdown(
-        _base_payload(floor=5, deck=upgraded),
-        _base_payload(phase="failed", floor=5, deck=upgraded, relics=("anchor",)),
+        _base_payload(floor=8, deck=upgraded),
+        _base_payload(phase="failed", floor=8, deck=upgraded, relics=("anchor",)),
     )
 
     assert improved.starter_deck_similarity_penalty <= 0.0
     assert abs(improved.starter_deck_similarity_penalty) < abs(
         unchanged.starter_deck_similarity_penalty
     )
+
+
+def test_starter_similarity_penalty_does_not_apply_to_successful_runs() -> None:
+    deck = _starter_deck()
+
+    breakdown = learning_reward_breakdown(
+        _base_payload(floor=12, deck=deck),
+        _base_payload(phase="complete", floor=12, deck=deck),
+    )
+
+    assert breakdown.starter_deck_similarity_penalty == 0.0
+
+
+def test_starter_similarity_penalty_respects_floor_gate() -> None:
+    deck = _starter_deck()
+
+    breakdown = learning_reward_breakdown(
+        _base_payload(floor=5, deck=deck),
+        _base_payload(phase="failed", floor=5, deck=deck),
+    )
+
+    assert breakdown.starter_deck_similarity_penalty == 0.0
+
+
+def test_starter_similarity_penalty_requires_deck_weakness() -> None:
+    deck = _starter_deck()
+    config = DEFAULT_REWARD_CONFIG.model_copy(update={"starter_deck_problem_threshold": 1.0})
+
+    breakdown = learning_reward_breakdown(
+        _base_payload(floor=12, deck=deck),
+        _base_payload(phase="failed", floor=12, deck=deck),
+        config=config,
+    )
+
+    assert breakdown.starter_deck_similarity_penalty == 0.0
+
+
+def test_starter_dependency_counts_duplicate_starter_cards_as_bloat() -> None:
+    deck = (*_starter_deck(), *_deck_cards(4))
+    state = _base_payload(phase="failed", floor=12, act=2, deck=deck)
+    summary = starter_dependency_summary(state)
+    breakdown = learning_reward_breakdown(_base_payload(floor=12, deck=deck), state)
+
+    assert summary["duplicate_starter_count"] == 4
+    assert summary["total_starter_weight"] > summary["retained_starter_weight"]
+    assert breakdown.starter_deck_similarity_penalty < 0.0
+
+
+def test_starter_dependency_can_use_tracker_baseline_for_custom_starters() -> None:
+    custom_starter = (
+        {
+            "instance_id": "zap_0",
+            "card_id": "zap",
+            "type": "attack",
+            "effects": {"damage": 4},
+        },
+        {
+            "instance_id": "guard_0",
+            "card_id": "guard",
+            "type": "skill",
+            "effects": {"block": 4},
+        },
+    )
+    tracker = LearningRewardTracker(
+        starter_deck_counts={"zap": 1, "guard": 1},
+        starter_deck_size=2,
+        starter_deck_capability_score=0.0,
+    )
+
+    breakdown = learning_reward_breakdown(
+        _base_payload(floor=10, deck=custom_starter),
+        _base_payload(phase="failed", floor=10, deck=custom_starter),
+        tracker=tracker,
+    )
+    summary = starter_dependency_summary(
+        _base_payload(phase="failed", floor=10, deck=custom_starter),
+        tracker=tracker,
+    )
+
+    assert summary["baseline_counts"] == {"zap": 1, "guard": 1}
+    assert summary["starter_retention"] == 1.0
+    assert breakdown.starter_deck_similarity_penalty < 0.0
 
 
 def test_node_progress_reward_is_tiny_and_once_per_tracker() -> None:

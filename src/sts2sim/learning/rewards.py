@@ -80,9 +80,20 @@ class LearningRewardConfig(BaseModel):
     curse_burden_support_mitigation_cap: float = 0.75
     curse_burden_penalty_cap: float = 0.70
     starter_deck_similarity_penalty: float = -0.30
-    starter_deck_similarity_floor: int = 3
-    starter_deck_similarity_threshold: float = 0.55
+    starter_deck_similarity_floor: int = 6
+    starter_deck_similarity_threshold: float = 0.50
+    starter_deck_retention_weight: float = 0.55
+    starter_deck_share_weight: float = 0.45
+    starter_deck_plain_card_weight: float = 1.0
+    starter_deck_upgraded_card_weight: float = 0.55
     starter_deck_improved_card_weight: float = 0.35
+    starter_deck_duplicate_card_weight: float = 1.20
+    starter_deck_problem_threshold: float = 0.08
+    starter_deck_problem_floor: float = 0.45
+    starter_deck_complete_penalty_scale: float = 0.0
+    starter_deck_act1_penalty_scale: float = 0.35
+    starter_deck_act2_penalty_scale: float = 0.70
+    starter_deck_act3_penalty_scale: float = 1.0
     starter_deck_capability_mitigation: float = 0.08
     starter_deck_relic_mitigation: float = 0.12
 
@@ -125,6 +136,9 @@ class LearningRewardTracker(BaseModel):
     previous_projected_damage: int = 0
     potion_discard_context: dict[str, Any] = Field(default_factory=dict)
     component_totals: dict[str, float] = Field(default_factory=dict)
+    starter_deck_counts: dict[str, int] = Field(default_factory=dict)
+    starter_deck_size: int = 0
+    starter_deck_capability_score: float = 0.0
 
     def reset(self) -> None:
         """Clear all run-scoped reward state."""
@@ -138,6 +152,9 @@ class LearningRewardTracker(BaseModel):
         self.previous_projected_damage = 0
         self.potion_discard_context.clear()
         self.component_totals.clear()
+        self.starter_deck_counts.clear()
+        self.starter_deck_size = 0
+        self.starter_deck_capability_score = 0.0
 
     def record(self, breakdown: LearningRewardBreakdown) -> None:
         """Accumulate component totals for reporting."""
@@ -202,6 +219,18 @@ def deck_delta_summary(
     return _deck_delta_summary(_payload(previous_state), _payload(next_state), config)
 
 
+def starter_dependency_summary(
+    state: Any,
+    *,
+    tracker: LearningRewardTracker | None = None,
+    config: LearningRewardConfig = DEFAULT_REWARD_CONFIG,
+) -> dict[str, Any]:
+    """Return diagnostics for terminal starter-deck dependency shaping."""
+
+    payload = _payload(state)
+    return _starter_dependency_summary(payload, config, tracker=tracker)
+
+
 def learning_reward_breakdown(
     previous_state: Any,
     next_state: Any,
@@ -216,6 +245,7 @@ def learning_reward_breakdown(
     previous = _payload(previous_state)
     current = _payload(next_state)
     tracker = tracker or LearningRewardTracker()
+    _capture_starter_deck_baseline(previous, tracker)
     descriptor = _mapping(action_descriptor)
     aggression_pressure = _combat_aggression_pressure(previous, descriptor)
     hp_loss = _hp_loss(previous, current)
@@ -251,7 +281,7 @@ def learning_reward_breakdown(
     reward_skip = _reward_skip_penalty(previous, descriptor, config)
     deck_capability = _deck_capability_reward(previous, current, config)
     deck_burden = _deck_burden_penalty(previous, current, descriptor, config)
-    starter_similarity = _starter_deck_similarity_penalty(current, config)
+    starter_similarity = _starter_deck_similarity_penalty(current, config, tracker)
 
     breakdown = LearningRewardBreakdown(
         node_progress_reward=round(node_progress, 6),
@@ -1281,60 +1311,176 @@ def _source_compensation_support(source_id: object) -> float:
 def _starter_deck_similarity_penalty(
     payload: Mapping[str, Any],
     config: LearningRewardConfig,
+    tracker: LearningRewardTracker | None = None,
 ) -> float:
     if config.starter_deck_similarity_penalty >= 0:
         return 0.0
-    if _phase(payload) not in {"failed", "complete"}:
-        return 0.0
-    if _int(payload.get("floor")) < max(0, config.starter_deck_similarity_floor):
-        return 0.0
+    summary = _starter_dependency_summary(payload, config, tracker=tracker)
+    return _float(summary.get("penalty"))
 
+
+def _starter_dependency_summary(
+    payload: Mapping[str, Any],
+    config: LearningRewardConfig,
+    *,
+    tracker: LearningRewardTracker | None = None,
+) -> dict[str, Any]:
     cards = _master_deck_cards(payload)
-    if not cards:
-        return 0.0
+    baseline_counts = _starter_baseline_counts(tracker)
+    baseline_size = sum(baseline_counts.values())
+    if not cards or baseline_size <= 0:
+        return _starter_dependency_empty_summary(payload, baseline_counts)
 
-    weighted_starter = _weighted_starter_card_count(cards, config)
-    similarity = weighted_starter / max(float(len(cards)), float(_STARTER_DECK_SIZE))
-    threshold = _clamp(config.starter_deck_similarity_threshold, 0.0, 0.95)
-    if similarity <= threshold:
-        return 0.0
-
-    severity = (similarity - threshold) / max(0.01, 1.0 - threshold)
-    mitigation = min(
-        1.0,
-        _starter_deck_capability_gain(cards) * config.starter_deck_capability_mitigation
-        + _starter_relic_support_score(payload) * config.starter_deck_relic_mitigation,
+    retained_weight, total_weight, duplicate_count = _starter_dependency_weights(
+        cards,
+        baseline_counts,
+        config,
     )
-    severity = max(0.0, severity - mitigation)
-    return config.starter_deck_similarity_penalty * severity
+    baseline_weight = max(1.0, float(baseline_size))
+    deck_size = max(1.0, float(len(cards)))
+    starter_retention = _clamp(retained_weight / baseline_weight)
+    starter_share = _clamp(total_weight / deck_size)
+    dependency = _clamp(
+        _normalized_mix(
+            (
+                (starter_retention, config.starter_deck_retention_weight),
+                (starter_share, config.starter_deck_share_weight),
+            )
+        )
+    )
+
+    threshold = _clamp(config.starter_deck_similarity_threshold, 0.0, 0.95)
+    raw_severity = 0.0
+    if dependency > threshold:
+        raw_severity = (dependency - threshold) / max(0.01, 1.0 - threshold)
+
+    deck_weakness = _starter_deck_weakness(payload, config)
+    problem_factor = _starter_problem_factor(deck_weakness, config)
+    mitigation = _starter_dependency_mitigation(cards, payload, config, tracker)
+    outcome_scale = _starter_outcome_scale(payload, config)
+    act_scale = _starter_act_scale(payload, config)
+    floor_scale = _starter_floor_scale(payload, config)
+    severity = max(0.0, raw_severity * problem_factor - mitigation)
+    penalty = (
+        config.starter_deck_similarity_penalty
+        * severity
+        * outcome_scale
+        * act_scale
+        * floor_scale
+    )
+
+    return {
+        "baseline_counts": dict(baseline_counts),
+        "baseline_size": baseline_size,
+        "deck_size": len(cards),
+        "retained_starter_weight": round(retained_weight, 6),
+        "total_starter_weight": round(total_weight, 6),
+        "duplicate_starter_count": duplicate_count,
+        "starter_retention": round(starter_retention, 6),
+        "starter_share": round(starter_share, 6),
+        "dependency_score": round(dependency, 6),
+        "threshold": round(threshold, 6),
+        "raw_severity": round(raw_severity, 6),
+        "deck_weakness": round(deck_weakness, 6),
+        "problem_factor": round(problem_factor, 6),
+        "mitigation": round(mitigation, 6),
+        "outcome_scale": round(outcome_scale, 6),
+        "act_scale": round(act_scale, 6),
+        "floor_scale": round(floor_scale, 6),
+        "severity": round(severity, 6),
+        "penalty": round(penalty, 6),
+    }
+
+
+def _starter_dependency_empty_summary(
+    payload: Mapping[str, Any],
+    baseline_counts: Mapping[str, int],
+) -> dict[str, Any]:
+    return {
+        "baseline_counts": dict(baseline_counts),
+        "baseline_size": sum(baseline_counts.values()),
+        "deck_size": len(_master_deck_cards(payload)),
+        "retained_starter_weight": 0.0,
+        "total_starter_weight": 0.0,
+        "duplicate_starter_count": 0,
+        "starter_retention": 0.0,
+        "starter_share": 0.0,
+        "dependency_score": 0.0,
+        "threshold": 0.0,
+        "raw_severity": 0.0,
+        "deck_weakness": 0.0,
+        "problem_factor": 0.0,
+        "mitigation": 0.0,
+        "outcome_scale": 0.0,
+        "act_scale": 0.0,
+        "floor_scale": 0.0,
+        "severity": 0.0,
+        "penalty": 0.0,
+    }
 
 
 def _weighted_starter_card_count(
     cards: Sequence[Mapping[str, Any]],
     config: LearningRewardConfig,
 ) -> float:
+    _retained_weight, total_weight, _duplicate_count = _starter_dependency_weights(
+        cards,
+        _STARTER_DECK_COUNTS,
+        config,
+    )
+    return total_weight
+
+
+def _starter_dependency_weights(
+    cards: Sequence[Mapping[str, Any]],
+    baseline_counts: Mapping[str, int],
+    config: LearningRewardConfig,
+) -> tuple[float, float, int]:
     seen: dict[str, int] = {}
-    weighted = 0.0
+    retained_weight = 0.0
+    total_weight = 0.0
+    duplicate_count = 0
     for card in cards:
         card_id = _normalized_id(card.get("card_id", card.get("id", "")))
-        allowed = _STARTER_DECK_COUNTS.get(card_id, 0)
+        allowed = max(0, int(baseline_counts.get(card_id, 0)))
         if allowed <= 0:
             continue
         count = seen.get(card_id, 0)
-        if count >= allowed:
-            continue
         seen[card_id] = count + 1
-        weighted += (
-            _clamp(config.starter_deck_improved_card_weight, 0.0, 1.0)
-            if _starter_card_is_improved(card)
-            else 1.0
-        )
-    return weighted
+        if count >= allowed:
+            duplicate_count += 1
+            total_weight += max(0.0, config.starter_deck_duplicate_card_weight)
+            continue
+        card_weight = _starter_card_dependency_weight(card, config)
+        retained_weight += card_weight
+        total_weight += card_weight
+    return retained_weight, total_weight, duplicate_count
+
+
+def _starter_card_dependency_weight(
+    card: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    weight = max(0.0, config.starter_deck_plain_card_weight)
+    if _starter_card_is_upgraded(card):
+        weight = min(weight, _clamp(config.starter_deck_upgraded_card_weight, 0.0, 1.5))
+    if _starter_card_is_enhanced(card):
+        weight = min(weight, _clamp(config.starter_deck_improved_card_weight, 0.0, 1.5))
+    return weight
+
+
+def _starter_card_is_upgraded(card: Mapping[str, Any]) -> bool:
+    return _bool(card.get("upgraded")) or any(
+        _normalized_id(tag).replace(":", "_") == "upgraded"
+        for tag in _sequence(card.get("tags"))
+    )
 
 
 def _starter_card_is_improved(card: Mapping[str, Any]) -> bool:
-    if _bool(card.get("upgraded")):
-        return True
+    return _starter_card_is_upgraded(card) or _starter_card_is_enhanced(card)
+
+
+def _starter_card_is_enhanced(card: Mapping[str, Any]) -> bool:
     if _sequence(card.get("enchantments")):
         return True
     custom = _mapping(card.get("custom"))
@@ -1354,16 +1500,35 @@ def _starter_card_is_improved(card: Mapping[str, Any]) -> bool:
         return True
     return any(
         _normalized_id(tag).replace(":", "_")
-        in {"enchanted", "innate", "retain", "upgraded"}
+        in {"enchanted", "innate", "retain"}
         for tag in _sequence(card.get("tags"))
     )
 
 
-def _starter_deck_capability_gain(cards: Sequence[Mapping[str, Any]]) -> float:
+def _starter_dependency_mitigation(
+    cards: Sequence[Mapping[str, Any]],
+    payload: Mapping[str, Any],
+    config: LearningRewardConfig,
+    tracker: LearningRewardTracker | None,
+) -> float:
+    return min(
+        1.0,
+        _starter_deck_capability_gain(cards, tracker) * config.starter_deck_capability_mitigation
+        + _starter_relic_support_score(payload) * config.starter_deck_relic_mitigation,
+    )
+
+
+def _starter_deck_capability_gain(
+    cards: Sequence[Mapping[str, Any]],
+    tracker: LearningRewardTracker | None = None,
+) -> float:
+    baseline_score = _STARTER_DECK_CAPABILITY_SCORE
+    if tracker is not None and tracker.starter_deck_counts:
+        baseline_score = tracker.starter_deck_capability_score
     return max(
         0.0,
         _deck_capability_score({"master_deck": tuple(cards)})
-        - _STARTER_DECK_CAPABILITY_SCORE,
+        - baseline_score,
     )
 
 
@@ -1382,6 +1547,104 @@ def _starter_relic_support_score(payload: Mapping[str, Any]) -> float:
         score += min(2.0, _float(values.get("repeating_effect")) * 0.2)
         score += min(2.0, _float(values.get("periodic_effect")) * 0.2)
     return score
+
+
+def _starter_baseline_counts(tracker: LearningRewardTracker | None) -> Mapping[str, int]:
+    if tracker is not None and tracker.starter_deck_counts:
+        return tracker.starter_deck_counts
+    return _STARTER_DECK_COUNTS
+
+
+def _capture_starter_deck_baseline(
+    payload: Mapping[str, Any],
+    tracker: LearningRewardTracker,
+) -> None:
+    if tracker.starter_deck_counts:
+        return
+    if _int(payload.get("floor")) > 1:
+        return
+    cards = _master_deck_cards(payload)
+    if not cards:
+        return
+    counts = _card_id_counts(cards)
+    if not counts:
+        return
+    tracker.starter_deck_counts = counts
+    tracker.starter_deck_size = sum(counts.values())
+    tracker.starter_deck_capability_score = _deck_capability_score(
+        {"master_deck": tuple(cards)}
+    )
+
+
+def _card_id_counts(cards: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for card in cards:
+        card_id = _normalized_id(card.get("card_id", card.get("id", "")))
+        if card_id:
+            counts[card_id] = counts.get(card_id, 0) + 1
+    return counts
+
+
+def _starter_deck_weakness(
+    payload: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    metrics = _deck_metrics(payload, config)
+    problems = _deck_problem_scores(payload, metrics, config)
+    relevant_weights = {
+        key: weight
+        for key, weight in _DECK_PROBLEM_WEIGHTS.items()
+        if key != "starter_density"
+    }
+    total_weight = sum(relevant_weights.values())
+    if total_weight <= 0:
+        return 0.0
+    weighted = sum(
+        _float(problems.get(key)) * weight
+        for key, weight in relevant_weights.items()
+    )
+    return _clamp(weighted / total_weight)
+
+
+def _starter_problem_factor(
+    deck_weakness: float,
+    config: LearningRewardConfig,
+) -> float:
+    threshold = max(0.0, config.starter_deck_problem_threshold)
+    if deck_weakness < threshold:
+        return 0.0
+    return _clamp(max(config.starter_deck_problem_floor, deck_weakness))
+
+
+def _starter_outcome_scale(
+    payload: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    phase = _phase(payload)
+    if phase == "failed":
+        return 1.0
+    if phase == "complete":
+        return _clamp(config.starter_deck_complete_penalty_scale, 0.0, 1.0)
+    return 0.0
+
+
+def _starter_act_scale(payload: Mapping[str, Any], config: LearningRewardConfig) -> float:
+    act = max(1, _int(payload.get("act"), 1))
+    if act <= 1:
+        return _clamp(config.starter_deck_act1_penalty_scale, 0.0, 1.0)
+    if act == 2:
+        return _clamp(config.starter_deck_act2_penalty_scale, 0.0, 1.0)
+    return _clamp(config.starter_deck_act3_penalty_scale, 0.0, 1.0)
+
+
+def _starter_floor_scale(payload: Mapping[str, Any], config: LearningRewardConfig) -> float:
+    floor = _int(payload.get("floor"))
+    floor_gate = max(0, config.starter_deck_similarity_floor)
+    if floor < floor_gate:
+        return 0.0
+    if floor_gate <= 0:
+        return 1.0
+    return _clamp((floor - floor_gate + 1) / 6.0)
 
 
 def _added_deck_cards(
@@ -1486,6 +1749,13 @@ def _rounded_float_dict(values: Mapping[str, Any]) -> dict[str, float]:
     return {str(key): round(_float(value), 6) for key, value in values.items()}
 
 
+def _normalized_mix(values: Sequence[tuple[float, float]]) -> float:
+    total_weight = sum(max(0.0, weight) for _value, weight in values)
+    if total_weight <= 0:
+        return 0.0
+    return sum(value * max(0.0, weight) for value, weight in values) / total_weight
+
+
 def _has_available_potion_replacement(payload: Mapping[str, Any]) -> bool:
     reward = _mapping(payload.get("reward"))
     if reward:
@@ -1516,6 +1786,7 @@ def _refresh_tracker_after_transition(
     current: Mapping[str, Any],
     tracker: LearningRewardTracker,
 ) -> None:
+    _capture_starter_deck_baseline(current, tracker)
     combat = _combat(current)
     if not combat:
         tracker.active_combat_id = None
