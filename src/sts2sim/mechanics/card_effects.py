@@ -115,6 +115,10 @@ def card_effect_plan(
 ) -> CardEffectPlan:
     """Normalize one card source mapping into executable effect steps."""
 
+    card_spec = _merge_known_card_spec(
+        card_spec,
+        _lookup_card(_card_id(card_spec), card_library),
+    )
     card_spec = _card_spec_with_upgraded_description(card_spec)
     card_id = _card_id(card_spec)
     card_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
@@ -1188,9 +1192,7 @@ def _generated_card_source(
         if "card" in card_spec and isinstance(card_spec["card"], Mapping):
             return card_spec["card"]
         card_id = str(card_spec.get("card_id", card_spec.get("id", "")))
-        merged = dict(_lookup_card(card_id, card_library))
-        merged.update(card_spec)
-        return merged
+        return _merge_known_card_spec(card_spec, _lookup_card(card_id, card_library))
     card_id = str(card_spec)
     return _lookup_card(card_id, card_library) or {"id": card_id, "name": card_id, "cost": 0}
 
@@ -1199,22 +1201,59 @@ def _lookup_card(
     card_id: str,
     card_library: Mapping[str, Mapping[str, Any]] | None,
 ) -> Mapping[str, Any]:
+    normalized = _normalized_id(card_id)
+    library_card: Mapping[str, Any] = {}
     if not card_library:
-        return {}
+        return _KNOWN_CARD_SPECS.get(normalized, {})
     candidates = (card_id, _normalized_id(card_id), str(card_id).upper())
     for candidate in candidates:
         found = card_library.get(candidate)
         if isinstance(found, Mapping):
-            return found
-    normalized = _normalized_id(card_id)
-    for key, value in card_library.items():
-        if _normalized_id(key) == normalized and isinstance(value, Mapping):
-            return value
-    return {}
+            library_card = found
+            break
+    if not library_card:
+        for key, value in card_library.items():
+            if _normalized_id(key) == normalized and isinstance(value, Mapping):
+                library_card = value
+                break
+    known_card = _KNOWN_CARD_SPECS.get(normalized, {})
+    if known_card and library_card:
+        merged = dict(known_card)
+        merged.update(library_card)
+        return merged
+    return library_card or known_card or {}
 
 
 def _card_id(card_spec: Mapping[str, Any]) -> str:
     return _normalized_id(card_spec.get("card_id", card_spec.get("id", "unknown_card")))
+
+
+def _merge_known_card_spec(
+    card_spec: Mapping[str, Any],
+    known_card: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    if not known_card:
+        return card_spec
+    merged = dict(known_card)
+    merged.update(card_spec)
+    source_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
+    known_type = known_card.get("type", known_card.get("card_type"))
+    if source_type == "unknown" and _normalize_card_type(known_type) != "unknown":
+        merged["type"] = known_type
+        if "card_type" in merged or "card_type" in known_card:
+            merged["card_type"] = known_type
+    if source_type == "unknown" and _normalize_card_type(known_type) in {"curse", "status"}:
+        for key in ("cost", "target", "effects", "tags", "exhausts"):
+            if key in known_card:
+                merged[key] = known_card[key]
+        known_custom = known_card.get("custom")
+        source_custom = card_spec.get("custom")
+        if isinstance(known_custom, Mapping):
+            merged["custom"] = {
+                **dict(known_custom),
+                **(dict(source_custom) if isinstance(source_custom, Mapping) else {}),
+            }
+    return merged
 
 
 def _card_cost(card_spec: Mapping[str, Any]) -> int | None:
@@ -1349,6 +1388,413 @@ _CARD_TYPE_ALIASES = {
     "power": "power",
     "skill": "skill",
     "status": "status",
+}
+
+_KNOWN_CARD_SPECS: dict[str, Mapping[str, Any]] = {
+    "anger": {
+        "card_id": "anger",
+        "name": "Anger",
+        "type": "attack",
+        "cost": 0,
+        "target": "enemy",
+        "effects": {"damage": 6, "add_card_to_discard": {"card_id": "anger"}},
+    },
+    "armaments": {
+        "card_id": "armaments",
+        "name": "Armaments",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 5, "upgrade_all_combat_cards": 1},
+    },
+    "battle_trance": {
+        "card_id": "battle_trance",
+        "name": "Battle Trance",
+        "type": "skill",
+        "cost": 0,
+        "target": "self",
+        "effects": {"draw": 3, "apply_status": {"target": "self", "no_draw": 1}},
+    },
+    "body_slam": {
+        "card_id": "body_slam",
+        "name": "Body Slam",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage_formula": {"formula": "player_block"}},
+    },
+    "carnage": {
+        "card_id": "carnage",
+        "name": "Carnage",
+        "type": "attack",
+        "cost": 2,
+        "target": "enemy",
+        "effects": {"damage": 20},
+    },
+    "cleave": {
+        "card_id": "cleave",
+        "name": "Cleave",
+        "type": "attack",
+        "cost": 1,
+        "target": "all_enemies",
+        "effects": {"all_damage": 8},
+    },
+    "clumsy": {
+        "card_id": "clumsy",
+        "name": "Clumsy",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "clothesline": {
+        "card_id": "clothesline",
+        "name": "Clothesline",
+        "type": "attack",
+        "cost": 2,
+        "target": "enemy",
+        "effects": {"damage": 12, "apply_status": {"target": "enemy", "weak": 2}},
+    },
+    "curse_of_the_bell": {
+        "card_id": "curse_of_the_bell",
+        "name": "Curse of the Bell",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "eternal", "unplayable", "deck_burden"),
+        "custom": {"eternal": True, "unplayable": True, "source_relic": "calling_bell"},
+        "effects": {"noop": {"reason": "calling_bell_curse"}},
+    },
+    "decay": {
+        "card_id": "decay",
+        "name": "Decay",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "disarm": {
+        "card_id": "disarm",
+        "name": "Disarm",
+        "type": "skill",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"apply_status": {"target": "enemy", "strength": -2}},
+        "exhausts": True,
+    },
+    "doubt": {
+        "card_id": "doubt",
+        "name": "Doubt",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "flame_barrier": {
+        "card_id": "flame_barrier",
+        "name": "Flame Barrier",
+        "type": "skill",
+        "cost": 2,
+        "target": "self",
+        "effects": {"block": 12, "apply_status": {"target": "self", "flame_barrier": 4}},
+    },
+    "hemokinesis": {
+        "card_id": "hemokinesis",
+        "name": "Hemokinesis",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"hp_loss": 2, "damage": 15},
+    },
+    "inflame": {
+        "card_id": "inflame",
+        "name": "Inflame",
+        "type": "power",
+        "cost": 1,
+        "target": "self",
+        "effects": {"apply_status": {"target": "self", "strength": 2}},
+    },
+    "iron_wave": {
+        "card_id": "iron_wave",
+        "name": "Iron Wave",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 5, "block": 5},
+    },
+    "offering": {
+        "card_id": "offering",
+        "name": "Offering",
+        "type": "skill",
+        "cost": 0,
+        "target": "self",
+        "effects": {"hp_loss": 6, "energy": 2, "draw": 3},
+        "exhausts": True,
+    },
+    "pommel_strike": {
+        "card_id": "pommel_strike",
+        "name": "Pommel Strike",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9, "draw": 1},
+    },
+    "rampage": {
+        "card_id": "rampage",
+        "name": "Rampage",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 8, "apply_status": {"target": "self", "rampage": 5}},
+    },
+    "shrug_it_off": {
+        "card_id": "shrug_it_off",
+        "name": "Shrug It Off",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 8, "draw": 1},
+    },
+    "sword_boomerang": {
+        "card_id": "sword_boomerang",
+        "name": "Sword Boomerang",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"sequence": [{"damage": 3}, {"damage": 3}, {"damage": 3}]},
+    },
+    "thunderclap": {
+        "card_id": "thunderclap",
+        "name": "Thunderclap",
+        "type": "attack",
+        "cost": 1,
+        "target": "all_enemies",
+        "effects": {"all_damage": 4, "apply_status": {"target": "all_enemies", "vulnerable": 1}},
+    },
+    "true_grit": {
+        "card_id": "true_grit",
+        "name": "True Grit",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 7, "exhaust_choice": 1},
+    },
+    "uppercut": {
+        "card_id": "uppercut",
+        "name": "Uppercut",
+        "type": "attack",
+        "cost": 2,
+        "target": "enemy",
+        "effects": {
+            "damage": 13,
+            "apply_status": {"target": "enemy", "weak": 1, "vulnerable": 1},
+        },
+    },
+    "blood_wall": {
+        "card_id": "blood_wall",
+        "name": "Blood Wall",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 10, "hp_loss": 2},
+    },
+    "bully": {
+        "card_id": "bully",
+        "name": "Bully",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 8, "apply_status": {"target": "enemy", "vulnerable": 1}},
+    },
+    "cinder": {
+        "card_id": "cinder",
+        "name": "Cinder",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 7, "apply_status": {"target": "enemy", "burn": 1}},
+    },
+    "cruelty": {
+        "card_id": "cruelty",
+        "name": "Cruelty",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9, "apply_status": {"target": "enemy", "weak": 1}},
+    },
+    "demonic_shield": {
+        "card_id": "demonic_shield",
+        "name": "Demonic Shield",
+        "type": "skill",
+        "cost": 2,
+        "target": "self",
+        "effects": {"block": 14, "apply_status": {"target": "self", "strength": 1}},
+    },
+    "dismantle": {
+        "card_id": "dismantle",
+        "name": "Dismantle",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 8, "remove_block": 1},
+    },
+    "dominate": {
+        "card_id": "dominate",
+        "name": "Dominate",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 10},
+    },
+    "forgotten_ritual": {
+        "card_id": "forgotten_ritual",
+        "name": "Forgotten Ritual",
+        "type": "power",
+        "cost": 1,
+        "target": "self",
+        "effects": {"apply_status": {"target": "self", "strength": 1, "ritual": 1}},
+    },
+    "greed": {
+        "card_id": "greed",
+        "name": "Greed",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "eternal", "unplayable", "gold_frontload", "deck_burden"),
+        "custom": {
+            "eternal": True,
+            "unplayable": True,
+            "frontloaded_gold": 333,
+            "source_relic": "cursed_pearl",
+        },
+        "effects": {"noop": {"reason": "frontloaded_gold_curse"}},
+    },
+    "guilty": {
+        "card_id": "guilty",
+        "name": "Guilty",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "temporary", "unplayable", "deck_burden"),
+        "custom": {"temporary": True, "unplayable": True, "combats_until_remove": 5},
+        "effects": {"noop": {"reason": "temporary_curse_burden"}},
+    },
+    "howl_from_beyond": {
+        "card_id": "howl_from_beyond",
+        "name": "Howl From Beyond",
+        "type": "power",
+        "cost": 1,
+        "target": "self",
+        "effects": {"apply_status": {"target": "self", "strength": 1}},
+    },
+    "injury": {
+        "card_id": "injury",
+        "name": "Injury",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "inferno": {
+        "card_id": "inferno",
+        "name": "Inferno",
+        "type": "attack",
+        "cost": 2,
+        "target": "all_enemies",
+        "effects": {"all_damage": 14},
+    },
+    "molten_fist": {
+        "card_id": "molten_fist",
+        "name": "Molten Fist",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9},
+    },
+    "normality": {
+        "card_id": "normality",
+        "name": "Normality",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "pain": {
+        "card_id": "pain",
+        "name": "Pain",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "parasite": {
+        "card_id": "parasite",
+        "name": "Parasite",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "regret": {
+        "card_id": "regret",
+        "name": "Regret",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "shame": {
+        "card_id": "shame",
+        "name": "Shame",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
+    "taunt": {
+        "card_id": "taunt",
+        "name": "Taunt",
+        "type": "skill",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"apply_status": {"target": "enemy", "weak": 2}},
+    },
+    "vicious": {
+        "card_id": "vicious",
+        "name": "Vicious",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9},
+    },
+    "writhe": {
+        "card_id": "writhe",
+        "name": "Writhe",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "unplayable", "deck_burden"),
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
+    },
 }
 
 _TARGET_ALIASES = {

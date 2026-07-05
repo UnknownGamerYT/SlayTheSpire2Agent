@@ -20,6 +20,7 @@ from itertools import count
 from pathlib import Path
 from typing import Any
 
+from sts2sim.api import serialize
 from sts2sim.gymnasium_env import Sts2Env
 from sts2sim.history import (
     RunHistory,
@@ -45,6 +46,7 @@ from sts2sim.learning.progress import (
 from sts2sim.learning.rewards import (
     BREAKDOWN_FIELDS,
     DEFAULT_REWARD_CONFIG,
+    deck_delta_summary,
     learning_reward,
 )
 from sts2sim.mechanics.enemy_traits import ENEMY_TRAIT_KEYS, enemy_trait_vector
@@ -55,6 +57,7 @@ from sts2sim.mechanics.mechanic_atoms import (
     status_atom_vector,
 )
 from sts2sim.mechanics.option_slots import OPTION_SLOT_KEYS, option_slot_vector
+from sts2sim.mechanics.planning_context import reward_plan_summary
 from sts2sim.mechanics.semantics import MECHANIC_TAG_BUCKETS, MECHANIC_VALUE_KEYS
 from sts2sim.mechanics.synergy import (
     SYNERGY_VALUE_KEYS,
@@ -295,6 +298,7 @@ class _Transition:
     planning_outputs: tuple[float, ...]
     reward: float
     done: bool
+    teacher_action_index: int | None = None
 
 
 def train_masked_ppo(
@@ -320,6 +324,8 @@ def train_masked_ppo(
     value_coef: float = 0.5,
     entropy_coef: float = 0.01,
     planning_coef: float = 0.1,
+    teacher_mix: float = 0.0,
+    imitation_coef: float = 0.0,
     ppo_epochs: int = 4,
     minibatch_size: int = 256,
     target_reward: float = 100.0,
@@ -409,13 +415,20 @@ def train_masked_ppo(
         "value_coef": value_coef,
         "entropy_coef": entropy_coef,
         "planning_coef": planning_coef,
+        "teacher_mix": max(0.0, min(1.0, float(teacher_mix))),
+        "imitation_coef": max(0.0, float(imitation_coef)),
         "ppo_epochs": ppo_epochs,
         "minibatch_size": minibatch_size,
         "target_reward": target_reward,
         "until_stopped": until_stopped,
-        "reward_schema_version": 2,
+        "reward_schema_version": 5,
         "reward_config": DEFAULT_REWARD_CONFIG.model_dump(mode="json"),
     }
+    teacher_agent = (
+        _strategic_teacher_agent()
+        if max(0.0, float(teacher_mix)) > 0.0 or max(0.0, float(imitation_coef)) > 0.0
+        else None
+    )
 
     training_points = list(_resume_progress_points(previous_result, "progress"))
     evaluation_points = list(_resume_progress_points(previous_result, "evaluation_progress"))
@@ -484,6 +497,9 @@ def train_masked_ppo(
                 device=torch_device,
                 gamma=gamma,
                 target_reward=target_reward,
+                teacher_agent=teacher_agent,
+                teacher_mix=max(0.0, min(1.0, float(teacher_mix))),
+                imitation_enabled=max(0.0, float(imitation_coef)) > 0.0,
             )
             transitions.extend(run_transitions)
             batch_planning_outputs.extend(
@@ -528,6 +544,7 @@ def train_masked_ppo(
                 value_coef=value_coef,
                 entropy_coef=entropy_coef,
                 planning_coef=planning_coef,
+                imitation_coef=max(0.0, float(imitation_coef)),
                 ppo_epochs=ppo_epochs,
                 minibatch_size=minibatch_size,
                 device=torch_device,
@@ -774,6 +791,9 @@ def _collect_training_run(
     device: Any,
     gamma: float,
     target_reward: float,
+    teacher_agent: Any | None = None,
+    teacher_mix: float = 0.0,
+    imitation_enabled: bool = False,
 ) -> tuple[LearningRunResult, tuple[_Transition, ...]]:
     env = Sts2Env(
         seed=seed,
@@ -792,15 +812,30 @@ def _collect_training_run(
     failed_to_continue = False
     observation: dict[str, Any] = {}
     reward_breakdown_totals: dict[str, float] = {}
+    diagnostics: dict[str, float] = {}
+    teacher_rng = random.Random(f"{seed}:teacher-mix")
     try:
         observation, info = env.reset()
         for _step_index in range(max_steps):
+            teacher_index = (
+                _teacher_action_index(env.state, info, teacher_agent)
+                if teacher_agent is not None and env.state is not None
+                else None
+            )
+            forced_index = (
+                teacher_index
+                if teacher_index is not None
+                and teacher_mix > 0.0
+                and teacher_rng.random() < teacher_mix
+                else None
+            )
             decision = _choose_action(
                 torch,
                 model,
                 observation,
                 info,
                 deterministic=False,
+                forced_action_index=forced_index,
                 device=device,
             )
             if decision is None:
@@ -816,7 +851,13 @@ def _collect_training_run(
                 action_identity_ids,
                 decision_context,
             ) = decision
+            action_descriptor = _descriptor_for_id(info, action_id)
+            if teacher_index is not None:
+                decision_context["teacher_action_index"] = float(teacher_index)
+            if forced_index is not None:
+                decision_context["teacher_forced"] = 1.0
             env.set_pending_policy_output(decision_context)
+            before_state = env.state
             next_observation, reward, terminated, truncated, next_info = env.step(action_id)
             reached = target.reached(next_observation)
             reward_breakdown = _reward_breakdown_with_target(
@@ -838,7 +879,14 @@ def _collect_training_run(
                     planning_outputs=_planning_outputs_tuple(decision_context),
                     reward=effective_reward,
                     done=done,
+                    teacher_action_index=teacher_index if imitation_enabled else None,
                 )
+            )
+            _accumulate_run_diagnostics(
+                diagnostics,
+                before_state=before_state,
+                after_state=env.state,
+                action_descriptor=action_descriptor,
             )
             total_reward += effective_reward
             steps_taken += 1
@@ -871,6 +919,7 @@ def _collect_training_run(
             error=error,
             failed_to_continue=failed_to_continue,
             reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
+            diagnostics=_final_run_diagnostics(diagnostics, env.state),
             steps=(),
         ),
         tuple(transitions),
@@ -907,6 +956,7 @@ def _evaluate_one_run(
     observation: dict[str, Any] = {}
     history: RunHistory | None = None
     reward_breakdown_totals: dict[str, float] = {}
+    diagnostics: dict[str, float] = {}
     try:
         observation, info = env.reset()
         if include_history and env.state is not None:
@@ -926,11 +976,18 @@ def _evaluate_one_run(
                 break
             action_id = decision[0]
             before_state = env.state
+            action_descriptor = _descriptor_for_id(info, action_id)
             action_payload = _action_for_id(info, action_id)
             env.set_pending_policy_output(decision[6])
             observation, reward, terminated, truncated, info = env.step(action_id)
             reward_breakdown = _reward_breakdown_from_info(info)
             _accumulate_reward_breakdown(reward_breakdown_totals, reward_breakdown)
+            _accumulate_run_diagnostics(
+                diagnostics,
+                before_state=before_state,
+                after_state=env.state,
+                action_descriptor=action_descriptor,
+            )
             if history is not None and before_state is not None and env.state is not None:
                 if not action_payload:
                     action_payload = dict(_mapping(info.get("action")))
@@ -977,6 +1034,7 @@ def _evaluate_one_run(
         error=error,
         failed_to_continue=failed_to_continue,
         reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
+        diagnostics=_final_run_diagnostics(diagnostics, env.state),
         history=history.model_dump(mode="json") if history is not None else None,
         steps=(),
     )
@@ -988,6 +1046,182 @@ def _action_for_id(info: Mapping[str, Any], action_id: int) -> dict[str, Any]:
             action = descriptor.get("action")
             return dict(action) if isinstance(action, Mapping) else {}
     return {}
+
+
+def _descriptor_for_id(info: Mapping[str, Any], action_id: int) -> dict[str, Any]:
+    for descriptor in _action_space(info):
+        if _int(descriptor.get("id")) == int(action_id):
+            return dict(descriptor)
+    return {}
+
+
+def _strategic_teacher_agent() -> Any:
+    from sts2sim.agents import StrategicAgent
+
+    return StrategicAgent()
+
+
+def _teacher_action_index(
+    state: Any,
+    info: Mapping[str, Any],
+    teacher_agent: Any | None,
+) -> int | None:
+    if teacher_agent is None:
+        return None
+    try:
+        decision = teacher_agent.choose_action(state)
+    except Exception:
+        return None
+    action_id = getattr(decision, "action_id", None)
+    if action_id is None:
+        return None
+    for index, descriptor in enumerate(_action_space(info)):
+        if _int(descriptor.get("id")) == int(action_id):
+            return index
+    return None
+
+
+def _accumulate_run_diagnostics(
+    target: dict[str, float],
+    *,
+    before_state: Any,
+    after_state: Any,
+    action_descriptor: Mapping[str, Any],
+) -> None:
+    before = _state_payload(before_state)
+    after = _state_payload(after_state)
+    action_type = str(action_descriptor.get("type", ""))
+    target["actions"] = target.get("actions", 0.0) + 1.0
+    if action_type.startswith("take_reward_"):
+        target[action_type] = target.get(action_type, 0.0) + 1.0
+    if action_type == "shop_buy":
+        kind = str(_mapping(action_descriptor.get("item")).get("kind", ""))
+        if kind:
+            key = f"shop_buy_{kind}"
+            target[key] = target.get(key, 0.0) + 1.0
+    if action_type == "skip_reward":
+        skip_kind = str(
+            _mapping(action_descriptor.get("reward_choice")).get("skip_kind", "unknown")
+        )
+        key = f"skip_reward_{skip_kind or 'unknown'}"
+        target[key] = target.get(key, 0.0) + 1.0
+    if action_type == "proceed" and str(before.get("phase", "")) in {"reward", "treasure"}:
+        for kind in _available_reward_kinds(before):
+            key = f"proceed_with_unclaimed_{kind}"
+            target[key] = target.get(key, 0.0) + 1.0
+    before_cards = _deck_cards(before)
+    after_cards = _deck_cards(after)
+    if len(after_cards) > len(before_cards):
+        target["deck_cards_added"] = target.get("deck_cards_added", 0.0) + (
+            len(after_cards) - len(before_cards)
+        )
+    if len(after_cards) < len(before_cards):
+        target["deck_cards_removed"] = target.get("deck_cards_removed", 0.0) + (
+            len(before_cards) - len(after_cards)
+        )
+    if len(after_cards) != len(before_cards):
+        _accumulate_deck_delta_diagnostics(target, before, after)
+    before_relics = len(
+        _sequence(_mapping(before.get("player")).get("relics", before.get("relics")))
+    )
+    after_relics = len(
+        _sequence(_mapping(after.get("player")).get("relics", after.get("relics")))
+    )
+    if after_relics > before_relics:
+        target["relics_gained"] = target.get("relics_gained", 0.0) + (
+            after_relics - before_relics
+        )
+
+
+def _accumulate_deck_delta_diagnostics(
+    target: dict[str, float],
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> None:
+    summary = deck_delta_summary(before, after)
+    for key in (
+        "net_score",
+        "capability_delta",
+        "category_delta_score",
+        "problem_relief_score",
+        "pressure_cost",
+        "synergy_delta",
+        "growth_cost",
+    ):
+        target[f"deck_delta_{key}"] = target.get(f"deck_delta_{key}", 0.0) + _float(
+            summary.get(key)
+        )
+    target["deck_delta_events"] = target.get("deck_delta_events", 0.0) + 1.0
+    if bool(summary.get("growth_blocked")):
+        target["deck_growth_blocked"] = target.get("deck_growth_blocked", 0.0) + 1.0
+    for key, value in _mapping(summary.get("problem_relief")).items():
+        if _float(value) > 0:
+            diagnostic_key = f"deck_problem_relief_{key}"
+            target[diagnostic_key] = target.get(diagnostic_key, 0.0) + _float(value)
+    for key, value in _mapping(summary.get("problems_worsened")).items():
+        if _float(value) > 0:
+            diagnostic_key = f"deck_problem_worsened_{key}"
+            target[diagnostic_key] = target.get(diagnostic_key, 0.0) + _float(value)
+
+
+def _final_run_diagnostics(values: Mapping[str, Any], state: Any) -> dict[str, float]:
+    payload = _state_payload(state)
+    player = _mapping(payload.get("player"))
+    cards = _deck_cards(payload)
+    relics = _sequence(player.get("relics", payload.get("relics")))
+    potions = _sequence(player.get("potions", payload.get("potions")))
+    result = {str(key): round(_float(value), 6) for key, value in values.items()}
+    result["final_deck_size"] = float(len(cards) or _int(player.get("deck_count")))
+    result["final_unknown_card_count"] = float(
+        sum(1 for card in cards if _normalized_id(_mapping(card).get("type")) == "unknown")
+    )
+    result["final_relic_count"] = float(len(relics))
+    result["final_potion_count"] = float(len(potions))
+    result["final_gold"] = float(_int(player.get("gold")))
+    return result
+
+
+def _state_payload(state: Any) -> Mapping[str, Any]:
+    if isinstance(state, Mapping):
+        return state
+    if state is None:
+        return {}
+    try:
+        return serialize(state)
+    except Exception:
+        return {}
+
+
+def _deck_cards(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    player = _mapping(payload.get("player"))
+    cards = _sequence(payload.get("master_deck"))
+    if not cards:
+        cards = _sequence(player.get("deck"))
+    return tuple(_mapping(card) for card in cards)
+
+
+def _available_reward_kinds(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    summary = _mapping(reward_plan_summary(payload))
+    if not _bool(summary.get("reward_open")):
+        return ()
+    available = _mapping(summary.get("available_counts"))
+    kinds: list[str] = []
+    if _float(available.get("gold")) > 0:
+        kinds.append("gold")
+    card_count = (
+        _float(available.get("cards"))
+        + _float(available.get("card_groups"))
+        + _float(available.get("fixed_cards"))
+    )
+    if card_count > 0:
+        kinds.append("card")
+    if _float(available.get("card_removals")) > 0:
+        kinds.append("card_removal")
+    if _float(available.get("relics")) > 0:
+        kinds.append("relic")
+    if _float(available.get("potions")) > 0:
+        kinds.append("potion")
+    return tuple(kinds)
 
 
 def _history_decision_context(
@@ -1023,6 +1257,7 @@ def _choose_action(
     info: Mapping[str, Any],
     *,
     deterministic: bool,
+    forced_action_index: int | None = None,
     device: Any,
 ) -> tuple[
     int,
@@ -1059,7 +1294,10 @@ def _choose_action(
         logits, value, planning_outputs = model(obs_vector, action_tensor, identity_tensor)
         logits = logits[0]
         distribution = torch.distributions.Categorical(logits=logits)
-        action_index_tensor = torch.argmax(logits) if deterministic else distribution.sample()
+        if forced_action_index is not None and 0 <= forced_action_index < len(descriptors):
+            action_index_tensor = torch.tensor(int(forced_action_index), device=device)
+        else:
+            action_index_tensor = torch.argmax(logits) if deterministic else distribution.sample()
         action_index = int(action_index_tensor.item())
         log_prob = float(distribution.log_prob(action_index_tensor).item())
         state_value = float(value[0].item())
@@ -1099,6 +1337,7 @@ def _ppo_update(
     value_coef: float,
     entropy_coef: float,
     planning_coef: float,
+    imitation_coef: float,
     ppo_epochs: int,
     minibatch_size: int,
     device: Any,
@@ -1165,11 +1404,19 @@ def _ppo_update(
                 )
                 planning_loss = torch.mean(torch.square(planning_outputs - planning_target))
                 entropy_loss = -distribution.entropy()
+                imitation_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
+                if imitation_coef > 0 and transition.teacher_action_index is not None:
+                    teacher_index = torch.tensor(
+                        int(transition.teacher_action_index),
+                        device=device,
+                    )
+                    imitation_loss = -distribution.log_prob(teacher_index)
                 losses.append(
                     policy_loss
                     + value_coef * value_loss
                     + entropy_coef * entropy_loss
                     + planning_coef * planning_loss
+                    + imitation_coef * imitation_loss
                 )
             if not losses:
                 continue
@@ -1995,6 +2242,7 @@ def _ppo_batch_summary(
     completed = len(eval_results)
     planning_averages = _planning_output_averages(planning_outputs)
     reward_averages = _reward_component_averages(eval_results)
+    diagnostic_averages = _run_diagnostic_averages(eval_results)
     return {
         "batch_index": batch_index,
         "trained_runs_total": trained_runs_total,
@@ -2022,6 +2270,7 @@ def _ppo_batch_summary(
         ),
         "planning_output_averages": planning_averages,
         "reward_component_averages": reward_averages,
+        "diagnostic_averages": diagnostic_averages,
         "reached_target": reached_target,
     }
 
@@ -2110,6 +2359,19 @@ def _reward_component_averages(runs: Sequence[LearningRunResult]) -> dict[str, f
     )
     averages["aggression_pressure"] = round(pressure_sum / max(1.0, pressure_count), 6)
     return averages
+
+
+def _run_diagnostic_averages(runs: Sequence[LearningRunResult]) -> dict[str, float]:
+    if not runs:
+        return {}
+    keys = {key for run in runs for key in run.diagnostics}
+    return {
+        key: round(
+            sum(_float(run.diagnostics.get(key)) for run in runs) / max(1, len(runs)),
+            6,
+        )
+        for key in sorted(keys)
+    }
 
 
 def _select_highlight_run_histories(
@@ -2460,6 +2722,7 @@ def _ppo_progress_html(
     last_batch = _mapping(batches[-1]) if batches else {}
     planning_rows = _planning_rows_html(batches[-12:])
     reward_rows = _reward_component_rows_html(batches[-12:])
+    diagnostic_rows = _diagnostic_rows_html(batches[-12:])
     highlight_links = _highlight_links_html(
         result,
         report_output_path=result.get("report_output_path"),
@@ -2499,6 +2762,7 @@ def _ppo_progress_html(
     )
     planning_headers = _planning_table_headers()
     reward_headers = _reward_component_table_headers(batches)
+    diagnostic_headers = _diagnostic_table_headers(batches)
     latest_headers = (
         "<th>Run</th><th>Seed</th><th>Steps</th><th>Reward</th>"
         "<th>Act</th><th>Floor</th><th>Phase</th>"
@@ -2587,16 +2851,25 @@ def _ppo_progress_html(
       <tbody>{planning_rows}</tbody>
     </table>
   </div>
-  <h2>Reward Component Trends</h2>
-  <div class="scroll">
-    <table>
-      <thead>
-        <tr><th>Batch</th>{reward_headers}</tr>
+	  <h2>Reward Component Trends</h2>
+	  <div class="scroll">
+	    <table>
+	      <thead>
+	        <tr><th>Batch</th>{reward_headers}</tr>
       </thead>
       <tbody>{reward_rows}</tbody>
-    </table>
-  </div>
-  <h2>Latest Training Runs</h2>
+	    </table>
+	  </div>
+	  <h2>Reward And Deck Diagnostics</h2>
+	  <div class="scroll">
+	    <table>
+	      <thead>
+	        <tr><th>Batch</th>{diagnostic_headers}</tr>
+	      </thead>
+	      <tbody>{diagnostic_rows}</tbody>
+	    </table>
+	  </div>
+	  <h2>Latest Training Runs</h2>
   <div class="scroll">
     <table>
       <thead><tr>{latest_headers}</tr></thead>
@@ -2647,6 +2920,11 @@ def _reward_component_keys(batches: Sequence[Mapping[str, Any]]) -> tuple[str, .
         "node_progress_reward",
         "gold_reward",
         "potion_waste_penalty",
+        "resource_pickup_reward",
+        "reward_skip_penalty",
+        "deck_capability_reward",
+        "deck_burden_penalty",
+        "starter_deck_similarity_penalty",
         "target_reached_reward",
     )
     present = {
@@ -2671,6 +2949,64 @@ def _reward_component_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
     rows: list[str] = []
     for batch in batches:
         averages = _mapping(batch.get("reward_component_averages"))
+        cells = "".join(f"<td>{_float(averages.get(key)):.3f}</td>" for key in keys)
+        rows.append(
+            "<tr>"
+            f"<td>{_int(batch.get('batch_index'))}</td>"
+            f"{cells}"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def _diagnostic_keys(batches: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    preferred = (
+        "take_reward_card",
+        "take_reward_gold",
+        "take_reward_potion",
+        "take_reward_relic",
+        "skip_reward_card_options",
+        "skip_reward_card_group",
+        "skip_reward_fixed_card",
+        "skip_reward_gold",
+        "skip_reward_potion",
+        "skip_reward_relic",
+        "proceed_with_unclaimed_card",
+        "proceed_with_unclaimed_card_removal",
+        "proceed_with_unclaimed_gold",
+        "proceed_with_unclaimed_potion",
+        "proceed_with_unclaimed_relic",
+        "deck_cards_added",
+        "deck_cards_removed",
+        "relics_gained",
+        "final_deck_size",
+        "final_unknown_card_count",
+        "final_relic_count",
+        "final_potion_count",
+        "final_gold",
+    )
+    present = {
+        str(key)
+        for batch in batches
+        for key in _mapping(batch.get("diagnostic_averages"))
+    }
+    ordered = [key for key in preferred if key in present]
+    ordered.extend(sorted(present - set(ordered)))
+    return tuple(ordered)
+
+
+def _diagnostic_table_headers(batches: Sequence[Mapping[str, Any]]) -> str:
+    return "".join(
+        f"<th>{html_escape(key.replace('_', ' ').title())}</th>"
+        for key in _diagnostic_keys(batches)
+    )
+
+
+def _diagnostic_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
+    keys = _diagnostic_keys(batches)
+    rows: list[str] = []
+    for batch in batches:
+        averages = _mapping(batch.get("diagnostic_averages"))
         cells = "".join(f"<td>{_float(averages.get(key)):.3f}</td>" for key in keys)
         rows.append(
             "<tr>"
@@ -2985,3 +3321,27 @@ def _float(value: object) -> float:
 
 def _int(value: object) -> int:
     return int(_float(value))
+
+
+def _bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int | float):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return False
+
+
+def _normalized_id(value: object) -> str:
+    text = str(value or "").strip().lower()
+    normalized = []
+    previous_sep = False
+    for character in text:
+        if character.isalnum():
+            normalized.append(character)
+            previous_sep = False
+        elif not previous_sep:
+            normalized.append("_")
+            previous_sep = True
+    return "".join(normalized).strip("_")

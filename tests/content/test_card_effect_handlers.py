@@ -7,6 +7,33 @@ from sts2sim.mechanics.card_effects import (
 )
 
 
+def test_report_unknown_cards_use_known_specs() -> None:
+    expected_types = {
+        "clumsy": "curse",
+        "curse_of_the_bell": "curse",
+        "doubt": "curse",
+        "rampage": "attack",
+        "dominate": "attack",
+        "greed": "curse",
+        "injury": "curse",
+        "iron_wave": "attack",
+        "regret": "curse",
+        "shame": "curse",
+    }
+
+    for card_id, card_type in expected_types.items():
+        plan = card_effect_plan({"id": card_id, "name": card_id, "type": "unknown"})
+
+        assert plan.card["type"] == card_type
+        assert plan.steps
+
+    greed = card_effect_plan({"id": "greed", "name": "greed", "type": "unknown", "cost": 1})
+    assert "eternal" in greed.card["tags"]
+    assert greed.card["cost"] == -1
+    assert greed.card["target"] == "none"
+    assert greed.card["custom"]["frontloaded_gold"] == 333
+
+
 def test_catalog_style_multi_hit_card_normalizes_to_damage_sequence() -> None:
     plan = card_effect_plan(
         {

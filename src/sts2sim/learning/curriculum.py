@@ -87,6 +87,8 @@ def train_masked_ppo_curriculum(
     value_coef: float = 0.5,
     entropy_coef: float = 0.01,
     planning_coef: float = 0.1,
+    teacher_mix: float = 0.0,
+    imitation_coef: float = 0.0,
     ppo_epochs: int = 4,
     minibatch_size: int = 256,
     target_reward: float = 100.0,
@@ -160,6 +162,8 @@ def train_masked_ppo_curriculum(
                         head_hidden_layers=head_hidden_layers,
                         activation=activation,
                         planning_coef=planning_coef,
+                        teacher_mix=teacher_mix,
+                        imitation_coef=imitation_coef,
                         device=device,
                     )
                 ),
@@ -217,6 +221,8 @@ def train_masked_ppo_curriculum(
                         head_hidden_layers=head_hidden_layers,
                         activation=activation,
                         planning_coef=planning_coef,
+                        teacher_mix=teacher_mix,
+                        imitation_coef=imitation_coef,
                         device=device,
                     )
                 ),
@@ -246,6 +252,8 @@ def train_masked_ppo_curriculum(
                 value_coef=value_coef,
                 entropy_coef=entropy_coef,
                 planning_coef=planning_coef,
+                teacher_mix=teacher_mix,
+                imitation_coef=imitation_coef,
                 ppo_epochs=ppo_epochs,
                 minibatch_size=minibatch_size,
                 target_reward=target_reward,
@@ -309,6 +317,8 @@ def train_masked_ppo_curriculum(
                         head_hidden_layers=head_hidden_layers,
                         activation=activation,
                         planning_coef=planning_coef,
+                        teacher_mix=teacher_mix,
+                        imitation_coef=imitation_coef,
                         device=device,
                     )
                 ),
@@ -341,6 +351,8 @@ def train_masked_ppo_curriculum(
         head_hidden_layers=head_hidden_layers,
         activation=activation,
         planning_coef=planning_coef,
+        teacher_mix=teacher_mix,
+        imitation_coef=imitation_coef,
         device=device,
     )
     result = _with_batch_metrics(result)
@@ -503,6 +515,8 @@ def _curriculum_result(
     head_hidden_layers: int,
     activation: str,
     planning_coef: float,
+    teacher_mix: float,
+    imitation_coef: float,
     device: str,
 ) -> dict[str, Any]:
     completed_stages = sum(
@@ -540,6 +554,8 @@ def _curriculum_result(
             "head_hidden_layers": max(1, head_hidden_layers),
             "activation": activation,
             "planning_coef": planning_coef,
+            "teacher_mix": teacher_mix,
+            "imitation_coef": imitation_coef,
             "requested_device": device,
             "target_eval_successes_override": target_eval_successes,
             "target_consecutive_successes_override": target_consecutive_successes,

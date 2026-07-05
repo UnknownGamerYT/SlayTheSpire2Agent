@@ -72,6 +72,8 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
     assert calls[0]["head_hidden_layers"] == 2
     assert calls[0]["activation"] == "silu"
     assert calls[0]["planning_coef"] == 0.1
+    assert calls[0]["teacher_mix"] == 0.0
+    assert calls[0]["imitation_coef"] == 0.0
     assert calls[0]["device"] == "auto"
     assert calls[1]["resume_from_path"] == tmp_path / "checkpoints" / (
         "ppo_curriculum_act1_boss.pt"
@@ -117,6 +119,8 @@ def test_train_ppo_curriculum_help_lists_stage_and_comfort_controls() -> None:
     assert "--head-hidden" in result.output
     assert "--activation" in result.output
     assert "--planning-coef" in result.output
+    assert "--teacher-mix" in result.output
+    assert "--imitation-coef" in result.output
     assert "--device" in result.output
     assert "--resume" in result.output
     assert "--no-resume" in result.output
