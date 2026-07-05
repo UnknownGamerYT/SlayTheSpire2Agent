@@ -7,6 +7,7 @@ from sts2sim.learning.rewards import (
     DEFAULT_REWARD_CONFIG,
     LearningRewardTracker,
     aggression_weights,
+    deck_delta_summary,
     learning_reward,
     learning_reward_breakdown,
 )
@@ -103,6 +104,29 @@ def test_reward_pickups_receive_small_direct_credit() -> None:
     assert relic.resource_pickup_reward < DEFAULT_REWARD_CONFIG.node_progress_reward
 
 
+def test_card_additions_are_rewarded_by_deck_fit_not_generic_pickup() -> None:
+    previous = _base_payload()
+    current = _base_payload(
+        deck=(
+            {
+                "card_id": "pommel_strike",
+                "type": "attack",
+                "cost": 1,
+                "effects": {"damage": 9, "draw": 1},
+            },
+        )
+    )
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        current,
+        action_descriptor={"type": "take_reward_card"},
+    )
+
+    assert breakdown.resource_pickup_reward == 0.0
+    assert breakdown.deck_capability_reward > 0.0
+
+
 def test_reward_skips_do_not_double_count_pickup_incentives_by_default() -> None:
     previous = _base_payload()
 
@@ -124,9 +148,9 @@ def test_reward_skips_do_not_double_count_pickup_incentives_by_default() -> None
     )
 
     assert gold.reward_skip_penalty == 0.0
-    assert card.reward_skip_penalty == 0.0
+    assert card.reward_skip_penalty == DEFAULT_REWARD_CONFIG.early_card_skip_penalty
     assert DEFAULT_REWARD_CONFIG.skip_gold_penalty == 0.0
-    assert DEFAULT_REWARD_CONFIG.early_card_skip_penalty == 0.0
+    assert DEFAULT_REWARD_CONFIG.early_card_skip_penalty <= DEFAULT_REWARD_CONFIG.card_pickup_reward
 
 
 def test_deck_capability_reward_credits_mechanical_growth() -> None:
@@ -152,6 +176,68 @@ def test_deck_capability_reward_credits_mechanical_growth() -> None:
 
     assert breakdown.deck_capability_reward > 0.0
     assert breakdown.deck_capability_reward <= DEFAULT_REWARD_CONFIG.deck_capability_reward_cap
+
+
+def test_deck_delta_summary_reports_fit_improvements_and_pressure() -> None:
+    previous = _base_payload(
+        deck=(
+            {"card_id": "strike", "type": "attack", "cost": 1, "effects": {"damage": 6}},
+            {"card_id": "defend", "type": "skill", "cost": 1, "effects": {"block": 5}},
+            {"card_id": "bash", "type": "attack", "cost": 2, "effects": {"damage": 8}},
+        )
+    )
+    current = _base_payload(
+        deck=(
+            {"card_id": "strike", "type": "attack", "cost": 1, "effects": {"damage": 6}},
+            {"card_id": "defend", "type": "skill", "cost": 1, "effects": {"block": 5}},
+            {"card_id": "bash", "type": "attack", "cost": 2, "effects": {"damage": 8}},
+            {"card_id": "big_hit", "type": "attack", "cost": 3, "effects": {"damage": 20}},
+        )
+    )
+
+    summary = deck_delta_summary(previous, current)
+
+    assert summary["category_deltas"]["frontload"] > 0.0
+    assert summary["problems_worsened"]["energy_heavy"] > 0.0
+
+
+def test_large_deck_growth_needs_clear_fit_to_receive_deck_reward() -> None:
+    previous = _base_payload(deck=_deck_cards(22))
+    mediocre_growth = _base_payload(
+        deck=(
+            *_deck_cards(22),
+            {
+                "instance_id": "heavy_attack",
+                "card_id": "heavy_attack",
+                "type": "attack",
+                "cost": 2,
+                "effects": {"damage": 9},
+            },
+        )
+    )
+    useful_growth = _base_payload(
+        deck=(
+            *_deck_cards(22),
+            {
+                "instance_id": "pommel",
+                "card_id": "pommel_strike",
+                "type": "attack",
+                "cost": 1,
+                "effects": {"damage": 9, "draw": 1},
+            },
+        )
+    )
+
+    mediocre = learning_reward_breakdown(previous, mediocre_growth)
+    useful = learning_reward_breakdown(previous, useful_growth)
+    mediocre_summary = deck_delta_summary(previous, mediocre_growth)
+    useful_summary = deck_delta_summary(previous, useful_growth)
+
+    assert mediocre.deck_capability_reward == 0.0
+    assert mediocre_summary["growth_blocked"] is True
+    assert useful.deck_capability_reward > 0.0
+    assert useful_summary["growth_blocked"] is False
+    assert useful_summary["problem_relief"]["low_draw"] > 0.0
 
 
 def test_curse_burden_penalty_scales_down_in_large_decks() -> None:

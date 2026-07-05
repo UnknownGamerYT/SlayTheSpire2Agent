@@ -58,10 +58,18 @@ class LearningRewardConfig(BaseModel):
     skip_gold_penalty: float = 0.0
     skip_relic_penalty: float = 0.0
     skip_potion_penalty: float = 0.0
-    early_card_skip_penalty: float = 0.0
+    early_card_skip_penalty: float = 0.01
     early_card_skip_deck_size: int = 14
     deck_capability_reward_weight: float = 0.01
     deck_capability_reward_cap: float = 0.15
+    deck_problem_relief_weight: float = 0.45
+    deck_pressure_penalty_weight: float = 0.70
+    deck_synergy_reward_weight: float = 0.30
+    deck_context_weight_floor: float = 0.55
+    deck_context_weight_cap: float = 1.80
+    deck_growth_soft_cap: int = 18
+    deck_growth_penalty_weight: float = 0.35
+    deck_large_growth_min_score: float = 1.25
     curse_pickup_penalty: float = -0.35
     eternal_curse_extra_penalty: float = -0.10
     curse_burden_reference_deck_size: int = 10
@@ -139,6 +147,26 @@ BREAKDOWN_FIELDS: tuple[str, ...] = tuple(LearningRewardBreakdown.model_fields)
 _STARTER_DECK_COUNTS = {"strike": 5, "defend": 4, "bash": 1}
 _STARTER_DECK_SIZE = sum(_STARTER_DECK_COUNTS.values())
 _STARTER_DECK_CAPABILITY_SCORE = 5.9
+_DECK_CAPABILITY_WEIGHTS = {
+    "frontload": 0.10,
+    "block": 0.08,
+    "draw": 0.55,
+    "energy": 0.70,
+    "scaling": 0.65,
+    "exhaust": 0.35,
+    "retain": 0.25,
+    "status_enemy": 0.25,
+}
+_DECK_PROBLEM_WEIGHTS = {
+    "low_frontload": 1.00,
+    "low_block": 0.90,
+    "low_draw": 1.15,
+    "energy_heavy": 1.20,
+    "missing_scaling": 0.95,
+    "too_big": 0.85,
+    "curse_burden": 1.30,
+    "starter_density": 0.55,
+}
 
 
 def learning_reward(
@@ -149,6 +177,16 @@ def learning_reward(
     """Return the outcome-based reward total for one simulator transition."""
 
     return learning_reward_breakdown(previous_state, next_state, config=config).total
+
+
+def deck_delta_summary(
+    previous_state: Any,
+    next_state: Any,
+    config: LearningRewardConfig = DEFAULT_REWARD_CONFIG,
+) -> dict[str, Any]:
+    """Return diagnostics for how a deck transition changed fit and pressure."""
+
+    return _deck_delta_summary(_payload(previous_state), _payload(next_state), config)
 
 
 def learning_reward_breakdown(
@@ -498,6 +536,8 @@ def _resource_pickup_reward(
 ) -> float:
     action_type = str(action_descriptor.get("type", ""))
     if action_type == "take_reward_card":
+        if _master_deck_count(current) > _master_deck_count(previous):
+            return 0.0
         return config.card_pickup_reward
     if action_type == "take_reward_relic":
         return config.relic_pickup_reward
@@ -507,7 +547,11 @@ def _resource_pickup_reward(
         item = _mapping(action_descriptor.get("item"))
         kind = str(item.get("kind", ""))
         if kind in {"card", "colorless_card"}:
-            return config.card_pickup_reward
+            return (
+                0.0
+                if _master_deck_count(current) > _master_deck_count(previous)
+                else config.card_pickup_reward
+            )
         if kind == "relic":
             return config.relic_pickup_reward
         if kind == "potion":
@@ -547,12 +591,329 @@ def _deck_capability_reward(
 ) -> float:
     if config.deck_capability_reward_weight <= 0:
         return 0.0
-    delta = _deck_capability_score(current) - _deck_capability_score(previous)
-    if delta <= 0:
+    summary = _deck_delta_summary(previous, current, config)
+    net_score = _float(summary.get("net_score"))
+    if net_score <= 0:
         return 0.0
     return min(
         config.deck_capability_reward_cap,
-        delta * config.deck_capability_reward_weight,
+        net_score * config.deck_capability_reward_weight,
+    )
+
+
+def _deck_delta_summary(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> dict[str, Any]:
+    before = _deck_metrics(previous, config)
+    after = _deck_metrics(current, config)
+    before_categories = _mapping(before.get("categories"))
+    after_categories = _mapping(after.get("categories"))
+    category_deltas = {
+        key: _float(after_categories.get(key)) - _float(before_categories.get(key))
+        for key in _DECK_CAPABILITY_WEIGHTS
+    }
+    context_weights = _deck_context_weights(previous, before, config)
+    category_delta_score = sum(
+        delta
+        * _DECK_CAPABILITY_WEIGHTS[key]
+        * _float(context_weights.get(key), 1.0)
+        for key, delta in category_deltas.items()
+    )
+
+    before_problems = _deck_problem_scores(previous, before, config)
+    after_problems = _deck_problem_scores(current, after, config)
+    problem_relief = {
+        key: max(0.0, _float(before_problems.get(key)) - _float(after_problems.get(key)))
+        for key in _DECK_PROBLEM_WEIGHTS
+    }
+    problems_worsened = {
+        key: max(0.0, _float(after_problems.get(key)) - _float(before_problems.get(key)))
+        for key in _DECK_PROBLEM_WEIGHTS
+    }
+    problem_relief_score = sum(
+        value * _DECK_PROBLEM_WEIGHTS[key] for key, value in problem_relief.items()
+    )
+    pressure_cost = sum(
+        value * _DECK_PROBLEM_WEIGHTS[key] for key, value in problems_worsened.items()
+    )
+    synergy_delta = _float(after.get("synergy_score")) - _float(before.get("synergy_score"))
+
+    added_cards = max(0, int(_float(after.get("deck_size")) - _float(before.get("deck_size"))))
+    removed_cards = max(0, int(_float(before.get("deck_size")) - _float(after.get("deck_size"))))
+    growth_cost = _deck_growth_cost(added_cards, _float(after.get("deck_size")), config)
+    net_score = (
+        category_delta_score
+        + problem_relief_score * config.deck_problem_relief_weight
+        + max(0.0, synergy_delta) * config.deck_synergy_reward_weight
+        - pressure_cost * config.deck_pressure_penalty_weight
+        - growth_cost
+    )
+    growth_blocked = False
+    if (
+        added_cards > 0
+        and _float(after.get("deck_size")) > max(0, config.deck_growth_soft_cap)
+        and net_score < config.deck_large_growth_min_score
+    ):
+        growth_blocked = True
+        net_score = 0.0
+
+    return {
+        "deck_size_before": int(_float(before.get("deck_size"))),
+        "deck_size_after": int(_float(after.get("deck_size"))),
+        "cards_added": added_cards,
+        "cards_removed": removed_cards,
+        "capability_before": round(_float(before.get("score")), 6),
+        "capability_after": round(_float(after.get("score")), 6),
+        "capability_delta": round(_float(after.get("score")) - _float(before.get("score")), 6),
+        "category_delta_score": round(category_delta_score, 6),
+        "problem_relief_score": round(problem_relief_score, 6),
+        "pressure_cost": round(pressure_cost, 6),
+        "synergy_before": round(_float(before.get("synergy_score")), 6),
+        "synergy_after": round(_float(after.get("synergy_score")), 6),
+        "synergy_delta": round(synergy_delta, 6),
+        "growth_cost": round(growth_cost, 6),
+        "growth_blocked": growth_blocked,
+        "net_score": round(max(0.0, net_score), 6),
+        "category_deltas": _rounded_float_dict(category_deltas),
+        "context_weights": _rounded_float_dict(context_weights),
+        "problems_before": _rounded_float_dict(before_problems),
+        "problems_after": _rounded_float_dict(after_problems),
+        "problem_relief": _rounded_float_dict(problem_relief),
+        "problems_worsened": _rounded_float_dict(problems_worsened),
+    }
+
+
+def _deck_metrics(payload: Mapping[str, Any], config: LearningRewardConfig) -> dict[str, Any]:
+    cards = _master_deck_cards(payload)
+    categories = {key: 0.0 for key in _DECK_CAPABILITY_WEIGHTS}
+    attack_count = 0
+    skill_count = 0
+    power_count = 0
+    expensive_count = 0
+    low_cost_count = 0
+    playable_cost_total = 0.0
+    playable_count = 0
+    burden_count = 0
+
+    for card in cards:
+        profile = card_mechanic_profile(card)
+        values = _mapping(profile.values)
+        damage = _float(values.get("damage")) + _float(values.get("aoe_damage"))
+        categories["frontload"] += min(16.0, damage)
+        categories["block"] += min(16.0, _float(values.get("block")))
+        categories["draw"] += min(5.0, _float(values.get("draw")))
+        categories["energy"] += min(
+            3.0,
+            _float(values.get("energy")) + _float(values.get("cost_reduction")) * 0.5,
+        )
+        categories["scaling"] += min(
+            6.0,
+            _float(values.get("strength"))
+            + _float(values.get("dexterity"))
+            + _float(values.get("focus"))
+            + _float(values.get("repeating_effect"))
+            + _float(values.get("periodic_effect")),
+        )
+        categories["exhaust"] += min(3.0, _float(values.get("exhaust")))
+        categories["retain"] += min(3.0, _float(values.get("retain")))
+        categories["status_enemy"] += min(
+            5.0,
+            _float(values.get("weak"))
+            + _float(values.get("vulnerable"))
+            + _float(values.get("poison"))
+            + _float(values.get("status_enemy")),
+        )
+
+        card_type = _normalized_id(card.get("type", card.get("card_type")))
+        if card_type == "attack":
+            attack_count += 1
+        elif card_type == "skill":
+            skill_count += 1
+        elif card_type == "power":
+            power_count += 1
+        if _card_is_burden(card):
+            burden_count += 1
+            continue
+        cost = _card_play_cost(card)
+        if cost is None:
+            continue
+        playable_count += 1
+        playable_cost_total += cost
+        if cost >= 2.0:
+            expensive_count += 1
+        if cost <= 1.0:
+            low_cost_count += 1
+
+    deck_size = float(len(cards))
+    average_cost = playable_cost_total / max(1.0, float(playable_count))
+    starter_weight = _weighted_starter_card_count(cards, config) if cards else 0.0
+    metrics: dict[str, Any] = {
+        "categories": categories,
+        "deck_size": deck_size,
+        "average_cost": average_cost,
+        "attack_count": float(attack_count),
+        "skill_count": float(skill_count),
+        "power_count": float(power_count),
+        "expensive_count": float(expensive_count),
+        "low_cost_count": float(low_cost_count),
+        "playable_count": float(playable_count),
+        "burden_count": float(burden_count),
+        "starter_weight": starter_weight,
+    }
+    metrics["score"] = _deck_metric_score(metrics, config)
+    metrics["synergy_score"] = _deck_synergy_score(payload, metrics)
+    return metrics
+
+
+def _deck_metric_score(metrics: Mapping[str, Any], config: LearningRewardConfig) -> float:
+    categories = _mapping(metrics.get("categories"))
+    deck_size = _float(metrics.get("deck_size"))
+    bloat_penalty = max(0.0, deck_size - max(0, config.deck_growth_soft_cap)) * 0.25
+    return (
+        sum(
+            _float(categories.get(key)) * weight
+            for key, weight in _DECK_CAPABILITY_WEIGHTS.items()
+        )
+        - bloat_penalty
+    )
+
+
+def _deck_problem_scores(
+    payload: Mapping[str, Any],
+    metrics: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> dict[str, float]:
+    categories = _mapping(metrics.get("categories"))
+    deck_size = max(1.0, _float(metrics.get("deck_size")))
+    act = max(1, _int(payload.get("act"), 1))
+    hp_fraction = _hp_fraction(payload)
+    relic_values = _relic_mechanic_values(payload)
+    energy_support = _float(categories.get("energy")) + _float(relic_values.get("energy"))
+    draw = _float(categories.get("draw"))
+
+    frontload_target = 24.0 + max(0, act - 1) * 10.0
+    block_target = 18.0 + max(0, act - 1) * 6.0
+    if hp_fraction < 0.45:
+        block_target *= 1.25
+        frontload_target *= 0.90
+    draw_target = 1.0 + max(0.0, deck_size - 10.0) * 0.10 + max(0, act - 1) * 0.35
+    scaling_target = 0.8 if act <= 1 else 2.2 if act == 2 else 3.4
+    average_cost_limit = 1.18 + min(0.45, energy_support * 0.08) + min(0.20, draw * 0.025)
+    starter_density = _float(metrics.get("starter_weight")) / max(
+        deck_size,
+        float(_STARTER_DECK_SIZE),
+    )
+
+    return {
+        "low_frontload": _shortfall(_float(categories.get("frontload")), frontload_target),
+        "low_block": _shortfall(_float(categories.get("block")), block_target),
+        "low_draw": _shortfall(draw, draw_target),
+        "energy_heavy": max(0.0, _float(metrics.get("average_cost")) - average_cost_limit),
+        "missing_scaling": _shortfall(_float(categories.get("scaling")), scaling_target),
+        "too_big": max(0.0, deck_size - max(0, config.deck_growth_soft_cap))
+        / max(6.0, float(max(1, config.deck_growth_soft_cap))),
+        "curse_burden": min(1.5, _float(metrics.get("burden_count")) / deck_size * 3.0),
+        "starter_density": max(0.0, starter_density - 0.45),
+    }
+
+
+def _deck_context_weights(
+    payload: Mapping[str, Any],
+    metrics: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> dict[str, float]:
+    act = max(1, _int(payload.get("act"), 1))
+    hp_fraction = _hp_fraction(payload)
+    deck_size = _float(metrics.get("deck_size"))
+    categories = _mapping(metrics.get("categories"))
+    weights = {key: 1.0 for key in _DECK_CAPABILITY_WEIGHTS}
+
+    if act <= 1:
+        weights["frontload"] += 0.25
+        weights["block"] += 0.10
+        weights["scaling"] -= 0.20
+    elif act == 2:
+        weights["draw"] += 0.20
+        weights["scaling"] += 0.25
+        weights["status_enemy"] += 0.10
+    else:
+        weights["draw"] += 0.30
+        weights["energy"] += 0.20
+        weights["scaling"] += 0.40
+
+    if hp_fraction < 0.45:
+        weights["block"] += 0.45
+        weights["retain"] += 0.10
+        weights["frontload"] -= 0.10
+    if deck_size > max(0, config.deck_growth_soft_cap):
+        pressure = min(0.60, (deck_size - max(0, config.deck_growth_soft_cap)) * 0.06)
+        weights["draw"] += pressure
+        weights["exhaust"] += pressure
+        weights["frontload"] -= pressure * 0.35
+    if _float(metrics.get("average_cost")) > 1.35:
+        weights["energy"] += 0.35
+        weights["draw"] += 0.10
+    if _float(categories.get("scaling")) > 3.0:
+        weights["frontload"] += 0.10
+        weights["draw"] += 0.10
+
+    return {
+        key: _clamp(
+            value,
+            config.deck_context_weight_floor,
+            config.deck_context_weight_cap,
+        )
+        for key, value in weights.items()
+    }
+
+
+def _deck_synergy_score(payload: Mapping[str, Any], metrics: Mapping[str, Any]) -> float:
+    categories = _mapping(metrics.get("categories"))
+    relic_values = _relic_mechanic_values(payload)
+    deck_size = _float(metrics.get("deck_size"))
+    size_pressure = max(0.0, deck_size - 14.0) / 8.0
+    attack_count = _float(metrics.get("attack_count"))
+    low_cost_count = _float(metrics.get("low_cost_count"))
+    expensive_count = _float(metrics.get("expensive_count"))
+    burden_count = _float(metrics.get("burden_count"))
+    starter_weight = _float(metrics.get("starter_weight"))
+    strength_support = _float(categories.get("scaling")) + _float(relic_values.get("strength"))
+    energy_support = _float(categories.get("energy")) + _float(relic_values.get("energy"))
+    draw = _float(categories.get("draw"))
+    exhaust = _float(categories.get("exhaust"))
+
+    score = 0.0
+    score += min(3.0, strength_support * 0.25) * min(3.0, attack_count / 4.0)
+    score += min(3.0, draw * 0.35) * min(3.0, low_cost_count / 5.0)
+    score += min(3.0, energy_support * 0.70) * min(3.0, expensive_count / 2.0)
+    score += min(3.0, exhaust * 0.80) * min(
+        3.0,
+        size_pressure + burden_count + starter_weight / 6.0,
+    )
+    score += min(2.0, _float(categories.get("status_enemy")) * 0.35) * min(
+        2.0,
+        attack_count / 5.0,
+    )
+    return score
+
+
+def _deck_growth_cost(
+    added_cards: int,
+    after_deck_size: float,
+    config: LearningRewardConfig,
+) -> float:
+    if added_cards <= 0:
+        return 0.0
+    over_soft_cap = max(0.0, after_deck_size - max(0, config.deck_growth_soft_cap))
+    if over_soft_cap <= 0:
+        return 0.0
+    return (
+        float(added_cards)
+        * over_soft_cap
+        * config.deck_growth_penalty_weight
+        / max(6.0, float(max(1, config.deck_growth_soft_cap)))
     )
 
 
@@ -734,57 +1095,57 @@ def _card_has_marker(card: Mapping[str, Any], marker: str) -> bool:
 
 
 def _deck_capability_score(payload: Mapping[str, Any]) -> float:
-    cards = _master_deck_cards(payload)
-    if not cards:
+    return _float(_deck_metrics(payload, DEFAULT_REWARD_CONFIG).get("score"))
+
+
+def _relic_mechanic_values(payload: Mapping[str, Any]) -> dict[str, float]:
+    values: dict[str, float] = {}
+    for relic_id in _relic_ids(payload):
+        profile = relic_mechanic_profile(relic_id)
+        for key, value in profile.values.items():
+            values[str(key)] = values.get(str(key), 0.0) + _float(value)
+    return values
+
+
+def _card_play_cost(card: Mapping[str, Any]) -> float | None:
+    if _card_is_burden(card):
+        return None
+    raw = card.get("cost")
+    if raw is None:
+        return 1.0
+    if isinstance(raw, str):
+        stripped = raw.strip().lower()
+        if stripped == "x":
+            return 1.5
+        try:
+            raw = float(stripped)
+        except ValueError:
+            return 1.0
+    if isinstance(raw, bool):
+        return 1.0
+    if isinstance(raw, int | float):
+        value = float(raw)
+        if value < 0:
+            return 1.5
+        return value
+    return 1.0
+
+
+def _hp_fraction(payload: Mapping[str, Any]) -> float:
+    player = _player(payload)
+    hp = _int(player.get("hp"))
+    max_hp = max(1, _int(player.get("max_hp"), hp or 1))
+    return _clamp(hp / max_hp)
+
+
+def _shortfall(value: float, target: float) -> float:
+    if target <= 0:
         return 0.0
-    totals = {
-        "frontload": 0.0,
-        "block": 0.0,
-        "draw": 0.0,
-        "energy": 0.0,
-        "scaling": 0.0,
-        "exhaust": 0.0,
-        "retain": 0.0,
-        "status_enemy": 0.0,
-    }
-    for card in cards:
-        profile = card_mechanic_profile(card)
-        values = _mapping(profile.values)
-        damage = _float(values.get("damage")) + _float(values.get("aoe_damage"))
-        totals["frontload"] += min(16.0, damage)
-        totals["block"] += min(16.0, _float(values.get("block")))
-        totals["draw"] += min(5.0, _float(values.get("draw")))
-        totals["energy"] += min(3.0, _float(values.get("energy")))
-        totals["scaling"] += min(
-            6.0,
-            _float(values.get("strength"))
-            + _float(values.get("dexterity"))
-            + _float(values.get("focus"))
-            + _float(values.get("repeating_effect"))
-            + _float(values.get("periodic_effect")),
-        )
-        totals["exhaust"] += min(3.0, _float(values.get("exhaust")))
-        totals["retain"] += min(3.0, _float(values.get("retain")))
-        totals["status_enemy"] += min(
-            5.0,
-            _float(values.get("weak"))
-            + _float(values.get("vulnerable"))
-            + _float(values.get("poison"))
-            + _float(values.get("status_enemy")),
-        )
-    deck_size = max(1.0, float(len(cards)))
-    bloat_penalty = max(0.0, deck_size - 18.0) * 0.25
-    return (
-        totals["frontload"] * 0.10
-        + totals["block"] * 0.08
-        + totals["draw"] * 0.55
-        + totals["energy"] * 0.70
-        + totals["scaling"] * 0.65
-        + totals["exhaust"] * 0.35
-        + totals["retain"] * 0.25
-        + totals["status_enemy"] * 0.25
-        - bloat_penalty
-    )
+    return max(0.0, target - value) / target
+
+
+def _rounded_float_dict(values: Mapping[str, Any]) -> dict[str, float]:
+    return {str(key): round(_float(value), 6) for key, value in values.items()}
 
 
 def _has_available_potion_replacement(payload: Mapping[str, Any]) -> bool:

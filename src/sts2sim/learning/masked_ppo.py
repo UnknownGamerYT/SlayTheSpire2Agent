@@ -46,6 +46,7 @@ from sts2sim.learning.progress import (
 from sts2sim.learning.rewards import (
     BREAKDOWN_FIELDS,
     DEFAULT_REWARD_CONFIG,
+    deck_delta_summary,
     learning_reward,
 )
 from sts2sim.mechanics.enemy_traits import ENEMY_TRAIT_KEYS, enemy_trait_vector
@@ -1118,12 +1119,49 @@ def _accumulate_run_diagnostics(
         target["deck_cards_removed"] = target.get("deck_cards_removed", 0.0) + (
             len(before_cards) - len(after_cards)
         )
-    before_relics = len(_sequence(_mapping(before.get("player")).get("relics", before.get("relics"))))
-    after_relics = len(_sequence(_mapping(after.get("player")).get("relics", after.get("relics"))))
+    if len(after_cards) != len(before_cards):
+        _accumulate_deck_delta_diagnostics(target, before, after)
+    before_relics = len(
+        _sequence(_mapping(before.get("player")).get("relics", before.get("relics")))
+    )
+    after_relics = len(
+        _sequence(_mapping(after.get("player")).get("relics", after.get("relics")))
+    )
     if after_relics > before_relics:
         target["relics_gained"] = target.get("relics_gained", 0.0) + (
             after_relics - before_relics
         )
+
+
+def _accumulate_deck_delta_diagnostics(
+    target: dict[str, float],
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> None:
+    summary = deck_delta_summary(before, after)
+    for key in (
+        "net_score",
+        "capability_delta",
+        "category_delta_score",
+        "problem_relief_score",
+        "pressure_cost",
+        "synergy_delta",
+        "growth_cost",
+    ):
+        target[f"deck_delta_{key}"] = target.get(f"deck_delta_{key}", 0.0) + _float(
+            summary.get(key)
+        )
+    target["deck_delta_events"] = target.get("deck_delta_events", 0.0) + 1.0
+    if bool(summary.get("growth_blocked")):
+        target["deck_growth_blocked"] = target.get("deck_growth_blocked", 0.0) + 1.0
+    for key, value in _mapping(summary.get("problem_relief")).items():
+        if _float(value) > 0:
+            diagnostic_key = f"deck_problem_relief_{key}"
+            target[diagnostic_key] = target.get(diagnostic_key, 0.0) + _float(value)
+    for key, value in _mapping(summary.get("problems_worsened")).items():
+        if _float(value) > 0:
+            diagnostic_key = f"deck_problem_worsened_{key}"
+            target[diagnostic_key] = target.get(diagnostic_key, 0.0) + _float(value)
 
 
 def _final_run_diagnostics(values: Mapping[str, Any], state: Any) -> dict[str, float]:
