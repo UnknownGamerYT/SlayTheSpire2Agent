@@ -100,9 +100,10 @@ def test_reward_pickups_receive_small_direct_credit() -> None:
     assert card.resource_pickup_reward == DEFAULT_REWARD_CONFIG.card_pickup_reward
     assert relic.resource_pickup_reward == DEFAULT_REWARD_CONFIG.relic_pickup_reward
     assert potion.resource_pickup_reward == DEFAULT_REWARD_CONFIG.potion_pickup_reward
+    assert relic.resource_pickup_reward < DEFAULT_REWARD_CONFIG.node_progress_reward
 
 
-def test_obvious_reward_skips_are_penalized() -> None:
+def test_reward_skips_do_not_double_count_pickup_incentives_by_default() -> None:
     previous = _base_payload()
 
     gold = learning_reward_breakdown(
@@ -122,8 +123,10 @@ def test_obvious_reward_skips_are_penalized() -> None:
         },
     )
 
-    assert gold.reward_skip_penalty == DEFAULT_REWARD_CONFIG.skip_gold_penalty
-    assert card.reward_skip_penalty == DEFAULT_REWARD_CONFIG.early_card_skip_penalty
+    assert gold.reward_skip_penalty == 0.0
+    assert card.reward_skip_penalty == 0.0
+    assert DEFAULT_REWARD_CONFIG.skip_gold_penalty == 0.0
+    assert DEFAULT_REWARD_CONFIG.early_card_skip_penalty == 0.0
 
 
 def test_deck_capability_reward_credits_mechanical_growth() -> None:
@@ -148,6 +151,7 @@ def test_deck_capability_reward_credits_mechanical_growth() -> None:
     breakdown = learning_reward_breakdown(previous, current)
 
     assert breakdown.deck_capability_reward > 0.0
+    assert breakdown.deck_capability_reward <= DEFAULT_REWARD_CONFIG.deck_capability_reward_cap
 
 
 def test_curse_burden_penalty_scales_down_in_large_decks() -> None:

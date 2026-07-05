@@ -160,7 +160,7 @@ Good next work:
   rewards before tuning deeper strategy.
 - Audit histories where the agent makes strange choices and convert those into
   simulator bugs, observation gaps, or reward-shaping diagnostics.
-- Keep expanding fallback/source coverage for any cards that still serialize as
+- Keep expanding known-card/source coverage for any cards that still serialize as
   `type: unknown` in new histories.
 - Continue expanding combat/relic/potion/event parity as missing interactions
   show up in histories.

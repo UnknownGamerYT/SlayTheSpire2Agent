@@ -115,7 +115,10 @@ def card_effect_plan(
 ) -> CardEffectPlan:
     """Normalize one card source mapping into executable effect steps."""
 
-    card_spec = _card_spec_with_fallback(card_spec, card_library=card_library)
+    card_spec = _merge_known_card_spec(
+        card_spec,
+        _lookup_card(_card_id(card_spec), card_library),
+    )
     card_spec = _card_spec_with_upgraded_description(card_spec)
     card_id = _card_id(card_spec)
     card_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
@@ -1189,9 +1192,7 @@ def _generated_card_source(
         if "card" in card_spec and isinstance(card_spec["card"], Mapping):
             return card_spec["card"]
         card_id = str(card_spec.get("card_id", card_spec.get("id", "")))
-        merged = dict(_lookup_card(card_id, card_library))
-        merged.update(card_spec)
-        return merged
+        return _merge_known_card_spec(card_spec, _lookup_card(card_id, card_library))
     card_id = str(card_spec)
     return _lookup_card(card_id, card_library) or {"id": card_id, "name": card_id, "cost": 0}
 
@@ -1200,63 +1201,58 @@ def _lookup_card(
     card_id: str,
     card_library: Mapping[str, Mapping[str, Any]] | None,
 ) -> Mapping[str, Any]:
+    normalized = _normalized_id(card_id)
+    library_card: Mapping[str, Any] = {}
     if not card_library:
-        return {}
+        return _KNOWN_CARD_SPECS.get(normalized, {})
     candidates = (card_id, _normalized_id(card_id), str(card_id).upper())
     for candidate in candidates:
         found = card_library.get(candidate)
         if isinstance(found, Mapping):
-            return found
-    normalized = _normalized_id(card_id)
-    for key, value in card_library.items():
-        if _normalized_id(key) == normalized and isinstance(value, Mapping):
-            return value
-    return {}
+            library_card = found
+            break
+    if not library_card:
+        for key, value in card_library.items():
+            if _normalized_id(key) == normalized and isinstance(value, Mapping):
+                library_card = value
+                break
+    known_card = _KNOWN_CARD_SPECS.get(normalized, {})
+    if known_card and library_card:
+        merged = dict(known_card)
+        merged.update(library_card)
+        return merged
+    return library_card or known_card or {}
 
 
 def _card_id(card_spec: Mapping[str, Any]) -> str:
     return _normalized_id(card_spec.get("card_id", card_spec.get("id", "unknown_card")))
 
 
-def _card_spec_with_fallback(
+def _merge_known_card_spec(
     card_spec: Mapping[str, Any],
-    *,
-    card_library: Mapping[str, Mapping[str, Any]] | None = None,
+    known_card: Mapping[str, Any],
 ) -> Mapping[str, Any]:
-    card_id = _card_id(card_spec)
-    library_source = _library_card_source(card_id, card_library)
-    fallback = _FALLBACK_CARD_SPECS.get(card_id)
-    if fallback is None:
+    if not known_card:
         return card_spec
-    merged = dict(fallback)
-    if library_source:
-        merged.update(library_source)
+    merged = dict(known_card)
     merged.update(card_spec)
     source_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
-    fallback_type = fallback.get("type", fallback.get("card_type"))
-    library_type = library_source.get("type", library_source.get("card_type"))
-    replacement_type = (
-        library_type
-        if _normalize_card_type(library_type) != "unknown"
-        else fallback_type
-    )
-    if source_type == "unknown" and _normalize_card_type(replacement_type) in {"curse", "status"}:
+    known_type = known_card.get("type", known_card.get("card_type"))
+    if source_type == "unknown" and _normalize_card_type(known_type) != "unknown":
+        merged["type"] = known_type
+        if "card_type" in merged or "card_type" in known_card:
+            merged["card_type"] = known_type
+    if source_type == "unknown" and _normalize_card_type(known_type) in {"curse", "status"}:
         for key in ("cost", "target", "effects", "tags", "exhausts"):
-            if key in fallback:
-                merged[key] = fallback[key]
-        fallback_custom = fallback.get("custom")
+            if key in known_card:
+                merged[key] = known_card[key]
+        known_custom = known_card.get("custom")
         source_custom = card_spec.get("custom")
-        if isinstance(fallback_custom, Mapping):
+        if isinstance(known_custom, Mapping):
             merged["custom"] = {
-                **dict(fallback_custom),
+                **dict(known_custom),
                 **(dict(source_custom) if isinstance(source_custom, Mapping) else {}),
             }
-    if _normalize_card_type(merged.get("type", merged.get("card_type"))) == "unknown":
-        if _normalize_card_type(replacement_type) != "unknown":
-            merged["type"] = replacement_type
-    if _normalize_card_type(merged.get("card_type", merged.get("type"))) == "unknown":
-        if _normalize_card_type(replacement_type) != "unknown":
-            merged["card_type"] = replacement_type
     return merged
 
 
@@ -1394,7 +1390,7 @@ _CARD_TYPE_ALIASES = {
     "status": "status",
 }
 
-_FALLBACK_CARD_SPECS: dict[str, Mapping[str, Any]] = {
+_KNOWN_CARD_SPECS: dict[str, Mapping[str, Any]] = {
     "anger": {
         "card_id": "anger",
         "name": "Anger",

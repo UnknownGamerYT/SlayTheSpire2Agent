@@ -7,7 +7,7 @@ from sts2sim.mechanics.card_effects import (
 )
 
 
-def test_report_unknown_cards_use_fallback_specs() -> None:
+def test_report_unknown_cards_use_known_specs() -> None:
     expected_types = {
         "rampage": "attack",
         "dominate": "attack",
