@@ -28,6 +28,9 @@ strategy without graphics.
 - PPO is the active path. Old Q-learning is baseline/reference only.
 - The PPO action head scores currently legal action descriptors with action
   masking.
+- PPO can be warm-started from the strategic heuristic agent with
+  `--teacher-mix` for sampled teacher actions and `--imitation-coef` for an
+  auxiliary imitation loss.
 - The model has auxiliary planning heads:
   - `aggression_target`
   - `hp_floor`
@@ -51,8 +54,22 @@ The reward system is outcome-based and aggression-aware:
 - No direct death penalty.
 - No generic win reward.
 - Gold is rewarded directly and capped because it is almost always useful.
-- Cards, relics, removals, and skips do not get direct fixed rewards. Their value
-  should be learned from later survival, combat strength, and boss progress.
+- Reward screens now have conservative direct shaping so the agent stops
+  treating obvious pickups as neutral:
+  - small card pickup reward
+  - relic/potion pickup reward
+  - card-removal reward
+  - penalties for skipping gold/relic/potion and early card rewards
+- Deck growth also gets a small capability-delta reward from semantic card
+  mechanics such as damage, block, draw, energy, scaling, exhaust, retain, and
+  enemy statuses. This is not a fixed card tier list.
+- Curse or unplayable burden cards get a deck-size-sensitive penalty when added;
+  the same curse is much worse in a small deck than in a large deck.
+- Terminal runs can receive a starter-deck similarity penalty when the final
+  deck is still mostly Strike/Defend/Bash after the early floors. Upgraded or
+  enchanted starter cards and relics that make the starter package stronger
+  mitigate this penalty so improved starter-deck plans are not treated as
+  stagnation.
 - Combat rewards scale by room and act:
   - normal combat
   - elite combat
@@ -85,6 +102,10 @@ The JSON remains full fidelity. The HTML is intentionally compact:
 - enemy turn / next intent is summarized
 - normal steps show mostly what changed
 - raw engine events and full policy outputs are collapsed in details sections
+
+PPO reports now include reward/deck diagnostics, including reward pickup/skip
+counts, unclaimed reward categories, final deck size, unknown card count, relics,
+potions, and gold.
 
 ## Useful Commands
 
@@ -135,8 +156,11 @@ rg -n "class LearningRewardConfig|train_masked_ppo|run_history_html|PLANNING_HEA
 Good next work:
 
 - Tune reward coefficients from training reports instead of guessing.
-- Improve deck-performance diagnostics, not direct card/relic rewards.
+- Use the new reward/deck diagnostics to verify the agent is taking useful
+  rewards before tuning deeper strategy.
 - Audit histories where the agent makes strange choices and convert those into
   simulator bugs, observation gaps, or reward-shaping diagnostics.
+- Keep expanding fallback/source coverage for any cards that still serialize as
+  `type: unknown` in new histories.
 - Continue expanding combat/relic/potion/event parity as missing interactions
   show up in histories.

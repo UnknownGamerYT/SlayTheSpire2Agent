@@ -60,7 +60,7 @@ def test_gold_reward_is_positive_and_capped() -> None:
     assert breakdown.total == 0.5
 
 
-def test_cards_relics_removals_and_skips_have_no_direct_reward() -> None:
+def test_reward_screen_state_without_action_descriptor_has_no_direct_reward() -> None:
     previous = _base_payload()
     current = _base_payload()
     current["reward"] = {
@@ -75,6 +75,127 @@ def test_cards_relics_removals_and_skips_have_no_direct_reward() -> None:
     }
 
     assert learning_reward_breakdown(previous, current).total == 0.0
+
+
+def test_reward_pickups_receive_small_direct_credit() -> None:
+    previous = _base_payload()
+    current = _base_payload()
+
+    card = learning_reward_breakdown(
+        previous,
+        current,
+        action_descriptor={"type": "take_reward_card"},
+    )
+    relic = learning_reward_breakdown(
+        previous,
+        current,
+        action_descriptor={"type": "take_reward_relic"},
+    )
+    potion = learning_reward_breakdown(
+        previous,
+        current,
+        action_descriptor={"type": "take_reward_potion"},
+    )
+
+    assert card.resource_pickup_reward == DEFAULT_REWARD_CONFIG.card_pickup_reward
+    assert relic.resource_pickup_reward == DEFAULT_REWARD_CONFIG.relic_pickup_reward
+    assert potion.resource_pickup_reward == DEFAULT_REWARD_CONFIG.potion_pickup_reward
+
+
+def test_obvious_reward_skips_are_penalized() -> None:
+    previous = _base_payload()
+
+    gold = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={
+            "type": "skip_reward",
+            "reward_choice": {"skip_kind": "gold"},
+        },
+    )
+    card = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={
+            "type": "skip_reward",
+            "reward_choice": {"skip_kind": "card_options"},
+        },
+    )
+
+    assert gold.reward_skip_penalty == DEFAULT_REWARD_CONFIG.skip_gold_penalty
+    assert card.reward_skip_penalty == DEFAULT_REWARD_CONFIG.early_card_skip_penalty
+
+
+def test_deck_capability_reward_credits_mechanical_growth() -> None:
+    previous = _base_payload(
+        deck=(
+            {"card_id": "strike", "type": "attack", "effects": {"damage": 6}},
+            {"card_id": "defend", "type": "skill", "effects": {"block": 5}},
+        )
+    )
+    current = _base_payload(
+        deck=(
+            {"card_id": "strike", "type": "attack", "effects": {"damage": 6}},
+            {"card_id": "defend", "type": "skill", "effects": {"block": 5}},
+            {
+                "card_id": "pommel_strike",
+                "type": "attack",
+                "effects": {"damage": 9, "draw": 1},
+            },
+        )
+    )
+
+    breakdown = learning_reward_breakdown(previous, current)
+
+    assert breakdown.deck_capability_reward > 0.0
+
+
+def test_curse_burden_penalty_scales_down_in_large_decks() -> None:
+    small_before = _base_payload(deck=_deck_cards(10))
+    small_after = _base_payload(deck=(*_deck_cards(10), _greed_card()), gold=333)
+    large_before = _base_payload(deck=_deck_cards(30))
+    large_after = _base_payload(deck=(*_deck_cards(30), _greed_card()), gold=333)
+
+    small = learning_reward_breakdown(small_before, small_after)
+    large = learning_reward_breakdown(large_before, large_after)
+
+    assert small.deck_burden_penalty == pytest.approx(
+        DEFAULT_REWARD_CONFIG.curse_pickup_penalty
+        + DEFAULT_REWARD_CONFIG.eternal_curse_extra_penalty
+    )
+    assert large.deck_burden_penalty < 0.0
+    assert abs(large.deck_burden_penalty) < abs(small.deck_burden_penalty)
+    assert small.total < large.total
+
+
+def test_terminal_starter_similarity_penalizes_unchanged_starter_deck() -> None:
+    deck = _starter_deck()
+
+    breakdown = learning_reward_breakdown(
+        _base_payload(floor=5, deck=deck),
+        _base_payload(phase="failed", floor=5, deck=deck),
+    )
+
+    assert breakdown.starter_deck_similarity_penalty < 0.0
+
+
+def test_starter_similarity_penalty_respects_deck_improvements() -> None:
+    starter = _starter_deck()
+    upgraded = tuple(card | {"upgraded": True} for card in starter)
+
+    unchanged = learning_reward_breakdown(
+        _base_payload(floor=5, deck=starter),
+        _base_payload(phase="failed", floor=5, deck=starter),
+    )
+    improved = learning_reward_breakdown(
+        _base_payload(floor=5, deck=upgraded),
+        _base_payload(phase="failed", floor=5, deck=upgraded, relics=("anchor",)),
+    )
+
+    assert improved.starter_deck_similarity_penalty <= 0.0
+    assert abs(improved.starter_deck_similarity_penalty) < abs(
+        unchanged.starter_deck_similarity_penalty
+    )
 
 
 def test_node_progress_reward_is_tiny_and_once_per_tracker() -> None:
@@ -205,13 +326,25 @@ def _base_payload(
     kind: str = "monster",
     room_history: tuple[str, ...] = (),
     potions: tuple[str, ...] = (),
+    relics: tuple[str, ...] = (),
+    deck: tuple[dict, ...] = (),
 ) -> dict:
     return {
         "phase": phase,
         "act": act,
         "floor": floor,
-        "player": {"hp": hp, "max_hp": max_hp, "block": 0, "gold": gold},
+        "player": {
+            "hp": hp,
+            "max_hp": max_hp,
+            "block": 0,
+            "gold": gold,
+            "relics": list(relics),
+            "deck": list(deck),
+            "deck_count": len(deck),
+        },
+        "master_deck": list(deck),
         "potions": list(potions),
+        "relics": list(relics),
         "room_history": list(room_history),
         "map": {
             "current_node_id": "a1:1:0",
@@ -260,3 +393,57 @@ def _combat_payload(
         "metadata": {"room_kind": kind, "combat_id": "test-combat"},
     }
     return payload
+
+
+def _deck_cards(count: int) -> tuple[dict, ...]:
+    return tuple(
+        {
+            "instance_id": f"strike_{index}",
+            "card_id": "strike",
+            "type": "attack",
+            "effects": {"damage": 6},
+        }
+        for index in range(count)
+    )
+
+
+def _starter_deck() -> tuple[dict, ...]:
+    cards: list[dict] = []
+    for index in range(5):
+        cards.append(
+            {
+                "instance_id": f"strike_{index}",
+                "card_id": "strike",
+                "type": "attack",
+                "effects": {"damage": 6},
+            }
+        )
+    for index in range(4):
+        cards.append(
+            {
+                "instance_id": f"defend_{index}",
+                "card_id": "defend",
+                "type": "skill",
+                "effects": {"block": 5},
+            }
+        )
+    cards.append(
+        {
+            "instance_id": "bash_0",
+            "card_id": "bash",
+            "type": "attack",
+            "effects": {"damage": 8, "apply_status": {"target": "enemy", "vulnerable": 2}},
+        }
+    )
+    return tuple(cards)
+
+
+def _greed_card() -> dict:
+    return {
+        "instance_id": "greed_1",
+        "card_id": "greed",
+        "type": "curse",
+        "tags": ["curse", "eternal", "unplayable"],
+        "custom": {"eternal": True, "frontloaded_gold": 333},
+        "effects": {"noop": {"reason": "frontloaded_gold_curse"}},
+    }

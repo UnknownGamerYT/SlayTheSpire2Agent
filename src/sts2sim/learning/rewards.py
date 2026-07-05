@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from sts2sim.api import serialize
+from sts2sim.mechanics.semantics import card_mechanic_profile, relic_mechanic_profile
 
 
 class LearningRewardConfig(BaseModel):
@@ -50,6 +51,26 @@ class LearningRewardConfig(BaseModel):
     gold_reward_per_gold: float = 0.01
     gold_reward_cap: float = 0.5
     wasteful_potion_discard_penalty: float = -0.5
+    card_pickup_reward: float = 0.15
+    relic_pickup_reward: float = 1.0
+    potion_pickup_reward: float = 0.25
+    card_remove_reward: float = 0.35
+    skip_gold_penalty: float = -0.2
+    skip_relic_penalty: float = -1.0
+    skip_potion_penalty: float = -0.25
+    early_card_skip_penalty: float = -0.2
+    early_card_skip_deck_size: int = 14
+    deck_capability_reward_weight: float = 0.04
+    deck_capability_reward_cap: float = 0.8
+    curse_pickup_penalty: float = -1.2
+    eternal_curse_extra_penalty: float = -0.3
+    curse_burden_reference_deck_size: int = 10
+    starter_deck_similarity_penalty: float = -1.5
+    starter_deck_similarity_floor: int = 3
+    starter_deck_similarity_threshold: float = 0.55
+    starter_deck_improved_card_weight: float = 0.35
+    starter_deck_capability_mitigation: float = 0.08
+    starter_deck_relic_mitigation: float = 0.12
 
 
 class LearningRewardBreakdown(BaseModel):
@@ -68,6 +89,11 @@ class LearningRewardBreakdown(BaseModel):
     prevented_hp_reward: float = 0.0
     gold_reward: float = 0.0
     potion_waste_penalty: float = 0.0
+    resource_pickup_reward: float = 0.0
+    reward_skip_penalty: float = 0.0
+    deck_capability_reward: float = 0.0
+    deck_burden_penalty: float = 0.0
+    starter_deck_similarity_penalty: float = 0.0
     target_reached_reward: float = 0.0
 
 
@@ -110,6 +136,9 @@ class LearningRewardTracker(BaseModel):
 
 DEFAULT_REWARD_CONFIG = LearningRewardConfig()
 BREAKDOWN_FIELDS: tuple[str, ...] = tuple(LearningRewardBreakdown.model_fields)
+_STARTER_DECK_COUNTS = {"strike": 5, "defend": 4, "bash": 1}
+_STARTER_DECK_SIZE = sum(_STARTER_DECK_COUNTS.values())
+_STARTER_DECK_CAPABILITY_SCORE = 5.9
 
 
 def learning_reward(
@@ -167,6 +196,11 @@ def learning_reward_breakdown(
     gold = max(0, _player_gold(current) - _player_gold(previous))
     gold_reward = min(gold * config.gold_reward_per_gold, config.gold_reward_cap)
     potion_penalty = _potion_waste_penalty(previous, descriptor, config)
+    resource_pickup = _resource_pickup_reward(previous, current, descriptor, config)
+    reward_skip = _reward_skip_penalty(previous, descriptor, config)
+    deck_capability = _deck_capability_reward(previous, current, config)
+    deck_burden = _deck_burden_penalty(previous, current, config)
+    starter_similarity = _starter_deck_similarity_penalty(current, config)
 
     breakdown = LearningRewardBreakdown(
         node_progress_reward=round(node_progress, 6),
@@ -182,6 +216,11 @@ def learning_reward_breakdown(
         ),
         gold_reward=round(gold_reward, 6),
         potion_waste_penalty=round(potion_penalty, 6),
+        resource_pickup_reward=round(resource_pickup, 6),
+        reward_skip_penalty=round(reward_skip, 6),
+        deck_capability_reward=round(deck_capability, 6),
+        deck_burden_penalty=round(deck_burden, 6),
+        starter_deck_similarity_penalty=round(starter_similarity, 6),
         target_reached_reward=round(float(target_reached_reward), 6),
     )
     total = sum(
@@ -451,6 +490,303 @@ def _potion_waste_penalty(
     return config.wasteful_potion_discard_penalty
 
 
+def _resource_pickup_reward(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    action_type = str(action_descriptor.get("type", ""))
+    if action_type == "take_reward_card":
+        return config.card_pickup_reward
+    if action_type == "take_reward_relic":
+        return config.relic_pickup_reward
+    if action_type == "take_reward_potion":
+        return config.potion_pickup_reward
+    if action_type in {"shop_buy", "take_reward_card_removal"}:
+        item = _mapping(action_descriptor.get("item"))
+        kind = str(item.get("kind", ""))
+        if kind in {"card", "colorless_card"}:
+            return config.card_pickup_reward
+        if kind == "relic":
+            return config.relic_pickup_reward
+        if kind == "potion":
+            return config.potion_pickup_reward
+        if kind == "card_removal" or _master_deck_count(current) < _master_deck_count(previous):
+            return config.card_remove_reward
+    if _master_deck_count(current) < _master_deck_count(previous):
+        return config.card_remove_reward
+    return 0.0
+
+
+def _reward_skip_penalty(
+    previous: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    if str(action_descriptor.get("type", "")) != "skip_reward":
+        return 0.0
+    reward_choice = _mapping(action_descriptor.get("reward_choice"))
+    skip_kind = str(reward_choice.get("skip_kind", reward_choice.get("kind", "")))
+    if skip_kind == "gold":
+        return config.skip_gold_penalty
+    if skip_kind == "relic":
+        return config.skip_relic_penalty
+    if skip_kind == "potion":
+        return config.skip_potion_penalty if _potion_slots_available(previous) else 0.0
+    if skip_kind in {"card_options", "card_group", "fixed_card", "card"}:
+        if _master_deck_count(previous) <= max(0, config.early_card_skip_deck_size):
+            return config.early_card_skip_penalty
+    return 0.0
+
+
+def _deck_capability_reward(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    if config.deck_capability_reward_weight <= 0:
+        return 0.0
+    delta = _deck_capability_score(current) - _deck_capability_score(previous)
+    if delta <= 0:
+        return 0.0
+    return min(
+        config.deck_capability_reward_cap,
+        delta * config.deck_capability_reward_weight,
+    )
+
+
+def _deck_burden_penalty(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    if config.curse_pickup_penalty >= 0:
+        return 0.0
+    before_count = max(1.0, float(_master_deck_count(previous)))
+    density = min(
+        1.0,
+        max(1.0, float(config.curse_burden_reference_deck_size)) / before_count,
+    )
+    penalty = 0.0
+    for card in _added_deck_cards(previous, current):
+        if not _card_is_burden(card):
+            continue
+        card_penalty = config.curse_pickup_penalty
+        if _card_has_marker(card, "eternal"):
+            card_penalty += config.eternal_curse_extra_penalty
+        penalty += card_penalty * density
+    return penalty
+
+
+def _starter_deck_similarity_penalty(
+    payload: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    if config.starter_deck_similarity_penalty >= 0:
+        return 0.0
+    if _phase(payload) not in {"failed", "complete"}:
+        return 0.0
+    if _int(payload.get("floor")) < max(0, config.starter_deck_similarity_floor):
+        return 0.0
+
+    cards = _master_deck_cards(payload)
+    if not cards:
+        return 0.0
+
+    weighted_starter = _weighted_starter_card_count(cards, config)
+    similarity = weighted_starter / max(float(len(cards)), float(_STARTER_DECK_SIZE))
+    threshold = _clamp(config.starter_deck_similarity_threshold, 0.0, 0.95)
+    if similarity <= threshold:
+        return 0.0
+
+    severity = (similarity - threshold) / max(0.01, 1.0 - threshold)
+    mitigation = min(
+        1.0,
+        _starter_deck_capability_gain(cards) * config.starter_deck_capability_mitigation
+        + _starter_relic_support_score(payload) * config.starter_deck_relic_mitigation,
+    )
+    severity = max(0.0, severity - mitigation)
+    return config.starter_deck_similarity_penalty * severity
+
+
+def _weighted_starter_card_count(
+    cards: Sequence[Mapping[str, Any]],
+    config: LearningRewardConfig,
+) -> float:
+    seen: dict[str, int] = {}
+    weighted = 0.0
+    for card in cards:
+        card_id = _normalized_id(card.get("card_id", card.get("id", "")))
+        allowed = _STARTER_DECK_COUNTS.get(card_id, 0)
+        if allowed <= 0:
+            continue
+        count = seen.get(card_id, 0)
+        if count >= allowed:
+            continue
+        seen[card_id] = count + 1
+        weighted += (
+            _clamp(config.starter_deck_improved_card_weight, 0.0, 1.0)
+            if _starter_card_is_improved(card)
+            else 1.0
+        )
+    return weighted
+
+
+def _starter_card_is_improved(card: Mapping[str, Any]) -> bool:
+    if _bool(card.get("upgraded")):
+        return True
+    if _sequence(card.get("enchantments")):
+        return True
+    custom = _mapping(card.get("custom"))
+    if any(
+        key in custom
+        for key in (
+            "damage_bonus",
+            "block_bonus",
+            "cost_reduction",
+            "free_to_play_this_combat",
+            "free_to_play_this_turn",
+            "innate",
+            "retain",
+            "strength_bonus",
+        )
+    ):
+        return True
+    return any(
+        _normalized_id(tag).replace(":", "_")
+        in {"enchanted", "innate", "retain", "upgraded"}
+        for tag in _sequence(card.get("tags"))
+    )
+
+
+def _starter_deck_capability_gain(cards: Sequence[Mapping[str, Any]]) -> float:
+    return max(
+        0.0,
+        _deck_capability_score({"master_deck": tuple(cards)})
+        - _STARTER_DECK_CAPABILITY_SCORE,
+    )
+
+
+def _starter_relic_support_score(payload: Mapping[str, Any]) -> float:
+    score = 0.0
+    for relic_id in _relic_ids(payload):
+        profile = relic_mechanic_profile(relic_id)
+        values = _mapping(profile.values)
+        score += min(4.0, _float(values.get("block")) * 0.05)
+        score += min(4.0, _float(values.get("damage")) * 0.05)
+        score += min(4.0, _float(values.get("aoe_damage")) * 0.04)
+        score += min(3.0, _float(values.get("strength")) * 0.6)
+        score += min(3.0, _float(values.get("dexterity")) * 0.6)
+        score += min(3.0, _float(values.get("energy")) * 0.6)
+        score += min(3.0, _float(values.get("card_upgrade")) * 0.4)
+        score += min(2.0, _float(values.get("repeating_effect")) * 0.2)
+        score += min(2.0, _float(values.get("periodic_effect")) * 0.2)
+    return score
+
+
+def _added_deck_cards(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], ...]:
+    previous_counts: dict[str, int] = {}
+    for card in _master_deck_cards(previous):
+        key = _card_identity_key(card)
+        previous_counts[key] = previous_counts.get(key, 0) + 1
+
+    added: list[Mapping[str, Any]] = []
+    for card in _master_deck_cards(current):
+        key = _card_identity_key(card)
+        available = previous_counts.get(key, 0)
+        if available > 0:
+            previous_counts[key] = available - 1
+        else:
+            added.append(card)
+    return tuple(added)
+
+
+def _card_identity_key(card: Mapping[str, Any]) -> str:
+    instance_id = str(card.get("instance_id", "") or "")
+    if instance_id:
+        return f"instance:{instance_id}"
+    return f"card:{_normalized_id(card.get('card_id', card.get('id', '')))}"
+
+
+def _card_is_burden(card: Mapping[str, Any]) -> bool:
+    return (
+        _normalized_id(card.get("type", card.get("card_type"))) == "curse"
+        or _card_has_marker(card, "curse")
+        or _card_has_marker(card, "unplayable")
+    )
+
+
+def _card_has_marker(card: Mapping[str, Any], marker: str) -> bool:
+    normalized_marker = _normalized_id(marker)
+    if _bool(card.get(normalized_marker)):
+        return True
+    custom = _mapping(card.get("custom"))
+    if _bool(custom.get(normalized_marker)):
+        return True
+    for tag in _sequence(card.get("tags")):
+        if _normalized_id(tag).replace(":", "_") == normalized_marker:
+            return True
+    return False
+
+
+def _deck_capability_score(payload: Mapping[str, Any]) -> float:
+    cards = _master_deck_cards(payload)
+    if not cards:
+        return 0.0
+    totals = {
+        "frontload": 0.0,
+        "block": 0.0,
+        "draw": 0.0,
+        "energy": 0.0,
+        "scaling": 0.0,
+        "exhaust": 0.0,
+        "retain": 0.0,
+        "status_enemy": 0.0,
+    }
+    for card in cards:
+        profile = card_mechanic_profile(card)
+        values = _mapping(profile.values)
+        damage = _float(values.get("damage")) + _float(values.get("aoe_damage"))
+        totals["frontload"] += min(16.0, damage)
+        totals["block"] += min(16.0, _float(values.get("block")))
+        totals["draw"] += min(5.0, _float(values.get("draw")))
+        totals["energy"] += min(3.0, _float(values.get("energy")))
+        totals["scaling"] += min(
+            6.0,
+            _float(values.get("strength"))
+            + _float(values.get("dexterity"))
+            + _float(values.get("focus"))
+            + _float(values.get("repeating_effect"))
+            + _float(values.get("periodic_effect")),
+        )
+        totals["exhaust"] += min(3.0, _float(values.get("exhaust")))
+        totals["retain"] += min(3.0, _float(values.get("retain")))
+        totals["status_enemy"] += min(
+            5.0,
+            _float(values.get("weak"))
+            + _float(values.get("vulnerable"))
+            + _float(values.get("poison"))
+            + _float(values.get("status_enemy")),
+        )
+    deck_size = max(1.0, float(len(cards)))
+    bloat_penalty = max(0.0, deck_size - 18.0) * 0.25
+    return (
+        totals["frontload"] * 0.10
+        + totals["block"] * 0.08
+        + totals["draw"] * 0.55
+        + totals["energy"] * 0.70
+        + totals["scaling"] * 0.65
+        + totals["exhaust"] * 0.35
+        + totals["retain"] * 0.25
+        + totals["status_enemy"] * 0.25
+        - bloat_penalty
+    )
+
+
 def _has_available_potion_replacement(payload: Mapping[str, Any]) -> bool:
     reward = _mapping(payload.get("reward"))
     if reward:
@@ -467,6 +803,14 @@ def _has_available_potion_replacement(payload: Mapping[str, Any]) -> bool:
         if str(item_map.get("kind", "")) == "potion" and not _bool(item_map.get("purchased")):
             return True
     return False
+
+
+def _potion_slots_available(payload: Mapping[str, Any]) -> bool:
+    player = _player(payload)
+    potion_count = len(_sequence(player.get("potions", payload.get("potions"))))
+    reward = _mapping(payload.get("reward"))
+    slots = _int(_mapping(reward.get("metadata")).get("potion_slots"), 3)
+    return potion_count < max(0, slots)
 
 
 def _refresh_tracker_after_transition(
@@ -558,6 +902,36 @@ def _player_gold(payload: Mapping[str, Any]) -> int:
     return _int(_player(payload).get("gold"))
 
 
+def _master_deck_cards(payload: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+    player = _player(payload)
+    cards = _sequence(payload.get("master_deck"))
+    if not cards:
+        cards = _sequence(player.get("deck"))
+    return tuple(_mapping(card) for card in cards)
+
+
+def _master_deck_count(payload: Mapping[str, Any]) -> int:
+    cards = _master_deck_cards(payload)
+    if cards:
+        return len(cards)
+    return _int(_player(payload).get("deck_count"))
+
+
+def _relic_ids(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    player = _player(payload)
+    relics = _sequence(player.get("relics", payload.get("relics")))
+    ids: list[str] = []
+    for relic in relics:
+        if isinstance(relic, Mapping):
+            relic_id = relic.get("relic_id", relic.get("id"))
+        else:
+            relic_id = relic
+        normalized = _normalized_id(relic_id)
+        if normalized:
+            ids.append(normalized)
+    return tuple(ids)
+
+
 def _player(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     combat = _combat(payload)
     combat_player = _mapping(combat.get("player"))
@@ -618,6 +992,17 @@ def _bool(value: object) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "y"}
     return False
+
+
+def _normalized_id(value: object) -> str:
+    return (
+        str(value or "")
+        .strip()
+        .lower()
+        .replace("'", "")
+        .replace("-", "_")
+        .replace(" ", "_")
+    )
 
 
 def _int(value: object, default: int = 0) -> int:

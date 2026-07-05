@@ -1819,6 +1819,23 @@ def train_masked_ppo(
             help="Auxiliary planning-head loss coefficient.",
         ),
     ] = 0.1,
+    teacher_mix: Annotated[
+        float,
+        typer.Option(
+            "--teacher-mix",
+            min=0.0,
+            max=1.0,
+            help="Fraction of training actions to take from the strategic teacher.",
+        ),
+    ] = 0.0,
+    imitation_coef: Annotated[
+        float,
+        typer.Option(
+            "--imitation-coef",
+            min=0.0,
+            help="Supervised loss weight toward the strategic teacher action.",
+        ),
+    ] = 0.0,
     ppo_epochs: Annotated[
         int,
         typer.Option("--ppo-epochs", min=1, help="PPO optimization epochs per batch."),
@@ -1929,6 +1946,8 @@ def train_masked_ppo(
                 value_coef=value_coef,
                 entropy_coef=entropy_coef,
                 planning_coef=planning_coef,
+                teacher_mix=teacher_mix,
+                imitation_coef=imitation_coef,
                 ppo_epochs=ppo_epochs,
                 minibatch_size=minibatch_size,
                 target_reward=target_reward,
@@ -2073,6 +2092,23 @@ def train_ppo_curriculum(
             help="Auxiliary planning-head loss coefficient.",
         ),
     ] = 0.1,
+    teacher_mix: Annotated[
+        float,
+        typer.Option(
+            "--teacher-mix",
+            min=0.0,
+            max=1.0,
+            help="Fraction of training actions to take from the strategic teacher.",
+        ),
+    ] = 0.0,
+    imitation_coef: Annotated[
+        float,
+        typer.Option(
+            "--imitation-coef",
+            min=0.0,
+            help="Supervised loss weight toward the strategic teacher action.",
+        ),
+    ] = 0.0,
     ppo_epochs: Annotated[
         int,
         typer.Option("--ppo-epochs", min=1, help="PPO optimization epochs per batch."),
@@ -2174,6 +2210,8 @@ def train_ppo_curriculum(
             value_coef=value_coef,
             entropy_coef=entropy_coef,
             planning_coef=planning_coef,
+            teacher_mix=teacher_mix,
+            imitation_coef=imitation_coef,
             ppo_epochs=ppo_epochs,
             minibatch_size=minibatch_size,
             target_reward=target_reward,

@@ -115,6 +115,7 @@ def card_effect_plan(
 ) -> CardEffectPlan:
     """Normalize one card source mapping into executable effect steps."""
 
+    card_spec = _card_spec_with_fallback(card_spec, card_library=card_library)
     card_spec = _card_spec_with_upgraded_description(card_spec)
     card_id = _card_id(card_spec)
     card_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
@@ -1217,6 +1218,48 @@ def _card_id(card_spec: Mapping[str, Any]) -> str:
     return _normalized_id(card_spec.get("card_id", card_spec.get("id", "unknown_card")))
 
 
+def _card_spec_with_fallback(
+    card_spec: Mapping[str, Any],
+    *,
+    card_library: Mapping[str, Mapping[str, Any]] | None = None,
+) -> Mapping[str, Any]:
+    card_id = _card_id(card_spec)
+    library_source = _library_card_source(card_id, card_library)
+    fallback = _FALLBACK_CARD_SPECS.get(card_id)
+    if fallback is None:
+        return card_spec
+    merged = dict(fallback)
+    if library_source:
+        merged.update(library_source)
+    merged.update(card_spec)
+    source_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
+    fallback_type = fallback.get("type", fallback.get("card_type"))
+    library_type = library_source.get("type", library_source.get("card_type"))
+    replacement_type = (
+        library_type
+        if _normalize_card_type(library_type) != "unknown"
+        else fallback_type
+    )
+    if source_type == "unknown" and _normalize_card_type(replacement_type) in {"curse", "status"}:
+        for key in ("cost", "target", "effects", "tags", "exhausts"):
+            if key in fallback:
+                merged[key] = fallback[key]
+        fallback_custom = fallback.get("custom")
+        source_custom = card_spec.get("custom")
+        if isinstance(fallback_custom, Mapping):
+            merged["custom"] = {
+                **dict(fallback_custom),
+                **(dict(source_custom) if isinstance(source_custom, Mapping) else {}),
+            }
+    if _normalize_card_type(merged.get("type", merged.get("card_type"))) == "unknown":
+        if _normalize_card_type(replacement_type) != "unknown":
+            merged["type"] = replacement_type
+    if _normalize_card_type(merged.get("card_type", merged.get("type"))) == "unknown":
+        if _normalize_card_type(replacement_type) != "unknown":
+            merged["card_type"] = replacement_type
+    return merged
+
+
 def _card_cost(card_spec: Mapping[str, Any]) -> int | None:
     if card_spec.get("is_x_cost") or card_spec.get("is_x_star_cost"):
         return -1
@@ -1349,6 +1392,293 @@ _CARD_TYPE_ALIASES = {
     "power": "power",
     "skill": "skill",
     "status": "status",
+}
+
+_FALLBACK_CARD_SPECS: dict[str, Mapping[str, Any]] = {
+    "anger": {
+        "card_id": "anger",
+        "name": "Anger",
+        "type": "attack",
+        "cost": 0,
+        "target": "enemy",
+        "effects": {"damage": 6, "add_card_to_discard": {"card_id": "anger"}},
+    },
+    "armaments": {
+        "card_id": "armaments",
+        "name": "Armaments",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 5, "upgrade_all_combat_cards": 1},
+    },
+    "battle_trance": {
+        "card_id": "battle_trance",
+        "name": "Battle Trance",
+        "type": "skill",
+        "cost": 0,
+        "target": "self",
+        "effects": {"draw": 3, "apply_status": {"target": "self", "no_draw": 1}},
+    },
+    "body_slam": {
+        "card_id": "body_slam",
+        "name": "Body Slam",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage_formula": {"formula": "player_block"}},
+    },
+    "carnage": {
+        "card_id": "carnage",
+        "name": "Carnage",
+        "type": "attack",
+        "cost": 2,
+        "target": "enemy",
+        "effects": {"damage": 20},
+    },
+    "cleave": {
+        "card_id": "cleave",
+        "name": "Cleave",
+        "type": "attack",
+        "cost": 1,
+        "target": "all_enemies",
+        "effects": {"all_damage": 8},
+    },
+    "clothesline": {
+        "card_id": "clothesline",
+        "name": "Clothesline",
+        "type": "attack",
+        "cost": 2,
+        "target": "enemy",
+        "effects": {"damage": 12, "apply_status": {"target": "enemy", "weak": 2}},
+    },
+    "disarm": {
+        "card_id": "disarm",
+        "name": "Disarm",
+        "type": "skill",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"apply_status": {"target": "enemy", "strength": -2}},
+        "exhausts": True,
+    },
+    "flame_barrier": {
+        "card_id": "flame_barrier",
+        "name": "Flame Barrier",
+        "type": "skill",
+        "cost": 2,
+        "target": "self",
+        "effects": {"block": 12, "apply_status": {"target": "self", "flame_barrier": 4}},
+    },
+    "hemokinesis": {
+        "card_id": "hemokinesis",
+        "name": "Hemokinesis",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"hp_loss": 2, "damage": 15},
+    },
+    "inflame": {
+        "card_id": "inflame",
+        "name": "Inflame",
+        "type": "power",
+        "cost": 1,
+        "target": "self",
+        "effects": {"apply_status": {"target": "self", "strength": 2}},
+    },
+    "iron_wave": {
+        "card_id": "iron_wave",
+        "name": "Iron Wave",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 5, "block": 5},
+    },
+    "offering": {
+        "card_id": "offering",
+        "name": "Offering",
+        "type": "skill",
+        "cost": 0,
+        "target": "self",
+        "effects": {"hp_loss": 6, "energy": 2, "draw": 3},
+        "exhausts": True,
+    },
+    "pommel_strike": {
+        "card_id": "pommel_strike",
+        "name": "Pommel Strike",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9, "draw": 1},
+    },
+    "rampage": {
+        "card_id": "rampage",
+        "name": "Rampage",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 8, "apply_status": {"target": "self", "rampage": 5}},
+    },
+    "shrug_it_off": {
+        "card_id": "shrug_it_off",
+        "name": "Shrug It Off",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 8, "draw": 1},
+    },
+    "sword_boomerang": {
+        "card_id": "sword_boomerang",
+        "name": "Sword Boomerang",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"sequence": [{"damage": 3}, {"damage": 3}, {"damage": 3}]},
+    },
+    "thunderclap": {
+        "card_id": "thunderclap",
+        "name": "Thunderclap",
+        "type": "attack",
+        "cost": 1,
+        "target": "all_enemies",
+        "effects": {"all_damage": 4, "apply_status": {"target": "all_enemies", "vulnerable": 1}},
+    },
+    "true_grit": {
+        "card_id": "true_grit",
+        "name": "True Grit",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 7, "exhaust_choice": 1},
+    },
+    "uppercut": {
+        "card_id": "uppercut",
+        "name": "Uppercut",
+        "type": "attack",
+        "cost": 2,
+        "target": "enemy",
+        "effects": {
+            "damage": 13,
+            "apply_status": {"target": "enemy", "weak": 1, "vulnerable": 1},
+        },
+    },
+    "blood_wall": {
+        "card_id": "blood_wall",
+        "name": "Blood Wall",
+        "type": "skill",
+        "cost": 1,
+        "target": "self",
+        "effects": {"block": 10, "hp_loss": 2},
+    },
+    "bully": {
+        "card_id": "bully",
+        "name": "Bully",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 8, "apply_status": {"target": "enemy", "vulnerable": 1}},
+    },
+    "cinder": {
+        "card_id": "cinder",
+        "name": "Cinder",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 7, "apply_status": {"target": "enemy", "burn": 1}},
+    },
+    "cruelty": {
+        "card_id": "cruelty",
+        "name": "Cruelty",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9, "apply_status": {"target": "enemy", "weak": 1}},
+    },
+    "demonic_shield": {
+        "card_id": "demonic_shield",
+        "name": "Demonic Shield",
+        "type": "skill",
+        "cost": 2,
+        "target": "self",
+        "effects": {"block": 14, "apply_status": {"target": "self", "strength": 1}},
+    },
+    "dismantle": {
+        "card_id": "dismantle",
+        "name": "Dismantle",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 8, "remove_block": 1},
+    },
+    "dominate": {
+        "card_id": "dominate",
+        "name": "Dominate",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 10},
+    },
+    "forgotten_ritual": {
+        "card_id": "forgotten_ritual",
+        "name": "Forgotten Ritual",
+        "type": "power",
+        "cost": 1,
+        "target": "self",
+        "effects": {"apply_status": {"target": "self", "strength": 1, "ritual": 1}},
+    },
+    "greed": {
+        "card_id": "greed",
+        "name": "Greed",
+        "type": "curse",
+        "cost": -1,
+        "target": "none",
+        "tags": ("curse", "eternal", "unplayable", "gold_frontload", "deck_burden"),
+        "custom": {
+            "eternal": True,
+            "unplayable": True,
+            "frontloaded_gold": 333,
+            "source_relic": "cursed_pearl",
+        },
+        "effects": {"noop": {"reason": "frontloaded_gold_curse"}},
+    },
+    "howl_from_beyond": {
+        "card_id": "howl_from_beyond",
+        "name": "Howl From Beyond",
+        "type": "power",
+        "cost": 1,
+        "target": "self",
+        "effects": {"apply_status": {"target": "self", "strength": 1}},
+    },
+    "inferno": {
+        "card_id": "inferno",
+        "name": "Inferno",
+        "type": "attack",
+        "cost": 2,
+        "target": "all_enemies",
+        "effects": {"all_damage": 14},
+    },
+    "molten_fist": {
+        "card_id": "molten_fist",
+        "name": "Molten Fist",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9},
+    },
+    "taunt": {
+        "card_id": "taunt",
+        "name": "Taunt",
+        "type": "skill",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"apply_status": {"target": "enemy", "weak": 2}},
+    },
+    "vicious": {
+        "card_id": "vicious",
+        "name": "Vicious",
+        "type": "attack",
+        "cost": 1,
+        "target": "enemy",
+        "effects": {"damage": 9},
+    },
 }
 
 _TARGET_ALIASES = {
