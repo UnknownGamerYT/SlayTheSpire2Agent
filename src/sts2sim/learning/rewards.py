@@ -73,6 +73,12 @@ class LearningRewardConfig(BaseModel):
     curse_pickup_penalty: float = -0.35
     eternal_curse_extra_penalty: float = -0.10
     curse_burden_reference_deck_size: int = 10
+    curse_burden_min_deck_factor: float = 0.30
+    curse_burden_max_deck_factor: float = 1.35
+    curse_burden_density_weight: float = 0.60
+    curse_burden_pressure_weight: float = 0.30
+    curse_burden_support_mitigation_cap: float = 0.75
+    curse_burden_penalty_cap: float = 0.70
     starter_deck_similarity_penalty: float = -0.30
     starter_deck_similarity_floor: int = 3
     starter_deck_similarity_threshold: float = 0.55
@@ -924,20 +930,110 @@ def _deck_burden_penalty(
 ) -> float:
     if config.curse_pickup_penalty >= 0:
         return 0.0
-    before_count = max(1.0, float(_master_deck_count(previous)))
-    density = min(
-        1.0,
-        max(1.0, float(config.curse_burden_reference_deck_size)) / before_count,
-    )
     penalty = 0.0
+    before = _deck_metrics(previous, config)
+    after = _deck_metrics(current, config)
+    after_problems = _deck_problem_scores(current, after, config)
     for card in _added_deck_cards(previous, current):
         if not _card_is_burden(card):
             continue
-        card_penalty = config.curse_pickup_penalty
-        if _card_has_marker(card, "eternal"):
-            card_penalty += config.eternal_curse_extra_penalty
-        penalty += card_penalty * density
+        penalty -= _card_burden_severity(
+            card,
+            current,
+            before,
+            after,
+            after_problems,
+            config,
+        )
     return penalty
+
+
+def _card_burden_severity(
+    card: Mapping[str, Any],
+    current: Mapping[str, Any],
+    before_metrics: Mapping[str, Any],
+    after_metrics: Mapping[str, Any],
+    after_problems: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    base = abs(config.curse_pickup_penalty)
+    if _card_has_marker(card, "eternal"):
+        base += abs(config.eternal_curse_extra_penalty)
+    if _card_has_marker(card, "unplayable"):
+        base += abs(config.curse_pickup_penalty) * 0.15
+    if _normalized_id(card.get("type", card.get("card_type"))) == "status":
+        base *= 0.75
+
+    deck_factor = _curse_deck_size_factor(_float(before_metrics.get("deck_size")), config)
+    after_deck_size = max(1.0, _float(after_metrics.get("deck_size")))
+    burden_density = _float(after_metrics.get("burden_count")) / after_deck_size
+    density_factor = 1.0 + min(
+        config.curse_burden_density_weight,
+        burden_density * 3.0 * config.curse_burden_density_weight,
+    )
+    pressure_factor = 1.0 + min(
+        config.curse_burden_pressure_weight,
+        (
+            _float(after_problems.get("low_draw")) * 0.20
+            + _float(after_problems.get("energy_heavy")) * 0.20
+            + _float(after_problems.get("too_big")) * 0.35
+        )
+        * config.curse_burden_pressure_weight,
+    )
+    support = _curse_burden_support_score(card, current, after_metrics, config)
+    severity = base * deck_factor * density_factor * pressure_factor * (1.0 - support)
+    return min(max(0.0, config.curse_burden_penalty_cap), severity)
+
+
+def _curse_deck_size_factor(deck_size: float, config: LearningRewardConfig) -> float:
+    reference = max(1.0, float(config.curse_burden_reference_deck_size))
+    effective_size = max(1.0, deck_size)
+    return _clamp(
+        reference / effective_size,
+        config.curse_burden_min_deck_factor,
+        config.curse_burden_max_deck_factor,
+    )
+
+
+def _curse_burden_support_score(
+    card: Mapping[str, Any],
+    current: Mapping[str, Any],
+    after_metrics: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    categories = _mapping(after_metrics.get("categories"))
+    relic_values = _relic_mechanic_values(current)
+    support = 0.0
+    support += min(0.20, _float(categories.get("draw")) * 0.035)
+    support += min(0.22, _float(categories.get("exhaust")) * 0.08)
+    support += min(0.10, _float(categories.get("retain")) * 0.04)
+    support += min(0.12, _float(relic_values.get("draw")) * 0.035)
+    support += min(0.12, _float(relic_values.get("exhaust")) * 0.08)
+    support += min(0.10, _float(relic_values.get("card_remove")) * 0.10)
+    support += min(0.08, _float(relic_values.get("energy")) * 0.05)
+    support += _curse_payoff_support(current)
+    support += min(0.35, _card_frontloaded_gold(card) / 1200.0)
+    return _clamp(support, 0.0, config.curse_burden_support_mitigation_cap)
+
+
+def _curse_payoff_support(payload: Mapping[str, Any]) -> float:
+    support = 0.0
+    for relic_id in _relic_ids(payload):
+        normalized = _normalized_id(relic_id)
+        if normalized in {"blue_candle", "darkstone_periapt", "du_vu_doll", "omamori"}:
+            support += 0.18
+        if "curse" in normalized or "cursed" in normalized:
+            support += 0.08
+    return min(0.30, support)
+
+
+def _card_frontloaded_gold(card: Mapping[str, Any]) -> float:
+    custom = _mapping(card.get("custom"))
+    return max(
+        0.0,
+        _float(custom.get("frontloaded_gold")),
+        _float(card.get("frontloaded_gold")),
+    )
 
 
 def _starter_deck_similarity_penalty(

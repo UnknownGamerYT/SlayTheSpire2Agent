@@ -249,13 +249,39 @@ def test_curse_burden_penalty_scales_down_in_large_decks() -> None:
     small = learning_reward_breakdown(small_before, small_after)
     large = learning_reward_breakdown(large_before, large_after)
 
-    assert small.deck_burden_penalty == pytest.approx(
-        DEFAULT_REWARD_CONFIG.curse_pickup_penalty
-        + DEFAULT_REWARD_CONFIG.eternal_curse_extra_penalty
-    )
+    assert small.deck_burden_penalty < 0.0
     assert large.deck_burden_penalty < 0.0
     assert abs(large.deck_burden_penalty) < abs(small.deck_burden_penalty)
     assert small.total < large.total
+
+
+def test_curse_burden_penalty_respects_compensation_and_deck_support() -> None:
+    unsupported_before = _base_payload(deck=_deck_cards(10))
+    unsupported_after = _base_payload(deck=(*_deck_cards(10), _bad_curse()))
+    compensated_after = _base_payload(deck=(*_deck_cards(10), _greed_card()), gold=333)
+    supported_before = _base_payload(deck=(*_deck_cards(10), *_draw_exhaust_cards()))
+    supported_after = _base_payload(deck=(*_deck_cards(10), *_draw_exhaust_cards(), _bad_curse()))
+
+    unsupported = learning_reward_breakdown(unsupported_before, unsupported_after)
+    compensated = learning_reward_breakdown(unsupported_before, compensated_after)
+    supported = learning_reward_breakdown(supported_before, supported_after)
+
+    assert unsupported.deck_burden_penalty < compensated.deck_burden_penalty < 0.0
+    assert unsupported.deck_burden_penalty < supported.deck_burden_penalty < 0.0
+
+
+def test_eternal_unplayable_burden_is_worse_than_plain_curse() -> None:
+    previous = _base_payload(deck=_deck_cards(12))
+    plain = learning_reward_breakdown(
+        previous,
+        _base_payload(deck=(*_deck_cards(12), _bad_curse())),
+    )
+    eternal = learning_reward_breakdown(
+        previous,
+        _base_payload(deck=(*_deck_cards(12), _bad_curse(eternal=True))),
+    )
+
+    assert eternal.deck_burden_penalty < plain.deck_burden_penalty < 0.0
 
 
 def test_terminal_starter_similarity_penalizes_unchanged_starter_deck() -> None:
@@ -537,3 +563,38 @@ def _greed_card() -> dict:
         "custom": {"eternal": True, "frontloaded_gold": 333},
         "effects": {"noop": {"reason": "frontloaded_gold_curse"}},
     }
+
+
+def _bad_curse(*, eternal: bool = False) -> dict:
+    tags = ["curse", "unplayable"]
+    custom = {"unplayable": True}
+    if eternal:
+        tags.append("eternal")
+        custom["eternal"] = True
+    return {
+        "instance_id": f"bad_curse_{int(eternal)}",
+        "card_id": "bad_curse",
+        "type": "curse",
+        "tags": tags,
+        "custom": custom,
+        "effects": {"noop": {"reason": "dead_draw"}},
+    }
+
+
+def _draw_exhaust_cards() -> tuple[dict, ...]:
+    return (
+        {
+            "instance_id": "battle_trance_1",
+            "card_id": "battle_trance",
+            "type": "skill",
+            "cost": 0,
+            "effects": {"draw": 3},
+        },
+        {
+            "instance_id": "true_grit_1",
+            "card_id": "true_grit",
+            "type": "skill",
+            "cost": 1,
+            "effects": {"block": 7, "exhaust_choice": 1},
+        },
+    )
