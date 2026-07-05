@@ -407,10 +407,14 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         next_state, events = _skip_reward(state, action)
     elif action.type in _CAMPFIRE_ACTION_TYPES:
         next_state, events = _resolve_campfire_action(state, action)
+    elif action.type == ActionType.THROW_POTION_AT_MERCHANT:
+        if _can_throw_foul_potion_at_fake_merchant(state):
+            next_state, events = _throw_foul_potion_at_fake_merchant(state, action)
+        else:
+            next_state, events = _resolve_shop_action(state, action)
     elif action.type in {
         ActionType.SHOP_BUY,
         ActionType.SHOP_LEAVE,
-        ActionType.THROW_POTION_AT_MERCHANT,
     }:
         next_state, events = _resolve_shop_action(state, action)
     elif action.type == ActionType.USE_POTION:
@@ -455,10 +459,50 @@ def _with_potion_discard_actions(
     state: RunState,
     actions: Sequence[Action],
 ) -> tuple[Action, ...]:
-    return tuple(actions) + tuple(
+    base_actions = tuple(actions)
+    if not _should_offer_potion_discard(state):
+        return base_actions
+    return base_actions + tuple(
         Action(type=ActionType.DISCARD_POTION, target_id=_potion_slot_id(index))
         for index, _potion_id in enumerate(state.potions)
     )
+
+
+def _should_offer_potion_discard(state: RunState) -> bool:
+    if not state.potions:
+        return False
+    if _flag_bool(state, "allow_free_potion_discard", False):
+        return True
+    if _has_open_potion_slot(state):
+        return False
+    if _reward_has_unclaimed_potion_offer(state.reward):
+        return True
+    return state.phase is RunPhase.SHOP and _shop_has_buyable_potion_offer(state)
+
+
+def _reward_has_unclaimed_potion_offer(reward: RewardState | None) -> bool:
+    if reward is None:
+        return False
+    if (
+        reward.potion_id is not None
+        and not reward.potion_claimed
+        and not reward.potion_skipped
+    ):
+        return True
+    claimed = set(reward.claimed_potion_indices) | set(reward.skipped_potion_indices)
+    return any(index not in claimed for index, _potion_id in enumerate(reward.potion_ids))
+
+
+def _shop_has_buyable_potion_offer(state: RunState) -> bool:
+    if state.shop is None:
+        return False
+    for item in state.shop.items:
+        if item.purchased or item.price > state.player.gold:
+            continue
+        with suppress(ValueError):
+            if ShopItemKind(item.kind) is ShopItemKind.POTION:
+                return True
+    return False
 
 
 def _potion_slot_id(index: int) -> str:
@@ -1943,8 +1987,9 @@ def _legal_event_actions(state: RunState) -> tuple[Action, ...]:
     if state.event is None:
         return ()
     actions: list[Action] = []
+    actions.extend(_legal_fake_merchant_potion_actions(state))
     for option in state.event.options:
-        if option.disabled:
+        if option.disabled or option.metadata.get("summary_marker"):
             continue
         if _event_option_is_enchant_choice(option):
             actions.extend(_legal_event_enchant_actions(state, option))
@@ -1954,6 +1999,49 @@ def _legal_event_actions(state: RunState) -> tuple[Action, ...]:
             continue
         actions.append(Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id))
     return tuple(actions)
+
+
+def _legal_fake_merchant_potion_actions(state: RunState) -> tuple[Action, ...]:
+    if not _can_throw_foul_potion_at_fake_merchant(state):
+        return ()
+    slot_index = state.potions.index("foul_potion")
+    return (
+        Action(
+            type=ActionType.THROW_POTION_AT_MERCHANT,
+            target_id="fake_merchant",
+            payload={
+                "potion_slot": _potion_slot_id(slot_index),
+                "potion_id": "foul_potion",
+                "merchant": "fake_merchant",
+            },
+        ),
+    )
+
+
+def _can_throw_foul_potion_at_fake_merchant(state: RunState) -> bool:
+    return (
+        state.phase is RunPhase.EVENT
+        and state.event is not None
+        and state.event.resolved_option_id is None
+        and _is_fake_merchant_event(state.event)
+        and "foul_potion" in state.potions
+    )
+
+
+def _is_fake_merchant_event(event: EventState) -> bool:
+    return _event_identity_matches(
+        event,
+        {
+            "fake_merchant",
+            "merchant???",
+            "the_merchant",
+            "the_merchant???",
+        },
+    )
+
+
+def _event_identity_matches(event: EventState, event_ids: set[str]) -> bool:
+    return _normalized_id(event.event_id) in event_ids or _normalized_id(event.name) in event_ids
 
 
 def _event_option_is_enchant_choice(option: EventOptionState) -> bool:
@@ -3507,21 +3595,15 @@ def _apply_event_option_immediate_effects(
         player = player.model_copy(update={"hp": next_hp})
 
     for amount in _event_number_matches(text, r"\bGain\s+(\d+)\s+Max\s+HP\b"):
-        player = player.model_copy(update={"max_hp": player.max_hp + amount})
+        player = _change_player_max_hp(player, amount)
         events.append(EffectEvent(kind="event_max_hp_gained", amount=amount))
 
     for amount in _event_number_matches(text, r"\bLose\s+(\d+)\s+Max\s+HP\b"):
-        next_max_hp = max(1, player.max_hp - amount)
-        player = player.model_copy(
-            update={"max_hp": next_max_hp, "hp": min(player.hp, next_max_hp)}
-        )
+        player = _change_player_max_hp(player, -amount)
         events.append(EffectEvent(kind="event_max_hp_lost", amount=amount))
 
     for amount in _event_number_matches(text, r"\bSet\s+Max\s+HP\s+to\s+(\d+)\b"):
-        next_max_hp = max(1, amount)
-        player = player.model_copy(
-            update={"max_hp": next_max_hp, "hp": min(player.hp, next_max_hp)}
-        )
+        player = _set_player_max_hp(player, amount)
         events.append(EffectEvent(kind="event_max_hp_set", amount=amount))
 
     if re.search(r"\bHeal\s+to\s+full\s+HP\b", text, re.IGNORECASE):
@@ -4284,9 +4366,7 @@ def _apply_potion_use_trigger_result(
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     player = combat.player
     if result.max_hp_delta:
-        player = player.model_copy(
-            update={"max_hp": max(1, player.max_hp + result.max_hp_delta)}
-        )
+        player = _change_player_max_hp(player, result.max_hp_delta)
     if result.hp_delta:
         player = player.model_copy(
             update={"hp": min(player.max_hp, max(0, player.hp + result.hp_delta))}
@@ -4327,7 +4407,7 @@ def _apply_direct_potion_effects(
     events: list[EffectEvent] = []
 
     if normalized == "fruit_juice":
-        player = player.model_copy(update={"max_hp": player.max_hp + 5, "hp": player.hp + 5})
+        player = _change_player_max_hp(player, 5)
         events.append(
             EffectEvent(
                 kind="player_max_hp_gained",
@@ -4774,7 +4854,7 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
         Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
         for target_id, _card in _reward_optional_remove_card_targets(state)
     )
-    if reward.gold > 0 and not reward.gold_claimed:
+    if reward.gold > 0 and not reward.gold_claimed and not reward.gold_skipped:
         actions.append(Action(type=ActionType.TAKE_REWARD_GOLD, target_id="reward:gold"))
     actions.extend(
         Action(type=ActionType.TAKE_REWARD_RELIC, target_id=target_id)
@@ -5030,20 +5110,13 @@ def _apply_relic_pickup_effects(
                 EffectEvent(kind="relic_gold_gained", source_id=relic_id, amount=pickup.gold_delta)
             )
         if pickup.max_hp_delta:
-            next_max_hp = max(1, player.max_hp + pickup.max_hp_delta)
-            hp_delta = max(0, pickup.max_hp_delta)
-            player = player.model_copy(
-                update={
-                    "max_hp": next_max_hp,
-                    "hp": min(next_max_hp, max(0, player.hp + hp_delta)),
-                }
-            )
+            player = _change_player_max_hp(player, pickup.max_hp_delta)
             events.append(
                 EffectEvent(
                     kind="relic_max_hp_changed",
                     source_id=relic_id,
                     amount=pickup.max_hp_delta,
-                    metadata={"max_hp": next_max_hp},
+                    metadata={"max_hp": player.max_hp},
                 )
             )
         if pickup.hp_delta:
@@ -5895,9 +5968,7 @@ def _apply_card_reward_taken_trigger(
     if resolution.gold_delta or resolution.hp_delta or resolution.max_hp_delta:
         player = state.player
         if resolution.max_hp_delta:
-            player = player.model_copy(
-                update={"max_hp": max(1, player.max_hp + resolution.max_hp_delta)}
-            )
+            player = _change_player_max_hp(player, resolution.max_hp_delta)
         if resolution.hp_delta:
             player = player.model_copy(
                 update={"hp": min(player.max_hp, max(0, player.hp + resolution.hp_delta))}
@@ -6190,6 +6261,98 @@ def _throw_potion_at_merchant(
             ),
         ),
     )
+
+
+def _throw_foul_potion_at_fake_merchant(
+    state: RunState,
+    action: Action,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    if not _can_throw_foul_potion_at_fake_merchant(state) or state.event is None:
+        return state, ()
+
+    potions = list(state.potions)
+    slot_id = str(_mapping_from(action.payload).get("potion_slot", ""))
+    slot_index: int | None = None
+    with suppress(ValueError, IndexError):
+        slot_index = _parse_potion_slot_id(slot_id) if slot_id else None
+        if slot_index is not None and potions[slot_index] != "foul_potion":
+            slot_index = None
+    if slot_index is None:
+        slot_index = potions.index("foul_potion")
+        slot_id = _potion_slot_id(slot_index)
+    potions.pop(slot_index)
+
+    event = state.event.model_copy(update={"resolved_option_id": "throw_foul_potion"})
+    flags = dict(state.flags)
+    flags.update(
+        {
+            "event_fight_id": "fake_merchant",
+            "combat_reward_event_id": "fake_merchant",
+            "combat_reward_encounter": "event",
+            "fake_merchant_combat": True,
+        }
+    )
+    unsold_relic_ids = _fake_merchant_unsold_relic_ids(state.event)
+    if unsold_relic_ids and "fake_merchant_unsold_relic_ids" not in flags:
+        flags["fake_merchant_unsold_relic_ids"] = unsold_relic_ids
+
+    node = _current_map_node(state) or MapNodeState(
+        node_id=f"event:{state.event.event_id}:fake_merchant",
+        act=state.act,
+        floor=state.floor,
+        lane=0,
+        kind=RoomKind.MONSTER,
+    )
+    prepared_state = state.model_copy(
+        update={
+            "potions": tuple(potions),
+            "event": event,
+            "flags": flags,
+            "reward": None,
+        }
+    )
+    combat_state, combat, rng_state, combat_events = _start_combat_for_node(
+        prepared_state,
+        node.model_copy(update={"kind": RoomKind.MONSTER}),
+    )
+    throw_event = EffectEvent(
+        kind="foul_potion_thrown_at_fake_merchant",
+        source_id="foul_potion",
+        target_id="fake_merchant",
+        metadata={"potion_slot": slot_id, "event_id": state.event.event_id},
+    )
+    return (
+        combat_state.model_copy(
+            update={
+                "phase": RunPhase.COMBAT,
+                "combat": combat,
+                "reward": None,
+                "player": combat.player,
+                "rng": rng_state,
+            }
+        ),
+        (throw_event,) + combat_events,
+    )
+
+
+def _fake_merchant_unsold_relic_ids(event: EventState) -> tuple[str, ...]:
+    raw_unsold = _string_tuple(event.metadata.get("fake_merchant_unsold_relic_ids"))
+    if raw_unsold:
+        return tuple(_normalized_id(relic_id) for relic_id in raw_unsold)
+
+    for option in event.options:
+        reward = _mapping_from(option.metadata.get("post_combat_reward"))
+        fixed_relics = _string_tuple(reward.get("fixed_relic_ids"))
+        if not fixed_relics:
+            fixed_relics = _string_tuple(option.metadata.get("fixed_relic_ids"))
+        relics = tuple(
+            _normalized_id(relic_id)
+            for relic_id in fixed_relics
+            if _normalized_id(relic_id) != "fake_merchants_rug"
+        )
+        if relics:
+            return relics
+    return ()
 
 
 def _apply_shop_entry_relics(
@@ -11772,26 +11935,43 @@ def _execute_fallback_monster_turn(
     events: list[EffectEvent] = []
     monster = combat.monsters[monster_index]
     if monster.intent_damage:
-        intent_damage = _modified_monster_attack_damage(
-            monster.intent_damage,
-            statuses=monster.statuses,
-            relics=relics,
-        )
-        combat, damage_events = _damage_combat_player(
-            combat,
-            intent_damage,
-            monster.monster_id,
-            relics=relics,
-        )
-        events.extend(damage_events)
-        monster = combat.monsters[monster_index]
-        monster, thorns_events = _apply_player_thorns_to_attacker(
-            monster,
-            combat.player,
-            source_id=monster.monster_id,
-        )
-        combat = _combat_with_monster(combat, monster_index, monster)
-        events.extend(thorns_events)
+        hit_count = max(1, monster.hit_count)
+        for hit_index, raw_hit_damage in enumerate(
+            _split_total_damage_by_hits(monster.intent_damage, hit_count)
+        ):
+            intent_damage = _modified_monster_attack_damage(
+                raw_hit_damage,
+                statuses=monster.statuses,
+                relics=relics,
+            )
+            combat, damage_events = _damage_combat_player(
+                combat,
+                intent_damage,
+                monster.monster_id,
+                relics=relics,
+            )
+            for damage_event in damage_events:
+                events.append(
+                    damage_event.model_copy(
+                        update={
+                            "metadata": {
+                                **damage_event.metadata,
+                                "hit_index": hit_index,
+                                "hit_count": hit_count,
+                            }
+                        }
+                    )
+                )
+            monster = combat.monsters[monster_index]
+            monster, thorns_events = _apply_player_thorns_to_attacker(
+                monster,
+                combat.player,
+                source_id=monster.monster_id,
+            )
+            combat = _combat_with_monster(combat, monster_index, monster)
+            events.extend(thorns_events)
+            if monster.hp <= 0:
+                break
     if monster.hp <= 0:
         return combat, tuple(events)
     if monster.intent_block:
@@ -11806,6 +11986,14 @@ def _execute_fallback_monster_turn(
             )
         )
     return combat, tuple(events)
+
+
+def _split_total_damage_by_hits(total_damage: int, hit_count: int) -> tuple[int, ...]:
+    hit_count = max(1, hit_count)
+    total_damage = max(0, total_damage)
+    per_hit = total_damage // hit_count
+    remainder = total_damage % hit_count
+    return tuple(per_hit + (1 if index < remainder else 0) for index in range(hit_count))
 
 
 def _apply_after_card_play_hooks(
@@ -12327,8 +12515,7 @@ def _apply_effect_step(
 
     max_hp = _effect_amount(effect, "max_hp", energy_spent)
     if max_hp:
-        new_max_hp = max(1, player.max_hp + max_hp)
-        player = player.model_copy(update={"max_hp": new_max_hp, "hp": min(player.hp, new_max_hp)})
+        player = _change_player_max_hp(player, max_hp)
         events.append(
             EffectEvent(
                 kind="player_max_hp_changed",
@@ -17917,6 +18104,21 @@ def _lose_player_hp(
     )
 
 
+def _change_player_max_hp(player: PlayerState, amount: int) -> PlayerState:
+    next_max_hp = max(1, player.max_hp + amount)
+    actual_delta = next_max_hp - player.max_hp
+    if actual_delta > 0:
+        next_hp = min(next_max_hp, player.hp + actual_delta)
+    else:
+        next_hp = min(player.hp, next_max_hp)
+    return player.model_copy(update={"max_hp": next_max_hp, "hp": max(0, next_hp)})
+
+
+def _set_player_max_hp(player: PlayerState, max_hp: int) -> PlayerState:
+    next_max_hp = max(1, max_hp)
+    return _change_player_max_hp(player, next_max_hp - player.max_hp)
+
+
 def _apply_player_turn_start_effects(
     combat: CombatState,
 ) -> tuple[CombatState, tuple[EffectEvent, ...], int]:
@@ -19408,10 +19610,7 @@ def _apply_combat_relic_marker(
     elif marker.kind == "max_hp_delta" and _marker_targets_player(marker):
         amount = marker.amount or 0
         if amount:
-            next_max_hp = max(1, player.max_hp + amount)
-            player = player.model_copy(
-                update={"max_hp": next_max_hp, "hp": min(player.hp, next_max_hp)}
-            )
+            player = _change_player_max_hp(player, amount)
             events.append(_combat_relic_event(marker, "player_max_hp_changed", amount))
     elif marker.kind == "elite_monster_hp_multiplier":
         monsters, hp_events = _apply_combat_relic_enemy_hp_multiplier(monsters, marker)
@@ -22526,6 +22725,7 @@ def _initial_monsters(source: Mapping[str, Any]) -> tuple[MonsterState, ...]:
                 intent=str(spec["intent"]) if spec.get("intent") is not None else None,
                 intent_damage=int(spec.get("intent_damage", spec.get("damage", 0))),
                 intent_block=int(spec.get("intent_block", 0)),
+                hit_count=int(spec.get("hit_count", spec.get("hits", 1))),
                 statuses=dict(spec.get("statuses", {}))
                 if isinstance(spec.get("statuses", {}), Mapping)
                 else {},

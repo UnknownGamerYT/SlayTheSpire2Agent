@@ -25,7 +25,6 @@ def test_train_until_boss_stops_when_eval_reaches_target_floor(tmp_path) -> None
         character_id="TEST",
         target_floor=1,
         success_replay_passes=1,
-        resume=False,
         model_output_path=model_path,
         output_path=output_path,
         progress_output_path=progress_path,
@@ -40,7 +39,9 @@ def test_train_until_boss_stops_when_eval_reaches_target_floor(tmp_path) -> None
     assert output_path.exists()
     assert progress_path.exists()
     assert report_path.exists()
-    assert json.loads(output_path.read_text(encoding="utf-8"))["reached_target"] is True
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["reached_target"] is True
+    assert payload["resumed_from_path"] is None
 
 
 def test_train_until_boss_cli_smoke(tmp_path) -> None:
@@ -75,7 +76,6 @@ def test_train_until_boss_cli_smoke(tmp_path) -> None:
             "random",
             "--target-eval-successes",
             "1",
-            "--no-resume",
             "--model-output",
             str(model_path),
             "--output",
@@ -92,3 +92,12 @@ def test_train_until_boss_cli_smoke(tmp_path) -> None:
     assert output_path.exists()
     assert progress_path.exists()
     assert report_path.exists()
+    assert json.loads(output_path.read_text(encoding="utf-8"))["resumed_from_path"] is None
+
+
+def test_train_until_boss_help_says_resume_is_opt_in() -> None:
+    result = CliRunner().invoke(app, ["train-until-boss", "--help"])
+
+    assert result.exit_code == 0
+    assert "--resume" in result.output
+    assert "--no-resume" in result.output

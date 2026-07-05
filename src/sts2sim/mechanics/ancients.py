@@ -682,7 +682,7 @@ def resolve_ancient_choice(
         else None
     )
     next_max_hp = max(1, context.max_hp + choice.max_hp_delta)
-    hp_after_max = min(context.hp, next_max_hp)
+    hp_after_max = _hp_after_max_hp_change(context.hp, context.max_hp, next_max_hp)
     hp_after_delta = min(max(0, hp_after_max + choice.hp_delta), next_max_hp)
     heal_amount = _choice_heal_amount(choice, next_max_hp, hp_after_delta)
     next_hp = min(next_max_hp, hp_after_delta + heal_amount)
@@ -921,6 +921,13 @@ def _choice_heal_amount(choice: AncientChoice, max_hp: int, hp: int) -> int:
         )
         heal += int(missing_hp * fraction)
     return min(max(0, heal), max(0, max_hp - hp))
+
+
+def _hp_after_max_hp_change(hp: int, max_hp: int, next_max_hp: int) -> int:
+    actual_delta = next_max_hp - max(1, max_hp)
+    if actual_delta > 0:
+        return min(next_max_hp, max(0, hp) + actual_delta)
+    return min(max(0, hp), next_max_hp)
 
 
 def _resolution_markers(

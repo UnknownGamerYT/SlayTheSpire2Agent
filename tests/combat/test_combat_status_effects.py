@@ -329,6 +329,48 @@ def test_thorns_damages_attacking_monster() -> None:
     )
 
 
+def test_thorns_triggers_per_hit_for_fallback_multihit_monster() -> None:
+    state = _enter_status_combat(
+        (_combat_card("wait", card_type="skill", effects={"block": 0}, target="Self"),),
+        player_statuses={"thorns": 3},
+    )
+    assert state.combat is not None
+    monster = state.combat.monsters[0].model_copy(
+        update={
+            "monster_id": "fallback_multihit",
+            "name": "Fallback Multihit",
+            "intent": "Attack",
+            "intent_damage": 8,
+            "hit_count": 4,
+            "move_id": None,
+            "statuses": {},
+        }
+    )
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (monster,)})}
+    )
+
+    state = _end_turn(state)
+
+    assert state.combat is not None
+    assert state.combat.player.hp == 72
+    assert state.combat.monsters[0].hp == 38
+    thorns_events = [
+        event
+        for event in state.combat.last_events
+        if event.kind == "monster_damaged" and event.metadata.get("status") == "thorns"
+    ]
+    assert len(thorns_events) == 4
+    assert all(event.amount == 3 for event in thorns_events)
+    damage_hits = [
+        event
+        for event in state.combat.last_events
+        if event.kind == "player_damaged" and event.source_id == "fallback_multihit"
+    ]
+    assert [event.amount for event in damage_hits] == [2, 2, 2, 2]
+    assert [event.metadata["hit_index"] for event in damage_hits] == [0, 1, 2, 3]
+
+
 def test_retain_hand_keeps_cards_until_next_turn_and_ticks_down() -> None:
     state = _enter_status_combat(
         (

@@ -190,7 +190,7 @@ def resolve_event_option(
     option = _effective_event_option(state, option)
 
     next_max_hp = max(1, state.max_hp + option.max_hp_delta)
-    hp_after_max = min(state.hp, next_max_hp)
+    hp_after_max = _hp_after_max_hp_change(state.hp, state.max_hp, next_max_hp)
     hp_after_delta = min(max(0, hp_after_max + option.hp_delta), next_max_hp)
     heal_amount = 0
     if option.heal_percent_max_hp > 0:
@@ -263,6 +263,13 @@ def _option_by_id(state: EventRoomState, option_id: str) -> EventOption:
         if _normalized_id(option.option_id) == key:
             return option
     raise ValueError(f"Unknown event option id: {option_id}")
+
+
+def _hp_after_max_hp_change(hp: int, max_hp: int, next_max_hp: int) -> int:
+    actual_delta = next_max_hp - max(1, max_hp)
+    if actual_delta > 0:
+        return min(next_max_hp, max(0, hp) + actual_delta)
+    return min(max(0, hp), next_max_hp)
 
 
 def _option_is_legal(option: EventOption, state: EventRoomState) -> bool:

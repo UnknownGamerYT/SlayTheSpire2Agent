@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masked PPO Training Progress</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f5f7f8;
+      color: #172026;
+      font: 14px/1.45 system-ui, sans-serif;
+    }
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+    h1 { margin: 0 0 4px; font-size: 28px; }
+    h2 { margin: 28px 0 10px; font-size: 18px; }
+    .muted { color: #65717a; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .summary div {
+      background: #fff;
+      border: 1px solid #d9e0e5;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .summary strong {
+      display: block;
+      color: #57636c;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .summary span {
+      display: block;
+      margin-top: 5px;
+      font-size: 19px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #d9e0e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e6ebef;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background: #eef2f5;
+      color: #4d5961;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .scroll { overflow-x: auto; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Masked PPO Training Progress</h1>
+  <p class="muted">Schema v5 - IRONCLAD A0 - planning heads included.</p>
+  <section class="summary"><div><strong>Runs Trained</strong><span>40</span></div>
+<div><strong>Total Steps</strong><span>3064</span></div>
+<div><strong>Batches Completed</strong><span>4</span></div>
+<div><strong>Average Training Reward</strong><span>-89.016</span></div>
+<div><strong>Latest Eval Reward</strong><span>-51.955</span></div>
+<div><strong>Latest Eval Floor</strong><span>11.25</span></div>
+<div><strong>Latest Success Rate</strong><span>0.375</span></div>
+<div><strong>Parameter Count</strong><span>2650700</span></div></section>
+  <h2>Best And Worst Evaluation Run Histories</h2><div class="scroll"><table><thead><tr><th>Role</th><th>Run</th><th>Generated</th><th>Seed</th><th>Reward</th><th>Act</th><th>Floor</th><th>Phase</th><th>Artifacts</th></tr></thead><tbody><tr><td>Best</td><td>19</td><td>2026-06-24T10:58:21Z</td><td>1122605820</td><td>15.360</td><td>1</td><td>16</td><td>combat</td><td><a href="ppo_curriculum_silu_act1_boss_latest_best_run_history.html">Timeline</a> / <a href="ppo_curriculum_silu_act1_boss_latest_best_run_history.json">JSON</a> / <a href="ppo_curriculum_silu_act1_boss_latest_best_run_map.txt">Map</a></td></tr><tr><td>Worst</td><td>16</td><td>2026-06-24T10:58:21Z</td><td>378461707</td><td>-94.550</td><td>1</td><td>6</td><td>failed</td><td><a href="ppo_curriculum_silu_act1_boss_latest_worst_run_history.html">Timeline</a> / <a href="ppo_curriculum_silu_act1_boss_latest_worst_run_history.json">JSON</a> / <a href="ppo_curriculum_silu_act1_boss_latest_worst_run_map.txt">Map</a></td></tr></tbody></table></div>
+  <h2>Planning Head Trends</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Batch</th><th>Eval Reward</th><th>Eval Floor</th><th>Aggression Target</th><th>Hp Floor</th><th>Hp Spend Budget</th><th>Combat Pace</th><th>Route Preference</th><th>Potion Policy</th><th>Reward Pickiness</th><th>Expected Hp Loss</th><th>Expected Turns To Kill</th><th>Boss Readiness</th></tr>
+      </thead>
+      <tbody><tr><td>1</td><td>-7.000</td><td>1.000</td><td>0.499</td><td>0.500</td><td>0.499</td><td>0.481</td><td>0.513</td><td>0.497</td><td>0.502</td><td>0.512</td><td>0.492</td><td>0.497</td></tr>
+<tr><td>2</td><td>-7.000</td><td>1.000</td><td>0.587</td><td>0.905</td><td>0.041</td><td>0.431</td><td>0.209</td><td>0.069</td><td>0.083</td><td>0.023</td><td>0.030</td><td>0.130</td></tr>
+<tr><td>3</td><td>-93.838</td><td>6.750</td><td>0.400</td><td>0.778</td><td>0.029</td><td>0.412</td><td>0.280</td><td>0.072</td><td>0.134</td><td>0.006</td><td>0.008</td><td>0.184</td></tr>
+<tr><td>4</td><td>-51.955</td><td>11.250</td><td>0.501</td><td>0.664</td><td>0.089</td><td>0.371</td><td>0.289</td><td>0.238</td><td>0.241</td><td>0.009</td><td>0.008</td><td>0.366</td></tr></tbody>
+    </table>
+  </div>
+  <h2>Latest Training Runs</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Run</th><th>Seed</th><th>Steps</th><th>Reward</th><th>Act</th><th>Floor</th><th>Phase</th></tr></thead>
+      <tbody><tr><td>20</td><td>2014580775</td><td>98</td><td>-93.980</td><td>1</td><td>7</td><td>failed</td></tr>
+<tr><td>21</td><td>2139957787</td><td>78</td><td>-96.780</td><td>1</td><td>4</td><td>failed</td></tr>
+<tr><td>22</td><td>1751311164</td><td>77</td><td>-90.770</td><td>1</td><td>10</td><td>failed</td></tr>
+<tr><td>23</td><td>206216885</td><td>40</td><td>-96.400</td><td>1</td><td>4</td><td>failed</td></tr>
+<tr><td>24</td><td>1353367413</td><td>33</td><td>-96.330</td><td>1</td><td>4</td><td>failed</td></tr>
+<tr><td>25</td><td>978631305</td><td>92</td><td>-90.920</td><td>1</td><td>10</td><td>failed</td></tr>
+<tr><td>26</td><td>2036454069</td><td>78</td><td>-93.780</td><td>1</td><td>7</td><td>failed</td></tr>
+<tr><td>27</td><td>872939266</td><td>136</td><td>-94.360</td><td>1</td><td>7</td><td>failed</td></tr>
+<tr><td>28</td><td>2019652887</td><td>54</td><td>-96.540</td><td>1</td><td>4</td><td>failed</td></tr>
+<tr><td>29</td><td>1740109436</td><td>67</td><td>-93.670</td><td>1</td><td>7</td><td>failed</td></tr>
+<tr><td>30</td><td>947710231</td><td>107</td><td>-89.070</td><td>1</td><td>12</td><td>failed</td></tr>
+<tr><td>31</td><td>707960167</td><td>52</td><td>-96.520</td><td>1</td><td>4</td><td>failed</td></tr>
+<tr><td>32</td><td>1908440144</td><td>122</td><td>-93.220</td><td>1</td><td>8</td><td>failed</td></tr>
+<tr><td>33</td><td>1677955041</td><td>50</td><td>-90.500</td><td>1</td><td>10</td><td>failed</td></tr>
+<tr><td>34</td><td>274798489</td><td>67</td><td>-93.670</td><td>1</td><td>7</td><td>failed</td></tr>
+<tr><td>35</td><td>2049597620</td><td>44</td><td>-94.440</td><td>1</td><td>6</td><td>failed</td></tr>
+<tr><td>36</td><td>2118688980</td><td>48</td><td>-96.480</td><td>1</td><td>4</td><td>failed</td></tr>
+<tr><td>37</td><td>33398634</td><td>92</td><td>-92.920</td><td>1</td><td>8</td><td>failed</td></tr>
+<tr><td>38</td><td>1337706965</td><td>66</td><td>-93.660</td><td>1</td><td>7</td><td>failed</td></tr>
+<tr><td>39</td><td>674854460</td><td>76</td><td>-93.760</td><td>1</td><td>7</td><td>failed</td></tr></tbody>
+    </table>
+  </div>
+</main>
+</body>
+</html>

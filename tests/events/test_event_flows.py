@@ -29,13 +29,13 @@ def test_abyssal_baths_linger_progresses_then_exits_terminal() -> None:
 
     immersed = resolve_event_flow_option(state, "IMMERSE")
     assert immersed.state.page_id == "IMMERSE"
-    assert immersed.state.hp == 27
+    assert immersed.state.hp == 29
     assert immersed.state.max_hp == 72
     assert legal_event_flow_option_ids(immersed.state) == ("LINGER", "EXIT_BATHS")
 
     lingered = resolve_event_flow_option(immersed.state, "LINGER")
     assert lingered.state.page_id == "LINGER1"
-    assert lingered.state.hp == 23
+    assert lingered.state.hp == 27
     assert lingered.state.max_hp == 74
 
     exited = resolve_event_flow_option(lingered.state, "EXIT_BATHS")
@@ -82,9 +82,11 @@ def test_endless_conveyor_repeats_paid_dishes_then_shows_broke_lock() -> None:
 
     assert first.state.page_id == "ALL"
     assert first.state.gold == 40
+    assert first.state.hp == 44
     assert first.state.max_hp == 84
     assert second.state.page_id == "ALL"
     assert second.state.gold == 0
+    assert second.state.hp == 48
     assert second.state.max_hp == 88
     assert visible_event_flow_option_ids(second.state) == ("LOCKED", "LEAVE")
     assert legal_event_flow_option_ids(second.state) == ("LEAVE",)

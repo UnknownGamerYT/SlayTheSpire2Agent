@@ -99,6 +99,7 @@ def train_masked_ppo_curriculum(
     output_path: Path | str | None = Path("reports/ppo_curriculum_latest.json"),
     report_output_path: Path | str | None = Path("reports/ppo_curriculum_latest.html"),
     progress_window: int = 20,
+    device: str = "auto",
     trainer: PPOTrainer | None = None,
 ) -> dict[str, Any]:
     """Train PPO through staged targets, advancing only after comfort criteria pass."""
@@ -122,6 +123,7 @@ def train_masked_ppo_curriculum(
         stage_progress_path = report_root / f"{run_name}_{slug}_progress.json"
         stage_report_path = report_root / f"{run_name}_{slug}_latest.html"
         stage_resume_from = previous_model_path if previous_model_path is not None else None
+        stage_should_resume = resume or stage_resume_from is not None
 
         if output_path is not None:
             _persist_curriculum_result(
@@ -158,6 +160,7 @@ def train_masked_ppo_curriculum(
                         head_hidden_layers=head_hidden_layers,
                         activation=activation,
                         planning_coef=planning_coef,
+                        device=device,
                     )
                 ),
                 output_path,
@@ -214,6 +217,7 @@ def train_masked_ppo_curriculum(
                         head_hidden_layers=head_hidden_layers,
                         activation=activation,
                         planning_coef=planning_coef,
+                        device=device,
                     )
                 ),
                 output_path,
@@ -252,13 +256,14 @@ def train_masked_ppo_curriculum(
                     target_consecutive_successes
                     or defaults.target_consecutive_successes
                 ),
-                resume=resume,
+                resume=stage_should_resume,
                 resume_from_path=stage_resume_from,
                 model_output_path=model_path,
                 output_path=stage_output_path,
                 progress_output_path=stage_progress_path,
                 report_output_path=stage_report_path,
                 progress_window=progress_window,
+                device=device,
                 progress_callback=update_active_stage_summary,
             )
         )
@@ -304,6 +309,7 @@ def train_masked_ppo_curriculum(
                         head_hidden_layers=head_hidden_layers,
                         activation=activation,
                         planning_coef=planning_coef,
+                        device=device,
                     )
                 ),
                 output_path,
@@ -335,6 +341,7 @@ def train_masked_ppo_curriculum(
         head_hidden_layers=head_hidden_layers,
         activation=activation,
         planning_coef=planning_coef,
+        device=device,
     )
     result = _with_batch_metrics(result)
     _persist_curriculum_result(result, output_path, report_output_path)
@@ -496,6 +503,7 @@ def _curriculum_result(
     head_hidden_layers: int,
     activation: str,
     planning_coef: float,
+    device: str,
 ) -> dict[str, Any]:
     completed_stages = sum(
         1 for stage in stage_summaries if bool(stage.get("reached_target", False))
@@ -532,6 +540,7 @@ def _curriculum_result(
             "head_hidden_layers": max(1, head_hidden_layers),
             "activation": activation,
             "planning_coef": planning_coef,
+            "requested_device": device,
             "target_eval_successes_override": target_eval_successes,
             "target_consecutive_successes_override": target_consecutive_successes,
         },

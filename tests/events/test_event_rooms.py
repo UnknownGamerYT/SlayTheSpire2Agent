@@ -3,6 +3,8 @@ from __future__ import annotations
 from random import Random
 
 from sts2sim.mechanics.event_rooms import (
+    EventOption,
+    EventRoomState,
     event_room_state,
     legal_event_option_ids,
     resolve_event_option,
@@ -97,6 +99,44 @@ def test_war_historian_options_require_lantern_key() -> None:
     state = event_room_state("WAR_HISTORIAN_REPY", hp=50, max_hp=80, deck=("strike",))
 
     assert legal_event_option_ids(state) == ()
+
+
+def test_event_room_max_hp_gain_heals_but_loss_only_clamps_if_needed() -> None:
+    gain_state = EventRoomState(
+        event_id="TEST",
+        hp=55,
+        max_hp=65,
+        options=(EventOption("gain", max_hp_delta=11),),
+    )
+    gained = resolve_event_option(gain_state, "gain")
+
+    assert gained.state.max_hp == 76
+    assert gained.state.hp == 66
+    assert gained.hp_delta == 11
+
+    loss_state = EventRoomState(
+        event_id="TEST",
+        hp=55,
+        max_hp=65,
+        options=(EventOption("lose", max_hp_delta=-5),),
+    )
+    lost = resolve_event_option(loss_state, "lose")
+
+    assert lost.state.max_hp == 60
+    assert lost.state.hp == 55
+    assert lost.hp_delta == 0
+
+    clamped_state = EventRoomState(
+        event_id="TEST",
+        hp=63,
+        max_hp=65,
+        options=(EventOption("lose", max_hp_delta=-5),),
+    )
+    clamped = resolve_event_option(clamped_state, "lose")
+
+    assert clamped.state.max_hp == 60
+    assert clamped.state.hp == 60
+    assert clamped.hp_delta == -3
 
 
 def test_battleworn_dummy_three_options_resolve_their_reward_markers() -> None:

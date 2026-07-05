@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from sts2sim import legal_actions, new_run, step
 from sts2sim.engine import (
+    IllegalActionError,
     MapEdgeState,
     MapNodeState,
     MapState,
@@ -315,6 +318,56 @@ def test_optional_reward_screen_can_skip_one_group_then_take_multiple_rewards() 
 
     assert state.phase == RunPhase.MAP
     assert state.reward is None
+
+
+def test_optional_reward_screen_take_card_removes_card_choice_actions() -> None:
+    state = _reward_after_kill(RoomKind.MONSTER, seed=213)
+
+    assert state.reward is not None
+    assert state.reward.card_options
+
+    state = step(state, _action(state, "take_reward_card", "reward:card:0"))
+
+    assert state.reward is not None
+    assert state.reward.card_claimed is True
+    assert not any(
+        action.type == "take_reward_card"
+        and str(action.target_id or "").startswith("reward:card:")
+        for action in legal_actions(state)
+    )
+    assert not any(
+        action.type == "skip_reward" and action.target_id == "reward:card_options"
+        for action in legal_actions(state)
+    )
+
+
+def test_optional_reward_screen_skip_gold_removes_take_gold_action() -> None:
+    state = _reward_after_kill(RoomKind.MONSTER, seed=214)
+
+    assert state.reward is not None
+    assert state.reward.gold > 0
+    assert _action(state, "take_reward_gold", "reward:gold")
+
+    state = step(state, _action(state, "skip_reward", "reward:gold"))
+
+    assert state.reward is not None
+    assert state.reward.gold_skipped is True
+    assert not any(action.type == "take_reward_gold" for action in legal_actions(state))
+
+
+def test_stale_take_gold_after_skip_is_rejected() -> None:
+    state = _reward_after_kill(RoomKind.MONSTER, seed=214)
+    state = step(state, _action(state, "skip_reward", "reward:gold"))
+
+    with pytest.raises(IllegalActionError):
+        step(
+            state,
+            {
+                "type": "take_reward_gold",
+                "target_id": "reward:gold",
+                "payload": {},
+            },
+        )
 
 
 def test_optional_reward_screen_can_skip_one_relic_and_take_the_other() -> None:

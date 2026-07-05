@@ -138,6 +138,344 @@ def _write_result_if_missing(output_path: Path | None, payload: Any) -> None:
     )
 
 
+def _emit_training_result(result: Any, output_path: Path | None) -> None:
+    """Print a compact training summary while preserving the full output file."""
+
+    payload = _jsonable(result)
+    _emit(_compact_training_result(payload))
+    _write_result_if_missing(output_path, payload)
+
+
+def _compact_training_result(payload: Any) -> Any:
+    if not isinstance(payload, Mapping):
+        return payload
+
+    summary_keys = (
+        "algorithm",
+        "target",
+        "reached_target",
+        "reached_batch",
+        "batches_completed",
+        "max_batches",
+        "until_stopped",
+        "previous_batches",
+        "requested_new_batches",
+        "batch_limit",
+        "runs_trained",
+        "total_steps",
+        "average_training_reward",
+        "wins",
+        "deaths",
+        "resumed_from_path",
+        "model_path",
+        "output_path",
+        "progress_output_path",
+        "report_output_path",
+    )
+    compact: dict[str, Any] = {
+        key: payload.get(key) for key in summary_keys if key in payload
+    }
+
+    metadata = payload.get("metadata")
+    if isinstance(metadata, Mapping):
+        compact["metadata"] = {
+            key: metadata.get(key)
+            for key in (
+                "character_id",
+                "character_name",
+                "ascension",
+                "network_schema_version",
+                "parameter_count",
+                "device",
+                "cuda_available",
+                "cuda_device_name",
+            )
+            if key in metadata
+        }
+
+    batches = payload.get("batch_summaries")
+    if isinstance(batches, Sequence) and not isinstance(batches, (str, bytes, bytearray)):
+        latest_batch = next(
+            (batch for batch in reversed(tuple(batches)) if isinstance(batch, Mapping)),
+            None,
+        )
+        if latest_batch is not None:
+            compact["latest_batch"] = {
+                key: latest_batch.get(key)
+                for key in (
+                    "batch_index",
+                    "trained_runs_total",
+                    "train_total_steps",
+                    "evaluation_runs",
+                    "evaluation_average_reward",
+                    "evaluation_average_floor",
+                    "evaluation_target_success_rate",
+                    "evaluation_errors",
+                    "evaluation_failed_to_continue",
+                    "reached_target",
+                )
+                if key in latest_batch
+            }
+
+    highlights = payload.get("highlight_run_histories")
+    if isinstance(highlights, Mapping):
+        compact["highlight_run_histories"] = _compact_highlight_histories(highlights)
+
+    return compact
+
+
+def _compact_highlight_histories(histories: Mapping[str, Any]) -> dict[str, Any]:
+    compact: dict[str, Any] = {
+        key: histories.get(key)
+        for key in ("schema_version", "generated_at")
+        if key in histories
+    }
+    for role in ("best", "worst"):
+        entry = histories.get(role)
+        if not isinstance(entry, Mapping):
+            continue
+        compact[role] = {
+            key: entry.get(key)
+            for key in (
+                "role",
+                "generated_at",
+                "run_index",
+                "seed",
+                "character_id",
+                "ascension",
+                "steps_taken",
+                "total_reward",
+                "final_phase",
+                "final_act",
+                "final_floor",
+                "target_reached",
+                "failed_to_continue",
+                "error",
+                "json_path",
+                "html_path",
+                "map_path",
+            )
+            if key in entry
+        }
+    return compact
+
+
+class _TrainingTerminalProgress:
+    def __init__(self, enabled: bool) -> None:
+        self.enabled = enabled
+        self._progress: Any | None = None
+        self._train_task: Any | None = None
+        self._eval_task: Any | None = None
+
+    def __enter__(self) -> _TrainingTerminalProgress:
+        if not self.enabled:
+            return self
+        try:
+            from rich.progress import (
+                BarColumn,
+                Progress,
+                SpinnerColumn,
+                TextColumn,
+                TimeElapsedColumn,
+                TimeRemainingColumn,
+            )
+
+            progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[bold]{task.description}"),
+                BarColumn(),
+                TextColumn("{task.completed}/{task.total}"),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
+                transient=False,
+            )
+            progress.__enter__()
+            self._progress = progress
+        except Exception:
+            self._progress = None
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        if self._progress is not None:
+            self._progress.__exit__(exc_type, exc, traceback)
+
+    def __call__(self, payload: Mapping[str, Any]) -> None:
+        if not self.enabled:
+            return
+        if self._progress is None:
+            self._print_plain(payload)
+            return
+        self._update_rich(payload)
+
+    def _update_rich(self, payload: Mapping[str, Any]) -> None:
+        event = str(payload.get("event", ""))
+        progress = self._progress
+        if progress is None:
+            return
+
+        if event == "trainer_start":
+            progress.console.log(
+                "PPO training started: "
+                f"target={_target_name(payload.get('target'))}, "
+                f"start_batch={payload.get('start_batch')}, "
+                f"device={payload.get('device')}, "
+                f"until_stopped={payload.get('until_stopped')}"
+            )
+            return
+        if event == "batch_start":
+            self._remove_task(self._train_task)
+            self._remove_task(self._eval_task)
+            self._eval_task = None
+            total = _progress_int(payload.get("train_runs_per_batch"))
+            self._train_task = progress.add_task(
+                f"Batch {payload.get('batch_index')} train runs",
+                total=max(1, total),
+            )
+            progress.console.log(
+                f"Batch {payload.get('batch_index')} started "
+                f"({total} train runs, {payload.get('eval_runs')} eval runs)"
+            )
+            return
+        if event == "train_run_end":
+            if self._train_task is not None:
+                progress.update(
+                    self._train_task,
+                    completed=_progress_int(payload.get("run_position")),
+                    description=(
+                        f"Batch {payload.get('batch_index')} train "
+                        f"floor {payload.get('final_act')}.{payload.get('final_floor')}"
+                    ),
+                )
+            if payload.get("failed_to_continue") or payload.get("error"):
+                progress.console.log(f"Train run issue: {_run_progress_line(payload)}")
+            return
+        if event == "ppo_update_start":
+            progress.console.log(
+                f"Batch {payload.get('batch_index')} PPO update "
+                f"({payload.get('transition_count')} transitions)"
+            )
+            return
+        if event == "ppo_update_end":
+            progress.console.log(f"Batch {payload.get('batch_index')} PPO update complete")
+            return
+        if event == "eval_start":
+            self._remove_task(self._eval_task)
+            total = _progress_int(payload.get("eval_runs"))
+            self._eval_task = progress.add_task(
+                f"Batch {payload.get('batch_index')} eval runs",
+                total=max(1, total),
+            )
+            return
+        if event == "eval_run_end":
+            if self._eval_task is not None:
+                progress.update(
+                    self._eval_task,
+                    completed=_progress_int(payload.get("run_position")),
+                    description=(
+                        f"Batch {payload.get('batch_index')} eval "
+                        f"floor {payload.get('final_act')}.{payload.get('final_floor')}"
+                    ),
+                )
+            if payload.get("reached_target") or payload.get("failed_to_continue"):
+                progress.console.log(f"Eval run: {_run_progress_line(payload)}")
+            return
+        if event == "batch_saved":
+            progress.console.log(
+                f"Batch {payload.get('batch_index')} saved: "
+                f"success={_progress_float(payload.get('evaluation_target_success_rate')):.3f}, "
+                f"avg_floor={_progress_float(payload.get('evaluation_average_floor')):.2f}, "
+                f"avg_reward={_progress_float(payload.get('evaluation_average_reward')):.2f}, "
+                f"runs_trained={payload.get('runs_trained')}"
+            )
+
+    def _print_plain(self, payload: Mapping[str, Any]) -> None:
+        event = str(payload.get("event", ""))
+        if event == "trainer_start":
+            typer.echo(
+                "PPO training started: "
+                f"target={_target_name(payload.get('target'))}, "
+                f"start_batch={payload.get('start_batch')}, "
+                f"device={payload.get('device')}, "
+                f"until_stopped={payload.get('until_stopped')}"
+            )
+        elif event == "batch_start":
+            typer.echo(
+                f"Batch {payload.get('batch_index')} started: "
+                f"{payload.get('train_runs_per_batch')} train runs, "
+                f"{payload.get('eval_runs')} eval runs"
+            )
+        elif event in {"train_run_end", "eval_run_end"}:
+            typer.echo(f"{event}: {_run_progress_line(payload)}")
+        elif event == "ppo_update_start":
+            typer.echo(
+                f"Batch {payload.get('batch_index')} PPO update "
+                f"({payload.get('transition_count')} transitions)"
+            )
+        elif event == "ppo_update_end":
+            typer.echo(f"Batch {payload.get('batch_index')} PPO update complete")
+        elif event == "batch_saved":
+            typer.echo(
+                f"Batch {payload.get('batch_index')} saved: "
+                f"success={_progress_float(payload.get('evaluation_target_success_rate')):.3f}, "
+                f"avg_floor={_progress_float(payload.get('evaluation_average_floor')):.2f}, "
+                f"avg_reward={_progress_float(payload.get('evaluation_average_reward')):.2f}"
+            )
+
+    def _remove_task(self, task_id: Any | None) -> None:
+        if self._progress is None or task_id is None:
+            return
+        try:
+            self._progress.remove_task(task_id)
+        except KeyError:
+            return
+
+
+def _target_name(value: Any) -> str:
+    if isinstance(value, Mapping):
+        return str(value.get("name", "unknown"))
+    return str(value)
+
+
+def _run_progress_line(payload: Mapping[str, Any]) -> str:
+    return (
+        f"{payload.get('run_position')}/{payload.get('run_total')} "
+        f"seed={payload.get('seed')} "
+        f"reward={_progress_float(payload.get('total_reward')):.2f} "
+        f"floor={payload.get('final_act')}.{payload.get('final_floor')} "
+        f"phase={payload.get('final_phase')} "
+        f"steps={payload.get('steps_taken')} "
+        f"target={payload.get('reached_target')}"
+    )
+
+
+def _progress_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if not isinstance(value, str):
+        return 0
+    try:
+        return int(value)
+    except ValueError:
+        return 0
+
+
+def _progress_float(value: object) -> float:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, int | float):
+        return float(value)
+    if not isinstance(value, str):
+        return 0.0
+    try:
+        return float(value)
+    except ValueError:
+        return 0.0
+
+
 def _coverage_value(payload: Any) -> float | None:
     """Extract a coverage ratio from common audit result shapes."""
 
@@ -1290,9 +1628,9 @@ def train_until_boss(
         bool,
         typer.Option(
             "--resume/--no-resume",
-            help="Resume from --resume-from or existing --model-output checkpoint.",
+            help="Opt in to resuming from --resume-from or existing --model-output checkpoint.",
         ),
-    ] = True,
+    ] = False,
     resume_from_path: Annotated[
         Path | None,
         typer.Option("--resume-from", help="Optional checkpoint to resume from."),
@@ -1376,9 +1714,20 @@ def train_masked_ppo(
         typer.Option(
             "--max-batches",
             min=1,
-            help="Maximum train/evaluate batches before stopping.",
+            help="Maximum train/evaluate batches before stopping unless --until-stopped is set.",
         ),
     ] = 20,
+    until_stopped: Annotated[
+        bool,
+        typer.Option(
+            "--until-stopped/--stop-on-target",
+            help=(
+                "Keep training indefinitely until the process is stopped. "
+                "Checkpoint, reports, and latest-batch best/worst histories are "
+                "saved after every completed batch."
+            ),
+        ),
+    ] = False,
     train_runs_per_batch: Annotated[
         int,
         typer.Option(
@@ -1502,7 +1851,10 @@ def train_masked_ppo(
         bool,
         typer.Option(
             "--resume/--no-resume",
-            help="Resume from --resume-from or existing --model-output checkpoint.",
+            help=(
+                "Resume PPO weights from --resume-from or existing --model-output "
+                "checkpoint. Use --no-resume for a fresh model."
+            ),
         ),
     ] = True,
     resume_from_path: Annotated[
@@ -1529,6 +1881,20 @@ def train_masked_ppo(
         int,
         typer.Option("--progress-window", min=1, help="Rolling window size."),
     ] = 20,
+    device: Annotated[
+        str,
+        typer.Option(
+            "--device",
+            help="Torch device for PPO tensors: auto prefers CUDA/GPU when available.",
+        ),
+    ] = "auto",
+    terminal_progress: Annotated[
+        bool,
+        typer.Option(
+            "--terminal-progress/--no-terminal-progress",
+            help="Show live terminal progress bars for train/eval runs.",
+        ),
+    ] = True,
 ) -> None:
     """Train the random-seed masked PPO agent toward a run target."""
 
@@ -1538,46 +1904,50 @@ def train_masked_ppo(
             ("sts2sim.learning.masked_ppo", "sts2sim.learning"),
             ("train_masked_ppo",),
         )
-        result = _call_backend(
-            backend,
-            target=target,
-            max_batches=max_batches,
-            train_runs_per_batch=train_runs_per_batch,
-            train_max_steps=train_max_steps,
-            eval_runs=eval_runs,
-            eval_max_steps=eval_max_steps,
-            seed=seed,
-            character_id=character_id,
-            ascension=ascension,
-            hidden_size=hidden_size,
-            hidden_layers=hidden_layers,
-            head_hidden_layers=head_hidden_layers,
-            activation=activation,
-            learning_rate=learning_rate,
-            gamma=gamma,
-            gae_lambda=gae_lambda,
-            clip_ratio=clip_ratio,
-            value_coef=value_coef,
-            entropy_coef=entropy_coef,
-            planning_coef=planning_coef,
-            ppo_epochs=ppo_epochs,
-            minibatch_size=minibatch_size,
-            target_reward=target_reward,
-            target_eval_successes=target_eval_successes,
-            target_consecutive_successes=target_consecutive_successes,
-            resume=resume,
-            resume_from_path=resume_from_path,
-            model_output_path=model_output_path,
-            output_path=output_path,
-            progress_output_path=progress_output_path,
-            report_output_path=report_output_path,
-            progress_window=progress_window,
-        )
+        terminal_reporter = _TrainingTerminalProgress(terminal_progress)
+        with terminal_reporter:
+            result = _call_backend(
+                backend,
+                target=target,
+                max_batches=max_batches,
+                until_stopped=until_stopped,
+                train_runs_per_batch=train_runs_per_batch,
+                train_max_steps=train_max_steps,
+                eval_runs=eval_runs,
+                eval_max_steps=eval_max_steps,
+                seed=seed,
+                character_id=character_id,
+                ascension=ascension,
+                hidden_size=hidden_size,
+                hidden_layers=hidden_layers,
+                head_hidden_layers=head_hidden_layers,
+                activation=activation,
+                learning_rate=learning_rate,
+                gamma=gamma,
+                gae_lambda=gae_lambda,
+                clip_ratio=clip_ratio,
+                value_coef=value_coef,
+                entropy_coef=entropy_coef,
+                planning_coef=planning_coef,
+                ppo_epochs=ppo_epochs,
+                minibatch_size=minibatch_size,
+                target_reward=target_reward,
+                target_eval_successes=target_eval_successes,
+                target_consecutive_successes=target_consecutive_successes,
+                resume=resume,
+                resume_from_path=resume_from_path,
+                model_output_path=model_output_path,
+                output_path=output_path,
+                progress_output_path=progress_output_path,
+                report_output_path=report_output_path,
+                progress_window=progress_window,
+                device=device,
+                progress_reporter=terminal_reporter,
+            )
     except BackendUnavailable as exc:
         _backend_error(exc)
 
-    payload = _emit(result)
-    _write_result_if_missing(output_path, payload)
+    _emit_training_result(result, output_path)
 
 
 @app.command("train-ppo-curriculum")
@@ -1735,7 +2105,10 @@ def train_ppo_curriculum(
         bool,
         typer.Option(
             "--resume/--no-resume",
-            help="Resume each stage from existing checkpoint files when available.",
+            help=(
+                "Resume PPO weights for each stage from existing checkpoint files "
+                "when available. Use --no-resume for a fresh curriculum start."
+            ),
         ),
     ] = True,
     resume_from_path: Annotated[
@@ -1762,6 +2135,13 @@ def train_ppo_curriculum(
         int,
         typer.Option("--progress-window", min=1, help="Rolling window size."),
     ] = 20,
+    device: Annotated[
+        str,
+        typer.Option(
+            "--device",
+            help="Torch device for PPO tensors: auto prefers CUDA/GPU when available.",
+        ),
+    ] = "auto",
 ) -> None:
     """Train PPO through staged targets, advancing only when comfortable."""
 
@@ -1806,12 +2186,12 @@ def train_ppo_curriculum(
             output_path=output_path,
             report_output_path=report_output_path,
             progress_window=progress_window,
+            device=device,
         )
     except BackendUnavailable as exc:
         _backend_error(exc)
 
-    payload = _emit(result)
-    _write_result_if_missing(output_path, payload)
+    _emit_training_result(result, output_path)
 
 
 @app.command("learning-progress-report")

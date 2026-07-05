@@ -194,13 +194,25 @@ def action_mechanic_profile(descriptor: Mapping[str, Any]) -> dict[str, object]:
             _profile({"potion_loss": -1.0}, tags=("consume_potion",), summary=("Consume potion",))
         )
     elif action_type == "throw_potion_at_merchant":
-        profiles.append(
-            _profile(
-                {"gold_delta": 100.0, "potion_loss": -1.0},
-                tags=("merchant_throw", "consume_potion", "gain_gold"),
-                summary=("Throw Foul Potion at merchant for gold",),
+        payload = _mapping(descriptor.get("payload"))
+        if descriptor.get("target_id") == "fake_merchant" or payload.get(
+            "merchant"
+        ) == "fake_merchant":
+            profiles.append(
+                _profile(
+                    {"potion_loss": -1.0},
+                    tags=("fake_merchant_throw", "consume_potion", "start_combat"),
+                    summary=("Throw Foul Potion at fake merchant to start combat",),
+                )
             )
-        )
+        else:
+            profiles.append(
+                _profile(
+                    {"gold_delta": 100.0, "potion_loss": -1.0},
+                    tags=("merchant_throw", "consume_potion", "gain_gold"),
+                    summary=("Throw Foul Potion at merchant for gold",),
+                )
+            )
     elif action_type == "smith":
         profiles.append(
             _profile(

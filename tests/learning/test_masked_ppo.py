@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from sts2sim.cli.app import app
+from sts2sim.cli.app import _compact_training_result, app
 from sts2sim.learning.content_vocab import (
     CONTENT_IDENTITY_EMBED_DIM,
     CONTENT_IDENTITY_SLOTS,
@@ -75,12 +75,54 @@ def test_train_masked_ppo_help_lists_success_streak_controls() -> None:
 
     assert result.exit_code == 0
     assert "--target" in result.output
-    assert "--target-consecut" in result.output
+    assert "--target-consec" in result.output
     assert "--hidden-layers" in result.output
     assert "--head-hidden" in result.output
     assert "--activation" in result.output
     assert "--planning-coef" in result.output
+    assert "--device" in result.output
+    assert "--until-stopped" in result.output
+    assert "--terminal-prog" in result.output
     assert "Consecutive" in result.output
+    assert "--resume" in result.output
+    assert "--no-resume" in result.output
+
+
+def test_training_cli_summary_omits_embedded_histories() -> None:
+    compact = _compact_training_result(
+        {
+            "algorithm": "masked_action_descriptor_ppo",
+            "batches_completed": 2,
+            "until_stopped": True,
+            "runs_trained": 16,
+            "total_steps": 1235,
+            "output_path": "reports/latest.json",
+            "batch_summaries": [
+                {
+                    "batch_index": 2,
+                    "evaluation_average_reward": 1.25,
+                    "evaluation_target_success_rate": 0.5,
+                }
+            ],
+            "highlight_run_histories": {
+                "schema_version": 2,
+                "generated_at": "2026-06-24T00:00:00Z",
+                "best": {
+                    "seed": 1,
+                    "history": {"steps": [{"big": "payload"}]},
+                    "json_path": "best.json",
+                    "html_path": "best.html",
+                    "map_path": "best.txt",
+                },
+            },
+        }
+    )
+
+    assert compact["runs_trained"] == 16
+    assert compact["until_stopped"] is True
+    assert compact["latest_batch"]["batch_index"] == 2
+    assert compact["highlight_run_histories"]["generated_at"] == "2026-06-24T00:00:00Z"
+    assert "history" not in compact["highlight_run_histories"]["best"]
 
 
 def test_masked_ppo_architecture_can_scale_up() -> None:
@@ -163,7 +205,6 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
         eval_runs=1,
         eval_max_steps=5,
         seed="resume-test",
-        resume=True,
         target_eval_successes=99,
         target_consecutive_successes=99,
         model_output_path=model_path,
@@ -173,17 +214,27 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     )
 
     assert first["batches_completed"] == 1
+    assert first["resumed_from_path"] is None
+    assert first["previous_batches"] == 0
+    assert first["requested_new_batches"] == 1
+    assert first["batch_limit"] == 1
     assert second["resumed_from_path"] == str(model_path)
-    assert second["batches_completed"] == 2
-    assert second["runs_trained"] == 2
-    assert [batch["batch_index"] for batch in second["batch_summaries"]] == [1, 2]
-    assert [point["run_index"] for point in second["progress"]] == [0, 1]
-    assert second["progress"][0]["seed"] != second["progress"][1]["seed"]
+    assert second["previous_batches"] == 1
+    assert second["requested_new_batches"] == 2
+    assert second["batch_limit"] == 3
+    assert second["batches_completed"] == 3
+    assert second["runs_trained"] == 3
+    assert [batch["batch_index"] for batch in second["batch_summaries"]] == [1, 2, 3]
+    assert [point["run_index"] for point in second["progress"]] == [0, 1, 2]
+    assert len({point["seed"] for point in second["progress"]}) == 3
     assert second["metadata"]["network_schema_version"] == 5
     assert second["metadata"]["content_vocab_size"] == load_content_vocab().size
     assert "content_vocab_checksum" in second["metadata"]
     assert second["metadata"]["planning_head_schema"] == list(PLANNING_HEAD_SCHEMA)
+    assert second["metadata"]["reward_schema_version"] == 2
     assert "planning_output_averages" in second["batch_summaries"][-1]
+    assert "reward_component_averages" in second["batch_summaries"][-1]
+    assert "total" in second["batch_summaries"][-1]["reward_component_averages"]
     histories = second["highlight_run_histories"]
     for role in ("best", "worst"):
         entry = histories[role]
@@ -193,13 +244,24 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
         assert html_path.exists()
         assert json_path.exists()
         assert map_path.exists()
-        assert "Map Path" in html_path.read_text(encoding="utf-8")
-        assert "Timeline" in html_path.read_text(encoding="utf-8")
-        assert json.loads(json_path.read_text(encoding="utf-8"))["steps"]
-        assert "Legend:" in map_path.read_text(encoding="utf-8")
+        assert entry["generated_at"].endswith("Z")
+        html_text = html_path.read_text(encoding="utf-8")
+        assert "Map Path" in html_text
+        assert "Timeline" in html_text
+        assert "Generated At" in html_text
+        history_payload = json.loads(json_path.read_text(encoding="utf-8"))
+        assert history_payload["generated_at"] == entry["generated_at"]
+        assert history_payload["highlight_role"] == role
+        assert history_payload["steps"]
+        assert "reward_total" in history_payload["steps"][0]["decision"]
+        map_text = map_path.read_text(encoding="utf-8")
+        assert f"Generated at: {entry['generated_at']}" in map_text
+        assert "Legend:" in map_text
     report_text = report_path.read_text(encoding="utf-8")
     assert "Planning Head Trends" in report_text
+    assert "Reward Component Trends" in report_text
     assert "Best And Worst Evaluation Run Histories" in report_text
+    assert "Generated" in report_text
     assert "ppo_best_run_history.html" in report_text
 
 

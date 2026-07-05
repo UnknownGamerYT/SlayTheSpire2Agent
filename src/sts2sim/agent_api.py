@@ -1755,7 +1755,14 @@ def _potion_effect_summary(potion_id: str, action: Action) -> dict[str, Any]:
         "temporary_setup": 0,
         "passive_revive": 0,
     }
-    normalization = normalize_potion_use(normalized, target_id=action.target_id)
+    normalization_target_id = action.target_id
+    if action.type == ActionType.THROW_POTION_AT_MERCHANT:
+        if action.target_id == "fake_merchant" or _mapping(action.payload).get(
+            "merchant"
+        ) == "fake_merchant":
+            return summary
+        normalization_target_id = "merchant"
+    normalization = normalize_potion_use(normalized, target_id=normalization_target_id)
     for effect in normalization.effects:
         kind = str(getattr(effect, "kind", ""))
         amount = _int(getattr(effect, "amount", 0))

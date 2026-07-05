@@ -53,7 +53,6 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
         max_batches=1,
         train_runs_per_batch=2,
         eval_runs=2,
-        resume=False,
         checkpoint_dir=tmp_path / "checkpoints",
         report_dir=tmp_path / "reports",
         output_path=tmp_path / "curriculum.json",
@@ -67,14 +66,17 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
     assert result["current_stage"] == "act2-boss"
     assert "did not meet comfort criteria" in str(result["stopped_reason"])
     assert calls[0]["resume_from_path"] is None
+    assert calls[0]["resume"] is True
     assert calls[0]["hidden_size"] == 256
     assert calls[0]["hidden_layers"] == 3
     assert calls[0]["head_hidden_layers"] == 2
     assert calls[0]["activation"] == "silu"
     assert calls[0]["planning_coef"] == 0.1
+    assert calls[0]["device"] == "auto"
     assert calls[1]["resume_from_path"] == tmp_path / "checkpoints" / (
         "ppo_curriculum_act1_boss.pt"
     )
+    assert calls[1]["resume"] is True
     assert result["batch_metric_summary"]["batches"] == 2
     assert result["batch_metrics"][-1]["stage"] == "act2-boss"
     assert (tmp_path / "curriculum.json").exists()
@@ -115,3 +117,6 @@ def test_train_ppo_curriculum_help_lists_stage_and_comfort_controls() -> None:
     assert "--head-hidden" in result.output
     assert "--activation" in result.output
     assert "--planning-coef" in result.output
+    assert "--device" in result.output
+    assert "--resume" in result.output
+    assert "--no-resume" in result.output

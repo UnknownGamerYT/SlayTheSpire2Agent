@@ -150,6 +150,31 @@ def test_toy_ornithopter_heals_when_potion_is_used() -> None:
     )
 
 
+def test_fruit_juice_raises_current_hp_with_max_hp() -> None:
+    state = new_run(seed=1307, character_id="TEST", ascension=0)
+    state = state.model_copy(update={"potions": ("fruit_juice",)})
+    state = _enter_monster_combat(state)
+
+    assert state.combat is not None
+    player = state.combat.player.model_copy(update={"hp": 55, "max_hp": 65})
+    state = state.model_copy(
+        update={
+            "player": player,
+            "combat": state.combat.model_copy(update={"player": player}),
+        }
+    )
+
+    state = step(state, _use_potion_action(state, "potion:0"))
+
+    assert state.combat is not None
+    assert state.combat.player.max_hp == 70
+    assert state.combat.player.hp == 60
+    assert any(
+        event.kind == "player_max_hp_gained" and event.amount == 5
+        for event in state.replay_log[-1].events
+    )
+
+
 def test_block_energy_and_strength_potions_apply_player_effects() -> None:
     state = new_run(seed=1301, character_id="TEST", ascension=0)
     state = state.model_copy(
@@ -269,7 +294,12 @@ def test_foul_potion_damages_player_and_all_enemies() -> None:
 
 def test_passive_fairy_is_not_manual_use_but_can_be_discarded() -> None:
     state = new_run(seed=1303, character_id="TEST", ascension=0)
-    state = state.model_copy(update={"potions": ("fairy_in_a_bottle",)})
+    state = state.model_copy(
+        update={
+            "potions": ("fairy_in_a_bottle",),
+            "flags": {**state.flags, "allow_free_potion_discard": True},
+        }
+    )
     state = _enter_monster_combat(state)
 
     assert not any(action.type == "use_potion" for action in legal_actions(state))

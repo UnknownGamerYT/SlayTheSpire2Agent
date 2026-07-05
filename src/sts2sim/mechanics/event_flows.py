@@ -646,7 +646,14 @@ def _apply_max_hp(
         next_max_hp = option.set_max_hp
     else:
         next_max_hp = max(1, state.max_hp + option.max_hp_delta)
-    return next_max_hp, min(state.hp, next_max_hp)
+    return next_max_hp, _hp_after_max_hp_change(state.hp, state.max_hp, next_max_hp)
+
+
+def _hp_after_max_hp_change(hp: int, max_hp: int, next_max_hp: int) -> int:
+    actual_delta = next_max_hp - max(1, max_hp)
+    if actual_delta > 0:
+        return min(next_max_hp, max(0, hp) + actual_delta)
+    return min(max(0, hp), next_max_hp)
 
 
 def _next_page_id(state: EventFlowState, option: EventFlowOption) -> str:
@@ -728,8 +735,9 @@ def _abyssal_linger_next_page(
     if state.page_id == "DEATH_WARNING":
         return "DEATH_WARNING"
 
-    next_max_hp = state.max_hp + option.max_hp_delta
-    next_hp = min(max(0, min(state.hp, next_max_hp) + option.hp_delta), next_max_hp)
+    next_max_hp = max(1, state.max_hp + option.max_hp_delta)
+    hp_after_max = _hp_after_max_hp_change(state.hp, state.max_hp, next_max_hp)
+    next_hp = min(max(0, hp_after_max + option.hp_delta), next_max_hp)
     next_page = "IMMERSE" if option.option_id == "IMMERSE" else _ABYSSAL_LINGER_PAGES.get(
         state.page_id,
         "DEATH_WARNING",

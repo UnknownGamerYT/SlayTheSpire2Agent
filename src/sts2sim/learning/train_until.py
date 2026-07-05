@@ -48,7 +48,7 @@ def train_q_learning_until_boss(
     train_seed_mode: str = "sequential",
     eval_seed_mode: str = "sequential",
     target_eval_successes: int = 1,
-    resume: bool = True,
+    resume: bool = False,
     resume_from_path: Path | str | None = None,
     model_output_path: Path | str | None = Path("checkpoints/q_learning_until_boss.json"),
     output_path: Path | str | None = Path("reports/q_learning_until_boss_latest.json"),

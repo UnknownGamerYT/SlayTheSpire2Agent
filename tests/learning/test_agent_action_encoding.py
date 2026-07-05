@@ -202,6 +202,41 @@ def test_foul_potion_merchant_throw_exposes_consumed_slot() -> None:
     assert len(_action_features(throw)) == ACTION_FEATURE_DIM
 
 
+def test_fake_merchant_foul_potion_throw_exposes_combat_start_not_gold() -> None:
+    state = _state(
+        phase=RunPhase.EVENT,
+        potions=("foul_potion",),
+        event=EventState(
+            event_id="fake_merchant",
+            name="Fake Merchant",
+            options=(
+                EventOptionState(
+                    option_id="SUMMARY",
+                    title="Fake Merchant Summary",
+                    metadata={"summary_marker": True},
+                ),
+            ),
+        ),
+    )
+
+    throw = next(
+        action
+        for action in action_space(state)
+        if action["type"] == "throw_potion_at_merchant"
+    )
+
+    assert throw["target_id"] == "fake_merchant"
+    assert throw["payload"]["merchant"] == "fake_merchant"
+    assert throw["potion"]["potion_id"] == "foul_potion"
+    assert throw["potion_strategy"]["aoe_damage"] == 0
+    assert throw["potion_strategy"]["self_damage"] == 0
+    assert throw["mechanics"]["values"].get("gold_delta", 0.0) == 0.0
+    assert throw["mechanics"]["values"]["potion_loss"] == -1.0
+    assert "fake_merchant_throw" in throw["mechanics"]["tags"]
+    assert "gain_gold" not in throw["mechanics"]["tags"]
+    assert len(_action_features(throw)) == ACTION_FEATURE_DIM
+
+
 def test_enemy_turn_preview_exposes_retaliation_and_next_turn_context() -> None:
     state = _state(
         phase=RunPhase.COMBAT,

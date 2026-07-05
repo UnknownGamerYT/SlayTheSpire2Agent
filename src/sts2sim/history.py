@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from html import escape as html_escape
 from pathlib import Path
@@ -121,6 +122,7 @@ def summarize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Return a compact, JSON-friendly context from a serialized run state."""
 
     player = _mapping(payload.get("player"))
+    deck = [_card_summary(_mapping(card)) for card in _sequence(payload.get("master_deck"))]
     return {
         "phase": str(payload.get("phase", "")),
         "act": _int(payload.get("act")),
@@ -136,7 +138,8 @@ def summarize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             "resources": dict(_mapping(player.get("resources"))),
             "relics": list(_sequence(payload.get("relics"))),
             "potions": list(_sequence(payload.get("potions"))),
-            "deck_count": len(_sequence(payload.get("master_deck"))),
+            "deck_count": len(deck),
+            "deck": deck,
         },
         "map": _map_summary(_mapping(payload.get("map"))),
         "ancient": _ancient_summary(_mapping(payload.get("ancient"))),
@@ -244,6 +247,9 @@ def summarize_action(state_payload: Mapping[str, Any], action: Mapping[str, Any]
         return "Leave shop"
 
     if action_type == "throw_potion_at_merchant":
+        payload = _mapping(action.get("payload"))
+        if target_id == "fake_merchant" or payload.get("merchant") == "fake_merchant":
+            return "Throw Foul Potion at the fake merchant"
         return "Throw Foul Potion at the merchant"
 
     if action_type in {"rest", "recall", "dig", "lift"}:
@@ -261,6 +267,9 @@ def summarize_action(state_payload: Mapping[str, Any], action: Mapping[str, Any]
 
     if action_type.startswith("take_reward"):
         return _reward_action_summary(_mapping(state_payload.get("reward")), action_type, target_id)
+
+    if action_type == "skip_reward":
+        return _skip_reward_action_summary(_mapping(state_payload.get("reward")), target_id)
 
     if action_type == "proceed":
         return f"Proceed from {state_payload.get('phase', 'current phase')}"
@@ -329,6 +338,7 @@ def run_history_map_text(history: RunHistory | Mapping[str, Any]) -> str:
 
     lines = [
         f"Act {_int(map_payload.get('act'))} map",
+        f"Generated at: {payload.get('generated_at', '') or '-'}",
         "Legend: * visited/chosen, _node_ chosen path marker, -> reachable edges",
     ]
     for floor in sorted(by_floor):
@@ -367,6 +377,8 @@ def run_history_html(
     steps = tuple(_mapping(step) for step in _sequence(payload.get("steps")))
     safe_title = html_escape(title)
     overview = {
+        "generated at": payload.get("generated_at", ""),
+        "highlight role": payload.get("highlight_role", ""),
         "seed": payload.get("seed", ""),
         "character": payload.get("character_id", ""),
         "ascension": payload.get("ascension", 0),
@@ -387,7 +399,7 @@ def run_history_html(
         "</div>"
         for key, value in overview.items()
     )
-    timeline = "\n".join(_step_html(step) for step in steps)
+    timeline = _timeline_html(steps)
     if not timeline:
         timeline = '<p class="muted">No steps were recorded.</p>'
     map_text = html_escape(run_history_map_text(payload))
@@ -469,6 +481,31 @@ def run_history_html(
     }}
     .narrative {{ margin: 0 0 10px; padding-left: 18px; }}
     .narrative li {{ margin: 3px 0; }}
+    details {{
+      margin-top: 10px;
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+    }}
+    summary {{
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 700;
+    }}
+    .combat-turn {{
+      border-left: 4px solid var(--accent);
+    }}
+    .turn-actions {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 10px 0;
+    }}
+    .turn-actions div {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px;
+      background: #fbfcfd;
+    }}
     pre {{
       overflow: auto;
       background: #111820;
@@ -532,6 +569,223 @@ def _history_payload(history: RunHistory | Mapping[str, Any]) -> Mapping[str, An
     return history
 
 
+def _timeline_html(steps: Sequence[Mapping[str, Any]]) -> str:
+    chunks: list[str] = []
+    combat_group: list[Mapping[str, Any]] = []
+    current_turn: int | None = None
+
+    def flush_combat_group() -> None:
+        nonlocal combat_group, current_turn
+        if combat_group:
+            chunks.append(_combat_turn_group_html(tuple(combat_group)))
+            combat_group = []
+            current_turn = None
+
+    for step in steps:
+        turn = _combat_step_group_turn(step)
+        if turn is None:
+            flush_combat_group()
+            chunks.append(_step_html(step))
+            continue
+        if combat_group and current_turn != turn:
+            flush_combat_group()
+        combat_group.append(step)
+        current_turn = turn
+        if _combat_step_ends_group(step):
+            flush_combat_group()
+    flush_combat_group()
+    return "\n".join(chunks)
+
+
+def _combat_step_group_turn(step: Mapping[str, Any]) -> int | None:
+    before = _mapping(step.get("context_before"))
+    after = _mapping(step.get("context_after"))
+    before_combat = _mapping(before.get("combat"))
+    after_combat = _mapping(after.get("combat"))
+    if before_combat:
+        return max(1, _int(before_combat.get("turn")) or 1)
+    if after_combat and str(step.get("phase_before", "")) != "combat":
+        return max(1, _int(after_combat.get("turn")) or 1)
+    return None
+
+
+def _combat_step_ends_group(step: Mapping[str, Any]) -> bool:
+    action_type = str(_mapping(step.get("action")).get("type", ""))
+    after = _mapping(step.get("context_after"))
+    before_combat = _mapping(_mapping(step.get("context_before")).get("combat"))
+    after_combat = _mapping(after.get("combat"))
+    if before_combat and not after_combat:
+        return True
+    if action_type == "end_turn":
+        return True
+    if before_combat and after_combat:
+        return _int(after_combat.get("turn")) != _int(before_combat.get("turn"))
+    return False
+
+
+def _combat_turn_group_html(steps: Sequence[Mapping[str, Any]]) -> str:
+    first = steps[0]
+    last = steps[-1]
+    first_before = _mapping(first.get("context_before"))
+    first_after = _mapping(first.get("context_after"))
+    start_combat = _mapping(first_before.get("combat")) or _mapping(first_after.get("combat"))
+    last_after = _mapping(last.get("context_after"))
+    end_combat = _mapping(last_after.get("combat"))
+    turn = _combat_step_group_turn(first) or _int(start_combat.get("turn")) or 1
+    reward_total = sum(_float(step.get("reward")) for step in steps)
+    meta = [
+        f"steps {_int(first.get('step_index'))}-{_int(last.get('step_index'))}",
+        f"phase {first.get('phase_before', '')} -> {last.get('phase_after', '')}",
+        f"reward {reward_total:.3f}",
+    ]
+    meta_html = "".join(f'<span class="badge">{html_escape(item)}</span>' for item in meta)
+
+    card_actions = [
+        str(step.get("action_summary", "Play card"))
+        for step in steps
+        if str(_mapping(step.get("action")).get("type", "")) == "play_card"
+    ]
+    potion_actions = [
+        str(step.get("action_summary", "Use potion"))
+        for step in steps
+        if str(_mapping(step.get("action")).get("type", "")) in {"use_potion", "discard_potion"}
+    ]
+    other_actions = [
+        str(step.get("action_summary", "Action"))
+        for step in steps
+        if str(_mapping(step.get("action")).get("type", ""))
+        not in {"play_card", "use_potion", "discard_potion"}
+    ]
+    start_lines = _combat_start_lines(start_combat)
+    change_lines = _dedupe_lines(
+        line
+        for step in steps
+        for line in _compact_step_change_lines(step)
+    )
+    end_lines = _combat_end_lines(start_combat, end_combat, last)
+    action_cards = _action_list_html("Cards Played This Turn", card_actions)
+    potion_cards = _action_list_html("Potions / Discards", potion_actions)
+    other_cards = _action_list_html("Other Turn Actions", other_actions)
+    main_lines = "".join(
+        f"<li>{html_escape(line)}</li>"
+        for line in (*start_lines, *change_lines, *end_lines)
+    )
+    if not main_lines:
+        main_lines = "<li>No visible combat state change.</li>"
+    details = _combat_step_details_html(steps)
+    return (
+        '<article class="combat-turn">'
+        f"<h3>Combat Turn {turn}</h3>"
+        f'<div class="step-meta">{meta_html}</div>'
+        f'<div class="turn-actions">{action_cards}{potion_cards}{other_cards}</div>'
+        f'<ul class="narrative">{main_lines}</ul>'
+        f"{details}"
+        "</article>"
+    )
+
+
+def _combat_start_lines(combat: Mapping[str, Any]) -> tuple[str, ...]:
+    if not combat:
+        return ()
+    player = _mapping(combat.get("player"))
+    lines = [
+        "Turn start: "
+        f"HP {_int(player.get('hp'))}/{_int(player.get('max_hp'))}, "
+        f"block {_int(player.get('block'))}, "
+        f"energy {_int(player.get('energy'))}, "
+        f"hand {_card_names(combat.get('hand'))}."
+    ]
+    intents = _monster_intents(combat)
+    if intents:
+        lines.append(f"Enemy intentions: {intents}.")
+    return tuple(lines)
+
+
+def _combat_end_lines(
+    start_combat: Mapping[str, Any],
+    end_combat: Mapping[str, Any],
+    last_step: Mapping[str, Any],
+) -> tuple[str, ...]:
+    if not start_combat and not end_combat:
+        return ()
+    if not end_combat:
+        return ("Combat ended; reward or next room state opened.",)
+    before_turn = _int(start_combat.get("turn"))
+    after_turn = _int(end_combat.get("turn"))
+    player = _mapping(end_combat.get("player"))
+    prefix = "Turn end state"
+    if after_turn > before_turn or str(_mapping(last_step.get("action")).get("type")) == "end_turn":
+        prefix = "After enemy turn"
+    lines = [
+        f"{prefix}: HP {_int(player.get('hp'))}/{_int(player.get('max_hp'))}, "
+        f"block {_int(player.get('block'))}, energy {_int(player.get('energy'))}, "
+        f"hand {_card_names(end_combat.get('hand'))}."
+    ]
+    if after_turn > before_turn:
+        intents = _monster_intents(end_combat)
+        if intents:
+            lines.append(f"Next turn enemy intentions: {intents}.")
+    return tuple(lines)
+
+
+def _compact_step_change_lines(step: Mapping[str, Any]) -> tuple[str, ...]:
+    before = _mapping(step.get("context_before"))
+    after = _mapping(step.get("context_after"))
+    action_type = str(_mapping(step.get("action")).get("type", ""))
+    lines: list[str] = []
+    lines.extend(_state_change_lines(before, after))
+    lines.extend(
+        _combat_change_lines(
+            _mapping(before.get("combat")),
+            _mapping(after.get("combat")),
+        )
+    )
+    lines.extend(_event_effect_lines(_sequence(step.get("events"))))
+    lines.extend(_room_outcome_lines(action_type, before, after))
+    lines.extend(_reward_outcome_lines(action_type, before, after))
+    return tuple(lines)
+
+
+def _action_list_html(title: str, actions: Sequence[str]) -> str:
+    if not actions:
+        body = '<p class="muted">None.</p>'
+    else:
+        body = "<ol>" + "".join(f"<li>{html_escape(action)}</li>" for action in actions) + "</ol>"
+    return f"<div><strong>{html_escape(title)}</strong>{body}</div>"
+
+
+def _combat_step_details_html(steps: Sequence[Mapping[str, Any]]) -> str:
+    rows = []
+    for step in steps:
+        change_text = "; ".join(_compact_step_change_lines(step)) or "no visible change"
+        rows.append(
+            "<tr>"
+            f"<td>{_int(step.get('step_index'))}</td>"
+            f"<td>{html_escape(str(step.get('action_summary', 'Action')))}</td>"
+            f"<td>{_float(step.get('reward')):.3f}</td>"
+            f"<td>{html_escape(change_text)}</td>"
+            "</tr>"
+        )
+    return (
+        "<details><summary>Step Details</summary>"
+        "<table><thead><tr><th>Step</th><th>Action</th><th>Reward</th>"
+        "<th>Visible Changes</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+        "</details>"
+    )
+
+
+def _dedupe_lines(lines: Sequence[str] | Any) -> tuple[str, ...]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for line in lines:
+        if not line or line in seen:
+            continue
+        seen.add(line)
+        result.append(str(line))
+    return tuple(result)
+
+
 def _step_html(step: Mapping[str, Any]) -> str:
     context_before = _mapping(step.get("context_before"))
     context_after = _mapping(step.get("context_after"))
@@ -540,8 +794,6 @@ def _step_html(step: Mapping[str, Any]) -> str:
     meta = [
         f"phase {step.get('phase_before', '')} -> {step.get('phase_after', '')}",
         f"reward {step.get('reward', 0)}",
-        f"before {str(step.get('state_hash_before', ''))[:10]}",
-        f"after {str(step.get('state_hash_after', ''))[:10]}",
     ]
     meta_html = "".join(f'<span class="badge">{html_escape(item)}</span>' for item in meta)
     narrative = "".join(
@@ -549,9 +801,7 @@ def _step_html(step: Mapping[str, Any]) -> str:
         for item in _step_narrative(step, context_before, context_after)
     )
     if not narrative:
-        narrative = "<li>No detailed state context was available.</li>"
-    before_panel = _context_panel_html("Before", context_before)
-    after_panel = _context_panel_html("After", context_after)
+        narrative = "<li>No visible state change.</li>"
     events_html = _events_html(events)
     decision_html = _decision_html(decision)
     return (
@@ -560,7 +810,6 @@ def _step_html(step: Mapping[str, Any]) -> str:
         f"{html_escape(str(step.get('action_summary', 'Action')))}</h3>"
         f'<div class="step-meta">{meta_html}</div>'
         f'<ul class="narrative">{narrative}</ul>'
-        f'<div class="grid">{before_panel}{after_panel}</div>'
         f"{events_html}{decision_html}"
         "</article>"
     )
@@ -574,6 +823,11 @@ def _step_narrative(
     lines = [
         f"Action selected: {step.get('action_summary', 'unknown')}.",
     ]
+    action = _mapping(step.get("action"))
+    action_type = str(action.get("type", ""))
+    lines.extend(_state_change_lines(before, after))
+    lines.extend(_event_effect_lines(_sequence(step.get("events"))))
+    lines.extend(_room_outcome_lines(action_type, before, after))
     before_combat = _mapping(before.get("combat"))
     after_combat = _mapping(after.get("combat"))
     if before_combat:
@@ -616,31 +870,26 @@ def _step_narrative(
 
     before_reward = _mapping(before.get("reward"))
     after_reward = _mapping(after.get("reward"))
-    if before_reward:
-        lines.append(f"Reward screen before action: {_reward_line(before_reward)}.")
     if after_reward and after_reward != before_reward:
-        lines.append(f"Reward screen after action: {_reward_line(after_reward)}.")
+        lines.append(f"Reward screen now: {_reward_line(after_reward)}.")
+    lines.extend(_reward_outcome_lines(action_type, before, after))
 
     before_shop = _mapping(before.get("shop"))
     after_shop = _mapping(after.get("shop"))
-    if before_shop:
-        lines.append(f"Shop before action: {_shop_line(before_shop)}.")
     if after_shop and after_shop != before_shop:
-        lines.append(f"Shop after action: {_shop_line(after_shop)}.")
+        lines.append(f"Shop now: {_shop_line(after_shop)}.")
+    lines.extend(_shop_outcome_lines(action_type, before, after))
 
     before_event = _mapping(before.get("event"))
     after_event = _mapping(after.get("event"))
-    if before_event:
-        lines.append(f"Event before action: {_event_line(before_event)}.")
     if after_event and after_event != before_event:
-        lines.append(f"Event after action: {_event_line(after_event)}.")
+        lines.append(f"Event now: {_event_line(after_event)}.")
+    lines.extend(_event_outcome_lines(action_type, before, after, _sequence(step.get("events"))))
 
     before_map = _mapping(before.get("map"))
     after_map = _mapping(after.get("map"))
-    if before_map and str(_mapping(step.get("action")).get("type")) == "choose_node":
-        lines.append(f"Map choice opened: {_map_line(before_map)}.")
     if after_map and after_map != before_map:
-        lines.append(f"Map after action: {_map_line(after_map)}.")
+        lines.append(f"Map now: {_map_line(after_map)}.")
     return tuple(lines)
 
 
@@ -695,8 +944,7 @@ def _combat_panel_html(combat: Mapping[str, Any]) -> str:
         f"<td>{html_escape(str(monster.get('name') or monster.get('monster_id')))}</td>"
         f"<td>{_int(monster.get('hp'))}/{_int(monster.get('max_hp'))}</td>"
         f"<td>{_int(monster.get('block'))}</td>"
-        f"<td>{html_escape(str(monster.get('intent') or '-'))} "
-        f"{_int(monster.get('intent_damage'))}x{max(1, _int(monster.get('hit_count')))}</td>"
+        f"<td>{html_escape(_monster_intent_text(monster))}</td>"
         f"<td>{html_escape(_compact_json(_mapping(monster.get('statuses'))))}</td>"
         "</tr>"
         for monster in monsters
@@ -734,20 +982,48 @@ def _events_html(events: Sequence[Mapping[str, Any]]) -> str:
         "</span>"
         for event in events
     )
-    return f'<h3>Engine Events</h3><div class="events">{event_items}</div>'
+    return (
+        "<details><summary>Raw Engine Events</summary>"
+        f'<div class="events">{event_items}</div>'
+        "</details>"
+    )
 
 
 def _decision_html(decision: Mapping[str, Any]) -> str:
     if not decision:
         return ""
-    cells = "".join(
+    visible_keys = (
+        "action_id",
+        "action_index",
+        "confidence",
+        "value",
+        "reward_total",
+        "reward_aggression_pressure",
+    )
+    compact = {key: decision[key] for key in visible_keys if key in decision}
+    compact_cells = "".join(
+        "<tr>"
+        f"<th>{html_escape(str(key).replace('_', ' ').title())}</th>"
+        f"<td>{html_escape(str(value))}</td>"
+        "</tr>"
+        for key, value in compact.items()
+    )
+    full_cells = "".join(
         "<tr>"
         f"<th>{html_escape(str(key).replace('_', ' ').title())}</th>"
         f"<td>{html_escape(str(value))}</td>"
         "</tr>"
         for key, value in sorted(decision.items())
     )
-    return f"<h3>Policy Output</h3><table><tbody>{cells}</tbody></table>"
+    compact_html = (
+        f"<table><tbody>{compact_cells}</tbody></table>" if compact_cells else ""
+    )
+    return (
+        f"{compact_html}"
+        "<details><summary>Full Policy Output</summary>"
+        f"<table><tbody>{full_cells}</tbody></table>"
+        "</details>"
+    )
 
 
 def _largest_map_payload(history_payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -827,17 +1103,64 @@ def _monster_intents(combat: Mapping[str, Any]) -> str:
         parts.append(
             f"{name} HP {_int(monster.get('hp'))}/{_int(monster.get('max_hp'))}, "
             f"block {_int(monster.get('block'))}, "
-            f"intent {monster.get('intent') or '-'} "
-            f"{_int(monster.get('intent_damage'))}x{max(1, _int(monster.get('hit_count')))}"
+            f"intent {_monster_intent_text(monster)}"
             f"{status_text}"
         )
     return "; ".join(parts)
 
 
+def _monster_intent_text(monster: Mapping[str, Any]) -> str:
+    intent = str(monster.get("intent") or "-")
+    damage_text = _monster_intent_damage_text(monster)
+    if not damage_text:
+        return intent
+    return f"{intent} {damage_text}"
+
+
+def _monster_intent_damage_text(monster: Mapping[str, Any]) -> str:
+    total = _monster_intent_total_damage(monster)
+    hits = _monster_intent_hit_count(monster)
+    if total <= 0 and hits <= 1:
+        return ""
+    if hits <= 1:
+        return str(total)
+    per_hit = _monster_intent_per_hit_damage(monster)
+    return f"{per_hit}x{hits} (total incoming {total})"
+
+
+def _monster_intent_total_damage(monster: Mapping[str, Any]) -> int:
+    return max(
+        0,
+        _int(
+            monster.get(
+                "intent_damage_total",
+                monster.get("intent_damage"),
+            )
+        ),
+    )
+
+
+def _monster_intent_hit_count(monster: Mapping[str, Any]) -> int:
+    return max(1, _int(monster.get("hit_count")))
+
+
+def _monster_intent_per_hit_damage(monster: Mapping[str, Any]) -> int:
+    explicit = monster.get("intent_damage_per_hit")
+    if explicit is not None:
+        return max(0, _int(explicit))
+    hits = _monster_intent_hit_count(monster)
+    total = _monster_intent_total_damage(monster)
+    return max(0, total // hits)
+
+
 def _reward_line(reward: Mapping[str, Any]) -> str:
     parts = [
         f"source {reward.get('source', '')}",
-        f"gold {_int(reward.get('gold'))}{' claimed' if reward.get('gold_claimed') else ''}",
+        (
+            f"gold {_int(reward.get('gold'))}"
+            f"{' claimed' if reward.get('gold_claimed') else ''}"
+            f"{' skipped' if reward.get('gold_skipped') else ''}"
+        ),
     ]
     relics = list(_sequence(reward.get("relic_ids")))
     relic_id = _optional_str(reward.get("relic_id"))
@@ -867,11 +1190,271 @@ def _reward_line(reward: Mapping[str, Any]) -> str:
     if potions:
         parts.append("potions " + ", ".join(str(item) for item in potions))
     claimed: list[str] = []
+    if reward.get("relic_claimed") and relic_id:
+        claimed.append(f"relic:{relic_id}")
     claimed.extend(str(item) for item in _sequence(reward.get("claimed_relic_ids")))
+    if reward.get("card_claimed") and card_options:
+        claimed.append("card-options")
+    claimed.extend(
+        _indexed_reward_labels("fixed-card", fixed_cards, reward.get("claimed_card_indices"))
+    )
+    claimed.extend(
+        _indexed_reward_labels(
+            "card-group",
+            card_groups,
+            reward.get("claimed_card_option_group_indices"),
+            bracket_values=True,
+        )
+    )
+    if reward.get("potion_claimed") and potion_id:
+        claimed.append(f"potion:{potion_id}")
     claimed.extend(f"potion#{item}" for item in _sequence(reward.get("claimed_potion_indices")))
     if claimed:
         parts.append("claimed " + ", ".join(claimed))
+    skipped: list[str] = []
+    if reward.get("gold_skipped"):
+        skipped.append("gold")
+    if reward.get("relic_skipped") and relic_id:
+        skipped.append(f"relic:{relic_id}")
+    skipped.extend(str(item) for item in _sequence(reward.get("skipped_relic_ids")))
+    if reward.get("card_skipped") and card_options:
+        skipped.append("card-options")
+    skipped.extend(
+        _indexed_reward_labels("fixed-card", fixed_cards, reward.get("skipped_card_indices"))
+    )
+    skipped.extend(
+        _indexed_reward_labels(
+            "card-group",
+            card_groups,
+            reward.get("skipped_card_option_group_indices"),
+            bracket_values=True,
+        )
+    )
+    if reward.get("potion_skipped") and potion_id:
+        skipped.append(f"potion:{potion_id}")
+    skipped.extend(f"potion#{item}" for item in _sequence(reward.get("skipped_potion_indices")))
+    if skipped:
+        parts.append("skipped " + ", ".join(skipped))
     return "; ".join(parts)
+
+
+def _reward_has_available_loot(reward: Mapping[str, Any]) -> bool:
+    return bool(_reward_unclaimed_labels(reward))
+
+
+def _reward_available_summary(reward: Mapping[str, Any]) -> str:
+    labels = _reward_unclaimed_labels(reward)
+    return ", ".join(labels) if labels else "no claimable loot"
+
+
+def _reward_claimed_labels(reward: Mapping[str, Any]) -> tuple[str, ...]:
+    labels: list[str] = []
+    if _int(reward.get("gold")) > 0 and bool(reward.get("gold_claimed", False)):
+        labels.append(f"gold {_int(reward.get('gold'))}")
+
+    relic_id = _optional_str(reward.get("relic_id"))
+    if relic_id and bool(reward.get("relic_claimed", False)):
+        labels.append(f"relic {relic_id}")
+    relics = tuple(_sequence(reward.get("relic_ids")))
+    claimed_relics = {str(item) for item in _sequence(reward.get("claimed_relic_ids"))}
+    labels.extend(f"relic {item}" for item in relics if str(item) in claimed_relics)
+
+    card_options = tuple(_sequence(reward.get("card_options")))
+    if card_options and bool(reward.get("card_claimed", False)):
+        labels.append("card choice from [" + ", ".join(str(item) for item in card_options) + "]")
+
+    fixed_cards = tuple(_sequence(reward.get("card_ids")))
+    labels.extend(
+        f"card {label}"
+        for label in _indexed_reward_values(fixed_cards, reward.get("claimed_card_indices"))
+    )
+
+    card_groups = tuple(_sequence(reward.get("card_option_groups")))
+    labels.extend(
+        f"card group {label}"
+        for label in _indexed_reward_group_values(
+            card_groups,
+            reward.get("claimed_card_option_group_indices"),
+        )
+    )
+
+    potion_id = _optional_str(reward.get("potion_id"))
+    if potion_id and bool(reward.get("potion_claimed", False)):
+        labels.append(f"potion {potion_id}")
+    potions = tuple(_sequence(reward.get("potion_ids")))
+    labels.extend(
+        f"potion {label}"
+        for label in _indexed_reward_values(potions, reward.get("claimed_potion_indices"))
+    )
+    return tuple(labels)
+
+
+def _reward_unclaimed_labels(reward: Mapping[str, Any]) -> tuple[str, ...]:
+    labels: list[str] = []
+    if (
+        _int(reward.get("gold")) > 0
+        and not bool(reward.get("gold_claimed", False))
+        and not bool(reward.get("gold_skipped", False))
+    ):
+        labels.append(f"gold {_int(reward.get('gold'))}")
+
+    relic_id = _optional_str(reward.get("relic_id"))
+    if (
+        relic_id
+        and not bool(reward.get("relic_claimed", False))
+        and not bool(reward.get("relic_skipped", False))
+    ):
+        labels.append(f"relic {relic_id}")
+    claimed_relics = {str(item) for item in _sequence(reward.get("claimed_relic_ids"))}
+    skipped_relics = {str(item) for item in _sequence(reward.get("skipped_relic_ids"))}
+    for relic in _sequence(reward.get("relic_ids")):
+        relic_text = str(relic)
+        if relic_text not in claimed_relics and relic_text not in skipped_relics:
+            labels.append(f"relic {relic_text}")
+
+    card_options = tuple(_sequence(reward.get("card_options")))
+    if (
+        card_options
+        and not bool(reward.get("card_claimed", False))
+        and not bool(reward.get("card_skipped", False))
+    ):
+        labels.append("card choice [" + ", ".join(str(item) for item in card_options) + "]")
+
+    fixed_cards = tuple(_sequence(reward.get("card_ids")))
+    claimed_card_indices = {_int(item) for item in _sequence(reward.get("claimed_card_indices"))}
+    skipped_card_indices = {_int(item) for item in _sequence(reward.get("skipped_card_indices"))}
+    for index, card in enumerate(fixed_cards):
+        if index not in claimed_card_indices and index not in skipped_card_indices:
+            labels.append(f"card {card}")
+
+    card_groups = tuple(_sequence(reward.get("card_option_groups")))
+    claimed_group_indices = {
+        _int(item) for item in _sequence(reward.get("claimed_card_option_group_indices"))
+    }
+    skipped_group_indices = {
+        _int(item) for item in _sequence(reward.get("skipped_card_option_group_indices"))
+    }
+    for index, group in enumerate(card_groups):
+        if index not in claimed_group_indices and index not in skipped_group_indices:
+            labels.append(
+                "card group [" + ", ".join(str(item) for item in _sequence(group)) + "]"
+            )
+
+    potion_id = _optional_str(reward.get("potion_id"))
+    if (
+        potion_id
+        and not bool(reward.get("potion_claimed", False))
+        and not bool(reward.get("potion_skipped", False))
+    ):
+        labels.append(f"potion {potion_id}")
+    claimed_potion_indices = {
+        _int(item) for item in _sequence(reward.get("claimed_potion_indices"))
+    }
+    skipped_potion_indices = {
+        _int(item) for item in _sequence(reward.get("skipped_potion_indices"))
+    }
+    for index, potion in enumerate(_sequence(reward.get("potion_ids"))):
+        if index not in claimed_potion_indices and index not in skipped_potion_indices:
+            labels.append(f"potion {potion}")
+    return tuple(labels)
+
+
+def _reward_new_claimed_labels(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    old = set(_reward_claimed_labels(before))
+    return tuple(label for label in _reward_claimed_labels(after) if label not in old)
+
+
+def _reward_new_skipped_labels(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    old = set(_reward_skipped_labels(before))
+    return tuple(label for label in _reward_skipped_labels(after) if label not in old)
+
+
+def _reward_skipped_labels(reward: Mapping[str, Any]) -> tuple[str, ...]:
+    labels: list[str] = []
+    if bool(reward.get("gold_skipped", False)):
+        labels.append(f"gold {_int(reward.get('gold'))}")
+    relic_id = _optional_str(reward.get("relic_id"))
+    if relic_id and bool(reward.get("relic_skipped", False)):
+        labels.append(f"relic {relic_id}")
+    labels.extend(f"relic {item}" for item in _sequence(reward.get("skipped_relic_ids")))
+    card_options = tuple(_sequence(reward.get("card_options")))
+    if card_options and bool(reward.get("card_skipped", False)):
+        labels.append("card choice [" + ", ".join(str(item) for item in card_options) + "]")
+    labels.extend(
+        f"card {label}"
+        for label in _indexed_reward_values(
+            _sequence(reward.get("card_ids")),
+            reward.get("skipped_card_indices"),
+        )
+    )
+    labels.extend(
+        f"card group {label}"
+        for label in _indexed_reward_group_values(
+            _sequence(reward.get("card_option_groups")),
+            reward.get("skipped_card_option_group_indices"),
+        )
+    )
+    potion_id = _optional_str(reward.get("potion_id"))
+    if potion_id and bool(reward.get("potion_skipped", False)):
+        labels.append(f"potion {potion_id}")
+    labels.extend(
+        f"potion {label}"
+        for label in _indexed_reward_values(
+            _sequence(reward.get("potion_ids")),
+            reward.get("skipped_potion_indices"),
+        )
+    )
+    return tuple(labels)
+
+
+def _indexed_reward_values(values: Sequence[Any], raw_indices: Any) -> tuple[str, ...]:
+    labels: list[str] = []
+    items = tuple(values)
+    for raw_index in _sequence(raw_indices):
+        index = _int(raw_index)
+        labels.append(str(items[index]) if 0 <= index < len(items) else f"#{index}")
+    return tuple(labels)
+
+
+def _indexed_reward_group_values(values: Sequence[Any], raw_indices: Any) -> tuple[str, ...]:
+    labels: list[str] = []
+    items = tuple(values)
+    for raw_index in _sequence(raw_indices):
+        index = _int(raw_index)
+        if 0 <= index < len(items):
+            labels.append("[" + ", ".join(str(item) for item in _sequence(items[index])) + "]")
+        else:
+            labels.append(f"#{index}")
+    return tuple(labels)
+
+
+def _indexed_reward_labels(
+    prefix: str,
+    values: Sequence[Any],
+    raw_indices: Any,
+    *,
+    bracket_values: bool = False,
+) -> list[str]:
+    labels: list[str] = []
+    items = tuple(values)
+    for raw_index in _sequence(raw_indices):
+        index = _int(raw_index)
+        if not 0 <= index < len(items):
+            labels.append(f"{prefix}#{index}")
+            continue
+        value = items[index]
+        if bracket_values:
+            label = "[" + ", ".join(str(item) for item in _sequence(value)) + "]"
+        else:
+            label = str(value)
+        labels.append(f"{prefix}#{index}:{label}")
+    return labels
 
 
 def _shop_line(shop: Mapping[str, Any]) -> str:
@@ -881,6 +1464,48 @@ def _shop_line(shop: Mapping[str, Any]) -> str:
         for item in (_mapping(raw) for raw in _sequence(shop.get("items")))
     ]
     return f"{len(items)} items; " + "; ".join(items[:8])
+
+
+def _shop_available_summary(shop: Mapping[str, Any]) -> str:
+    items = [
+        _shop_item_label(item)
+        for item in (_mapping(raw) for raw in _sequence(shop.get("items")))
+        if not bool(item.get("purchased", False))
+    ]
+    return ", ".join(items[:8]) if items else "no purchasable items"
+
+
+def _shop_item_label(item: Mapping[str, Any]) -> str:
+    kind = str(item.get("kind") or "item").replace("_", " ")
+    item_id = str(item.get("item_id") or item.get("slot_id") or "unknown")
+    rarity = _optional_str(item.get("rarity"))
+    rarity_text = f" {rarity}" if rarity else ""
+    price = _int(item.get("price"))
+    return f"{kind}{rarity_text} {item_id} for {price} gold"
+
+
+def _shop_purchased_items(shop: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    return tuple(
+        item
+        for item in (_mapping(raw) for raw in _sequence(shop.get("items")))
+        if bool(item.get("purchased", False))
+    )
+
+
+def _shop_newly_purchased_items(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], ...]:
+    before_slots = {
+        str(item.get("slot_id"))
+        for item in (_mapping(raw) for raw in _sequence(before.get("items")))
+        if bool(item.get("purchased", False))
+    }
+    return tuple(
+        item
+        for item in _shop_purchased_items(after)
+        if str(item.get("slot_id")) not in before_slots
+    )
 
 
 def _event_line(event: Mapping[str, Any]) -> str:
@@ -910,6 +1535,160 @@ def _map_line(game_map: Mapping[str, Any]) -> str:
     )
 
 
+def _room_outcome_lines(
+    action_type: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    if action_type != "choose_node":
+        return ()
+
+    phase_after = str(after.get("phase", ""))
+    lines: list[str] = []
+    if phase_after == "shop":
+        shop = _mapping(after.get("shop"))
+        if shop:
+            lines.append(f"Shop opened with {_shop_available_summary(shop)}.")
+            lines.append("Shop outcome so far: no purchases yet.")
+    elif phase_after == "treasure":
+        reward = _mapping(after.get("reward"))
+        if reward:
+            if _reward_has_available_loot(reward):
+                lines.append(f"Treasure opened with {_reward_available_summary(reward)}.")
+            else:
+                reason = _mapping(reward.get("metadata")).get("empty_reason")
+                suffix = f" ({reason})" if reason else ""
+                lines.append(f"Treasure opened with no claimable loot{suffix}.")
+    elif phase_after == "event":
+        event = _mapping(after.get("event"))
+        reward = _mapping(after.get("reward"))
+        if event:
+            lines.append(f"Event opened: {_event_line(event)}.")
+        elif reward:
+            lines.append(f"Event opened immediate reward: {_reward_available_summary(reward)}.")
+    elif phase_after == "combat":
+        lines.append("Room opened combat.")
+    elif phase_after == "rest":
+        lines.append("Rest site opened.")
+    return tuple(lines)
+
+
+def _reward_outcome_lines(
+    action_type: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    before_reward = _mapping(before.get("reward"))
+    after_reward = _mapping(after.get("reward"))
+    if not before_reward:
+        return ()
+
+    lines: list[str] = []
+    if action_type.startswith("take_reward"):
+        gained = _reward_new_claimed_labels(before_reward, after_reward)
+        if gained:
+            lines.append(f"Reward pickup: took {', '.join(gained)}.")
+    elif action_type == "skip_reward":
+        skipped = _reward_new_skipped_labels(before_reward, after_reward)
+        if skipped:
+            lines.append(f"Reward skip: left {', '.join(skipped)}.")
+    elif action_type == "proceed":
+        phase_before = str(before.get("phase", ""))
+        claimed = _reward_claimed_labels(before_reward)
+        left = _reward_unclaimed_labels(before_reward)
+        label = "Treasure" if phase_before == "treasure" else "Reward screen"
+        if claimed:
+            lines.append(f"{label} outcome: took {', '.join(claimed)}.")
+        elif _reward_has_available_loot(before_reward):
+            lines.append(f"{label} outcome: left without taking available loot.")
+        else:
+            lines.append(f"{label} outcome: no claimable loot was available.")
+        if left:
+            lines.append(f"{label} left behind: {', '.join(left)}.")
+    return tuple(lines)
+
+
+def _shop_outcome_lines(
+    action_type: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    before_shop = _mapping(before.get("shop"))
+    after_shop = _mapping(after.get("shop"))
+    if not before_shop:
+        return ()
+
+    lines: list[str] = []
+    if action_type == "shop_buy":
+        newly_purchased = _shop_newly_purchased_items(before_shop, after_shop)
+        if newly_purchased:
+            lines.append(
+                "Shop pickup: bought "
+                + ", ".join(_shop_item_label(item) for item in newly_purchased)
+                + "."
+            )
+        else:
+            lines.append("Shop action did not buy an item.")
+    elif action_type in {"shop_leave", "proceed"} and str(before.get("phase")) == "shop":
+        bought = _shop_purchased_items(before_shop)
+        if bought:
+            lines.append(
+                "Left shop after buying "
+                + ", ".join(_shop_item_label(item) for item in bought)
+                + "."
+            )
+        else:
+            lines.append("Left shop without buying anything.")
+    return tuple(lines)
+
+
+def _event_outcome_lines(
+    action_type: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    raw_events: Sequence[Any],
+) -> tuple[str, ...]:
+    if action_type != "choose_event":
+        return ()
+
+    lines: list[str] = []
+    chosen = _chosen_event_from_events(raw_events)
+    if chosen:
+        lines.append(chosen)
+
+    after_reward = _mapping(after.get("reward"))
+    after_combat = _mapping(after.get("combat"))
+    after_event = _mapping(after.get("event"))
+    phase_after = str(after.get("phase", ""))
+    if after_reward:
+        lines.append(f"Event reward offered: {_reward_available_summary(after_reward)}.")
+    elif after_combat:
+        lines.append("Event outcome: started combat.")
+    elif phase_after == "map":
+        lines.append("Event outcome: completed with no pending reward.")
+    elif after_event:
+        resolved = after_event.get("resolved_option_id")
+        if resolved:
+            lines.append(f"Event outcome: option {resolved} resolved.")
+        else:
+            lines.append(f"Event outcome: moved to {_event_line(after_event)}.")
+    return tuple(lines)
+
+
+def _chosen_event_from_events(raw_events: Sequence[Any]) -> str | None:
+    for event in (_mapping(raw) for raw in raw_events):
+        if str(event.get("kind")) != "event_option_chosen":
+            continue
+        metadata = _mapping(event.get("metadata"))
+        title = str(metadata.get("title") or event.get("target_id") or "unknown")
+        source = str(event.get("source_id") or "event")
+        target = str(event.get("target_id") or "")
+        if target and target != title:
+            return f"Event side chosen: {source} -> {title} ({target})."
+        return f"Event side chosen: {source} -> {title}."
+    return None
+
+
 def _zone_count(combat: Mapping[str, Any], zone: str) -> int:
     return len(_sequence(combat.get(zone)))
 
@@ -918,6 +1697,464 @@ def _compact_json(value: Mapping[str, Any]) -> str:
     if not value:
         return "{}"
     return json.dumps(dict(value), sort_keys=True, separators=(",", ":"))
+
+
+def _string_list(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value,)
+    return tuple(str(item) for item in _sequence(value))
+
+
+def _state_change_lines(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    before_player = _mapping(before.get("player"))
+    after_player = _mapping(after.get("player"))
+    if not before_player or not after_player:
+        return ()
+
+    lines: list[str] = []
+    for label, key in (
+        ("HP", "hp"),
+        ("Max HP", "max_hp"),
+        ("Block", "block"),
+        ("Energy", "energy"),
+        ("Gold", "gold"),
+    ):
+        old_value = _int(before_player.get(key))
+        new_value = _int(after_player.get(key))
+        if old_value != new_value:
+            delta = new_value - old_value
+            lines.append(f"{label} changed {delta:+d} ({old_value} -> {new_value}).")
+
+    lines.extend(
+        _inventory_delta_lines(
+            "Relics",
+            _sequence(before_player.get("relics")),
+            _sequence(after_player.get("relics")),
+        )
+    )
+    lines.extend(
+        _inventory_delta_lines(
+            "Potions",
+            _sequence(before_player.get("potions")),
+            _sequence(after_player.get("potions")),
+        )
+    )
+    lines.extend(
+        _mapping_value_delta_lines(
+            "Player status",
+            _mapping(before_player.get("statuses")),
+            _mapping(after_player.get("statuses")),
+        )
+    )
+    lines.extend(
+        _mapping_value_delta_lines(
+            "Player resource",
+            _mapping(before_player.get("resources")),
+            _mapping(after_player.get("resources")),
+        )
+    )
+    lines.extend(
+        _deck_delta_lines(
+            _sequence(before_player.get("deck")),
+            _sequence(after_player.get("deck")),
+        )
+    )
+    return tuple(lines)
+
+
+def _combat_change_lines(
+    before_combat: Mapping[str, Any],
+    after_combat: Mapping[str, Any],
+) -> tuple[str, ...]:
+    if not before_combat and not after_combat:
+        return ()
+    lines: list[str] = []
+    before_player = _mapping(before_combat.get("player"))
+    after_player = _mapping(after_combat.get("player"))
+    if before_player and after_player:
+        for label, key in (("Combat HP", "hp"), ("Combat block", "block"), ("Energy", "energy")):
+            old_value = _int(before_player.get(key))
+            new_value = _int(after_player.get(key))
+            if old_value != new_value:
+                lines.append(
+                    f"{label} changed {new_value - old_value:+d} "
+                    f"({old_value} -> {new_value})."
+                )
+        lines.extend(
+            _mapping_value_delta_lines(
+                "Combat player status",
+                _mapping(before_player.get("statuses")),
+                _mapping(after_player.get("statuses")),
+            )
+        )
+        lines.extend(
+            _mapping_value_delta_lines(
+                "Combat player resource",
+                _mapping(before_player.get("resources")),
+                _mapping(after_player.get("resources")),
+            )
+        )
+    lines.extend(_monster_change_lines(before_combat, after_combat))
+    pile_changes: list[str] = []
+    for label, zone in (
+        ("hand", "hand"),
+        ("draw", "draw_pile"),
+        ("discard", "discard_pile"),
+        ("exhaust", "exhaust_pile"),
+    ):
+        before_count = _zone_count(before_combat, zone)
+        after_count = _zone_count(after_combat, zone)
+        if before_count != after_count:
+            pile_changes.append(f"{label} {before_count}->{after_count}")
+    if pile_changes:
+        lines.append(f"Combat piles changed: {', '.join(pile_changes)}.")
+    return tuple(lines)
+
+
+def _monster_change_lines(
+    before_combat: Mapping[str, Any],
+    after_combat: Mapping[str, Any],
+) -> tuple[str, ...]:
+    before_monsters = {
+        _monster_change_key(index, monster): monster
+        for index, monster in enumerate(
+            _mapping(raw) for raw in _sequence(before_combat.get("monsters"))
+        )
+    }
+    after_monsters = {
+        _monster_change_key(index, monster): monster
+        for index, monster in enumerate(
+            _mapping(raw) for raw in _sequence(after_combat.get("monsters"))
+        )
+    }
+    lines: list[str] = []
+    for key in sorted(set(before_monsters) | set(after_monsters)):
+        before = before_monsters.get(key, {})
+        after = after_monsters.get(key, {})
+        name = str(after.get("name") or before.get("name") or after.get("monster_id") or key)
+        if before and not after:
+            lines.append(f"Enemy left combat: {name}.")
+            continue
+        if after and not before:
+            lines.append(f"Enemy entered combat: {name}.")
+            continue
+        changes: list[str] = []
+        for label, field in (("HP", "hp"), ("block", "block")):
+            old_value = _int(before.get(field))
+            new_value = _int(after.get(field))
+            if old_value != new_value:
+                changes.append(f"{label} {old_value}->{new_value}")
+        before_intent = _monster_intent_text(before)
+        after_intent = _monster_intent_text(after)
+        if before_intent != after_intent:
+            changes.append(f"intent {before_intent}->{after_intent}")
+        status_change = _mapping_value_delta_text(
+            _mapping(before.get("statuses")),
+            _mapping(after.get("statuses")),
+        )
+        if status_change:
+            changes.append(f"status {status_change}")
+        if changes:
+            lines.append(f"Enemy {name} changed: {', '.join(changes)}.")
+    return tuple(lines)
+
+
+def _monster_change_key(index: int, monster: Mapping[str, Any]) -> str:
+    return str(monster.get("instance_id") or monster.get("monster_id") or index)
+
+
+def _mapping_value_delta_text(before: Mapping[str, Any], after: Mapping[str, Any]) -> str:
+    changes: list[str] = []
+    for key in sorted(set(before) | set(after)):
+        old_value = before.get(key, 0)
+        new_value = after.get(key, 0)
+        if old_value != new_value:
+            changes.append(f"{key} {old_value}->{new_value}")
+    return ", ".join(changes)
+
+
+def _event_effect_lines(raw_events: Sequence[Any]) -> tuple[str, ...]:
+    lines: list[str] = []
+    for event in (_mapping(raw) for raw in raw_events):
+        kind = str(event.get("kind", ""))
+        metadata = _mapping(event.get("metadata"))
+        target_id = _optional_str(event.get("target_id"))
+        amount = _int(event.get("amount"))
+        if kind == "reward_card_taken":
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Reward card taken: {card_id}.")
+        elif kind == "reward_relic_taken":
+            lines.append(f"Reward relic taken: {target_id or 'unknown'}.")
+        elif kind == "reward_potion_taken":
+            lines.append(f"Reward potion taken: {target_id or 'unknown'}.")
+        elif kind == "reward_gold_taken":
+            lines.append(f"Reward gold taken: {amount}.")
+        elif kind == "reward_item_skipped":
+            skipped_kind = str(metadata.get("kind") or "item")
+            skipped_id = str(event.get("target_id") or metadata.get("target_id") or skipped_kind)
+            lines.append(f"Reward skipped: {skipped_kind} {skipped_id}.")
+        elif kind == "reward_card_removed":
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Reward removed card: {card_id}.")
+        elif kind == "reward_gold_generated":
+            lines.append(f"Reward generated gold: {amount}.")
+        elif kind == "reward_relic_generated":
+            relic_id = str(target_id or metadata.get("relic_id") or "unknown")
+            rarity = metadata.get("relic_rarity") or metadata.get("rarity")
+            suffix = f" ({rarity})" if rarity else ""
+            lines.append(f"Reward generated relic: {relic_id}{suffix}.")
+        elif kind == "reward_cards_generated":
+            cards = _string_list(metadata.get("card_ids") or metadata.get("cards"))
+            lines.append(
+                "Reward generated card choices: "
+                + (", ".join(cards) if cards else _compact_json(metadata))
+                + "."
+            )
+        elif kind == "reward_card_group_generated":
+            cards = _string_list(metadata.get("card_ids") or metadata.get("cards"))
+            lines.append(
+                "Reward generated extra card group: "
+                + (", ".join(cards) if cards else _compact_json(metadata))
+                + "."
+            )
+        elif kind == "reward_card_generated":
+            card_id = str(target_id or metadata.get("card_id") or "unknown")
+            lines.append(f"Reward generated fixed card: {card_id}.")
+        elif kind == "reward_potion_generated":
+            potion_id = str(target_id or metadata.get("potion_id") or "unknown")
+            lines.append(f"Reward generated potion: {potion_id}.")
+        elif kind == "shop_item_bought":
+            item_id = str(metadata.get("item_id") or target_id or "unknown")
+            item_kind = str(metadata.get("item_kind") or "item").replace("_", " ")
+            price = _int(metadata.get("price"))
+            lines.append(f"Shop bought {item_kind} {item_id} for {price} gold.")
+            if metadata.get("restocked_item_id"):
+                lines.append(f"Shop restocked slot with {metadata['restocked_item_id']}.")
+        elif kind == "shop_card_removed":
+            card_id = str(metadata.get("removed_card_id") or target_id or "unknown")
+            price = _int(metadata.get("price"))
+            lines.append(f"Shop removed card {card_id} for {price} gold.")
+        elif kind == "shop_card_remove_blocked":
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            reason = str(metadata.get("reason") or "blocked")
+            lines.append(f"Shop card removal blocked for {card_id}: {reason}.")
+        elif kind == "shop_left":
+            lines.append("Shop closed.")
+        elif kind == "shop_ready":
+            lines.append("Shop inventory generated.")
+        elif kind == "foul_potion_thrown_at_merchant":
+            lines.append(f"Foul Potion thrown at merchant: gained {amount} gold.")
+        elif kind == "foul_potion_thrown_at_fake_merchant":
+            lines.append("Foul Potion thrown at fake merchant: combat started.")
+        elif kind == "treasure_ready":
+            lines.append("Treasure chest opened.")
+        elif kind == "treasure_opened":
+            lines.append("Treasure room finished.")
+        elif kind == "treasure_chest_empty":
+            reason = str(metadata.get("reason") or metadata.get("empty_reason") or "empty")
+            lines.append(f"Treasure chest was empty: {reason}.")
+        elif kind == "event_gold_lost":
+            lines.append(f"Event cost paid: lost {amount} gold.")
+        elif kind == "event_gold_gained":
+            lines.append(f"Event granted {amount} gold.")
+        elif kind == "event_hp_lost":
+            lines.append(f"Event cost paid: lost {amount} HP.")
+        elif kind == "event_healed":
+            lines.append(f"Event healed {amount} HP.")
+        elif kind == "event_max_hp_lost":
+            lines.append(f"Event reduced Max HP by {amount}.")
+        elif kind == "event_max_hp_gained":
+            lines.append(f"Event increased Max HP by {amount}.")
+        elif kind == "event_max_hp_set":
+            lines.append(f"Event set Max HP to {amount}.")
+        elif kind in {"event_card_added", "event_random_card_added"}:
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Event added card: {card_id}.")
+        elif kind in {"event_card_removed", "event_card_removed_random"}:
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Event removed card: {card_id}.")
+        elif kind == "event_card_transformed":
+            old_card = str(metadata.get("old_card_id") or metadata.get("card_id") or target_id)
+            new_card = str(metadata.get("new_card_id") or metadata.get("transformed_card_id"))
+            if new_card and new_card != "None":
+                lines.append(f"Event transformed card: {old_card} -> {new_card}.")
+            else:
+                lines.append(f"Event transformed card: {old_card}.")
+        elif kind == "event_card_transform_choice_required":
+            lines.append(f"Event requires choosing {amount} card(s) to transform.")
+        elif kind == "event_relic_obtained":
+            lines.append(f"Event relic obtained: {target_id or 'unknown'}.")
+        elif kind == "event_relic_duplicate_skipped":
+            lines.append(f"Event skipped duplicate relic: {target_id or 'unknown'}.")
+        elif kind == "event_potion_obtained":
+            lines.append(f"Event potion obtained: {target_id or 'unknown'}.")
+        elif kind == "event_potion_skipped_no_slot":
+            lines.append(
+                "Event potion skipped because no slot was open: "
+                f"{target_id or 'unknown'}."
+            )
+        elif kind == "event_card_reward_blocked":
+            lines.append("Event card reward was blocked.")
+        elif kind == "event_delayed_reward_scheduled":
+            lines.append(f"Event scheduled delayed reward: {_compact_json(metadata)}.")
+        elif kind == "event_delayed_reward_blocked":
+            lines.append(f"Event delayed reward blocked: {_compact_json(metadata)}.")
+        elif kind == "event_player_died":
+            lines.append("Event outcome: player died.")
+        elif kind == "relic_gold_gained":
+            source = event.get("source_id") or target_id or ""
+            lines.append(f"Relic {source} granted {amount} gold.")
+        elif kind == "relic_gold_set":
+            source = event.get("source_id") or ""
+            lines.append(f"Relic {source} set gold to {metadata.get('gold')}.")
+        elif kind == "relic_max_hp_changed":
+            lines.append(f"Relic {event.get('source_id') or ''} changed Max HP by {amount}.")
+        elif kind == "relic_healed":
+            lines.append(f"Relic {event.get('source_id') or ''} healed {amount} HP.")
+        elif kind == "relic_potion_slots_changed":
+            lines.append(f"Relic {event.get('source_id') or ''} changed potion slots by {amount}.")
+        elif kind in {"relic_deck_card_added", "relic_potion_obtained"}:
+            content_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Relic {event.get('source_id') or ''} added {content_id}.")
+        elif kind == "relic_deck_card_upgraded":
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Relic {event.get('source_id') or ''} upgraded {card_id}.")
+        elif kind == "relic_deck_card_removed":
+            card_id = str(metadata.get("card_id") or target_id or "unknown")
+            lines.append(f"Relic {event.get('source_id') or ''} removed {card_id}.")
+        elif kind == "relic_deck_card_transformed":
+            old_card = str(metadata.get("old_card_id") or metadata.get("card_id") or target_id)
+            new_card = str(metadata.get("new_card_id") or metadata.get("transformed_card_id"))
+            source = event.get("source_id") or ""
+            lines.append(f"Relic {source} transformed {old_card} -> {new_card}.")
+        elif kind == "relic_counter_changed":
+            lines.append(f"Relic {event.get('source_id') or ''} counter changed to {amount}.")
+        elif kind == "relic_deck_choice_required":
+            source = event.get("source_id") or ""
+            lines.append(f"Relic {source} requires choosing {amount} card(s).")
+        elif kind == "room_entered":
+            lines.append(
+                f"Entered {metadata.get('room_kind', 'room')} room "
+                f"on act {metadata.get('act', '?')} floor {metadata.get('floor', '?')}."
+            )
+        elif kind == "room_completed":
+            lines.append(
+                f"Completed {metadata.get('room_kind', 'room')} room "
+                f"on act {metadata.get('act', '?')} floor {metadata.get('floor', '?')}."
+            )
+        elif kind == "event_resolved":
+            lines.append("Event room finished.")
+        elif kind == "reward_skipped":
+            lines.append("Reward screen finished with remaining optional rewards skipped.")
+    return tuple(lines)
+
+
+def _inventory_delta_lines(
+    label: str,
+    before: Sequence[Any],
+    after: Sequence[Any],
+) -> tuple[str, ...]:
+    gained = _ordered_counter_delta(after, before)
+    lost = _ordered_counter_delta(before, after)
+    lines: list[str] = []
+    if gained:
+        lines.append(f"{label} gained: {', '.join(gained)}.")
+    if lost:
+        lines.append(f"{label} lost: {', '.join(lost)}.")
+    return tuple(lines)
+
+
+def _ordered_counter_delta(after: Sequence[Any], before: Sequence[Any]) -> tuple[str, ...]:
+    remaining = Counter(str(item) for item in before)
+    delta: list[str] = []
+    for item in (str(raw) for raw in after):
+        if remaining[item] > 0:
+            remaining[item] -= 1
+        else:
+            delta.append(item)
+    return tuple(delta)
+
+
+def _mapping_value_delta_lines(
+    label: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> tuple[str, ...]:
+    changes: list[str] = []
+    for key in sorted(set(before) | set(after)):
+        old_value = before.get(key, 0)
+        new_value = after.get(key, 0)
+        if old_value != new_value:
+            changes.append(f"{key} {old_value} -> {new_value}")
+    if not changes:
+        return ()
+    return (f"{label} changed: {', '.join(changes)}.",)
+
+
+def _deck_delta_lines(before_raw: Sequence[Any], after_raw: Sequence[Any]) -> tuple[str, ...]:
+    before_cards = tuple(_mapping(card) for card in before_raw)
+    after_cards = tuple(_mapping(card) for card in after_raw)
+    before_by_id = _cards_by_instance_id(before_cards)
+    after_by_id = _cards_by_instance_id(after_cards)
+    lines: list[str] = []
+
+    gained = [
+        _card_change_label(card)
+        for card in after_cards
+        if str(card.get("instance_id", "")) not in before_by_id
+    ]
+    lost = [
+        _card_change_label(card)
+        for card in before_cards
+        if str(card.get("instance_id", "")) not in after_by_id
+    ]
+    if gained:
+        lines.append(f"Deck gained: {', '.join(gained)}.")
+    if lost:
+        lines.append(f"Deck lost: {', '.join(lost)}.")
+
+    transformed: list[str] = []
+    upgraded: list[str] = []
+    for instance_id, before_card in before_by_id.items():
+        after_card = after_by_id.get(instance_id)
+        if after_card is None:
+            continue
+        before_card_id = str(before_card.get("card_id", ""))
+        after_card_id = str(after_card.get("card_id", ""))
+        if before_card_id != after_card_id:
+            transformed.append(
+                f"{_card_change_label(before_card)} -> {_card_change_label(after_card)}"
+            )
+            continue
+        if bool(before_card.get("upgraded", False)) != bool(
+            after_card.get("upgraded", False)
+        ):
+            upgraded.append(_card_change_label(after_card))
+    if transformed:
+        lines.append(f"Deck transformed: {', '.join(transformed)}.")
+    if upgraded:
+        lines.append(f"Deck upgraded: {', '.join(upgraded)}.")
+    return tuple(lines)
+
+
+def _cards_by_instance_id(cards: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    return {
+        str(card.get("instance_id", "")): card
+        for card in cards
+        if str(card.get("instance_id", ""))
+    }
+
+
+def _card_change_label(card: Mapping[str, Any]) -> str:
+    card_id = str(card.get("card_id") or "unknown")
+    name = str(card.get("name") or card_id)
+    suffix = "+" if bool(card.get("upgraded", False)) else ""
+    if name == card_id:
+        return f"{name}{suffix}"
+    return f"{name}{suffix} ({card_id})"
 
 
 def _history_summary(
@@ -1031,11 +2268,14 @@ def _event_summary(event: Mapping[str, Any]) -> dict[str, Any]:
         "name": str(event.get("name", "")),
         "page_id": str(event.get("page_id", "")),
         "resolved_option_id": _optional_str(event.get("resolved_option_id")),
+        "metadata": dict(_mapping(event.get("metadata"))),
         "options": [
             {
                 "option_id": str(option.get("option_id", "")),
                 "title": str(option.get("title", "")),
+                "description": str(option.get("description", "")),
                 "disabled": bool(option.get("disabled", False)),
+                "metadata": dict(_mapping(option.get("metadata"))),
             }
             for option in (_mapping(item) for item in _sequence(event.get("options")))
         ],
@@ -1071,17 +2311,35 @@ def _reward_summary(reward: Mapping[str, Any]) -> dict[str, Any]:
         "forced": bool(reward.get("forced", False)),
         "gold": _int(reward.get("gold")),
         "gold_claimed": bool(reward.get("gold_claimed", False)),
+        "gold_skipped": bool(reward.get("gold_skipped", False)),
         "relic_id": _optional_str(reward.get("relic_id")),
+        "relic_claimed": bool(reward.get("relic_claimed", False)),
+        "relic_skipped": bool(reward.get("relic_skipped", False)),
         "relic_ids": list(_sequence(reward.get("relic_ids"))),
         "claimed_relic_ids": list(_sequence(reward.get("claimed_relic_ids"))),
+        "skipped_relic_ids": list(_sequence(reward.get("skipped_relic_ids"))),
         "card_options": list(_sequence(reward.get("card_options"))),
+        "card_claimed": bool(reward.get("card_claimed", False)),
+        "card_skipped": bool(reward.get("card_skipped", False)),
         "card_option_groups": [
             list(_sequence(group)) for group in _sequence(reward.get("card_option_groups"))
         ],
+        "claimed_card_option_group_indices": list(
+            _sequence(reward.get("claimed_card_option_group_indices"))
+        ),
+        "skipped_card_option_group_indices": list(
+            _sequence(reward.get("skipped_card_option_group_indices"))
+        ),
         "card_ids": list(_sequence(reward.get("card_ids"))),
+        "claimed_card_indices": list(_sequence(reward.get("claimed_card_indices"))),
+        "skipped_card_indices": list(_sequence(reward.get("skipped_card_indices"))),
         "potion_id": _optional_str(reward.get("potion_id")),
+        "potion_claimed": bool(reward.get("potion_claimed", False)),
+        "potion_skipped": bool(reward.get("potion_skipped", False)),
         "potion_ids": list(_sequence(reward.get("potion_ids"))),
         "claimed_potion_indices": list(_sequence(reward.get("claimed_potion_indices"))),
+        "skipped_potion_indices": list(_sequence(reward.get("skipped_potion_indices"))),
+        "metadata": dict(_mapping(reward.get("metadata"))),
     }
 
 
@@ -1134,6 +2392,9 @@ def _combat_player_summary(player: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _monster_summary(monster: Mapping[str, Any]) -> dict[str, Any]:
+    hit_count = max(1, _int(monster.get("hit_count")))
+    total_damage = _int(monster.get("intent_damage"))
+    per_hit_damage = max(0, total_damage // hit_count)
     return {
         "monster_id": str(monster.get("monster_id", "")),
         "name": str(monster.get("name", "")),
@@ -1141,8 +2402,10 @@ def _monster_summary(monster: Mapping[str, Any]) -> dict[str, Any]:
         "max_hp": _int(monster.get("max_hp")),
         "block": _int(monster.get("block")),
         "intent": _optional_str(monster.get("intent")),
-        "intent_damage": _int(monster.get("intent_damage")),
-        "hit_count": _int(monster.get("hit_count")),
+        "intent_damage": total_damage,
+        "intent_damage_per_hit": per_hit_damage,
+        "intent_damage_total": total_damage,
+        "hit_count": hit_count,
         "statuses": dict(_mapping(monster.get("statuses"))),
     }
 
@@ -1268,6 +2531,23 @@ def _reward_action_summary(
     return f"Take reward {target_id}"
 
 
+def _skip_reward_action_summary(reward: Mapping[str, Any], target_id: str | None) -> str:
+    if target_id == "reward:gold":
+        return f"Skip reward gold ({_int(reward.get('gold'))})"
+    if target_id == "reward:card_options":
+        cards = ", ".join(str(card_id) for card_id in _sequence(reward.get("card_options")))
+        return f"Skip reward card choices ({cards})" if cards else "Skip reward card choices"
+    if target_id == "reward:relic" or str(target_id or "").startswith("reward:relic:"):
+        return f"Skip reward relic {_reward_relic_for_target(reward, target_id)}"
+    if target_id == "reward:potion" or str(target_id or "").startswith("reward:potion:"):
+        return f"Skip reward potion {_reward_potion_for_target(reward, target_id)}"
+    if str(target_id or "").startswith("reward:fixed_card:"):
+        return f"Skip reward fixed card {_reward_card_for_target(reward, target_id)}"
+    if str(target_id or "").startswith("reward:card_group:"):
+        return f"Skip reward card group {_reward_card_group_for_target(reward, target_id)}"
+    return f"Skip reward {target_id or 'item'}"
+
+
 def _reward_relic_for_target(reward: Mapping[str, Any], target_id: str | None) -> str:
     if target_id == "reward:relic":
         return str(reward.get("relic_id", target_id))
@@ -1317,6 +2597,17 @@ def _reward_card_for_target(reward: Mapping[str, Any], target_id: str | None) ->
     return str(target_id)
 
 
+def _reward_card_group_for_target(reward: Mapping[str, Any], target_id: str | None) -> str:
+    parts = (target_id or "").split(":")
+    if len(parts) == 3 and parts[:2] == ["reward", "card_group"]:
+        groups = _sequence(reward.get("card_option_groups"))
+        group_index = _int(parts[2])
+        if 0 <= group_index < len(groups):
+            group = _sequence(groups[group_index])
+            return "[" + ", ".join(str(card_id) for card_id in group) + "]"
+    return str(target_id)
+
+
 def _seed(payload: Mapping[str, Any]) -> int | str:
     seed = payload.get("seed", 0)
     if isinstance(seed, int) and not isinstance(seed, bool):
@@ -1352,6 +2643,19 @@ def _int(value: Any) -> int:
         except ValueError:
             return 0
     return 0
+
+
+def _float(value: Any) -> float:
+    if value is None or isinstance(value, bool):
+        return 0.0
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0
 
 
 def _optional_str(value: Any) -> str | None:

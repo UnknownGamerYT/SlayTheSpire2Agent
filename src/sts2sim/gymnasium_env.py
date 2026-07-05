@@ -113,6 +113,22 @@ class Sts2Env:
         self.steps = 0
         self._agent_memory: list[dict[str, Any]] = []
         self._pending_policy_output: dict[str, Any] = {}
+        self._reward_tracker: Any | None = None
+        self._reward_breakdown_fn: Callable[..., Any] | None = None
+        try:
+            from sts2sim.learning.rewards import (
+                LearningRewardTracker,
+                learning_reward,
+                learning_reward_breakdown,
+            )
+
+            if self.reward_fn is learning_reward:
+                self._reward_tracker = LearningRewardTracker()
+                self._reward_breakdown_fn = learning_reward_breakdown
+        except ImportError:
+            self._reward_tracker = None
+            self._reward_breakdown_fn = None
+        self._last_reward_breakdown: dict[str, Any] = {}
 
         self._gymnasium = _optional_import("gymnasium")
         self._numpy = _optional_import("numpy") if self._gymnasium is not None else None
@@ -138,6 +154,9 @@ class Sts2Env:
         self.steps = 0
         self._agent_memory = []
         self._pending_policy_output = {}
+        if self._reward_tracker is not None:
+            self._reward_tracker.reset()
+        self._last_reward_breakdown = {}
         return self._observation(), self._info()
 
     def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
@@ -160,11 +179,25 @@ class Sts2Env:
             and self.steps >= self.max_episode_steps
             and not terminated
         )
-        reward = float(self.reward_fn(previous_state, self.state))
+        reward_breakdown: dict[str, Any]
+        if self._reward_tracker is not None and self._reward_breakdown_fn is not None:
+            breakdown = self._reward_breakdown_fn(
+                previous_state,
+                self.state,
+                tracker=self._reward_tracker,
+                action_descriptor=action_descriptor,
+            )
+            reward = float(breakdown.total)
+            reward_breakdown = breakdown.model_dump(mode="json")
+        else:
+            reward = float(self.reward_fn(previous_state, self.state))
+            reward_breakdown = {"total": reward}
+        self._last_reward_breakdown = reward_breakdown
         self._record_agent_memory(
             action_descriptor=action_descriptor,
             action_id=action,
             reward=reward,
+            reward_breakdown=reward_breakdown,
             done=terminated or truncated,
         )
         return self._observation(), reward, terminated, truncated, self._info(engine_action)
@@ -229,6 +262,7 @@ class Sts2Env:
             "legal_action_count": len(descriptors),
             "agent_memory": {"entries": list(self._agent_memory)},
             "gymnasium_available": self.using_gymnasium,
+            "reward_breakdown": dict(self._last_reward_breakdown),
         }
         if action is not None:
             info["action"] = (
@@ -244,6 +278,7 @@ class Sts2Env:
         action_descriptor: Mapping[str, Any],
         action_id: Any,
         reward: float,
+        reward_breakdown: Mapping[str, Any],
         done: bool,
     ) -> None:
         preview = _mapping(action_descriptor.get("preview"))
@@ -260,6 +295,17 @@ class Sts2Env:
             "log_prob": _to_float(policy.get("log_prob")),
             "value": _to_float(policy.get("value")),
             "reward": reward,
+            "reward_aggression_pressure": _to_float(
+                reward_breakdown.get("aggression_pressure")
+            ),
+            "reward_hp_loss_penalty": _to_float(reward_breakdown.get("hp_loss_penalty")),
+            "reward_enemy_hp_progress": _to_float(
+                reward_breakdown.get("enemy_hp_progress_reward")
+            ),
+            "reward_prevented_hp": _to_float(reward_breakdown.get("prevented_hp_reward")),
+            "reward_gold": _to_float(reward_breakdown.get("gold_reward")),
+            "reward_combat_win": _to_float(reward_breakdown.get("combat_win_reward"))
+            + _to_float(reward_breakdown.get("boss_reward")),
             "hp_delta": _to_int(preview.get("player_hp_delta")),
             "block_delta": _to_int(preview.get("player_block_delta")),
             "energy_delta": _to_int(preview.get("player_energy_delta")),

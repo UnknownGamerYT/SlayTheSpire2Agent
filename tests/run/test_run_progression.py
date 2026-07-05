@@ -10,6 +10,8 @@ from sts2sim.engine import (
     RewardState,
     RoomKind,
     RunPhase,
+    ShopItemState,
+    ShopState,
 )
 from sts2sim.mechanics.mapgen import map_layout_from_state, validate_act_map_parity
 
@@ -277,7 +279,7 @@ def test_ancient_choice_payload_applies_direct_effects() -> None:
     assert state.phase.value == "map"
     assert state.player.gold == 25
     assert state.player.max_hp == 55
-    assert state.player.hp == 40
+    assert state.player.hp == 45
     assert "golden_pearl" in state.relics
     assert state.master_deck[-1].card_id == "test_card"
     assert state.potions == ("fire_potion",)
@@ -412,6 +414,74 @@ def test_event_reward_potion_uses_same_visible_offer_rules() -> None:
     state = step(state, _action(state, "take_reward_potion", "reward:potion"))
 
     assert state.potions == ("skill_potion", "essence_of_steel", "foul_potion")
+
+
+def test_potion_discard_is_hidden_without_visible_replacement() -> None:
+    state = new_run(seed=912, character_id="TEST", ascension=0)
+    state = state.model_copy(
+        update={
+            "phase": RunPhase.MAP,
+            "potions": ("fire_potion", "skill_potion", "essence_of_steel"),
+        }
+    )
+
+    assert not any(action.type == "discard_potion" for action in legal_actions(state))
+
+
+def test_full_belt_shop_potion_allows_discard_to_make_room() -> None:
+    state = new_run(seed=913, character_id="TEST", ascension=0)
+    state = state.model_copy(
+        update={
+            "phase": RunPhase.SHOP,
+            "potions": ("fire_potion", "skill_potion", "essence_of_steel"),
+            "player": state.player.model_copy(update={"gold": 75}),
+            "shop": ShopState(
+                node_id="shop:test",
+                items=(
+                    ShopItemState(
+                        slot_id="shop:0",
+                        item_id="foul_potion",
+                        kind="potion",
+                        price=50,
+                        base_price=50,
+                    ),
+                ),
+            ),
+        }
+    )
+
+    assert any(action.type == "discard_potion" for action in legal_actions(state))
+    assert not any(action.type == "shop_buy" for action in legal_actions(state))
+
+    state = step(state, _action(state, "discard_potion", "potion:0"))
+
+    assert any(action.type == "shop_buy" for action in legal_actions(state))
+    assert not any(action.type == "discard_potion" for action in legal_actions(state))
+
+
+def test_unaffordable_shop_potion_does_not_enable_discard() -> None:
+    state = new_run(seed=914, character_id="TEST", ascension=0)
+    state = state.model_copy(
+        update={
+            "phase": RunPhase.SHOP,
+            "potions": ("fire_potion", "skill_potion", "essence_of_steel"),
+            "player": state.player.model_copy(update={"gold": 0}),
+            "shop": ShopState(
+                node_id="shop:test",
+                items=(
+                    ShopItemState(
+                        slot_id="shop:0",
+                        item_id="foul_potion",
+                        kind="potion",
+                        price=50,
+                        base_price=50,
+                    ),
+                ),
+            ),
+        }
+    )
+
+    assert not any(action.type == "discard_potion" for action in legal_actions(state))
 
 
 def test_reward_can_offer_multiple_potions_one_slot_at_a_time() -> None:

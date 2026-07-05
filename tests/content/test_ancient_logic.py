@@ -94,7 +94,7 @@ def test_ancient_resolution_reports_state_deltas_and_effect_markers() -> None:
     )
 
     assert resolution.gold_delta == 20
-    assert resolution.hp_delta == -6
+    assert resolution.hp_delta == -1
     assert resolution.max_hp_delta == 5
     assert resolution.added_card_ids == ("ancient_strike",)
     assert resolution.removed_card_ids == ("strike",)
@@ -107,7 +107,7 @@ def test_ancient_resolution_reports_state_deltas_and_effect_markers() -> None:
     assert resolution.flags_set == {"ancient_seen": True}
 
     assert resolution.state.gold == 30
-    assert resolution.state.hp == 24
+    assert resolution.state.hp == 29
     assert resolution.state.max_hp == 45
     assert resolution.state.deck == ("defend", "ancient_strike")
     assert resolution.state.relics == ("golden_pearl", "anchor")

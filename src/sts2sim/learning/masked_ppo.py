@@ -12,9 +12,11 @@ import json
 import math
 import os
 import random
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from html import escape as html_escape
+from itertools import count
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +42,11 @@ from sts2sim.learning.progress import (
     with_moving_averages,
     write_learning_progress_data,
 )
-from sts2sim.learning.rewards import learning_reward
+from sts2sim.learning.rewards import (
+    BREAKDOWN_FIELDS,
+    DEFAULT_REWARD_CONFIG,
+    learning_reward,
+)
 from sts2sim.mechanics.enemy_traits import ENEMY_TRAIT_KEYS, enemy_trait_vector
 from sts2sim.mechanics.mechanic_atoms import (
     CARD_SLOT_KEYS,
@@ -295,6 +301,7 @@ def train_masked_ppo(
     *,
     target: str = "act1-boss",
     max_batches: int = 20,
+    until_stopped: bool = False,
     train_runs_per_batch: int = 64,
     train_max_steps: int = 1200,
     eval_runs: int = 32,
@@ -325,11 +332,14 @@ def train_masked_ppo(
     progress_output_path: Path | str | None = Path("reports/masked_ppo_progress.json"),
     report_output_path: Path | str | None = Path("reports/masked_ppo_latest.html"),
     progress_window: int = 20,
+    device: str = "auto",
     progress_callback: Callable[[Mapping[str, Any]], None] | None = None,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Train a masked PPO policy over random simulator seeds."""
 
     torch, nn, optim = _load_torch()
+    torch_device = _resolve_torch_device(torch, device)
     resolved_target = resolve_ppo_target(target)
     train_rng = random.Random(f"{seed}:ppo-train")
     eval_rng = random.Random(f"{seed}:ppo-eval")
@@ -367,11 +377,13 @@ def train_masked_ppo(
         head_hidden_layers=head_hidden_layers,
         activation=activation_name,
     )
+    model.to(torch_device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     resume_state = _load_checkpoint_if_available(
         torch=torch,
         model=model,
         optimizer=optimizer,
+        device=torch_device,
         expected_architecture=architecture,
         resume=resume,
         resume_from_path=resume_from_path,
@@ -389,6 +401,7 @@ def train_masked_ppo(
         "target_consecutive_successes": max(1, target_consecutive_successes),
         **architecture,
         "parameter_count": _parameter_count(model),
+        **_torch_device_metadata(torch, torch_device, requested_device=device),
         "learning_rate": learning_rate,
         "gamma": gamma,
         "gae_lambda": gae_lambda,
@@ -399,6 +412,9 @@ def train_masked_ppo(
         "ppo_epochs": ppo_epochs,
         "minibatch_size": minibatch_size,
         "target_reward": target_reward,
+        "until_stopped": until_stopped,
+        "reward_schema_version": 2,
+        "reward_config": DEFAULT_REWARD_CONFIG.model_dump(mode="json"),
     }
 
     training_points = list(_resume_progress_points(previous_result, "progress"))
@@ -419,11 +435,41 @@ def train_masked_ppo(
     _advance_run_seed_rng(eval_rng, len(evaluation_points))
 
     highlight_run_histories = _resume_highlight_run_histories(previous_result)
-    start_batch = len(batch_summaries) + 1
-    for batch_index in range(start_batch, max(0, max_batches) + 1):
+    previous_batch_count = len(batch_summaries)
+    finite_batch_limit = previous_batch_count + max(0, max_batches)
+    requested_new_batches: int | None = None if until_stopped else max(0, max_batches)
+    batch_limit: int | None = None if until_stopped else finite_batch_limit
+    start_batch = previous_batch_count + 1
+    batch_indices = (
+        count(start_batch)
+        if until_stopped
+        else range(start_batch, finite_batch_limit + 1)
+    )
+    _report_training_progress(
+        progress_reporter,
+        "trainer_start",
+        target=resolved_target.__dict__,
+        start_batch=start_batch,
+        previous_batches=previous_batch_count,
+        batch_limit=batch_limit,
+        until_stopped=until_stopped,
+        resumed_from_path=resumed_from,
+        device=str(torch_device),
+    )
+    for batch_index in batch_indices:
+        _report_training_progress(
+            progress_reporter,
+            "batch_start",
+            batch_index=batch_index,
+            train_runs_per_batch=max(0, train_runs_per_batch),
+            eval_runs=max(0, eval_runs),
+            train_max_steps=train_max_steps,
+            eval_max_steps=eval_max_steps,
+            runs_trained=len(training_points),
+        )
         transitions: list[_Transition] = []
         batch_planning_outputs: list[tuple[float, ...]] = []
-        for _inner_index in range(max(0, train_runs_per_batch)):
+        for inner_index in range(max(0, train_runs_per_batch)):
             run_index = len(training_points)
             run_seed = _random_run_seed(train_rng)
             run_result, run_transitions = _collect_training_run(
@@ -435,6 +481,7 @@ def train_masked_ppo(
                 max_steps=train_max_steps,
                 character_id=character_id,
                 ascension=ascension,
+                device=torch_device,
                 gamma=gamma,
                 target_reward=target_reward,
             )
@@ -445,8 +492,31 @@ def train_masked_ppo(
             training_points.append(_progress_from_run(run_result, "masked_ppo_train"))
             total_steps += run_result.steps_taken
             total_reward += run_result.total_reward
+            _report_training_progress(
+                progress_reporter,
+                "train_run_end",
+                batch_index=batch_index,
+                run_position=inner_index + 1,
+                run_total=max(0, train_runs_per_batch),
+                run_index=run_result.run_index,
+                seed=run_result.seed,
+                steps_taken=run_result.steps_taken,
+                total_reward=run_result.total_reward,
+                final_act=run_result.final_act,
+                final_floor=run_result.final_floor,
+                final_phase=run_result.final_phase,
+                reached_target=_run_reached_target(run_result, resolved_target),
+                failed_to_continue=run_result.failed_to_continue,
+                error=run_result.error,
+            )
 
         if transitions:
+            _report_training_progress(
+                progress_reporter,
+                "ppo_update_start",
+                batch_index=batch_index,
+                transition_count=len(transitions),
+            )
             _ppo_update(
                 torch=torch,
                 model=model,
@@ -460,10 +530,24 @@ def train_masked_ppo(
                 planning_coef=planning_coef,
                 ppo_epochs=ppo_epochs,
                 minibatch_size=minibatch_size,
-        )
+                device=torch_device,
+            )
+            _report_training_progress(
+                progress_reporter,
+                "ppo_update_end",
+                batch_index=batch_index,
+                transition_count=len(transitions),
+            )
 
-        eval_results = tuple(
-            _evaluate_one_run(
+        _report_training_progress(
+            progress_reporter,
+            "eval_start",
+            batch_index=batch_index,
+            eval_runs=max(0, eval_runs),
+        )
+        eval_results_list: list[LearningRunResult] = []
+        for eval_index in range(max(0, eval_runs)):
+            eval_result = _evaluate_one_run(
                 torch=torch,
                 model=model,
                 target=resolved_target,
@@ -472,10 +556,28 @@ def train_masked_ppo(
                 max_steps=eval_max_steps,
                 character_id=character_id,
                 ascension=ascension,
+                device=torch_device,
                 include_history=True,
             )
-            for eval_index in range(max(0, eval_runs))
-        )
+            eval_results_list.append(eval_result)
+            _report_training_progress(
+                progress_reporter,
+                "eval_run_end",
+                batch_index=batch_index,
+                run_position=eval_index + 1,
+                run_total=max(0, eval_runs),
+                run_index=eval_result.run_index,
+                seed=eval_result.seed,
+                steps_taken=eval_result.steps_taken,
+                total_reward=eval_result.total_reward,
+                final_act=eval_result.final_act,
+                final_floor=eval_result.final_floor,
+                final_phase=eval_result.final_phase,
+                reached_target=_run_reached_target(eval_result, resolved_target),
+                failed_to_continue=eval_result.failed_to_continue,
+                error=eval_result.error,
+            )
+        eval_results = tuple(eval_results_list)
         highlight_run_histories = _select_highlight_run_histories(
             eval_results,
             target=resolved_target,
@@ -513,6 +615,10 @@ def train_masked_ppo(
             target=resolved_target,
             reached_batch=reached_batch,
             max_batches=max_batches,
+            previous_batch_count=previous_batch_count,
+            requested_new_batches=requested_new_batches,
+            batch_limit=batch_limit,
+            until_stopped=until_stopped,
             train_runs_per_batch=train_runs_per_batch,
             total_steps=total_steps,
             total_reward=total_reward,
@@ -540,13 +646,35 @@ def train_masked_ppo(
         )
         if progress_callback is not None:
             progress_callback(result)
-        if batch_reached:
+        _report_training_progress(
+            progress_reporter,
+            "batch_saved",
+            batch_index=batch_index,
+            batches_completed=len(batch_summaries),
+            runs_trained=len(training_points),
+            total_steps=total_steps,
+            target_successes=target_successes,
+            eval_runs=len(eval_results),
+            evaluation_average_reward=_average(run.total_reward for run in eval_results),
+            evaluation_average_floor=_average(run.final_floor for run in eval_results),
+            evaluation_target_success_rate=(
+                target_successes / len(eval_results) if eval_results else 0.0
+            ),
+            reached_target=batch_reached,
+            model_path=str(model_output_path) if model_output_path is not None else None,
+            output_path=str(output_path) if output_path is not None else None,
+        )
+        if batch_reached and not until_stopped:
             return result
 
     result = _ppo_result(
         target=resolved_target,
         reached_batch=reached_batch,
         max_batches=max_batches,
+        previous_batch_count=previous_batch_count,
+        requested_new_batches=requested_new_batches,
+        batch_limit=batch_limit,
+        until_stopped=until_stopped,
         train_runs_per_batch=train_runs_per_batch,
         total_steps=total_steps,
         total_reward=total_reward,
@@ -575,6 +703,25 @@ def train_masked_ppo(
     if progress_callback is not None:
         progress_callback(result)
     return result
+
+
+def _report_training_progress(
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    event: str,
+    **payload: Any,
+) -> None:
+    if progress_reporter is None:
+        return
+    progress_reporter({"event": event, **payload})
+
+
+def _average(values: Iterable[int | float]) -> float:
+    total = 0.0
+    count_value = 0
+    for value in values:
+        total += float(value)
+        count_value += 1
+    return round(total / count_value, 6) if count_value else 0.0
 
 
 def resolve_ppo_target(target: str) -> TrainingTarget:
@@ -624,6 +771,7 @@ def _collect_training_run(
     max_steps: int,
     character_id: str,
     ascension: int,
+    device: Any,
     gamma: float,
     target_reward: float,
 ) -> tuple[LearningRunResult, tuple[_Transition, ...]]:
@@ -643,10 +791,18 @@ def _collect_training_run(
     error: str | None = None
     failed_to_continue = False
     observation: dict[str, Any] = {}
+    reward_breakdown_totals: dict[str, float] = {}
     try:
         observation, info = env.reset()
         for _step_index in range(max_steps):
-            decision = _choose_action(torch, model, observation, info, deterministic=False)
+            decision = _choose_action(
+                torch,
+                model,
+                observation,
+                info,
+                deterministic=False,
+                device=device,
+            )
             if decision is None:
                 failed_to_continue = True
                 error = "No legal action id was available before target or terminal state."
@@ -663,8 +819,13 @@ def _collect_training_run(
             env.set_pending_policy_output(decision_context)
             next_observation, reward, terminated, truncated, next_info = env.step(action_id)
             reached = target.reached(next_observation)
-            effective_reward = float(reward) + (float(target_reward) if reached else 0.0)
+            reward_breakdown = _reward_breakdown_with_target(
+                next_info,
+                target_reward=float(target_reward) if reached else 0.0,
+            )
+            effective_reward = _float(reward_breakdown.get("total"))
             done = terminated or truncated or reached
+            _accumulate_reward_breakdown(reward_breakdown_totals, reward_breakdown)
             transitions.append(
                 _Transition(
                     observation_vector=_observation_vector(observation),
@@ -709,6 +870,7 @@ def _collect_training_run(
             final_floor=_lookup_vector_int(observation, "floor"),
             error=error,
             failed_to_continue=failed_to_continue,
+            reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
             steps=(),
         ),
         tuple(transitions),
@@ -725,6 +887,7 @@ def _evaluate_one_run(
     max_steps: int,
     character_id: str,
     ascension: int,
+    device: Any,
     include_history: bool = False,
 ) -> LearningRunResult:
     env = Sts2Env(
@@ -743,12 +906,20 @@ def _evaluate_one_run(
     failed_to_continue = False
     observation: dict[str, Any] = {}
     history: RunHistory | None = None
+    reward_breakdown_totals: dict[str, float] = {}
     try:
         observation, info = env.reset()
         if include_history and env.state is not None:
             history = start_run_history(env.state, policy="masked_ppo_eval")
         for step_index in range(max_steps):
-            decision = _choose_action(torch, model, observation, info, deterministic=True)
+            decision = _choose_action(
+                torch,
+                model,
+                observation,
+                info,
+                deterministic=True,
+                device=device,
+            )
             if decision is None:
                 failed_to_continue = True
                 error = "No legal action id was available before target or terminal state."
@@ -758,6 +929,8 @@ def _evaluate_one_run(
             action_payload = _action_for_id(info, action_id)
             env.set_pending_policy_output(decision[6])
             observation, reward, terminated, truncated, info = env.step(action_id)
+            reward_breakdown = _reward_breakdown_from_info(info)
+            _accumulate_reward_breakdown(reward_breakdown_totals, reward_breakdown)
             if history is not None and before_state is not None and env.state is not None:
                 if not action_payload:
                     action_payload = dict(_mapping(info.get("action")))
@@ -769,7 +942,10 @@ def _evaluate_one_run(
                         action=action_payload,
                         after_state=env.state,
                         reward=reward,
-                        decision=_history_decision_context(decision),
+                        decision=_history_decision_context(
+                            decision,
+                            reward_breakdown=reward_breakdown,
+                        ),
                     ),
                     env.state,
                 )
@@ -800,6 +976,7 @@ def _evaluate_one_run(
         final_floor=_lookup_vector_int(observation, "floor"),
         error=error,
         failed_to_continue=failed_to_continue,
+        reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
         history=history.model_dump(mode="json") if history is not None else None,
         steps=(),
     )
@@ -823,12 +1000,16 @@ def _history_decision_context(
         tuple[tuple[int, ...], ...],
         dict[str, float],
     ],
+    *,
+    reward_breakdown: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     context = dict(decision[6])
     context["action_id"] = decision[0]
     context["action_index"] = decision[1]
     context["value"] = round(float(decision[3]), 6)
     context["legal_action_count"] = len(decision[4])
+    for key, value in _mapping(reward_breakdown).items():
+        context[f"reward_{key}"] = value
     return {
         key: round(value, 6) if isinstance(value, float) else value
         for key, value in context.items()
@@ -842,6 +1023,7 @@ def _choose_action(
     info: Mapping[str, Any],
     *,
     deterministic: bool,
+    device: Any,
 ) -> tuple[
     int,
     int,
@@ -854,13 +1036,25 @@ def _choose_action(
     descriptors = _action_space(info)
     if not descriptors:
         return None
-    obs_vector = torch.tensor([_observation_vector(observation)], dtype=torch.float32)
+    obs_vector = torch.tensor(
+        [_observation_vector(observation)],
+        dtype=torch.float32,
+        device=device,
+    )
     action_features_tuple = tuple(_action_features(descriptor) for descriptor in descriptors)
     action_identity_ids_tuple = tuple(
         descriptor_identity_ids(descriptor) for descriptor in descriptors
     )
-    action_tensor = torch.tensor([action_features_tuple], dtype=torch.float32)
-    identity_tensor = torch.tensor([action_identity_ids_tuple], dtype=torch.long)
+    action_tensor = torch.tensor(
+        [action_features_tuple],
+        dtype=torch.float32,
+        device=device,
+    )
+    identity_tensor = torch.tensor(
+        [action_identity_ids_tuple],
+        dtype=torch.long,
+        device=device,
+    )
     with torch.no_grad():
         logits, value, planning_outputs = model(obs_vector, action_tensor, identity_tensor)
         logits = logits[0]
@@ -907,6 +1101,7 @@ def _ppo_update(
     planning_coef: float,
     ppo_epochs: int,
     minibatch_size: int,
+    device: Any,
 ) -> None:
     returns, advantages = _returns_and_advantages(
         transitions,
@@ -926,14 +1121,17 @@ def _ppo_update(
                 obs_tensor = torch.tensor(
                     [transition.observation_vector],
                     dtype=torch.float32,
+                    device=device,
                 )
                 action_tensor = torch.tensor(
                     [transition.action_features],
                     dtype=torch.float32,
+                    device=device,
                 )
                 identity_tensor = torch.tensor(
                     [transition.action_identity_ids],
                     dtype=torch.long,
+                    device=device,
                 )
                 logits, value, planning_outputs = model(
                     obs_tensor,
@@ -941,18 +1139,29 @@ def _ppo_update(
                     identity_tensor,
                 )
                 distribution = torch.distributions.Categorical(logits=logits[0])
-                action_index = torch.tensor(transition.action_index)
+                action_index = torch.tensor(transition.action_index, device=device)
                 log_prob = distribution.log_prob(action_index)
-                ratio = torch.exp(log_prob - torch.tensor(transition.old_log_prob))
-                advantage = torch.tensor(float(advantages[index]), dtype=torch.float32)
+                ratio = torch.exp(
+                    log_prob - torch.tensor(transition.old_log_prob, device=device)
+                )
+                advantage = torch.tensor(
+                    float(advantages[index]),
+                    dtype=torch.float32,
+                    device=device,
+                )
                 unclipped = ratio * advantage
                 clipped = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * advantage
                 policy_loss = -torch.min(unclipped, clipped)
-                return_value = torch.tensor(float(returns[index]), dtype=torch.float32)
+                return_value = torch.tensor(
+                    float(returns[index]),
+                    dtype=torch.float32,
+                    device=device,
+                )
                 value_loss = torch.square(value[0] - return_value)
                 planning_target = torch.tensor(
                     [transition.planning_targets],
                     dtype=torch.float32,
+                    device=device,
                 )
                 planning_loss = torch.mean(torch.square(planning_outputs - planning_target))
                 entropy_loss = -distribution.entropy()
@@ -1785,6 +1994,7 @@ def _ppo_batch_summary(
 ) -> dict[str, Any]:
     completed = len(eval_results)
     planning_averages = _planning_output_averages(planning_outputs)
+    reward_averages = _reward_component_averages(eval_results)
     return {
         "batch_index": batch_index,
         "trained_runs_total": trained_runs_total,
@@ -1811,6 +2021,7 @@ def _ppo_batch_summary(
             1 for run in eval_results if run.failed_to_continue
         ),
         "planning_output_averages": planning_averages,
+        "reward_component_averages": reward_averages,
         "reached_target": reached_target,
     }
 
@@ -1827,6 +2038,80 @@ def _planning_output_averages(values: Sequence[Sequence[float]]) -> dict[str, fl
     }
 
 
+def _reward_breakdown_from_info(info: Mapping[str, Any]) -> dict[str, float]:
+    raw = _mapping(info.get("reward_breakdown"))
+    return {
+        key: round(_float(raw.get(key)), 6)
+        for key in BREAKDOWN_FIELDS
+        if key in raw or key == "total"
+    }
+
+
+def _reward_breakdown_with_target(
+    info: Mapping[str, Any],
+    *,
+    target_reward: float,
+) -> dict[str, float]:
+    breakdown = _reward_breakdown_from_info(info)
+    if target_reward:
+        breakdown["target_reached_reward"] = round(
+            _float(breakdown.get("target_reached_reward")) + target_reward,
+            6,
+        )
+        breakdown["total"] = round(_float(breakdown.get("total")) + target_reward, 6)
+    return breakdown
+
+
+def _accumulate_reward_breakdown(
+    target: dict[str, float],
+    breakdown: Mapping[str, Any],
+) -> None:
+    for key, value in breakdown.items():
+        if key == "aggression_pressure":
+            target["aggression_pressure_sum"] = target.get(
+                "aggression_pressure_sum",
+                0.0,
+            ) + _float(value)
+            target["aggression_pressure_count"] = target.get(
+                "aggression_pressure_count",
+                0.0,
+            ) + 1.0
+            continue
+        target[str(key)] = target.get(str(key), 0.0) + _float(value)
+
+
+def _rounded_reward_totals(values: Mapping[str, Any]) -> dict[str, float]:
+    return {str(key): round(_float(value), 6) for key, value in values.items()}
+
+
+def _reward_component_averages(runs: Sequence[LearningRunResult]) -> dict[str, float]:
+    if not runs:
+        return {key: 0.0 for key in BREAKDOWN_FIELDS if key != "aggression_pressure"}
+    keys = {
+        key
+        for run in runs
+        for key in run.reward_breakdown_totals
+        if key not in {"aggression_pressure_sum", "aggression_pressure_count"}
+    }
+    keys.update(key for key in BREAKDOWN_FIELDS if key != "aggression_pressure")
+    averages = {
+        key: round(
+            sum(_float(run.reward_breakdown_totals.get(key)) for run in runs)
+            / max(1, len(runs)),
+            6,
+        )
+        for key in sorted(keys)
+    }
+    pressure_sum = sum(
+        _float(run.reward_breakdown_totals.get("aggression_pressure_sum")) for run in runs
+    )
+    pressure_count = sum(
+        _float(run.reward_breakdown_totals.get("aggression_pressure_count")) for run in runs
+    )
+    averages["aggression_pressure"] = round(pressure_sum / max(1.0, pressure_count), 6)
+    return averages
+
+
 def _select_highlight_run_histories(
     eval_results: Sequence[LearningRunResult],
     *,
@@ -1840,10 +2125,24 @@ def _select_highlight_run_histories(
     best = max(runs_with_history, key=lambda run: _highlight_quality_key(run, target))
     worst = min(runs_with_history, key=lambda run: _highlight_quality_key(run, target))
     base = _highlight_artifact_base(report_output_path, output_path)
+    generated_at = _utc_timestamp()
     return {
-        "schema_version": 1,
-        "best": _highlight_history_entry("best", best, target=target, base=base),
-        "worst": _highlight_history_entry("worst", worst, target=target, base=base),
+        "schema_version": 2,
+        "generated_at": generated_at,
+        "best": _highlight_history_entry(
+            "best",
+            best,
+            target=target,
+            base=base,
+            generated_at=generated_at,
+        ),
+        "worst": _highlight_history_entry(
+            "worst",
+            worst,
+            target=target,
+            base=base,
+            generated_at=generated_at,
+        ),
     }
 
 
@@ -1873,10 +2172,15 @@ def _highlight_history_entry(
     *,
     target: TrainingTarget,
     base: Path | None,
+    generated_at: str,
 ) -> dict[str, Any]:
     paths = _highlight_paths(base, role) if base is not None else {}
+    history = dict(run.history or {})
+    history["generated_at"] = generated_at
+    history["highlight_role"] = role
     return {
         "role": role,
+        "generated_at": generated_at,
         "run_index": run.run_index,
         "seed": run.seed,
         "character_id": run.character_id,
@@ -1894,7 +2198,7 @@ def _highlight_history_entry(
         "json_path": str(paths["json"]) if "json" in paths else None,
         "html_path": str(paths["html"]) if "html" in paths else None,
         "map_path": str(paths["map"]) if "map" in paths else None,
-        "history": dict(run.history or {}),
+        "history": history,
     }
 
 
@@ -1918,11 +2222,19 @@ def _highlight_paths(base: Path, role: str) -> dict[str, Path]:
     }
 
 
+def _utc_timestamp() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def _ppo_result(
     *,
     target: TrainingTarget,
     reached_batch: int | None,
     max_batches: int,
+    previous_batch_count: int,
+    requested_new_batches: int | None,
+    batch_limit: int | None,
+    until_stopped: bool,
     train_runs_per_batch: int,
     total_steps: int,
     total_reward: float,
@@ -1947,6 +2259,10 @@ def _ppo_result(
         "reached_batch": reached_batch,
         "batches_completed": len(batch_summaries),
         "max_batches": max_batches,
+        "until_stopped": until_stopped,
+        "previous_batches": previous_batch_count,
+        "requested_new_batches": requested_new_batches,
+        "batch_limit": batch_limit,
         "train_runs_per_batch": train_runs_per_batch,
         "runs_trained": len(training_points),
         "total_steps": total_steps,
@@ -2025,6 +2341,10 @@ def _write_highlight_run_history_artifacts(result: Mapping[str, Any]) -> None:
         history = _mapping(entry.get("history"))
         if not history:
             continue
+        history = dict(history)
+        if entry.get("generated_at"):
+            history.setdefault("generated_at", entry.get("generated_at"))
+        history.setdefault("highlight_role", role)
         json_path = _optional_path(entry.get("json_path"))
         html_path = _optional_path(entry.get("html_path"))
         map_path = _optional_path(entry.get("map_path"))
@@ -2072,6 +2392,7 @@ def _highlight_links_html(
             "<tr>"
             f"<td>{html_escape(role.title())}</td>"
             f"<td>{html_escape(str(entry.get('run_index', '')))}</td>"
+            f"<td>{html_escape(str(entry.get('generated_at', '')))}</td>"
             f"<td>{html_escape(str(entry.get('seed', '')))}</td>"
             f"<td>{_float(entry.get('total_reward')):.3f}</td>"
             f"<td>{_int(entry.get('final_act'))}</td>"
@@ -2085,7 +2406,7 @@ def _highlight_links_html(
     return (
         "<h2>Best And Worst Evaluation Run Histories</h2>"
         '<div class="scroll"><table>'
-        "<thead><tr><th>Role</th><th>Run</th><th>Seed</th><th>Reward</th>"
+        "<thead><tr><th>Role</th><th>Run</th><th>Generated</th><th>Seed</th><th>Reward</th>"
         "<th>Act</th><th>Floor</th><th>Phase</th><th>Artifacts</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
@@ -2138,6 +2459,7 @@ def _ppo_progress_html(
     )
     last_batch = _mapping(batches[-1]) if batches else {}
     planning_rows = _planning_rows_html(batches[-12:])
+    reward_rows = _reward_component_rows_html(batches[-12:])
     highlight_links = _highlight_links_html(
         result,
         report_output_path=result.get("report_output_path"),
@@ -2176,6 +2498,7 @@ def _ppo_progress_html(
         "planning heads included."
     )
     planning_headers = _planning_table_headers()
+    reward_headers = _reward_component_table_headers(batches)
     latest_headers = (
         "<th>Run</th><th>Seed</th><th>Steps</th><th>Reward</th>"
         "<th>Act</th><th>Floor</th><th>Phase</th>"
@@ -2264,6 +2587,15 @@ def _ppo_progress_html(
       <tbody>{planning_rows}</tbody>
     </table>
   </div>
+  <h2>Reward Component Trends</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Batch</th>{reward_headers}</tr>
+      </thead>
+      <tbody>{reward_rows}</tbody>
+    </table>
+  </div>
   <h2>Latest Training Runs</h2>
   <div class="scroll">
     <table>
@@ -2302,11 +2634,59 @@ def _planning_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
     return "\n".join(rows)
 
 
+def _reward_component_keys(batches: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    preferred = (
+        "total",
+        "aggression_pressure",
+        "hp_loss_penalty",
+        "enemy_hp_progress_reward",
+        "prevented_hp_reward",
+        "combat_win_reward",
+        "boss_reward",
+        "combat_pace_reward",
+        "node_progress_reward",
+        "gold_reward",
+        "potion_waste_penalty",
+        "target_reached_reward",
+    )
+    present = {
+        str(key)
+        for batch in batches
+        for key in _mapping(batch.get("reward_component_averages"))
+    }
+    ordered = [key for key in preferred if key in present]
+    ordered.extend(sorted(present - set(ordered)))
+    return tuple(ordered)
+
+
+def _reward_component_table_headers(batches: Sequence[Mapping[str, Any]]) -> str:
+    return "".join(
+        f"<th>{html_escape(key.replace('_', ' ').title())}</th>"
+        for key in _reward_component_keys(batches)
+    )
+
+
+def _reward_component_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
+    keys = _reward_component_keys(batches)
+    rows: list[str] = []
+    for batch in batches:
+        averages = _mapping(batch.get("reward_component_averages"))
+        cells = "".join(f"<td>{_float(averages.get(key)):.3f}</td>" for key in keys)
+        rows.append(
+            "<tr>"
+            f"<td>{_int(batch.get('batch_index'))}</td>"
+            f"{cells}"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
 def _load_checkpoint_if_available(
     *,
     torch: Any,
     model: Any,
     optimizer: Any,
+    device: Any,
     expected_architecture: Mapping[str, Any],
     resume: bool,
     resume_from_path: Path | str | None,
@@ -2320,7 +2700,7 @@ def _load_checkpoint_if_available(
     ):
         if candidate is None or not candidate.exists():
             continue
-        payload = torch.load(candidate, map_location="cpu")
+        payload = torch.load(candidate, map_location=device)
         if isinstance(payload, Mapping):
             architecture = payload.get("architecture")
             if isinstance(architecture, Mapping) and not _architecture_matches(
@@ -2349,6 +2729,7 @@ def _load_checkpoint_if_available(
             if optimizer_state is not None:
                 try:
                     optimizer.load_state_dict(optimizer_state)
+                    _move_optimizer_state_to_device(optimizer, device)
                 except ValueError:
                     optimizer_state = None
             result = payload.get("result")
@@ -2357,6 +2738,16 @@ def _load_checkpoint_if_available(
                 result=result if isinstance(result, Mapping) else None,
             )
     return _ResumeState()
+
+
+def _move_optimizer_state_to_device(optimizer: Any, device: Any) -> None:
+    for state in optimizer.state.values():
+        if not isinstance(state, dict):
+            continue
+        for key, value in list(state.items()):
+            to_device = getattr(value, "to", None)
+            if callable(to_device):
+                state[key] = to_device(device)
 
 
 def _resume_progress_points(
@@ -2460,6 +2851,51 @@ def _load_torch() -> tuple[Any, Any, Any]:
             "`uv sync --extra rl`, then rerun the command."
         ) from exc
     return torch, nn, optim
+
+
+def _resolve_torch_device(torch: Any, requested: str) -> Any:
+    normalized = str(requested or "auto").strip().lower()
+    if normalized in {"auto", ""}:
+        return torch.device("cuda" if bool(torch.cuda.is_available()) else "cpu")
+    if normalized in {"gpu", "cuda"}:
+        if not bool(torch.cuda.is_available()):
+            raise RuntimeError(
+                "CUDA was requested but PyTorch cannot see a CUDA device. "
+                "Install a CUDA-enabled PyTorch build, then verify with "
+                "`uv run python -c \"import torch; print(torch.cuda.is_available())\"`."
+            )
+        return torch.device("cuda")
+    if normalized == "cpu":
+        return torch.device("cpu")
+    try:
+        return torch.device(normalized)
+    except (TypeError, RuntimeError) as exc:
+        raise ValueError(
+            "device must be 'auto', 'cpu', 'cuda', or a valid torch device string "
+            "such as 'cuda:0'."
+        ) from exc
+
+
+def _torch_device_metadata(
+    torch: Any,
+    device: Any,
+    *,
+    requested_device: str,
+) -> dict[str, Any]:
+    device_text = str(device)
+    is_cuda = device_text.startswith("cuda")
+    device_index = getattr(device, "index", None)
+    if is_cuda and device_index is None:
+        device_index = torch.cuda.current_device()
+    return {
+        "requested_device": str(requested_device),
+        "device": device_text,
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_device_count": int(torch.cuda.device_count()),
+        "cuda_device_name": (
+            str(torch.cuda.get_device_name(device_index)) if is_cuda else None
+        ),
+    }
 
 
 def _character_display_name(character_id: object) -> str:
