@@ -270,6 +270,52 @@ def test_curse_burden_penalty_respects_compensation_and_deck_support() -> None:
     assert unsupported.deck_burden_penalty < supported.deck_burden_penalty < 0.0
 
 
+def test_curse_burden_penalty_uses_source_relic_compensation() -> None:
+    previous = _base_payload(deck=_deck_cards(10))
+    unsupported = learning_reward_breakdown(
+        previous,
+        _base_payload(deck=(*_deck_cards(10), _bad_curse())),
+    )
+    calling_bell = learning_reward_breakdown(
+        previous,
+        _base_payload(
+            deck=(*_deck_cards(10), _plain_curse("curse_of_the_bell")),
+            relics=("calling_bell",),
+        ),
+    )
+
+    assert unsupported.deck_burden_penalty < calling_bell.deck_burden_penalty < 0.0
+
+
+def test_curse_burden_penalty_uses_event_frontloaded_compensation() -> None:
+    previous = _base_payload(deck=_deck_cards(10))
+    unsupported = learning_reward_breakdown(
+        previous,
+        _base_payload(deck=(*_deck_cards(10), _plain_curse("doubt"))),
+    )
+    compensated = learning_reward_breakdown(
+        previous,
+        _base_payload(
+            deck=(*_deck_cards(10), _plain_curse("doubt")),
+            reward={
+                "card_options": ["pommel_strike", "shrug_it_off", "armaments"],
+                "card_option_groups": [["battle_trance", "warcry", "ghostly_armor"]],
+            },
+        ),
+        action_descriptor={
+            "type": "choose_event",
+            "event_option": {
+                "metadata": {
+                    "fixed_card_ids": ("doubt",),
+                    "card_reward_count": 2,
+                }
+            },
+        },
+    )
+
+    assert unsupported.deck_burden_penalty < compensated.deck_burden_penalty < 0.0
+
+
 def test_eternal_unplayable_burden_is_worse_than_plain_curse() -> None:
     previous = _base_payload(deck=_deck_cards(12))
     plain = learning_reward_breakdown(
@@ -444,8 +490,9 @@ def _base_payload(
     potions: tuple[str, ...] = (),
     relics: tuple[str, ...] = (),
     deck: tuple[dict, ...] = (),
+    reward: dict | None = None,
 ) -> dict:
-    return {
+    payload = {
         "phase": phase,
         "act": act,
         "floor": floor,
@@ -476,6 +523,9 @@ def _base_payload(
             ],
         },
     }
+    if reward is not None:
+        payload["reward"] = reward
+    return payload
 
 
 def _combat_payload(
@@ -562,6 +612,17 @@ def _greed_card() -> dict:
         "tags": ["curse", "eternal", "unplayable"],
         "custom": {"eternal": True, "frontloaded_gold": 333},
         "effects": {"noop": {"reason": "frontloaded_gold_curse"}},
+    }
+
+
+def _plain_curse(card_id: str) -> dict:
+    return {
+        "instance_id": f"{card_id}_1",
+        "card_id": card_id,
+        "type": "curse",
+        "tags": ["curse", "unplayable"],
+        "custom": {"unplayable": True},
+        "effects": {"noop": {"reason": "curse_burden"}},
     }
 
 

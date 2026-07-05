@@ -173,6 +173,13 @@ _DECK_PROBLEM_WEIGHTS = {
     "curse_burden": 1.30,
     "starter_density": 0.55,
 }
+_CURSE_SOURCE_COMPENSATION_SUPPORT = {
+    "calling_bell": 0.34,
+    "cursed_pearl": 0.28,
+    "hefty_tablet": 0.20,
+    "neows_bones": 0.30,
+    "sere_talon": 0.42,
+}
 
 
 def learning_reward(
@@ -243,7 +250,7 @@ def learning_reward_breakdown(
     resource_pickup = _resource_pickup_reward(previous, current, descriptor, config)
     reward_skip = _reward_skip_penalty(previous, descriptor, config)
     deck_capability = _deck_capability_reward(previous, current, config)
-    deck_burden = _deck_burden_penalty(previous, current, config)
+    deck_burden = _deck_burden_penalty(previous, current, descriptor, config)
     starter_similarity = _starter_deck_similarity_penalty(current, config)
 
     breakdown = LearningRewardBreakdown(
@@ -926,6 +933,7 @@ def _deck_growth_cost(
 def _deck_burden_penalty(
     previous: Mapping[str, Any],
     current: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
     config: LearningRewardConfig,
 ) -> float:
     if config.curse_pickup_penalty >= 0:
@@ -934,9 +942,17 @@ def _deck_burden_penalty(
     before = _deck_metrics(previous, config)
     after = _deck_metrics(current, config)
     after_problems = _deck_problem_scores(current, after, config)
-    for card in _added_deck_cards(previous, current):
-        if not _card_is_burden(card):
-            continue
+    added_burdens = tuple(
+        card for card in _added_deck_cards(previous, current) if _card_is_burden(card)
+    )
+    source_support = _curse_transition_compensation_support(
+        previous,
+        current,
+        action_descriptor,
+        config,
+    )
+    per_burden_source_support = source_support / max(1.0, float(len(added_burdens)))
+    for card in added_burdens:
         penalty -= _card_burden_severity(
             card,
             current,
@@ -944,6 +960,7 @@ def _deck_burden_penalty(
             after,
             after_problems,
             config,
+            source_compensation_support=per_burden_source_support,
         )
     return penalty
 
@@ -955,6 +972,8 @@ def _card_burden_severity(
     after_metrics: Mapping[str, Any],
     after_problems: Mapping[str, Any],
     config: LearningRewardConfig,
+    *,
+    source_compensation_support: float = 0.0,
 ) -> float:
     base = abs(config.curse_pickup_penalty)
     if _card_has_marker(card, "eternal"):
@@ -980,7 +999,13 @@ def _card_burden_severity(
         )
         * config.curse_burden_pressure_weight,
     )
-    support = _curse_burden_support_score(card, current, after_metrics, config)
+    support = _curse_burden_support_score(
+        card,
+        current,
+        after_metrics,
+        config,
+        source_compensation_support=source_compensation_support,
+    )
     severity = base * deck_factor * density_factor * pressure_factor * (1.0 - support)
     return min(max(0.0, config.curse_burden_penalty_cap), severity)
 
@@ -1000,6 +1025,8 @@ def _curse_burden_support_score(
     current: Mapping[str, Any],
     after_metrics: Mapping[str, Any],
     config: LearningRewardConfig,
+    *,
+    source_compensation_support: float = 0.0,
 ) -> float:
     categories = _mapping(after_metrics.get("categories"))
     relic_values = _relic_mechanic_values(current)
@@ -1012,7 +1039,10 @@ def _curse_burden_support_score(
     support += min(0.10, _float(relic_values.get("card_remove")) * 0.10)
     support += min(0.08, _float(relic_values.get("energy")) * 0.05)
     support += _curse_payoff_support(current)
-    support += min(0.35, _card_frontloaded_gold(card) / 1200.0)
+    support += max(
+        _card_frontloaded_compensation_support(card),
+        max(0.0, source_compensation_support),
+    )
     return _clamp(support, 0.0, config.curse_burden_support_mitigation_cap)
 
 
@@ -1027,13 +1057,225 @@ def _curse_payoff_support(payload: Mapping[str, Any]) -> float:
     return min(0.30, support)
 
 
-def _card_frontloaded_gold(card: Mapping[str, Any]) -> float:
-    custom = _mapping(card.get("custom"))
-    return max(
-        0.0,
-        _float(custom.get("frontloaded_gold")),
-        _float(card.get("frontloaded_gold")),
+def _curse_transition_compensation_support(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    inferred = _state_delta_compensation_support(previous, current)
+    reward_screen = _reward_screen_compensation_support(current)
+    descriptor = _descriptor_compensation_support(action_descriptor)
+    source_hint = max(
+        _source_compensation_support(relic_id)
+        for relic_id in ("", *_added_relic_ids(previous, current))
     )
+    support = max(inferred, reward_screen, descriptor, source_hint)
+    return _clamp(support, 0.0, config.curse_burden_support_mitigation_cap)
+
+
+def _state_delta_compensation_support(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+) -> float:
+    support = 0.0
+    support += min(0.30, max(0, _player_gold(current) - _player_gold(previous)) / 1200.0)
+    support += min(0.16, max(0, _player_max_hp(current) - _player_max_hp(previous)) / 90.0)
+    support += min(0.10, max(0, _player_hp(current) - _player_hp(previous)) / 100.0)
+    support += min(0.08, max(0, _potion_count(current) - _potion_count(previous)) * 0.04)
+    support += min(0.30, len(_added_relic_ids(previous, current)) * 0.10)
+    return support
+
+
+def _reward_screen_compensation_support(payload: Mapping[str, Any]) -> float:
+    reward = _mapping(payload.get("reward"))
+    if not reward:
+        return 0.0
+    support = 0.0
+    card_group_count = 0
+    if _sequence(reward.get("card_options")) and not _bool(reward.get("card_claimed")):
+        card_group_count += 1
+    claimed_card_groups = {
+        _int(index)
+        for index in _sequence(reward.get("claimed_card_option_group_indices"))
+    }
+    skipped_card_groups = {
+        _int(index)
+        for index in _sequence(reward.get("skipped_card_option_group_indices"))
+    }
+    for index, group in enumerate(_sequence(reward.get("card_option_groups"))):
+        if (
+            _sequence(group)
+            and index not in claimed_card_groups
+            and index not in skipped_card_groups
+        ):
+            card_group_count += 1
+    support += min(0.18, card_group_count * 0.08)
+
+    relic_count = 0
+    if reward.get("relic_id") and not _bool(reward.get("relic_claimed")):
+        relic_count += 1
+    claimed_relics = {
+        _normalized_id(relic_id)
+        for relic_id in _sequence(reward.get("claimed_relic_ids"))
+    }
+    for relic_id in _sequence(reward.get("relic_ids")):
+        if _normalized_id(relic_id) not in claimed_relics:
+            relic_count += 1
+    support += min(0.25, relic_count * 0.10)
+
+    potion_count = 0
+    if reward.get("potion_id") and not _bool(reward.get("potion_claimed")):
+        potion_count += 1
+    claimed_potions = {
+        _int(index) for index in _sequence(reward.get("claimed_potion_indices"))
+    }
+    skipped_potions = {
+        _int(index) for index in _sequence(reward.get("skipped_potion_indices"))
+    }
+    for index, potion_id in enumerate(_sequence(reward.get("potion_ids"))):
+        if potion_id and index not in claimed_potions and index not in skipped_potions:
+            potion_count += 1
+    support += min(0.08, potion_count * 0.04)
+
+    if not _bool(reward.get("gold_claimed")):
+        support += min(0.22, max(0, _int(reward.get("gold"))) / 1400.0)
+    return support
+
+
+def _descriptor_compensation_support(action_descriptor: Mapping[str, Any]) -> float:
+    descriptor_sources = (
+        action_descriptor,
+        _mapping(action_descriptor.get("event_option")),
+        _mapping(action_descriptor.get("ancient_option")),
+        _mapping(action_descriptor.get("reward_choice")),
+        _mapping(action_descriptor.get("reward_bundle")),
+        _mapping(action_descriptor.get("option_slot")),
+    )
+    support = 0.0
+    for source in descriptor_sources:
+        support = max(support, _compensation_support_from_mapping(source))
+        support = max(
+            support,
+            _compensation_support_from_mapping(_mapping(source.get("metadata"))),
+        )
+    return support
+
+
+def _compensation_support_from_mapping(source: Mapping[str, Any]) -> float:
+    if not source:
+        return 0.0
+    support = 0.0
+    support += min(
+        0.30,
+        max(0, _int(source.get("gold_delta"), _int(source.get("gold")))) / 1200.0,
+    )
+    support += min(0.16, max(0, _int(source.get("max_hp_delta"))) / 90.0)
+    support += min(
+        0.10,
+        max(0, _int(source.get("heal_amount")) + _int(source.get("hp_delta"))) / 100.0,
+    )
+    support += min(
+        0.18,
+        (
+            _int(source.get("card_reward_count"))
+            + _int(source.get("card_reward_group_count"))
+        )
+        * 0.08,
+    )
+    support += min(
+        0.25,
+        (
+            _int(source.get("random_relic_count"))
+            + _int(source.get("fixed_relic_count"))
+            + len(_sequence(source.get("fixed_relic_ids")))
+            + len(_sequence(source.get("relic_ids")))
+        )
+        * 0.10,
+    )
+    support += min(
+        0.08,
+        (
+            _int(source.get("random_potion_count"))
+            + _int(source.get("fixed_potion_count"))
+            + len(_sequence(source.get("fixed_potion_ids")))
+            + len(_sequence(source.get("potion_ids")))
+        )
+        * 0.04,
+    )
+    support += min(
+        0.14,
+        (
+            _int(source.get("upgrade_random_count"))
+            + _int(source.get("upgrade_random_card_count"))
+            + _int(source.get("upgrade_card_count"))
+        )
+        * 0.05,
+    )
+    support += min(
+        0.16,
+        (
+            _int(source.get("transform_random_count"))
+            + _int(source.get("transform_random_card_count"))
+            + _int(source.get("transform_card_count"))
+        )
+        * 0.06,
+    )
+    support += min(
+        0.16,
+        (
+            _int(source.get("remove_random_count"))
+            + _int(source.get("remove_random_card_count"))
+            + _int(source.get("remove_card_count"))
+            + len(_sequence(source.get("remove_card_ids")))
+        )
+        * 0.08,
+    )
+    for key in ("relic_id", "source_relic", "source_relic_id", "source_id"):
+        support = max(support, _source_compensation_support(source.get(key)))
+    return support
+
+
+def _card_frontloaded_compensation_support(card: Mapping[str, Any]) -> float:
+    custom = _mapping(card.get("custom"))
+    support = 0.0
+    support += min(0.35, _frontloaded_amount(card, "gold") / 1200.0)
+    support += min(0.16, _frontloaded_amount(card, "max_hp") / 90.0)
+    support += min(0.10, _frontloaded_amount(card, "heal") / 100.0)
+    support += min(0.25, _frontloaded_amount(card, "relic_count") * 0.10)
+    support += min(0.18, _frontloaded_amount(card, "card_reward_count") * 0.08)
+    support += min(0.16, _frontloaded_amount(card, "transform_count") * 0.06)
+    support += min(0.16, _frontloaded_amount(card, "remove_count") * 0.08)
+    support += min(0.08, _frontloaded_amount(card, "potion_count") * 0.04)
+    source_hint = max(
+        _source_compensation_support(custom.get(key, card.get(key)))
+        for key in (
+            "source_relic",
+            "source_relic_id",
+            "source_event",
+            "source_event_id",
+            "source_id",
+        )
+    )
+    return max(support, source_hint)
+
+
+def _frontloaded_amount(card: Mapping[str, Any], key: str) -> float:
+    custom = _mapping(card.get("custom"))
+    aliases = (
+        f"frontloaded_{key}",
+        f"frontload_{key}",
+        key if key.startswith("frontloaded_") else "",
+    )
+    return max(
+        _float(custom.get(alias, card.get(alias)))
+        for alias in aliases
+        if alias
+    )
+
+
+def _source_compensation_support(source_id: object) -> float:
+    return _CURSE_SOURCE_COMPENSATION_SUPPORT.get(_normalized_id(source_id), 0.0)
 
 
 def _starter_deck_similarity_penalty(
@@ -1359,6 +1601,20 @@ def _player_gold(payload: Mapping[str, Any]) -> int:
     return _int(_player(payload).get("gold"))
 
 
+def _player_hp(payload: Mapping[str, Any]) -> int:
+    return _int(_player(payload).get("hp"))
+
+
+def _player_max_hp(payload: Mapping[str, Any]) -> int:
+    return _int(_player(payload).get("max_hp"))
+
+
+def _potion_count(payload: Mapping[str, Any]) -> int:
+    player = _player(payload)
+    potions = _sequence(player.get("potions", payload.get("potions")))
+    return len(potions)
+
+
 def _master_deck_cards(payload: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
     player = _player(payload)
     cards = _sequence(payload.get("master_deck"))
@@ -1387,6 +1643,24 @@ def _relic_ids(payload: Mapping[str, Any]) -> tuple[str, ...]:
         if normalized:
             ids.append(normalized)
     return tuple(ids)
+
+
+def _added_relic_ids(
+    previous: Mapping[str, Any],
+    current: Mapping[str, Any],
+) -> tuple[str, ...]:
+    previous_counts: dict[str, int] = {}
+    for relic_id in _relic_ids(previous):
+        previous_counts[relic_id] = previous_counts.get(relic_id, 0) + 1
+
+    added: list[str] = []
+    for relic_id in _relic_ids(current):
+        available = previous_counts.get(relic_id, 0)
+        if available > 0:
+            previous_counts[relic_id] = available - 1
+        else:
+            added.append(relic_id)
+    return tuple(added)
 
 
 def _player(payload: Mapping[str, Any]) -> Mapping[str, Any]:

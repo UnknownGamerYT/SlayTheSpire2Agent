@@ -9,10 +9,16 @@ from sts2sim.mechanics.card_effects import (
 
 def test_report_unknown_cards_use_known_specs() -> None:
     expected_types = {
+        "clumsy": "curse",
+        "curse_of_the_bell": "curse",
+        "doubt": "curse",
         "rampage": "attack",
         "dominate": "attack",
         "greed": "curse",
+        "injury": "curse",
         "iron_wave": "attack",
+        "regret": "curse",
+        "shame": "curse",
     }
 
     for card_id, card_type in expected_types.items():
