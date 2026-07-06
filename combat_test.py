@@ -241,9 +241,16 @@ def _monster_payload(monster: MonsterState) -> dict[str, Any]:
 
 
 def _card_payload(card: CardInstance) -> dict[str, Any]:
+    source_spec = card.custom.get("source_spec") if isinstance(card.custom, Mapping) else None
+    source_card_id = (
+        str(source_spec.get("id"))
+        if isinstance(source_spec, Mapping) and source_spec.get("id")
+        else card.card_id
+    )
     return {
         "instance_id": card.instance_id,
-        "card_id": card.card_id,
+        "card_id": source_card_id,
+        "runtime_card_id": card.card_id,
         "name": card.name or _display_name(card.card_id),
         "type": _value(card.type),
         "cost": card.cost,

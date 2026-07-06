@@ -103,6 +103,13 @@ def train_masked_ppo_curriculum(
     report_output_path: Path | str | None = Path("reports/ppo_curriculum_latest.html"),
     progress_window: int = 20,
     device: str = "auto",
+    rollout_workers: int = 1,
+    rollout_inference: str = "worker",
+    history_mode: str = "highlights",
+    envs_per_worker: int = 1,
+    policy_server_min_batch: int = 1,
+    policy_server_max_wait_ms: int = 20,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
     trainer: PPOTrainer | None = None,
 ) -> dict[str, Any]:
     """Train PPO through staged targets, advancing only after comfort criteria pass."""
@@ -167,6 +174,12 @@ def train_masked_ppo_curriculum(
                         teacher_mix=teacher_mix,
                         imitation_coef=imitation_coef,
                         device=device,
+                        rollout_workers=rollout_workers,
+                        rollout_inference=rollout_inference,
+                        history_mode=history_mode,
+                        envs_per_worker=envs_per_worker,
+                        policy_server_min_batch=policy_server_min_batch,
+                        policy_server_max_wait_ms=policy_server_max_wait_ms,
                     )
                 ),
                 output_path,
@@ -227,6 +240,12 @@ def train_masked_ppo_curriculum(
                         teacher_mix=teacher_mix,
                         imitation_coef=imitation_coef,
                         device=device,
+                        rollout_workers=rollout_workers,
+                        rollout_inference=rollout_inference,
+                        history_mode=history_mode,
+                        envs_per_worker=envs_per_worker,
+                        policy_server_min_batch=policy_server_min_batch,
+                        policy_server_max_wait_ms=policy_server_max_wait_ms,
                     )
                 ),
                 output_path,
@@ -276,7 +295,14 @@ def train_masked_ppo_curriculum(
                 report_output_path=stage_report_path,
                 progress_window=progress_window,
                 device=device,
+                rollout_workers=rollout_workers,
+                rollout_inference=rollout_inference,
+                history_mode=history_mode,
+                envs_per_worker=envs_per_worker,
+                policy_server_min_batch=policy_server_min_batch,
+                policy_server_max_wait_ms=policy_server_max_wait_ms,
                 progress_callback=update_active_stage_summary,
+                progress_reporter=progress_reporter,
             )
         )
         stage_summary = _stage_summary(
@@ -325,6 +351,12 @@ def train_masked_ppo_curriculum(
                         teacher_mix=teacher_mix,
                         imitation_coef=imitation_coef,
                         device=device,
+                        rollout_workers=rollout_workers,
+                        rollout_inference=rollout_inference,
+                        history_mode=history_mode,
+                        envs_per_worker=envs_per_worker,
+                        policy_server_min_batch=policy_server_min_batch,
+                        policy_server_max_wait_ms=policy_server_max_wait_ms,
                     )
                 ),
                 output_path,
@@ -360,6 +392,12 @@ def train_masked_ppo_curriculum(
         teacher_mix=teacher_mix,
         imitation_coef=imitation_coef,
         device=device,
+        rollout_workers=rollout_workers,
+        rollout_inference=rollout_inference,
+        history_mode=history_mode,
+        envs_per_worker=envs_per_worker,
+        policy_server_min_batch=policy_server_min_batch,
+        policy_server_max_wait_ms=policy_server_max_wait_ms,
     )
     result = _with_batch_metrics(result)
     _persist_curriculum_result(result, output_path, report_output_path)
@@ -525,6 +563,12 @@ def _curriculum_result(
     teacher_mix: float,
     imitation_coef: float,
     device: str,
+    rollout_workers: int,
+    rollout_inference: str,
+    history_mode: str,
+    envs_per_worker: int,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
 ) -> dict[str, Any]:
     completed_stages = sum(
         1 for stage in stage_summaries if bool(stage.get("reached_target", False))
@@ -564,6 +608,12 @@ def _curriculum_result(
             "teacher_mix": teacher_mix,
             "imitation_coef": imitation_coef,
             "requested_device": device,
+            "rollout_workers": rollout_workers,
+            "rollout_inference": rollout_inference,
+            "history_mode": history_mode,
+            "envs_per_worker": envs_per_worker,
+            "policy_server_min_batch": policy_server_min_batch,
+            "policy_server_max_wait_ms": policy_server_max_wait_ms,
             "target_eval_successes_override": target_eval_successes,
             "target_consecutive_successes_override": target_consecutive_successes,
             "target_success_rate": max(0.0, min(1.0, _float(target_success_rate))),

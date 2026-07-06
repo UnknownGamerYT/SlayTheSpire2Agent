@@ -82,6 +82,15 @@ EXTENDED_EFFECT_KEYS = frozenset(
     }
 )
 EXECUTABLE_EFFECT_KEYS = ENGINE_EFFECT_KEYS | EXTENDED_EFFECT_KEYS
+_AUTHORITATIVE_EFFECT_KEYS = EXECUTABLE_EFFECT_KEYS | frozenset(
+    {
+        "description",
+        "description_raw",
+        "effect",
+        "magic_number",
+        "text",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1236,6 +1245,10 @@ def _merge_known_card_spec(
         return card_spec
     merged = dict(known_card)
     merged.update(card_spec)
+    if _card_spec_has_authoritative_effect_text(card_spec):
+        for key in ("effect", "effects"):
+            if key not in card_spec:
+                merged.pop(key, None)
     source_type = _normalize_card_type(card_spec.get("type", card_spec.get("card_type")))
     known_type = known_card.get("type", known_card.get("card_type"))
     if source_type == "unknown" and _normalize_card_type(known_type) != "unknown":
@@ -1254,6 +1267,13 @@ def _merge_known_card_spec(
                 **(dict(source_custom) if isinstance(source_custom, Mapping) else {}),
             }
     return merged
+
+
+def _card_spec_has_authoritative_effect_text(card_spec: Mapping[str, Any]) -> bool:
+    if any(key in card_spec for key in _AUTHORITATIVE_EFFECT_KEYS):
+        return True
+    description = card_spec.get("description", card_spec.get("description_raw", ""))
+    return isinstance(description, str) and bool(description.strip())
 
 
 def _card_cost(card_spec: Mapping[str, Any]) -> int | None:

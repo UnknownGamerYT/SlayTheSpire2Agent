@@ -6,6 +6,7 @@ import importlib
 import importlib.util
 import random
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, cast
 
@@ -23,6 +24,14 @@ from sts2sim.api import new_run
 from sts2sim.api import step as step_state
 
 RewardFn = Callable[[Any, Any], float]
+
+
+@dataclass(frozen=True)
+class _AgentView:
+    observation: dict[str, Any]
+    info: dict[str, Any]
+    descriptors: list[dict[str, Any]]
+    action_mask: list[int]
 
 
 class SimpleDiscrete:
@@ -115,6 +124,7 @@ class Sts2Env:
         self._pending_policy_output: dict[str, Any] = {}
         self._reward_tracker: Any | None = None
         self._reward_breakdown_fn: Callable[..., Any] | None = None
+        self._agent_view_cache: _AgentView | None = None
         try:
             from sts2sim.learning.rewards import (
                 LearningRewardTracker,
@@ -157,7 +167,9 @@ class Sts2Env:
         if self._reward_tracker is not None:
             self._reward_tracker.reset()
         self._last_reward_breakdown = {}
-        return self._observation(), self._info()
+        self._agent_view_cache = None
+        view = self._agent_view()
+        return dict(view.observation), dict(view.info)
 
     def step(self, action: Any) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
         """Apply a discrete action ID and return the Gymnasium 5-tuple."""
@@ -167,11 +179,15 @@ class Sts2Env:
         assert self.state is not None
 
         previous_state = self.state
-        engine_action = decode_action(previous_state, action)
-        previous_action_space = agent_action_space(previous_state)
-        action_descriptor = _descriptor_for_action_id(previous_action_space, action)
+        previous_view = self._agent_view()
+        action_descriptor = _descriptor_for_action_id(previous_view.descriptors, action)
+        engine_action = _mapping(action_descriptor.get("action")) or decode_action(
+            previous_state,
+            action,
+        )
         self.state = step_state(previous_state, engine_action)
         self.steps += 1
+        self._agent_view_cache = None
 
         terminated = _is_terminal(self.state)
         truncated = (
@@ -200,7 +216,14 @@ class Sts2Env:
             reward_breakdown=reward_breakdown,
             done=terminated or truncated,
         )
-        return self._observation(), reward, terminated, truncated, self._info(engine_action)
+        view = self._agent_view()
+        info = dict(view.info)
+        info["action"] = (
+            engine_action.model_dump(mode="json", exclude_none=True)
+            if hasattr(engine_action, "model_dump")
+            else dict(engine_action)
+        )
+        return dict(view.observation), reward, terminated, truncated, info
 
     def render(self) -> None:
         """No-op render hook for Gymnasium compatibility."""
@@ -244,26 +267,10 @@ class Sts2Env:
         )
 
     def _observation(self) -> dict[str, Any]:
-        assert self.state is not None
-        observation = encode_observation(
-            self.state,
-            include_state=self.include_serialized_state,
-            agent_memory={"entries": self._agent_memory},
-        )
-        observation["action_mask"] = list(action_mask(self.state, max_actions=self.max_actions))
-        return observation
+        return dict(self._agent_view().observation)
 
     def _info(self, action: Any | None = None) -> dict[str, Any]:
-        assert self.state is not None
-        descriptors = agent_action_space(self.state)
-        info: dict[str, Any] = {
-            "action_mask": list(action_mask(self.state, max_actions=self.max_actions)),
-            "action_space": descriptors,
-            "legal_action_count": len(descriptors),
-            "agent_memory": {"entries": list(self._agent_memory)},
-            "gymnasium_available": self.using_gymnasium,
-            "reward_breakdown": dict(self._last_reward_breakdown),
-        }
+        info = dict(self._agent_view().info)
         if action is not None:
             info["action"] = (
                 action.model_dump(mode="json", exclude_none=True)
@@ -271,6 +278,34 @@ class Sts2Env:
                 else action
             )
         return info
+
+    def _agent_view(self) -> _AgentView:
+        assert self.state is not None
+        if self._agent_view_cache is not None:
+            return self._agent_view_cache
+        descriptors = agent_action_space(self.state)
+        mask = list(action_mask(self.state, max_actions=self.max_actions))
+        observation = encode_observation(
+            self.state,
+            include_state=self.include_serialized_state,
+            agent_memory={"entries": self._agent_memory},
+        )
+        observation["action_mask"] = list(mask)
+        info: dict[str, Any] = {
+            "action_mask": list(mask),
+            "action_space": descriptors,
+            "legal_action_count": len(descriptors),
+            "agent_memory": {"entries": list(self._agent_memory)},
+            "gymnasium_available": self.using_gymnasium,
+            "reward_breakdown": dict(self._last_reward_breakdown),
+        }
+        self._agent_view_cache = _AgentView(
+            observation=observation,
+            info=info,
+            descriptors=descriptors,
+            action_mask=mask,
+        )
+        return self._agent_view_cache
 
     def _record_agent_memory(
         self,
@@ -334,6 +369,7 @@ class Sts2Env:
             for index, entry in enumerate(self._agent_memory)
         ]
         self._agent_memory = [entry, *aged_entries][:4]
+        self._agent_view_cache = None
 
 
 SlayTheSpire2Env = Sts2Env

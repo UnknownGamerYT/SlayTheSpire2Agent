@@ -10,9 +10,13 @@ from __future__ import annotations
 import importlib
 import json
 import math
+import multiprocessing as mp
 import os
+import queue
 import random
+import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import escape as html_escape
@@ -139,6 +143,8 @@ _NODE_KIND_IDS = {
     "treasure": 6,
     "boss": 7,
 }
+_REWARD_DIAGNOSTIC_KINDS = ("card", "gold", "relic", "potion", "card_removal")
+_REWARD_PRESENTATION_SEEN_KEY = "__reward_presentation_seen__"
 _INTENT_IDS = {
     "": 0,
     "none": 0,
@@ -301,6 +307,15 @@ class _Transition:
     teacher_action_index: int | None = None
 
 
+@dataclass(frozen=True)
+class _PolicyInput:
+    descriptors: tuple[Mapping[str, Any], ...]
+    observation_vector: tuple[float, ...]
+    action_features: tuple[tuple[float, ...], ...]
+    action_identity_ids: tuple[tuple[int, ...], ...]
+    action_ids: tuple[int, ...]
+
+
 def train_masked_ppo(
     *,
     target: str = "act1-boss",
@@ -340,6 +355,12 @@ def train_masked_ppo(
     report_output_path: Path | str | None = Path("reports/masked_ppo_latest.html"),
     progress_window: int = 20,
     device: str = "auto",
+    rollout_workers: int = 1,
+    rollout_inference: str = "worker",
+    history_mode: str = "highlights",
+    envs_per_worker: int = 1,
+    policy_server_min_batch: int = 1,
+    policy_server_max_wait_ms: int = 20,
     progress_callback: Callable[[Mapping[str, Any]], None] | None = None,
     progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
@@ -347,6 +368,14 @@ def train_masked_ppo(
 
     torch, nn, optim = _load_torch()
     torch_device = _resolve_torch_device(torch, device)
+    resolved_rollout_workers = _resolve_rollout_workers(rollout_workers)
+    resolved_rollout_inference = _normalize_rollout_inference(rollout_inference)
+    resolved_history_mode = _normalize_history_mode(history_mode)
+    resolved_envs_per_worker = _resolve_envs_per_worker(envs_per_worker)
+    resolved_policy_min_batch = max(1, _int(policy_server_min_batch))
+    resolved_policy_max_wait_ms = max(0, _int(policy_server_max_wait_ms))
+    if resolved_envs_per_worker > 1 and resolved_rollout_inference != "batched-gpu":
+        raise ValueError("envs_per_worker > 1 requires rollout_inference='batched-gpu'.")
     resolved_target = resolve_ppo_target(target)
     success_rate_threshold = _success_rate_threshold(target_success_rate)
     train_rng = random.Random(f"{seed}:ppo-train")
@@ -424,6 +453,13 @@ def train_masked_ppo(
         "minibatch_size": minibatch_size,
         "target_reward": target_reward,
         "until_stopped": until_stopped,
+        "rollout_workers": resolved_rollout_workers,
+        "rollout_inference": resolved_rollout_inference,
+        "history_mode": resolved_history_mode,
+        "envs_per_worker": resolved_envs_per_worker,
+        "active_env_streams": resolved_rollout_workers * resolved_envs_per_worker,
+        "policy_server_min_batch": resolved_policy_min_batch,
+        "policy_server_max_wait_ms": resolved_policy_max_wait_ms,
         "reward_schema_version": 5,
         "reward_config": DEFAULT_REWARD_CONFIG.model_dump(mode="json"),
     }
@@ -464,15 +500,23 @@ def train_masked_ppo(
     _report_training_progress(
         progress_reporter,
         "trainer_start",
-        target=resolved_target.__dict__,
-        start_batch=start_batch,
+            target=resolved_target.__dict__,
+            start_batch=start_batch,
         previous_batches=previous_batch_count,
         batch_limit=batch_limit,
         until_stopped=until_stopped,
         resumed_from_path=resumed_from,
-        device=str(torch_device),
+            device=str(torch_device),
+        rollout_workers=resolved_rollout_workers,
+        rollout_inference=resolved_rollout_inference,
+        history_mode=resolved_history_mode,
+        envs_per_worker=resolved_envs_per_worker,
+        active_env_streams=resolved_rollout_workers * resolved_envs_per_worker,
+        policy_server_min_batch=resolved_policy_min_batch,
+        policy_server_max_wait_ms=resolved_policy_max_wait_ms,
     )
     for batch_index in batch_indices:
+        batch_started_at = time.perf_counter()
         _report_training_progress(
             progress_reporter,
             "batch_start",
@@ -485,25 +529,37 @@ def train_masked_ppo(
         )
         transitions: list[_Transition] = []
         batch_planning_outputs: list[tuple[float, ...]] = []
-        for inner_index in range(max(0, train_runs_per_batch)):
-            run_index = len(training_points)
-            run_seed = _random_run_seed(train_rng)
-            run_result, run_transitions = _collect_training_run(
-                torch=torch,
-                model=model,
-                target=resolved_target,
-                run_index=run_index,
-                seed=run_seed,
-                max_steps=train_max_steps,
-                character_id=character_id,
-                ascension=ascension,
-                device=torch_device,
-                gamma=gamma,
-                target_reward=target_reward,
-                teacher_agent=teacher_agent,
-                teacher_mix=max(0.0, min(1.0, float(teacher_mix))),
-                imitation_enabled=max(0.0, float(imitation_coef)) > 0.0,
-            )
+        batch_train_results: list[LearningRunResult] = []
+        train_jobs = tuple(
+            (len(training_points) + index, _random_run_seed(train_rng))
+            for index in range(max(0, train_runs_per_batch))
+        )
+        train_outputs = _collect_training_rollouts(
+            torch=torch,
+            nn=nn,
+            model=model,
+            model_kwargs=_model_kwargs_from_architecture(architecture),
+            target=resolved_target,
+            jobs=train_jobs,
+            max_steps=train_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=torch_device,
+            gamma=gamma,
+            target_reward=target_reward,
+            teacher_agent=teacher_agent,
+            teacher_mix=max(0.0, min(1.0, float(teacher_mix))),
+            imitation_enabled=max(0.0, float(imitation_coef)) > 0.0,
+            rollout_workers=resolved_rollout_workers,
+            rollout_inference=resolved_rollout_inference,
+            envs_per_worker=resolved_envs_per_worker,
+            policy_server_min_batch=resolved_policy_min_batch,
+            policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+            progress_reporter=progress_reporter,
+            batch_index=batch_index,
+        )
+        for run_result, run_transitions in train_outputs:
+            batch_train_results.append(run_result)
             transitions.extend(run_transitions)
             batch_planning_outputs.extend(
                 transition.planning_outputs for transition in run_transitions
@@ -511,23 +567,6 @@ def train_masked_ppo(
             training_points.append(_progress_from_run(run_result, "masked_ppo_train"))
             total_steps += run_result.steps_taken
             total_reward += run_result.total_reward
-            _report_training_progress(
-                progress_reporter,
-                "train_run_end",
-                batch_index=batch_index,
-                run_position=inner_index + 1,
-                run_total=max(0, train_runs_per_batch),
-                run_index=run_result.run_index,
-                seed=run_result.seed,
-                steps_taken=run_result.steps_taken,
-                total_reward=run_result.total_reward,
-                final_act=run_result.final_act,
-                final_floor=run_result.final_floor,
-                final_phase=run_result.final_phase,
-                reached_target=_run_reached_target(run_result, resolved_target),
-                failed_to_continue=run_result.failed_to_continue,
-                error=run_result.error,
-            )
 
         if transitions:
             _report_training_progress(
@@ -565,42 +604,40 @@ def train_masked_ppo(
             batch_index=batch_index,
             eval_runs=max(0, eval_runs),
         )
-        eval_results_list: list[LearningRunResult] = []
-        for eval_index in range(max(0, eval_runs)):
-            eval_result = _evaluate_one_run(
-                torch=torch,
-                model=model,
-                target=resolved_target,
-                run_index=len(evaluation_points) + eval_index,
-                seed=_random_run_seed(eval_rng),
-                max_steps=eval_max_steps,
-                character_id=character_id,
-                ascension=ascension,
-                device=torch_device,
-                include_history=True,
-            )
-            eval_results_list.append(eval_result)
-            _report_training_progress(
-                progress_reporter,
-                "eval_run_end",
-                batch_index=batch_index,
-                run_position=eval_index + 1,
-                run_total=max(0, eval_runs),
-                run_index=eval_result.run_index,
-                seed=eval_result.seed,
-                steps_taken=eval_result.steps_taken,
-                total_reward=eval_result.total_reward,
-                final_act=eval_result.final_act,
-                final_floor=eval_result.final_floor,
-                final_phase=eval_result.final_phase,
-                reached_target=_run_reached_target(eval_result, resolved_target),
-                failed_to_continue=eval_result.failed_to_continue,
-                error=eval_result.error,
-            )
-        eval_results = tuple(eval_results_list)
-        highlight_run_histories = _select_highlight_run_histories(
-            eval_results,
+        eval_jobs = tuple(
+            (len(evaluation_points) + index, _random_run_seed(eval_rng))
+            for index in range(max(0, eval_runs))
+        )
+        eval_results = _collect_evaluation_rollouts(
+            torch=torch,
+            nn=nn,
+            model=model,
+            model_kwargs=_model_kwargs_from_architecture(architecture),
             target=resolved_target,
+            jobs=eval_jobs,
+            max_steps=eval_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=torch_device,
+            include_history=resolved_history_mode == "all-eval",
+            rollout_workers=resolved_rollout_workers,
+            rollout_inference=resolved_rollout_inference,
+            envs_per_worker=resolved_envs_per_worker,
+            policy_server_min_batch=resolved_policy_min_batch,
+            policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+            progress_reporter=progress_reporter,
+            batch_index=batch_index,
+        )
+        highlight_run_histories = _highlight_run_histories_for_mode(
+            torch=torch,
+            model=model,
+            target=resolved_target,
+            eval_results=eval_results,
+            max_steps=eval_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=torch_device,
+            history_mode=resolved_history_mode,
             report_output_path=report_output_path,
             output_path=output_path,
         )
@@ -621,19 +658,28 @@ def train_masked_ppo(
         if batch_reached and reached_batch is None:
             reached_batch = batch_index
 
-        batch_summaries.append(
-            _ppo_batch_summary(
-                batch_index=batch_index,
-                trained_runs_total=len(training_points),
-                train_total_steps=total_steps,
-                eval_results=eval_results,
-                target_successes=target_successes,
-                target_success_rate_threshold=success_rate_threshold,
-                max_consecutive=max_consecutive,
-                reached_target=batch_reached,
-                planning_outputs=batch_planning_outputs,
-            )
+        batch_summary = _ppo_batch_summary(
+            batch_index=batch_index,
+            trained_runs_total=len(training_points),
+            train_total_steps=total_steps,
+            eval_results=eval_results,
+            target_successes=target_successes,
+            target_success_rate_threshold=success_rate_threshold,
+            max_consecutive=max_consecutive,
+            reached_target=batch_reached,
+            planning_outputs=batch_planning_outputs,
         )
+        batch_summary["throughput"] = _throughput_summary(
+            train_results=batch_train_results,
+            eval_results=eval_results,
+            elapsed_seconds=time.perf_counter() - batch_started_at,
+            rollout_workers=resolved_rollout_workers,
+            envs_per_worker=resolved_envs_per_worker,
+            rollout_inference=resolved_rollout_inference,
+            policy_server_min_batch=resolved_policy_min_batch,
+            policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+        )
+        batch_summaries.append(batch_summary)
         result = _ppo_result(
             target=resolved_target,
             reached_batch=reached_batch,
@@ -680,10 +726,18 @@ def train_masked_ppo(
             eval_runs=len(eval_results),
             evaluation_average_reward=_average(run.total_reward for run in eval_results),
             evaluation_average_floor=_average(run.final_floor for run in eval_results),
+            evaluation_best_reward=batch_summary.get("evaluation_best_reward"),
+            evaluation_best_floor=batch_summary.get("evaluation_best_floor"),
+            evaluation_errors=batch_summary.get("evaluation_errors"),
+            evaluation_failed_to_continue=batch_summary.get("evaluation_failed_to_continue"),
             evaluation_target_success_rate=(
                 target_success_rate
             ),
             target_success_rate_threshold=success_rate_threshold,
+            evaluation_max_consecutive_successes=max_consecutive,
+            reward_component_averages=batch_summary.get("reward_component_averages"),
+            diagnostic_averages=batch_summary.get("diagnostic_averages"),
+            throughput=batch_summary.get("throughput"),
             reached_target=batch_reached,
             model_path=str(model_output_path) if model_output_path is not None else None,
             output_path=str(output_path) if output_path is not None else None,
@@ -746,6 +800,1204 @@ def _average(values: Iterable[int | float]) -> float:
         total += float(value)
         count_value += 1
     return round(total / count_value, 6) if count_value else 0.0
+
+
+def _resolve_rollout_workers(value: object) -> int:
+    requested = _int(value)
+    if requested == 0:
+        return max(1, (os.cpu_count() or 1) - 1)
+    return max(1, requested)
+
+
+def _resolve_envs_per_worker(value: object) -> int:
+    return max(1, _int(value))
+
+
+def _normalize_rollout_inference(value: object) -> str:
+    normalized = str(value or "worker").strip().lower().replace("_", "-")
+    aliases = {
+        "worker": "worker",
+        "cpu": "worker",
+        "worker-cpu": "worker",
+        "workers": "worker",
+        "process": "worker",
+        "processes": "worker",
+        "central": "batched-gpu",
+        "central-gpu": "batched-gpu",
+        "gpu": "batched-gpu",
+        "batched": "batched-gpu",
+        "batched-gpu": "batched-gpu",
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError("rollout_inference must be 'worker' or 'batched-gpu'.")
+
+
+def _normalize_history_mode(value: object) -> str:
+    normalized = str(value or "highlights").strip().lower().replace("_", "-")
+    aliases = {
+        "off": "off",
+        "none": "off",
+        "false": "off",
+        "0": "off",
+        "highlight": "highlights",
+        "highlights": "highlights",
+        "best-worst": "highlights",
+        "all": "all-eval",
+        "all-eval": "all-eval",
+        "eval": "all-eval",
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError("history_mode must be 'off', 'highlights', or 'all-eval'.")
+
+
+def _model_kwargs_from_architecture(architecture: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "observation_dim": _int(architecture.get("observation_dim")),
+        "action_feature_dim": _int(architecture.get("action_feature_dim")),
+        "content_vocab_size": _int(architecture.get("content_vocab_size")),
+        "content_identity_slots": CONTENT_IDENTITY_SLOTS,
+        "content_identity_embedding_dim": CONTENT_IDENTITY_EMBED_DIM,
+        "hidden_size": _int(architecture.get("hidden_size")),
+        "hidden_layers": max(1, _int(architecture.get("hidden_layers"))),
+        "head_hidden_layers": max(1, _int(architecture.get("head_hidden_layers"))),
+        "activation": str(architecture.get("activation", "silu")),
+    }
+
+
+def _collect_training_rollouts(
+    *,
+    torch: Any,
+    nn: Any,
+    model: Any,
+    model_kwargs: Mapping[str, Any],
+    target: TrainingTarget,
+    jobs: Sequence[tuple[int, int]],
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+    gamma: float,
+    target_reward: float,
+    teacher_agent: Any | None,
+    teacher_mix: float,
+    imitation_enabled: bool,
+    rollout_workers: int,
+    rollout_inference: str,
+    envs_per_worker: int,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    batch_index: int,
+) -> tuple[tuple[LearningRunResult, tuple[_Transition, ...]], ...]:
+    if not jobs:
+        return ()
+    if rollout_workers <= 1 or len(jobs) <= 1:
+        outputs: list[tuple[LearningRunResult, tuple[_Transition, ...]]] = []
+        model.eval()
+        for position, (run_index, run_seed) in enumerate(jobs, start=1):
+            run_result, run_transitions = _collect_training_run(
+                torch=torch,
+                model=model,
+                target=target,
+                run_index=run_index,
+                seed=run_seed,
+                max_steps=max_steps,
+                character_id=character_id,
+                ascension=ascension,
+                device=device,
+                gamma=gamma,
+                target_reward=target_reward,
+                teacher_agent=teacher_agent,
+                teacher_mix=teacher_mix,
+                imitation_enabled=imitation_enabled,
+            )
+            outputs.append((run_result, run_transitions))
+            _report_run_end_progress(
+                progress_reporter,
+                "train_run_end",
+                batch_index=batch_index,
+                position=position,
+                total=len(jobs),
+                run=run_result,
+                target=target,
+            )
+        return tuple(outputs)
+
+    worker_count = min(max(1, rollout_workers), len(jobs))
+    if rollout_inference == "batched-gpu":
+        worker_count = min(max(1, rollout_workers * max(1, envs_per_worker)), len(jobs))
+        return _collect_training_rollouts_batched_inference(
+            torch=torch,
+            model=model,
+            target=target,
+            jobs=jobs,
+            max_steps=max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+            gamma=gamma,
+            target_reward=target_reward,
+            use_teacher=teacher_agent is not None,
+            teacher_mix=teacher_mix,
+            imitation_enabled=imitation_enabled,
+            worker_count=worker_count,
+            policy_server_min_batch=policy_server_min_batch,
+            policy_server_max_wait_ms=policy_server_max_wait_ms,
+            progress_reporter=progress_reporter,
+            batch_index=batch_index,
+        )
+    model_state = _cpu_model_state(model)
+    payloads = [
+        {
+            "model_state": model_state,
+            "model_kwargs": dict(model_kwargs),
+            "target": target.__dict__,
+            "jobs": list(chunk),
+            "max_steps": max_steps,
+            "character_id": character_id,
+            "ascension": ascension,
+            "gamma": gamma,
+            "target_reward": target_reward,
+            "use_teacher": teacher_agent is not None,
+            "teacher_mix": teacher_mix,
+            "imitation_enabled": imitation_enabled,
+        }
+        for chunk in _job_chunks(jobs, worker_count)
+    ]
+    outputs = []
+    completed = 0
+    with ProcessPoolExecutor(max_workers=worker_count) as executor:
+        futures = [executor.submit(_training_rollout_worker, payload) for payload in payloads]
+        for future in as_completed(futures):
+            for run_result, run_transitions in future.result():
+                completed += 1
+                outputs.append((run_result, run_transitions))
+                _report_run_end_progress(
+                    progress_reporter,
+                    "train_run_end",
+                    batch_index=batch_index,
+                    position=completed,
+                    total=len(jobs),
+                    run=run_result,
+                    target=target,
+                )
+    return tuple(sorted(outputs, key=lambda item: item[0].run_index))
+
+
+def _collect_evaluation_rollouts(
+    *,
+    torch: Any,
+    nn: Any,
+    model: Any,
+    model_kwargs: Mapping[str, Any],
+    target: TrainingTarget,
+    jobs: Sequence[tuple[int, int]],
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+    include_history: bool,
+    rollout_workers: int,
+    rollout_inference: str,
+    envs_per_worker: int,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    batch_index: int,
+) -> tuple[LearningRunResult, ...]:
+    if not jobs:
+        return ()
+    if rollout_workers <= 1 or len(jobs) <= 1:
+        outputs: list[LearningRunResult] = []
+        model.eval()
+        for position, (run_index, run_seed) in enumerate(jobs, start=1):
+            eval_result = _evaluate_one_run(
+                torch=torch,
+                model=model,
+                target=target,
+                run_index=run_index,
+                seed=run_seed,
+                max_steps=max_steps,
+                character_id=character_id,
+                ascension=ascension,
+                device=device,
+                include_history=include_history,
+            )
+            outputs.append(eval_result)
+            _report_run_end_progress(
+                progress_reporter,
+                "eval_run_end",
+                batch_index=batch_index,
+                position=position,
+                total=len(jobs),
+                run=eval_result,
+                target=target,
+            )
+        return tuple(outputs)
+
+    worker_count = min(max(1, rollout_workers), len(jobs))
+    if rollout_inference == "batched-gpu":
+        worker_count = min(max(1, rollout_workers * max(1, envs_per_worker)), len(jobs))
+        return _collect_evaluation_rollouts_batched_inference(
+            torch=torch,
+            model=model,
+            target=target,
+            jobs=jobs,
+            max_steps=max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+            include_history=include_history,
+            worker_count=worker_count,
+            policy_server_min_batch=policy_server_min_batch,
+            policy_server_max_wait_ms=policy_server_max_wait_ms,
+            progress_reporter=progress_reporter,
+            batch_index=batch_index,
+        )
+    model_state = _cpu_model_state(model)
+    payloads = [
+        {
+            "model_state": model_state,
+            "model_kwargs": dict(model_kwargs),
+            "target": target.__dict__,
+            "jobs": list(chunk),
+            "max_steps": max_steps,
+            "character_id": character_id,
+            "ascension": ascension,
+            "include_history": include_history,
+        }
+        for chunk in _job_chunks(jobs, worker_count)
+    ]
+    outputs = []
+    completed = 0
+    with ProcessPoolExecutor(max_workers=worker_count) as executor:
+        futures = [executor.submit(_evaluation_rollout_worker, payload) for payload in payloads]
+        for future in as_completed(futures):
+            for eval_result in future.result():
+                completed += 1
+                outputs.append(eval_result)
+                _report_run_end_progress(
+                    progress_reporter,
+                    "eval_run_end",
+                    batch_index=batch_index,
+                    position=completed,
+                    total=len(jobs),
+                    run=eval_result,
+                    target=target,
+                )
+    return tuple(sorted(outputs, key=lambda run: run.run_index))
+
+
+def _collect_training_rollouts_batched_inference(
+    *,
+    torch: Any,
+    model: Any,
+    target: TrainingTarget,
+    jobs: Sequence[tuple[int, int]],
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+    gamma: float,
+    target_reward: float,
+    use_teacher: bool,
+    teacher_mix: float,
+    imitation_enabled: bool,
+    worker_count: int,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    batch_index: int,
+) -> tuple[tuple[LearningRunResult, tuple[_Transition, ...]], ...]:
+    payloads = [
+        {
+            "target": target.__dict__,
+            "jobs": list(chunk),
+            "max_steps": max_steps,
+            "character_id": character_id,
+            "ascension": ascension,
+            "gamma": gamma,
+            "target_reward": target_reward,
+            "use_teacher": use_teacher,
+            "teacher_mix": teacher_mix,
+            "imitation_enabled": imitation_enabled,
+        }
+        for chunk in _job_chunks(jobs, worker_count)
+    ]
+    outputs = _run_batched_inference_workers(
+        torch=torch,
+        model=model,
+        target=target,
+        payloads=payloads,
+        worker_target=_training_batched_inference_worker,
+        progress_reporter=progress_reporter,
+        progress_event="train_run_end",
+        batch_index=batch_index,
+        total_runs=len(jobs),
+        device=device,
+        policy_server_min_batch=policy_server_min_batch,
+        policy_server_max_wait_ms=policy_server_max_wait_ms,
+    )
+    return tuple(sorted(outputs, key=lambda item: item[0].run_index))
+
+
+def _collect_evaluation_rollouts_batched_inference(
+    *,
+    torch: Any,
+    model: Any,
+    target: TrainingTarget,
+    jobs: Sequence[tuple[int, int]],
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+    include_history: bool,
+    worker_count: int,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    batch_index: int,
+) -> tuple[LearningRunResult, ...]:
+    payloads = [
+        {
+            "target": target.__dict__,
+            "jobs": list(chunk),
+            "max_steps": max_steps,
+            "character_id": character_id,
+            "ascension": ascension,
+            "include_history": include_history,
+        }
+        for chunk in _job_chunks(jobs, worker_count)
+    ]
+    outputs = _run_batched_inference_workers(
+        torch=torch,
+        model=model,
+        target=target,
+        payloads=payloads,
+        worker_target=_evaluation_batched_inference_worker,
+        progress_reporter=progress_reporter,
+        progress_event="eval_run_end",
+        batch_index=batch_index,
+        total_runs=len(jobs),
+        device=device,
+        policy_server_min_batch=policy_server_min_batch,
+        policy_server_max_wait_ms=policy_server_max_wait_ms,
+    )
+    return tuple(sorted(outputs, key=lambda run: run.run_index))
+
+
+def _run_batched_inference_workers(
+    *,
+    torch: Any,
+    model: Any,
+    target: TrainingTarget,
+    payloads: Sequence[Mapping[str, Any]],
+    worker_target: Any,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    progress_event: str,
+    batch_index: int,
+    total_runs: int,
+    device: Any,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
+) -> tuple[Any, ...]:
+    if not payloads:
+        return ()
+    ctx = mp.get_context("spawn")
+    request_queue = ctx.Queue()
+    result_queue = ctx.Queue()
+    response_queues = [ctx.Queue() for _payload in payloads]
+    processes = [
+        ctx.Process(
+            target=worker_target,
+            args=(worker_id, payload, request_queue, response_queues[worker_id], result_queue),
+        )
+        for worker_id, payload in enumerate(payloads)
+    ]
+    for process in processes:
+        process.start()
+    outputs: list[Any] = []
+    completed_workers = 0
+    completed_runs = 0
+    model.eval()
+    try:
+        while completed_workers < len(processes):
+            completed_workers, completed_runs = _drain_batched_worker_results(
+                result_queue=result_queue,
+                completed_workers=completed_workers,
+                completed_runs=completed_runs,
+                outputs=outputs,
+                progress_reporter=progress_reporter,
+                progress_event=progress_event,
+                batch_index=batch_index,
+                total_runs=total_runs,
+                target=target,
+            )
+            requests = _next_inference_requests(
+                request_queue,
+                min_batch=policy_server_min_batch,
+                max_wait_ms=policy_server_max_wait_ms,
+            )
+            if requests:
+                responses = _batched_policy_decisions(
+                    torch=torch,
+                    model=model,
+                    requests=requests,
+                    device=device,
+                )
+                for response in responses:
+                    worker_id = _int(response.get("worker_id"))
+                    if 0 <= worker_id < len(response_queues):
+                        response_queues[worker_id].put(response)
+                continue
+            _raise_if_batched_worker_failed(processes)
+        _raise_if_batched_worker_failed(processes, require_exit=True)
+        return tuple(outputs)
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.join(timeout=0.2)
+            if process.is_alive():
+                process.terminate()
+        for process in processes:
+            process.join(timeout=1.0)
+
+
+def _next_inference_requests(
+    request_queue: Any,
+    *,
+    min_batch: int = 1,
+    max_wait_ms: int = 20,
+) -> list[Mapping[str, Any]]:
+    requests: list[Mapping[str, Any]] = []
+    try:
+        message = request_queue.get(timeout=0.02)
+    except queue.Empty:
+        return requests
+    if isinstance(message, Mapping) and message.get("type") == "decision_request":
+        requests.append(message)
+    deadline = time.perf_counter() + (max(0, max_wait_ms) / 1000.0)
+    while True:
+        if len(requests) >= max(1, min_batch):
+            break
+        timeout = max(0.0, deadline - time.perf_counter())
+        if timeout <= 0.0:
+            break
+        try:
+            message = request_queue.get(timeout=timeout)
+        except queue.Empty:
+            break
+        if isinstance(message, Mapping) and message.get("type") == "decision_request":
+            requests.append(message)
+    while True:
+        try:
+            message = request_queue.get_nowait()
+        except queue.Empty:
+            break
+        if isinstance(message, Mapping) and message.get("type") == "decision_request":
+            requests.append(message)
+    return requests
+
+
+def _drain_batched_worker_results(
+    *,
+    result_queue: Any,
+    completed_workers: int,
+    completed_runs: int,
+    outputs: list[Any],
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    progress_event: str,
+    batch_index: int,
+    total_runs: int,
+    target: TrainingTarget,
+) -> tuple[int, int]:
+    while True:
+        try:
+            message = result_queue.get_nowait()
+        except queue.Empty:
+            return completed_workers, completed_runs
+        if not isinstance(message, Mapping):
+            continue
+        if message.get("type") == "worker_error":
+            raise RuntimeError(str(message.get("error", "rollout worker failed")))
+        if message.get("type") != "worker_done":
+            continue
+        completed_workers += 1
+        for output in _sequence(message.get("outputs")):
+            outputs.append(output)
+            run = output[0] if isinstance(output, tuple) else output
+            if isinstance(run, LearningRunResult):
+                completed_runs += 1
+                _report_run_end_progress(
+                    progress_reporter,
+                    progress_event,
+                    batch_index=batch_index,
+                    position=completed_runs,
+                    total=total_runs,
+                    run=run,
+                    target=target,
+                )
+
+
+def _raise_if_batched_worker_failed(
+    processes: Sequence[Any],
+    *,
+    require_exit: bool = False,
+) -> None:
+    for process in processes:
+        exitcode = process.exitcode
+        if exitcode is None and require_exit:
+            process.join(timeout=0.1)
+            exitcode = process.exitcode
+        if exitcode not in {None, 0}:
+            raise RuntimeError(
+                f"rollout worker process {process.pid} exited with code {exitcode}"
+            )
+
+
+def _batched_policy_decisions(
+    *,
+    torch: Any,
+    model: Any,
+    requests: Sequence[Mapping[str, Any]],
+    device: Any,
+) -> tuple[dict[str, Any], ...]:
+    if not requests:
+        return ()
+    max_actions = max(len(_sequence(request.get("action_features"))) for request in requests)
+    action_feature_dim = len(_sequence(_sequence(requests[0].get("action_features"))[0]))
+    identity_slots = len(_sequence(_sequence(requests[0].get("action_identity_ids"))[0]))
+    action_features = []
+    action_identity_ids = []
+    action_mask = []
+    for request in requests:
+        feature_rows = [list(row) for row in _sequence(request.get("action_features"))]
+        identity_rows = [list(row) for row in _sequence(request.get("action_identity_ids"))]
+        legal_count = len(feature_rows)
+        feature_rows.extend(
+            [[0.0 for _index in range(action_feature_dim)]]
+            * max(0, max_actions - legal_count)
+        )
+        identity_rows.extend(
+            [[0 for _index in range(identity_slots)]]
+            * max(0, max_actions - legal_count)
+        )
+        action_features.append(feature_rows)
+        action_identity_ids.append(identity_rows)
+        action_mask.append(
+            [True for _index in range(legal_count)]
+            + [False for _index in range(max_actions - legal_count)]
+        )
+    with torch.no_grad():
+        logits, values, planning_outputs = model(
+            torch.tensor(
+                [request.get("observation_vector") for request in requests],
+                dtype=torch.float32,
+                device=device,
+            ),
+            torch.tensor(action_features, dtype=torch.float32, device=device),
+            torch.tensor(action_identity_ids, dtype=torch.long, device=device),
+        )
+        mask_tensor = torch.tensor(action_mask, dtype=torch.bool, device=device)
+        masked_logits = logits.masked_fill(~mask_tensor, -1.0e9)
+        distribution = torch.distributions.Categorical(logits=masked_logits)
+        sampled_indices = distribution.sample()
+        greedy_indices = torch.argmax(masked_logits, dim=1)
+        deterministic_mask = torch.tensor(
+            [bool(request.get("deterministic")) for request in requests],
+            dtype=torch.bool,
+            device=device,
+        )
+        action_indices = torch.where(deterministic_mask, greedy_indices, sampled_indices)
+        forced_indices = torch.tensor(
+            [
+                _int(request.get("forced_action_index"))
+                if request.get("forced_action_index") is not None
+                else -1
+                for request in requests
+            ],
+            dtype=torch.long,
+            device=device,
+        )
+        forced_mask = (forced_indices >= 0) & (forced_indices < mask_tensor.shape[1])
+        action_indices = torch.where(forced_mask, forced_indices, action_indices)
+        log_probs = distribution.log_prob(action_indices)
+        probabilities = distribution.probs
+        entropies = distribution.entropy()
+    responses = []
+    for row, request in enumerate(requests):
+        action_index = int(action_indices[row].item())
+        action_ids = tuple(_int(value) for value in _sequence(request.get("action_ids")))
+        if action_index < 0 or action_index >= len(action_ids):
+            responses.append(
+                {
+                    "type": "decision_response",
+                    "worker_id": request.get("worker_id"),
+                    "request_id": request.get("request_id"),
+                    "decision": None,
+                }
+            )
+            continue
+        action_features_tuple = tuple(
+            tuple(float(value) for value in row_values)
+            for row_values in _sequence(request.get("action_features"))
+        )
+        action_identity_ids_tuple = tuple(
+            tuple(_int(value) for value in row_values)
+            for row_values in _sequence(request.get("action_identity_ids"))
+        )
+        decision_context = {
+            "action_index": float(action_index),
+            "log_prob": float(log_probs[row].item()),
+            "value": float(values[row].item()),
+            "confidence": float(probabilities[row, action_index].item()),
+            "entropy": float(entropies[row].item()),
+        }
+        for index, key in enumerate(PLANNING_HEAD_SCHEMA):
+            decision_context[key] = float(planning_outputs[row, index].item())
+        responses.append(
+            {
+                "type": "decision_response",
+                "worker_id": request.get("worker_id"),
+                "request_id": request.get("request_id"),
+                "decision": (
+                    action_ids[action_index],
+                    action_index,
+                    decision_context["log_prob"],
+                    decision_context["value"],
+                    action_features_tuple,
+                    action_identity_ids_tuple,
+                    decision_context,
+                ),
+            }
+        )
+    return tuple(responses)
+
+
+def _training_batched_inference_worker(
+    worker_id: int,
+    payload: Mapping[str, Any],
+    request_queue: Any,
+    response_queue: Any,
+    result_queue: Any,
+) -> None:
+    try:
+        target = TrainingTarget(**dict(_mapping(payload.get("target"))))
+        teacher_agent = _strategic_teacher_agent() if payload.get("use_teacher") else None
+        outputs = [
+            _collect_training_run_with_policy_server(
+                worker_id=worker_id,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                target=target,
+                run_index=run_index,
+                seed=run_seed,
+                max_steps=max(1, _int(payload.get("max_steps"))),
+                character_id=str(payload.get("character_id", "IRONCLAD")),
+                ascension=_int(payload.get("ascension")),
+                gamma=_float(payload.get("gamma")),
+                target_reward=_float(payload.get("target_reward")),
+                teacher_agent=teacher_agent,
+                teacher_mix=max(0.0, min(1.0, _float(payload.get("teacher_mix")))),
+                imitation_enabled=bool(payload.get("imitation_enabled")),
+            )
+            for run_index, run_seed in _worker_jobs(payload)
+        ]
+        result_queue.put(
+            {"type": "worker_done", "worker_id": worker_id, "outputs": tuple(outputs)}
+        )
+    except Exception as exc:  # pragma: no cover - defensive worker boundary
+        result_queue.put(
+            {
+                "type": "worker_error",
+                "worker_id": worker_id,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        )
+
+
+def _evaluation_batched_inference_worker(
+    worker_id: int,
+    payload: Mapping[str, Any],
+    request_queue: Any,
+    response_queue: Any,
+    result_queue: Any,
+) -> None:
+    try:
+        target = TrainingTarget(**dict(_mapping(payload.get("target"))))
+        outputs = [
+            _evaluate_one_run_with_policy_server(
+                worker_id=worker_id,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                target=target,
+                run_index=run_index,
+                seed=run_seed,
+                max_steps=max(1, _int(payload.get("max_steps"))),
+                character_id=str(payload.get("character_id", "IRONCLAD")),
+                ascension=_int(payload.get("ascension")),
+                include_history=bool(payload.get("include_history")),
+            )
+            for run_index, run_seed in _worker_jobs(payload)
+        ]
+        result_queue.put(
+            {"type": "worker_done", "worker_id": worker_id, "outputs": tuple(outputs)}
+        )
+    except Exception as exc:  # pragma: no cover - defensive worker boundary
+        result_queue.put(
+            {
+                "type": "worker_error",
+                "worker_id": worker_id,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        )
+
+
+def _collect_training_run_with_policy_server(
+    *,
+    worker_id: int,
+    request_queue: Any,
+    response_queue: Any,
+    target: TrainingTarget,
+    run_index: int,
+    seed: int,
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    gamma: float,
+    target_reward: float,
+    teacher_agent: Any | None = None,
+    teacher_mix: float = 0.0,
+    imitation_enabled: bool = False,
+) -> tuple[LearningRunResult, tuple[_Transition, ...]]:
+    env = Sts2Env(
+        seed=seed,
+        character_id=character_id,
+        ascension=ascension,
+        max_episode_steps=max_steps,
+        reward_fn=learning_reward,
+        include_serialized_state=False,
+    )
+    transitions: list[_Transition] = []
+    total_reward = 0.0
+    steps_taken = 0
+    terminated = False
+    truncated = False
+    error: str | None = None
+    failed_to_continue = False
+    observation: dict[str, Any] = {}
+    reward_breakdown_totals: dict[str, float] = {}
+    diagnostics: dict[str, Any] = {}
+    teacher_rng = random.Random(f"{seed}:teacher-mix")
+    try:
+        observation, info = env.reset()
+        for step_index in range(max_steps):
+            teacher_index = (
+                _teacher_action_index(env.state, info, teacher_agent)
+                if teacher_agent is not None and env.state is not None
+                else None
+            )
+            forced_index = (
+                teacher_index
+                if teacher_index is not None
+                and teacher_mix > 0.0
+                and teacher_rng.random() < teacher_mix
+                else None
+            )
+            decision = _request_policy_server_decision(
+                worker_id=worker_id,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                request_id=f"{run_index}:train:{step_index}",
+                observation=observation,
+                info=info,
+                deterministic=False,
+                forced_action_index=forced_index,
+            )
+            if decision is None:
+                failed_to_continue = True
+                error = "No legal action id was available before target or terminal state."
+                break
+            (
+                action_id,
+                action_index,
+                log_prob,
+                value,
+                action_features,
+                action_identity_ids,
+                decision_context,
+            ) = decision
+            action_descriptor = _descriptor_for_id(info, action_id)
+            if teacher_index is not None:
+                decision_context["teacher_action_index"] = float(teacher_index)
+            if forced_index is not None:
+                decision_context["teacher_forced"] = 1.0
+            env.set_pending_policy_output(decision_context)
+            before_state = env.state
+            next_observation, _reward, terminated, truncated, next_info = env.step(action_id)
+            reached = target.reached(next_observation)
+            reward_breakdown = _reward_breakdown_with_target(
+                next_info,
+                target_reward=float(target_reward) if reached else 0.0,
+            )
+            effective_reward = _float(reward_breakdown.get("total"))
+            done = terminated or truncated or reached
+            _accumulate_reward_breakdown(reward_breakdown_totals, reward_breakdown)
+            transitions.append(
+                _Transition(
+                    observation_vector=_observation_vector(observation),
+                    action_features=action_features,
+                    action_identity_ids=action_identity_ids,
+                    action_index=action_index,
+                    old_log_prob=log_prob,
+                    value=value,
+                    planning_targets=_planning_targets(observation),
+                    planning_outputs=_planning_outputs_tuple(decision_context),
+                    reward=effective_reward,
+                    done=done,
+                    teacher_action_index=teacher_index if imitation_enabled else None,
+                )
+            )
+            _accumulate_run_diagnostics(
+                diagnostics,
+                before_state=before_state,
+                after_state=env.state,
+                action_descriptor=action_descriptor,
+            )
+            total_reward += effective_reward
+            steps_taken += 1
+            observation = next_observation
+            info = next_info
+            if done:
+                break
+    except Exception as exc:  # pragma: no cover - defensive runtime capture
+        failed_to_continue = True
+        error = f"{type(exc).__name__}: {exc}"
+    finally:
+        env.close()
+    final_phase = str(observation.get("phase", "unknown"))
+    if final_phase in {"complete", "failed"} and error is not None:
+        failed_to_continue = False
+    return (
+        LearningRunResult(
+            run_index=run_index,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            policy="masked_ppo_train",
+            steps_taken=steps_taken,
+            total_reward=round(total_reward, 6),
+            terminated=terminated,
+            truncated=truncated,
+            final_phase=final_phase,
+            final_act=_lookup_vector_int(observation, "act"),
+            final_floor=_lookup_vector_int(observation, "floor"),
+            error=error,
+            failed_to_continue=failed_to_continue,
+            reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
+            diagnostics=_final_run_diagnostics(diagnostics, env.state),
+            steps=(),
+        ),
+        tuple(transitions),
+    )
+
+
+def _evaluate_one_run_with_policy_server(
+    *,
+    worker_id: int,
+    request_queue: Any,
+    response_queue: Any,
+    target: TrainingTarget,
+    run_index: int,
+    seed: int,
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    include_history: bool = False,
+) -> LearningRunResult:
+    env = Sts2Env(
+        seed=seed,
+        character_id=character_id,
+        ascension=ascension,
+        max_episode_steps=max_steps,
+        reward_fn=learning_reward,
+        include_serialized_state=False,
+    )
+    total_reward = 0.0
+    steps_taken = 0
+    terminated = False
+    truncated = False
+    error: str | None = None
+    failed_to_continue = False
+    observation: dict[str, Any] = {}
+    history: RunHistory | None = None
+    reward_breakdown_totals: dict[str, float] = {}
+    diagnostics: dict[str, Any] = {}
+    try:
+        observation, info = env.reset()
+        if include_history and env.state is not None:
+            history = start_run_history(env.state, policy="masked_ppo_eval")
+        for step_index in range(max_steps):
+            decision = _request_policy_server_decision(
+                worker_id=worker_id,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                request_id=f"{run_index}:eval:{step_index}",
+                observation=observation,
+                info=info,
+                deterministic=True,
+                forced_action_index=None,
+            )
+            if decision is None:
+                failed_to_continue = True
+                error = "No legal action id was available before target or terminal state."
+                break
+            action_id = decision[0]
+            before_state = env.state
+            action_descriptor = _descriptor_for_id(info, action_id)
+            action_payload = _action_for_id(info, action_id)
+            env.set_pending_policy_output(decision[6])
+            observation, reward, terminated, truncated, info = env.step(action_id)
+            reward_breakdown = _reward_breakdown_from_info(info)
+            _accumulate_reward_breakdown(reward_breakdown_totals, reward_breakdown)
+            _accumulate_run_diagnostics(
+                diagnostics,
+                before_state=before_state,
+                after_state=env.state,
+                action_descriptor=action_descriptor,
+            )
+            if history is not None and before_state is not None and env.state is not None:
+                if not action_payload:
+                    action_payload = dict(_mapping(info.get("action")))
+                history = append_history_step(
+                    history,
+                    record_history_step(
+                        step_index=step_index,
+                        before_state=before_state,
+                        action=action_payload,
+                        after_state=env.state,
+                        reward=reward,
+                        decision=_history_decision_context(
+                            decision,
+                            reward_breakdown=reward_breakdown,
+                        ),
+                    ),
+                    env.state,
+                )
+            total_reward += float(reward)
+            steps_taken += 1
+            if terminated or truncated or target.reached(observation):
+                break
+    except Exception as exc:  # pragma: no cover - defensive runtime capture
+        failed_to_continue = True
+        error = f"{type(exc).__name__}: {exc}"
+    finally:
+        env.close()
+    final_phase = str(observation.get("phase", "unknown"))
+    if final_phase in {"complete", "failed"} and error is not None:
+        failed_to_continue = False
+    return LearningRunResult(
+        run_index=run_index,
+        seed=seed,
+        character_id=character_id,
+        ascension=ascension,
+        policy="masked_ppo_eval",
+        steps_taken=steps_taken,
+        total_reward=round(total_reward, 6),
+        terminated=terminated,
+        truncated=truncated,
+        final_phase=final_phase,
+        final_act=_lookup_vector_int(observation, "act"),
+        final_floor=_lookup_vector_int(observation, "floor"),
+        error=error,
+        failed_to_continue=failed_to_continue,
+        reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
+        diagnostics=_final_run_diagnostics(diagnostics, env.state),
+        history=history.model_dump(mode="json") if history is not None else None,
+        steps=(),
+    )
+
+
+def _request_policy_server_decision(
+    *,
+    worker_id: int,
+    request_queue: Any,
+    response_queue: Any,
+    request_id: str,
+    observation: Mapping[str, Any],
+    info: Mapping[str, Any],
+    deterministic: bool,
+    forced_action_index: int | None,
+) -> tuple[
+    int,
+    int,
+    float,
+    float,
+    tuple[tuple[float, ...], ...],
+    tuple[tuple[int, ...], ...],
+    dict[str, float],
+] | None:
+    policy_input = _policy_input(observation, info)
+    if not policy_input.descriptors:
+        return None
+    request_queue.put(
+        {
+            "type": "decision_request",
+            "worker_id": worker_id,
+            "request_id": request_id,
+            "observation_vector": policy_input.observation_vector,
+            "action_features": policy_input.action_features,
+            "action_identity_ids": policy_input.action_identity_ids,
+            "action_ids": policy_input.action_ids,
+            "deterministic": deterministic,
+            "forced_action_index": forced_action_index,
+        }
+    )
+    while True:
+        response = response_queue.get()
+        if (
+            isinstance(response, Mapping)
+            and response.get("type") == "decision_response"
+            and response.get("request_id") == request_id
+        ):
+            decision = response.get("decision")
+            return decision if isinstance(decision, tuple) else None
+
+
+def _training_rollout_worker(
+    payload: Mapping[str, Any],
+) -> tuple[tuple[LearningRunResult, tuple[_Transition, ...]], ...]:
+    torch, nn, _optim = _load_torch()
+    _configure_worker_torch(torch)
+    model = _worker_model(torch, nn, payload)
+    target = TrainingTarget(**dict(_mapping(payload.get("target"))))
+    teacher_agent = _strategic_teacher_agent() if payload.get("use_teacher") else None
+    outputs: list[tuple[LearningRunResult, tuple[_Transition, ...]]] = []
+    for run_index, run_seed in _worker_jobs(payload):
+        _seed_worker_torch(torch, run_seed)
+        outputs.append(
+            _collect_training_run(
+                torch=torch,
+                model=model,
+                target=target,
+                run_index=run_index,
+                seed=run_seed,
+                max_steps=max(1, _int(payload.get("max_steps"))),
+                character_id=str(payload.get("character_id", "IRONCLAD")),
+                ascension=_int(payload.get("ascension")),
+                device=torch.device("cpu"),
+                gamma=_float(payload.get("gamma")),
+                target_reward=_float(payload.get("target_reward")),
+                teacher_agent=teacher_agent,
+                teacher_mix=max(0.0, min(1.0, _float(payload.get("teacher_mix")))),
+                imitation_enabled=bool(payload.get("imitation_enabled")),
+            )
+        )
+    return tuple(outputs)
+
+
+def _evaluation_rollout_worker(payload: Mapping[str, Any]) -> tuple[LearningRunResult, ...]:
+    torch, nn, _optim = _load_torch()
+    _configure_worker_torch(torch)
+    model = _worker_model(torch, nn, payload)
+    target = TrainingTarget(**dict(_mapping(payload.get("target"))))
+    outputs: list[LearningRunResult] = []
+    for run_index, run_seed in _worker_jobs(payload):
+        _seed_worker_torch(torch, run_seed)
+        outputs.append(
+            _evaluate_one_run(
+                torch=torch,
+                model=model,
+                target=target,
+                run_index=run_index,
+                seed=run_seed,
+                max_steps=max(1, _int(payload.get("max_steps"))),
+                character_id=str(payload.get("character_id", "IRONCLAD")),
+                ascension=_int(payload.get("ascension")),
+                device=torch.device("cpu"),
+                include_history=bool(payload.get("include_history")),
+            )
+        )
+    return tuple(outputs)
+
+
+def _worker_model(torch: Any, nn: Any, payload: Mapping[str, Any]) -> Any:
+    model_class = _masked_actor_critic_class(nn)
+    model = model_class(**dict(_mapping(payload.get("model_kwargs"))))
+    model.load_state_dict(dict(_mapping(payload.get("model_state"))))
+    model.to(torch.device("cpu"))
+    model.eval()
+    return model
+
+
+def _configure_worker_torch(torch: Any) -> None:
+    try:
+        torch.set_num_threads(1)
+    except Exception:
+        return
+
+
+def _seed_worker_torch(torch: Any, seed: int) -> None:
+    try:
+        torch.manual_seed(int(seed) % 2_147_483_647)
+    except Exception:
+        return
+
+
+def _worker_jobs(payload: Mapping[str, Any]) -> tuple[tuple[int, int], ...]:
+    jobs = []
+    for item in _sequence(payload.get("jobs")):
+        if isinstance(item, Sequence) and len(item) >= 2:
+            jobs.append((_int(item[0]), _int(item[1])))
+    return tuple(jobs)
+
+
+def _cpu_model_state(model: Any) -> dict[str, Any]:
+    return {key: value.detach().cpu() for key, value in model.state_dict().items()}
+
+
+def _job_chunks(
+    jobs: Sequence[tuple[int, int]],
+    worker_count: int,
+) -> tuple[tuple[tuple[int, int], ...], ...]:
+    if not jobs:
+        return ()
+    chunk_size = max(1, math.ceil(len(jobs) / max(1, worker_count)))
+    return tuple(
+        tuple(jobs[start : start + chunk_size])
+        for start in range(0, len(jobs), chunk_size)
+    )
+
+
+def _report_run_end_progress(
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    event: str,
+    *,
+    batch_index: int,
+    position: int,
+    total: int,
+    run: LearningRunResult,
+    target: TrainingTarget,
+) -> None:
+    _report_training_progress(
+        progress_reporter,
+        event,
+        batch_index=batch_index,
+        run_position=position,
+        run_total=total,
+        run_index=run.run_index,
+        seed=run.seed,
+        steps_taken=run.steps_taken,
+        total_reward=run.total_reward,
+        final_act=run.final_act,
+        final_floor=run.final_floor,
+        final_phase=run.final_phase,
+        reached_target=_run_reached_target(run, target),
+        failed_to_continue=run.failed_to_continue,
+        error=run.error,
+    )
 
 
 def resolve_ppo_target(target: str) -> TrainingTarget:
@@ -823,7 +2075,7 @@ def _collect_training_run(
     failed_to_continue = False
     observation: dict[str, Any] = {}
     reward_breakdown_totals: dict[str, float] = {}
-    diagnostics: dict[str, float] = {}
+    diagnostics: dict[str, Any] = {}
     teacher_rng = random.Random(f"{seed}:teacher-mix")
     try:
         observation, info = env.reset()
@@ -967,7 +2219,7 @@ def _evaluate_one_run(
     observation: dict[str, Any] = {}
     history: RunHistory | None = None
     reward_breakdown_totals: dict[str, float] = {}
-    diagnostics: dict[str, float] = {}
+    diagnostics: dict[str, Any] = {}
     try:
         observation, info = env.reset()
         if include_history and env.state is not None:
@@ -1093,7 +2345,7 @@ def _teacher_action_index(
 
 
 def _accumulate_run_diagnostics(
-    target: dict[str, float],
+    target: dict[str, Any],
     *,
     before_state: Any,
     after_state: Any,
@@ -1102,9 +2354,15 @@ def _accumulate_run_diagnostics(
     before = _state_payload(before_state)
     after = _state_payload(after_state)
     action_type = str(action_descriptor.get("type", ""))
+    _accumulate_reward_presentation_diagnostics(target, before)
+    _accumulate_reward_presentation_diagnostics(target, after)
     target["actions"] = target.get("actions", 0.0) + 1.0
     if action_type.startswith("take_reward_"):
         target[action_type] = target.get(action_type, 0.0) + 1.0
+        kind = _reward_kind_for_take_action(action_type)
+        if kind:
+            key = f"reward_{kind}_picked"
+            target[key] = target.get(key, 0.0) + 1.0
     if action_type == "shop_buy":
         kind = str(_mapping(action_descriptor.get("item")).get("kind", ""))
         if kind:
@@ -1116,10 +2374,16 @@ def _accumulate_run_diagnostics(
         )
         key = f"skip_reward_{skip_kind or 'unknown'}"
         target[key] = target.get(key, 0.0) + 1.0
+        kind = _reward_kind_for_skip_kind(skip_kind)
+        if kind:
+            skip_key = f"reward_{kind}_skipped"
+            target[skip_key] = target.get(skip_key, 0.0) + 1.0
     if action_type == "proceed" and str(before.get("phase", "")) in {"reward", "treasure"}:
-        for kind in _available_reward_kinds(before):
+        for kind, count_value in _available_reward_kind_counts(before).items():
             key = f"proceed_with_unclaimed_{kind}"
             target[key] = target.get(key, 0.0) + 1.0
+            unclaimed_key = f"reward_{kind}_unclaimed"
+            target[unclaimed_key] = target.get(unclaimed_key, 0.0) + float(count_value)
     before_cards = _deck_cards(before)
     after_cards = _deck_cards(after)
     if len(after_cards) > len(before_cards):
@@ -1144,8 +2408,77 @@ def _accumulate_run_diagnostics(
         )
 
 
+def _accumulate_reward_presentation_diagnostics(
+    target: dict[str, Any],
+    payload: Mapping[str, Any],
+) -> None:
+    summary = _mapping(reward_plan_summary(payload))
+    if not _bool(summary.get("reward_open")):
+        return
+    reward_id = _reward_presentation_id(summary)
+    seen = target.setdefault(_REWARD_PRESENTATION_SEEN_KEY, set())
+    if not isinstance(seen, set):
+        return
+    for kind, count_value in _reward_presented_counts(summary).items():
+        count_float = float(count_value)
+        if count_float <= 0:
+            continue
+        seen_key = f"{reward_id}:{kind}"
+        if seen_key in seen:
+            continue
+        seen.add(seen_key)
+        presented_key = f"reward_{kind}_presented"
+        target[presented_key] = target.get(presented_key, 0.0) + count_float
+        target["reward_total_presented"] = target.get("reward_total_presented", 0.0) + count_float
+
+
+def _reward_presentation_id(summary: Mapping[str, Any]) -> str:
+    reward_id = str(summary.get("reward_id") or "")
+    if reward_id:
+        return reward_id
+    content = "|".join(str(item) for item in _sequence(summary.get("available_content_ids")))
+    return f"{summary.get('source', '')}:{content}"
+
+
+def _reward_presented_counts(summary: Mapping[str, Any]) -> dict[str, int]:
+    available = _mapping(summary.get("available_counts"))
+    card_sets = (
+        int(_float(available.get("cards")) > 0)
+        + _int(available.get("card_groups"))
+        + _int(available.get("fixed_cards"))
+    )
+    return {
+        "card": card_sets,
+        "gold": _int(available.get("gold")),
+        "relic": _int(available.get("relics")),
+        "potion": _int(available.get("potions")),
+        "card_removal": _int(available.get("card_removals")),
+    }
+
+
+def _reward_kind_for_take_action(action_type: str) -> str:
+    if action_type == "take_reward_card":
+        return "card"
+    if action_type == "take_reward_gold":
+        return "gold"
+    if action_type == "take_reward_relic":
+        return "relic"
+    if action_type == "take_reward_potion":
+        return "potion"
+    return ""
+
+
+def _reward_kind_for_skip_kind(skip_kind: str) -> str:
+    normalized = _normalized_id(skip_kind)
+    if normalized in {"card_options", "card_group", "fixed_card", "card"}:
+        return "card"
+    if normalized in {"gold", "relic", "potion", "card_removal"}:
+        return normalized
+    return ""
+
+
 def _accumulate_deck_delta_diagnostics(
-    target: dict[str, float],
+    target: dict[str, Any],
     before: Mapping[str, Any],
     after: Mapping[str, Any],
 ) -> None:
@@ -1181,7 +2514,11 @@ def _final_run_diagnostics(values: Mapping[str, Any], state: Any) -> dict[str, f
     cards = _deck_cards(payload)
     relics = _sequence(player.get("relics", payload.get("relics")))
     potions = _sequence(player.get("potions", payload.get("potions")))
-    result = {str(key): round(_float(value), 6) for key, value in values.items()}
+    result = {
+        str(key): round(_float(value), 6)
+        for key, value in values.items()
+        if not str(key).startswith("__")
+    }
     result["final_deck_size"] = float(len(cards) or _int(player.get("deck_count")))
     result["final_unknown_card_count"] = float(
         sum(1 for card in cards if _normalized_id(_mapping(card).get("type")) == "unknown")
@@ -1212,27 +2549,18 @@ def _deck_cards(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
 
 
 def _available_reward_kinds(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    return tuple(_available_reward_kind_counts(payload))
+
+
+def _available_reward_kind_counts(payload: Mapping[str, Any]) -> dict[str, int]:
     summary = _mapping(reward_plan_summary(payload))
     if not _bool(summary.get("reward_open")):
-        return ()
-    available = _mapping(summary.get("available_counts"))
-    kinds: list[str] = []
-    if _float(available.get("gold")) > 0:
-        kinds.append("gold")
-    card_count = (
-        _float(available.get("cards"))
-        + _float(available.get("card_groups"))
-        + _float(available.get("fixed_cards"))
-    )
-    if card_count > 0:
-        kinds.append("card")
-    if _float(available.get("card_removals")) > 0:
-        kinds.append("card_removal")
-    if _float(available.get("relics")) > 0:
-        kinds.append("relic")
-    if _float(available.get("potions")) > 0:
-        kinds.append("potion")
-    return tuple(kinds)
+        return {}
+    return {
+        kind: count_value
+        for kind, count_value in _reward_presented_counts(summary).items()
+        if count_value > 0
+    }
 
 
 def _history_decision_context(
@@ -1279,25 +2607,21 @@ def _choose_action(
     tuple[tuple[int, ...], ...],
     dict[str, float],
 ] | None:
-    descriptors = _action_space(info)
-    if not descriptors:
+    policy_input = _policy_input(observation, info)
+    if not policy_input.descriptors:
         return None
     obs_vector = torch.tensor(
-        [_observation_vector(observation)],
+        [policy_input.observation_vector],
         dtype=torch.float32,
         device=device,
     )
-    action_features_tuple = tuple(_action_features(descriptor) for descriptor in descriptors)
-    action_identity_ids_tuple = tuple(
-        descriptor_identity_ids(descriptor) for descriptor in descriptors
-    )
     action_tensor = torch.tensor(
-        [action_features_tuple],
+        [policy_input.action_features],
         dtype=torch.float32,
         device=device,
     )
     identity_tensor = torch.tensor(
-        [action_identity_ids_tuple],
+        [policy_input.action_identity_ids],
         dtype=torch.long,
         device=device,
     )
@@ -1305,7 +2629,10 @@ def _choose_action(
         logits, value, planning_outputs = model(obs_vector, action_tensor, identity_tensor)
         logits = logits[0]
         distribution = torch.distributions.Categorical(logits=logits)
-        if forced_action_index is not None and 0 <= forced_action_index < len(descriptors):
+        if (
+            forced_action_index is not None
+            and 0 <= forced_action_index < len(policy_input.descriptors)
+        ):
             action_index_tensor = torch.tensor(int(forced_action_index), device=device)
         else:
             action_index_tensor = torch.argmax(logits) if deterministic else distribution.sample()
@@ -1315,7 +2642,7 @@ def _choose_action(
         confidence = float(distribution.probs[action_index].item())
         entropy = float(distribution.entropy().item())
         planning_values = planning_outputs[0]
-    action_id = _int(descriptors[action_index].get("id"))
+    action_id = policy_input.action_ids[action_index]
     decision_context = {
         "action_index": float(action_index),
         "log_prob": log_prob,
@@ -1330,10 +2657,29 @@ def _choose_action(
         action_index,
         log_prob,
         state_value,
-        action_features_tuple,
-        action_identity_ids_tuple,
+        policy_input.action_features,
+        policy_input.action_identity_ids,
         decision_context,
     )
+
+
+def _policy_input(observation: Mapping[str, Any], info: Mapping[str, Any]) -> _PolicyInput:
+    cached = info.get("_policy_input") if isinstance(info, Mapping) else None
+    if isinstance(cached, _PolicyInput):
+        return cached
+    descriptors = _action_space(info)
+    packed = _PolicyInput(
+        descriptors=descriptors,
+        observation_vector=_observation_vector(observation),
+        action_features=tuple(_action_features(descriptor) for descriptor in descriptors),
+        action_identity_ids=tuple(
+            descriptor_identity_ids(descriptor) for descriptor in descriptors
+        ),
+        action_ids=tuple(_int(descriptor.get("id")) for descriptor in descriptors),
+    )
+    if isinstance(info, dict):
+        info["_policy_input"] = packed
+    return packed
 
 
 def _ppo_update(
@@ -1365,76 +2711,145 @@ def _ppo_update(
         random.shuffle(order)
         for start in range(0, len(order), max(1, minibatch_size)):
             indices = order[start : start + max(1, minibatch_size)]
-            losses = []
-            for index in indices:
-                transition = transitions[index]
-                obs_tensor = torch.tensor(
-                    [transition.observation_vector],
-                    dtype=torch.float32,
-                    device=device,
-                )
-                action_tensor = torch.tensor(
-                    [transition.action_features],
-                    dtype=torch.float32,
-                    device=device,
-                )
-                identity_tensor = torch.tensor(
-                    [transition.action_identity_ids],
-                    dtype=torch.long,
-                    device=device,
-                )
-                logits, value, planning_outputs = model(
-                    obs_tensor,
-                    action_tensor,
-                    identity_tensor,
-                )
-                distribution = torch.distributions.Categorical(logits=logits[0])
-                action_index = torch.tensor(transition.action_index, device=device)
-                log_prob = distribution.log_prob(action_index)
-                ratio = torch.exp(
-                    log_prob - torch.tensor(transition.old_log_prob, device=device)
-                )
-                advantage = torch.tensor(
-                    float(advantages[index]),
-                    dtype=torch.float32,
-                    device=device,
-                )
-                unclipped = ratio * advantage
-                clipped = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * advantage
-                policy_loss = -torch.min(unclipped, clipped)
-                return_value = torch.tensor(
-                    float(returns[index]),
-                    dtype=torch.float32,
-                    device=device,
-                )
-                value_loss = torch.square(value[0] - return_value)
-                planning_target = torch.tensor(
-                    [transition.planning_targets],
-                    dtype=torch.float32,
-                    device=device,
-                )
-                planning_loss = torch.mean(torch.square(planning_outputs - planning_target))
-                entropy_loss = -distribution.entropy()
-                imitation_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
-                if imitation_coef > 0 and transition.teacher_action_index is not None:
-                    teacher_index = torch.tensor(
-                        int(transition.teacher_action_index),
-                        device=device,
-                    )
-                    imitation_loss = -distribution.log_prob(teacher_index)
-                losses.append(
-                    policy_loss
-                    + value_coef * value_loss
-                    + entropy_coef * entropy_loss
-                    + planning_coef * planning_loss
-                    + imitation_coef * imitation_loss
-                )
-            if not losses:
+            if not indices:
                 continue
+            batch = _transition_minibatch(
+                torch=torch,
+                transitions=transitions,
+                indices=indices,
+                returns=returns,
+                advantages=advantages,
+                device=device,
+            )
+            logits, value, planning_outputs = model(
+                batch["observations"],
+                batch["action_features"],
+                batch["action_identity_ids"],
+            )
+            masked_logits = logits.masked_fill(~batch["action_mask"], -1.0e9)
+            distribution = torch.distributions.Categorical(logits=masked_logits)
+            log_prob = distribution.log_prob(batch["action_indices"])
+            ratio = torch.exp(log_prob - batch["old_log_probs"])
+            unclipped = ratio * batch["advantages"]
+            clipped = (
+                torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio)
+                * batch["advantages"]
+            )
+            policy_loss = -torch.min(unclipped, clipped)
+            value_loss = torch.square(value - batch["returns"])
+            planning_loss = torch.mean(
+                torch.square(planning_outputs - batch["planning_targets"]),
+                dim=1,
+            )
+            entropy_loss = -distribution.entropy()
+            losses = (
+                policy_loss
+                + value_coef * value_loss
+                + entropy_coef * entropy_loss
+                + planning_coef * planning_loss
+            )
+            if imitation_coef > 0.0:
+                teacher_mask = batch["teacher_mask"]
+                if bool(teacher_mask.any().item()):
+                    imitation_losses = -distribution.log_prob(batch["teacher_indices"])
+                    losses = losses + imitation_coef * torch.where(
+                        teacher_mask,
+                        imitation_losses,
+                        torch.zeros_like(imitation_losses),
+                    )
             optimizer.zero_grad()
-            loss = torch.stack(losses).mean()
+            loss = losses.mean()
             loss.backward()
             optimizer.step()
+
+
+def _transition_minibatch(
+    *,
+    torch: Any,
+    transitions: Sequence[_Transition],
+    indices: Sequence[int],
+    returns: Sequence[float],
+    advantages: Sequence[float],
+    device: Any,
+) -> dict[str, Any]:
+    selected = [transitions[index] for index in indices]
+    max_actions = max(len(transition.action_features) for transition in selected)
+    action_feature_dim = len(selected[0].action_features[0])
+    identity_slots = len(selected[0].action_identity_ids[0])
+    action_features = []
+    action_identity_ids = []
+    action_mask = []
+    teacher_indices = []
+    teacher_mask = []
+    for transition in selected:
+        legal_count = len(transition.action_features)
+        feature_rows = [list(row) for row in transition.action_features]
+        identity_rows = [list(row) for row in transition.action_identity_ids]
+        feature_rows.extend(
+            [[0.0 for _index in range(action_feature_dim)]]
+            * max(0, max_actions - legal_count)
+        )
+        identity_rows.extend(
+            [[0 for _index in range(identity_slots)]]
+            * max(0, max_actions - legal_count)
+        )
+        action_features.append(feature_rows)
+        action_identity_ids.append(identity_rows)
+        action_mask.append(
+            [True for _index in range(legal_count)]
+            + [False for _index in range(max_actions - legal_count)]
+        )
+        if transition.teacher_action_index is not None:
+            teacher_indices.append(int(transition.teacher_action_index))
+            teacher_mask.append(True)
+        else:
+            teacher_indices.append(0)
+            teacher_mask.append(False)
+    return {
+        "observations": torch.tensor(
+            [transition.observation_vector for transition in selected],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "action_features": torch.tensor(
+            action_features,
+            dtype=torch.float32,
+            device=device,
+        ),
+        "action_identity_ids": torch.tensor(
+            action_identity_ids,
+            dtype=torch.long,
+            device=device,
+        ),
+        "action_mask": torch.tensor(action_mask, dtype=torch.bool, device=device),
+        "action_indices": torch.tensor(
+            [transition.action_index for transition in selected],
+            dtype=torch.long,
+            device=device,
+        ),
+        "old_log_probs": torch.tensor(
+            [transition.old_log_prob for transition in selected],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "returns": torch.tensor(
+            [returns[index] for index in indices],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "advantages": torch.tensor(
+            [advantages[index] for index in indices],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "planning_targets": torch.tensor(
+            [transition.planning_targets for transition in selected],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "teacher_indices": torch.tensor(teacher_indices, dtype=torch.long, device=device),
+        "teacher_mask": torch.tensor(teacher_mask, dtype=torch.bool, device=device),
+    }
 
 
 def _returns_and_advantages(
@@ -2288,6 +3703,38 @@ def _ppo_batch_summary(
     }
 
 
+def _throughput_summary(
+    *,
+    train_results: Sequence[LearningRunResult],
+    eval_results: Sequence[LearningRunResult],
+    elapsed_seconds: float,
+    rollout_workers: int,
+    envs_per_worker: int,
+    rollout_inference: str,
+    policy_server_min_batch: int,
+    policy_server_max_wait_ms: int,
+) -> dict[str, Any]:
+    elapsed = max(1.0e-9, float(elapsed_seconds))
+    run_count = len(train_results) + len(eval_results)
+    step_count = sum(run.steps_taken for run in train_results) + sum(
+        run.steps_taken for run in eval_results
+    )
+    active_env_streams = max(1, int(rollout_workers) * max(1, int(envs_per_worker)))
+    return {
+        "elapsed_seconds": round(elapsed, 6),
+        "env_steps": step_count,
+        "runs": run_count,
+        "env_steps_per_second": round(step_count / elapsed, 6),
+        "runs_per_second": round(run_count / elapsed, 6),
+        "rollout_workers": int(rollout_workers),
+        "envs_per_worker": int(envs_per_worker),
+        "active_env_streams": active_env_streams,
+        "rollout_inference": rollout_inference,
+        "policy_server_min_batch": int(policy_server_min_batch),
+        "policy_server_max_wait_ms": int(policy_server_max_wait_ms),
+    }
+
+
 def _planning_output_averages(values: Sequence[Sequence[float]]) -> dict[str, float]:
     if not values:
         return {key: 0.0 for key in PLANNING_HEAD_SCHEMA}
@@ -2385,6 +3832,78 @@ def _run_diagnostic_averages(runs: Sequence[LearningRunResult]) -> dict[str, flo
         )
         for key in sorted(keys)
     }
+
+
+def _highlight_run_histories_for_mode(
+    *,
+    torch: Any,
+    model: Any,
+    target: TrainingTarget,
+    eval_results: Sequence[LearningRunResult],
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+    history_mode: str,
+    report_output_path: Path | str | None,
+    output_path: Path | str | None,
+) -> dict[str, Any]:
+    if history_mode == "off" or not eval_results:
+        return {}
+    if history_mode == "all-eval":
+        history_results = eval_results
+    else:
+        history_results = _replay_highlight_eval_runs(
+            torch=torch,
+            model=model,
+            target=target,
+            eval_results=eval_results,
+            max_steps=max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+        )
+    return _select_highlight_run_histories(
+        history_results,
+        target=target,
+        report_output_path=report_output_path,
+        output_path=output_path,
+    )
+
+
+def _replay_highlight_eval_runs(
+    *,
+    torch: Any,
+    model: Any,
+    target: TrainingTarget,
+    eval_results: Sequence[LearningRunResult],
+    max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+) -> tuple[LearningRunResult, ...]:
+    if not eval_results:
+        return ()
+    best = max(eval_results, key=lambda run: _highlight_quality_key(run, target))
+    worst = min(eval_results, key=lambda run: _highlight_quality_key(run, target))
+    selected: list[LearningRunResult] = [best]
+    if worst.run_index != best.run_index:
+        selected.append(worst)
+    return tuple(
+        _evaluate_one_run(
+            torch=torch,
+            model=model,
+            target=target,
+            run_index=run.run_index,
+            seed=_int(run.seed),
+            max_steps=max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+            include_history=True,
+        )
+        for run in selected
+    )
 
 
 def _select_highlight_run_histories(
@@ -2736,6 +4255,7 @@ def _ppo_progress_html(
     planning_rows = _planning_rows_html(batches[-12:])
     reward_rows = _reward_component_rows_html(batches[-12:])
     diagnostic_rows = _diagnostic_rows_html(batches[-12:])
+    throughput_rows = _throughput_rows_html(batches[-12:])
     highlight_links = _highlight_links_html(
         result,
         report_output_path=result.get("report_output_path"),
@@ -2864,25 +4384,35 @@ def _ppo_progress_html(
       <tbody>{planning_rows}</tbody>
     </table>
   </div>
-	  <h2>Reward Component Trends</h2>
-	  <div class="scroll">
-	    <table>
-	      <thead>
-	        <tr><th>Batch</th>{reward_headers}</tr>
+  <h2>Reward Component Trends</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Batch</th>{reward_headers}</tr>
       </thead>
       <tbody>{reward_rows}</tbody>
-	    </table>
-	  </div>
-	  <h2>Reward And Deck Diagnostics</h2>
-	  <div class="scroll">
-	    <table>
-	      <thead>
-	        <tr><th>Batch</th>{diagnostic_headers}</tr>
-	      </thead>
-	      <tbody>{diagnostic_rows}</tbody>
-	    </table>
-	  </div>
-	  <h2>Latest Training Runs</h2>
+    </table>
+  </div>
+  <h2>Reward And Deck Diagnostics</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Batch</th>{diagnostic_headers}</tr>
+      </thead>
+      <tbody>{diagnostic_rows}</tbody>
+    </table>
+  </div>
+  <h2>Throughput</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Batch</th><th>Steps/S</th><th>Runs/S</th>
+        <th>Active Envs</th><th>Min Batch</th><th>Wait Ms</th></tr>
+      </thead>
+      <tbody>{throughput_rows}</tbody>
+    </table>
+  </div>
+  <h2>Latest Training Runs</h2>
   <div class="scroll">
     <table>
       <thead><tr>{latest_headers}</tr></thead>
@@ -2974,6 +4504,27 @@ def _reward_component_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
 
 def _diagnostic_keys(batches: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
     preferred = (
+        "reward_card_picked",
+        "reward_card_presented",
+        "reward_card_skipped",
+        "reward_card_unclaimed",
+        "reward_gold_picked",
+        "reward_gold_presented",
+        "reward_gold_skipped",
+        "reward_gold_unclaimed",
+        "reward_relic_picked",
+        "reward_relic_presented",
+        "reward_relic_skipped",
+        "reward_relic_unclaimed",
+        "reward_potion_picked",
+        "reward_potion_presented",
+        "reward_potion_skipped",
+        "reward_potion_unclaimed",
+        "reward_card_removal_picked",
+        "reward_card_removal_presented",
+        "reward_card_removal_skipped",
+        "reward_card_removal_unclaimed",
+        "reward_total_presented",
         "take_reward_card",
         "take_reward_gold",
         "take_reward_potion",
@@ -3025,6 +4576,23 @@ def _diagnostic_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
             "<tr>"
             f"<td>{_int(batch.get('batch_index'))}</td>"
             f"{cells}"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def _throughput_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
+    rows: list[str] = []
+    for batch in batches:
+        throughput = _mapping(batch.get("throughput"))
+        rows.append(
+            "<tr>"
+            f"<td>{_int(batch.get('batch_index'))}</td>"
+            f"<td>{_float(throughput.get('env_steps_per_second')):.3f}</td>"
+            f"<td>{_float(throughput.get('runs_per_second')):.3f}</td>"
+            f"<td>{_int(throughput.get('active_env_streams'))}</td>"
+            f"<td>{_int(throughput.get('policy_server_min_batch'))}</td>"
+            f"<td>{_int(throughput.get('policy_server_max_wait_ms'))}</td>"
             "</tr>"
         )
     return "\n".join(rows)

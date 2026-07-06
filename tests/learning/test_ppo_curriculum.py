@@ -28,9 +28,16 @@ def test_resolve_curriculum_stages_defaults_and_commas() -> None:
 
 def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) -> None:
     calls: list[dict[str, Any]] = []
+    progress_payloads: list[dict[str, Any]] = []
+
+    def progress_reporter(payload: dict[str, Any]) -> None:
+        progress_payloads.append(payload)
 
     def fake_trainer(**kwargs: Any) -> dict[str, Any]:
         calls.append(dict(kwargs))
+        reporter = kwargs.get("progress_reporter")
+        if callable(reporter):
+            reporter({"event": "batch_saved", "target": kwargs["target"]})
         target = str(kwargs["target"])
         reached = target == "act1-boss"
         return {
@@ -58,6 +65,13 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
         output_path=tmp_path / "curriculum.json",
         report_output_path=tmp_path / "curriculum.html",
         target_success_rate=0.95,
+        rollout_workers=2,
+        rollout_inference="batched-gpu",
+        history_mode="off",
+        envs_per_worker=3,
+        policy_server_min_batch=4,
+        policy_server_max_wait_ms=7,
+        progress_reporter=progress_reporter,
         trainer=fake_trainer,
     )
 
@@ -77,12 +91,29 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
     assert calls[0]["imitation_coef"] == 0.0
     assert calls[0]["target_success_rate"] == 0.95
     assert calls[0]["device"] == "auto"
+    assert calls[0]["rollout_workers"] == 2
+    assert calls[0]["rollout_inference"] == "batched-gpu"
+    assert calls[0]["history_mode"] == "off"
+    assert calls[0]["envs_per_worker"] == 3
+    assert calls[0]["policy_server_min_batch"] == 4
+    assert calls[0]["policy_server_max_wait_ms"] == 7
+    assert calls[0]["progress_reporter"] is progress_reporter
     assert calls[1]["resume_from_path"] == tmp_path / "checkpoints" / (
         "ppo_curriculum_act1_boss.pt"
     )
     assert calls[1]["resume"] is True
     assert calls[1]["target_success_rate"] == 0.95
+    assert progress_payloads == [
+        {"event": "batch_saved", "target": "act1-boss"},
+        {"event": "batch_saved", "target": "act2-boss"},
+    ]
     assert result["metadata"]["target_success_rate"] == 0.95
+    assert result["metadata"]["rollout_workers"] == 2
+    assert result["metadata"]["rollout_inference"] == "batched-gpu"
+    assert result["metadata"]["history_mode"] == "off"
+    assert result["metadata"]["envs_per_worker"] == 3
+    assert result["metadata"]["policy_server_min_batch"] == 4
+    assert result["metadata"]["policy_server_max_wait_ms"] == 7
     assert result["batch_metric_summary"]["batches"] == 2
     assert result["batch_metrics"][-1]["stage"] == "act2-boss"
     assert (tmp_path / "curriculum.json").exists()
@@ -117,7 +148,7 @@ def test_train_ppo_curriculum_help_lists_stage_and_comfort_controls() -> None:
     assert result.exit_code == 0
     assert "--stages" in result.output
     assert "comfortable" in result.output.lower()
-    assert "--target-consecut" in result.output
+    assert "consecutive" in result.output.lower()
     assert "--report-output" in result.output
     assert "--hidden-layers" in result.output
     assert "--head-hidden" in result.output
@@ -127,5 +158,8 @@ def test_train_ppo_curriculum_help_lists_stage_and_comfort_controls() -> None:
     assert "--imitation-coef" in result.output
     assert "--target-succes" in result.output
     assert "--device" in result.output
+    assert "rollout" in result.output.lower()
+    assert "inference" in result.output.lower()
+    assert "terminal" in result.output.lower()
     assert "--resume" in result.output
     assert "--no-resume" in result.output

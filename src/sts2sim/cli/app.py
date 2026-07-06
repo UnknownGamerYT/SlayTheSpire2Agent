@@ -319,6 +319,10 @@ class _TrainingTerminalProgress:
                 f"target={_target_name(payload.get('target'))}, "
                 f"start_batch={payload.get('start_batch')}, "
                 f"device={payload.get('device')}, "
+                f"workers={payload.get('rollout_workers')}, "
+                f"inference={payload.get('rollout_inference')}, "
+                f"history={payload.get('history_mode')}, "
+                f"active_envs={payload.get('active_env_streams')}, "
                 f"until_stopped={payload.get('until_stopped')}"
             )
             return
@@ -380,13 +384,16 @@ class _TrainingTerminalProgress:
                 progress.console.log(f"Eval run: {_run_progress_line(payload)}")
             return
         if event == "batch_saved":
-            progress.console.log(
-                f"Batch {payload.get('batch_index')} saved: "
-                f"success={_progress_float(payload.get('evaluation_target_success_rate')):.3f}, "
-                f"avg_floor={_progress_float(payload.get('evaluation_average_floor')):.2f}, "
-                f"avg_reward={_progress_float(payload.get('evaluation_average_reward')):.2f}, "
-                f"runs_trained={payload.get('runs_trained')}"
-            )
+            progress.console.log(_batch_progress_line(payload))
+            reward_line = _reward_signal_line(payload)
+            if reward_line:
+                progress.console.log(reward_line)
+            diagnostic_line = _diagnostic_progress_line(payload)
+            if diagnostic_line:
+                progress.console.log(diagnostic_line)
+            throughput_line = _throughput_progress_line(payload)
+            if throughput_line:
+                progress.console.log(throughput_line)
 
     def _print_plain(self, payload: Mapping[str, Any]) -> None:
         event = str(payload.get("event", ""))
@@ -396,6 +403,10 @@ class _TrainingTerminalProgress:
                 f"target={_target_name(payload.get('target'))}, "
                 f"start_batch={payload.get('start_batch')}, "
                 f"device={payload.get('device')}, "
+                f"workers={payload.get('rollout_workers')}, "
+                f"inference={payload.get('rollout_inference')}, "
+                f"history={payload.get('history_mode')}, "
+                f"active_envs={payload.get('active_env_streams')}, "
                 f"until_stopped={payload.get('until_stopped')}"
             )
         elif event == "batch_start":
@@ -414,12 +425,16 @@ class _TrainingTerminalProgress:
         elif event == "ppo_update_end":
             typer.echo(f"Batch {payload.get('batch_index')} PPO update complete")
         elif event == "batch_saved":
-            typer.echo(
-                f"Batch {payload.get('batch_index')} saved: "
-                f"success={_progress_float(payload.get('evaluation_target_success_rate')):.3f}, "
-                f"avg_floor={_progress_float(payload.get('evaluation_average_floor')):.2f}, "
-                f"avg_reward={_progress_float(payload.get('evaluation_average_reward')):.2f}"
-            )
+            typer.echo(_batch_progress_line(payload))
+            reward_line = _reward_signal_line(payload)
+            if reward_line:
+                typer.echo(reward_line)
+            diagnostic_line = _diagnostic_progress_line(payload)
+            if diagnostic_line:
+                typer.echo(diagnostic_line)
+            throughput_line = _throughput_progress_line(payload)
+            if throughput_line:
+                typer.echo(throughput_line)
 
     def _remove_task(self, task_id: Any | None) -> None:
         if self._progress is None or task_id is None:
@@ -446,6 +461,96 @@ def _run_progress_line(payload: Mapping[str, Any]) -> str:
         f"steps={payload.get('steps_taken')} "
         f"target={payload.get('reached_target')}"
     )
+
+
+def _batch_progress_line(payload: Mapping[str, Any]) -> str:
+    success_rate = _progress_float(payload.get("evaluation_target_success_rate"))
+    success_target = _progress_float(payload.get("target_success_rate_threshold"))
+    return (
+        f"Batch {payload.get('batch_index')} saved: "
+        f"success={success_rate:.3f}/{success_target:.3f} "
+        f"({payload.get('target_successes')}/{payload.get('eval_runs')} eval), "
+        f"avg_floor={_progress_float(payload.get('evaluation_average_floor')):.2f}, "
+        f"best_floor={_progress_float(payload.get('evaluation_best_floor')):.0f}, "
+        f"avg_reward={_progress_float(payload.get('evaluation_average_reward')):.2f}, "
+        f"best_reward={_progress_float(payload.get('evaluation_best_reward')):.2f}, "
+        f"consec={payload.get('evaluation_max_consecutive_successes')}, "
+        f"errors={_progress_int(payload.get('evaluation_errors'))}, "
+        f"failed={_progress_int(payload.get('evaluation_failed_to_continue'))}, "
+        f"runs_trained={payload.get('runs_trained')}"
+    )
+
+
+def _reward_signal_line(payload: Mapping[str, Any]) -> str:
+    rewards = _progress_mapping(payload.get("reward_component_averages"))
+    if not rewards:
+        return ""
+    parts = [
+        f"total={_progress_float(rewards.get('total')):.2f}",
+        f"combat={_progress_float(rewards.get('combat_win_reward')):.2f}",
+        f"boss={_progress_float(rewards.get('boss_reward')):.2f}",
+        f"enemy_hp={_progress_float(rewards.get('enemy_hp_progress_reward')):.2f}",
+        f"hp_loss={_progress_float(rewards.get('hp_loss_penalty')):.2f}",
+        f"gold={_progress_float(rewards.get('gold_reward')):.2f}",
+        f"skip={_progress_float(rewards.get('reward_skip_penalty')):.2f}",
+        f"deck={_progress_float(rewards.get('deck_capability_reward')):.2f}",
+    ]
+    return "  reward avg: " + ", ".join(parts)
+
+
+def _diagnostic_progress_line(payload: Mapping[str, Any]) -> str:
+    diagnostics = _progress_mapping(payload.get("diagnostic_averages"))
+    if not diagnostics:
+        return ""
+    parts = [
+        _reward_pickup_fragment(diagnostics, "card", "cards", "take_reward_card"),
+        _reward_pickup_fragment(diagnostics, "gold", "gold", "take_reward_gold"),
+        _reward_pickup_fragment(diagnostics, "relic", "relics", "take_reward_relic"),
+        _reward_pickup_fragment(diagnostics, "potion", "potions", "take_reward_potion"),
+        _reward_pickup_fragment(diagnostics, "card_removal", "removes", ""),
+        f"final_deck={_progress_float(diagnostics.get('final_deck_size')):.1f}",
+        f"unknown_cards={_progress_float(diagnostics.get('final_unknown_card_count')):.1f}",
+        f"final_gold={_progress_float(diagnostics.get('final_gold')):.1f}",
+    ]
+    return "  deck/items avg: " + ", ".join(parts)
+
+
+def _throughput_progress_line(payload: Mapping[str, Any]) -> str:
+    throughput = _progress_mapping(payload.get("throughput"))
+    if not throughput:
+        return ""
+    parts = [
+        f"steps/s={_progress_float(throughput.get('env_steps_per_second')):.1f}",
+        f"runs/s={_progress_float(throughput.get('runs_per_second')):.2f}",
+        f"active_envs={_progress_int(throughput.get('active_env_streams'))}",
+        f"min_batch={_progress_int(throughput.get('policy_server_min_batch'))}",
+        f"wait_ms={_progress_int(throughput.get('policy_server_max_wait_ms'))}",
+    ]
+    return "  throughput: " + ", ".join(parts)
+
+
+def _reward_pickup_fragment(
+    diagnostics: Mapping[str, Any],
+    kind: str,
+    label: str,
+    legacy_pick_key: str,
+) -> str:
+    picked = _progress_float(diagnostics.get(f"reward_{kind}_picked"))
+    if picked == 0.0 and legacy_pick_key:
+        picked = _progress_float(diagnostics.get(legacy_pick_key))
+    presented = _progress_float(diagnostics.get(f"reward_{kind}_presented"))
+    missed = _progress_float(diagnostics.get(f"reward_{kind}_skipped")) + _progress_float(
+        diagnostics.get(f"reward_{kind}_unclaimed")
+    )
+    if presented > 0.0 or missed > 0.0:
+        return f"{label}={picked:.2f}/{presented:.2f} missed={missed:.2f}"
+    return f"{label}={picked:.2f}"
+
+
+def _progress_mapping(value: object) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    return {}
 
 
 def _progress_int(value: object) -> int:
@@ -1914,6 +2019,58 @@ def train_masked_ppo(
             help="Torch device for PPO tensors: auto prefers CUDA/GPU when available.",
         ),
     ] = "auto",
+    rollout_workers: Annotated[
+        int,
+        typer.Option(
+            "--rollout-workers",
+            min=0,
+            help=(
+                "Parallel simulator rollout workers for train/eval collection. "
+                "Use 1 for old sequential collection or 0 to auto-use available CPU cores."
+            ),
+        ),
+    ] = 1,
+    rollout_inference: Annotated[
+        str,
+        typer.Option(
+            "--rollout-inference",
+            help=(
+                "Rollout policy inference mode: worker keeps model copies in each "
+                "worker, batched-gpu centralizes action selection on the trainer device."
+            ),
+        ),
+    ] = "worker",
+    history_mode: Annotated[
+        str,
+        typer.Option(
+            "--history-mode",
+            help="History capture mode: off, highlights, or all-eval.",
+        ),
+    ] = "highlights",
+    envs_per_worker: Annotated[
+        int,
+        typer.Option(
+            "--envs-per-worker",
+            min=1,
+            help="Active environment streams per rollout worker for batched-gpu inference.",
+        ),
+    ] = 1,
+    policy_server_min_batch: Annotated[
+        int,
+        typer.Option(
+            "--policy-server-min-batch",
+            min=1,
+            help="Minimum decision requests to batch before GPU policy inference.",
+        ),
+    ] = 1,
+    policy_server_max_wait_ms: Annotated[
+        int,
+        typer.Option(
+            "--policy-server-max-wait-ms",
+            min=0,
+            help="Maximum milliseconds to wait for a larger GPU policy batch.",
+        ),
+    ] = 20,
     terminal_progress: Annotated[
         bool,
         typer.Option(
@@ -1971,6 +2128,12 @@ def train_masked_ppo(
                 report_output_path=report_output_path,
                 progress_window=progress_window,
                 device=device,
+                rollout_workers=rollout_workers,
+                rollout_inference=rollout_inference,
+                history_mode=history_mode,
+                envs_per_worker=envs_per_worker,
+                policy_server_min_batch=policy_server_min_batch,
+                policy_server_max_wait_ms=policy_server_max_wait_ms,
                 progress_reporter=terminal_reporter,
             )
     except BackendUnavailable as exc:
@@ -2197,6 +2360,65 @@ def train_ppo_curriculum(
             help="Torch device for PPO tensors: auto prefers CUDA/GPU when available.",
         ),
     ] = "auto",
+    rollout_workers: Annotated[
+        int,
+        typer.Option(
+            "--rollout-workers",
+            min=0,
+            help=(
+                "Parallel simulator rollout workers for each stage. Use 1 for old "
+                "sequential collection or 0 to auto-use available CPU cores."
+            ),
+        ),
+    ] = 1,
+    rollout_inference: Annotated[
+        str,
+        typer.Option(
+            "--rollout-inference",
+            help=(
+                "Rollout policy inference mode: worker keeps model copies in each "
+                "worker, batched-gpu centralizes action selection on the trainer device."
+            ),
+        ),
+    ] = "worker",
+    history_mode: Annotated[
+        str,
+        typer.Option(
+            "--history-mode",
+            help="History capture mode for each PPO stage: off, highlights, or all-eval.",
+        ),
+    ] = "highlights",
+    envs_per_worker: Annotated[
+        int,
+        typer.Option(
+            "--envs-per-worker",
+            min=1,
+            help="Active environment streams per rollout worker for batched-gpu inference.",
+        ),
+    ] = 1,
+    policy_server_min_batch: Annotated[
+        int,
+        typer.Option(
+            "--policy-server-min-batch",
+            min=1,
+            help="Minimum decision requests to batch before GPU policy inference.",
+        ),
+    ] = 1,
+    policy_server_max_wait_ms: Annotated[
+        int,
+        typer.Option(
+            "--policy-server-max-wait-ms",
+            min=0,
+            help="Maximum milliseconds to wait for a larger GPU policy batch.",
+        ),
+    ] = 20,
+    terminal_progress: Annotated[
+        bool,
+        typer.Option(
+            "--terminal-progress/--no-terminal-progress",
+            help="Show live terminal progress bars for every curriculum stage.",
+        ),
+    ] = True,
 ) -> None:
     """Train PPO through staged targets, advancing only when comfortable."""
 
@@ -2206,46 +2428,55 @@ def train_ppo_curriculum(
             ("sts2sim.learning.curriculum", "sts2sim.learning"),
             ("train_masked_ppo_curriculum",),
         )
-        result = _call_backend(
-            backend,
-            stages=stages,
-            run_name=run_name,
-            max_batches=max_batches,
-            train_runs_per_batch=train_runs_per_batch,
-            eval_runs=eval_runs,
-            train_max_steps=train_max_steps,
-            eval_max_steps=eval_max_steps,
-            seed=seed,
-            character_id=character_id,
-            ascension=ascension,
-            hidden_size=hidden_size,
-            hidden_layers=hidden_layers,
-            head_hidden_layers=head_hidden_layers,
-            activation=activation,
-            learning_rate=learning_rate,
-            gamma=gamma,
-            gae_lambda=gae_lambda,
-            clip_ratio=clip_ratio,
-            value_coef=value_coef,
-            entropy_coef=entropy_coef,
-            planning_coef=planning_coef,
-            teacher_mix=teacher_mix,
-            imitation_coef=imitation_coef,
-            ppo_epochs=ppo_epochs,
-            minibatch_size=minibatch_size,
-            target_reward=target_reward,
-            target_eval_successes=target_eval_successes,
-            target_consecutive_successes=target_consecutive_successes,
-            target_success_rate=target_success_rate,
-            resume=resume,
-            resume_from_path=resume_from_path,
-            checkpoint_dir=checkpoint_dir,
-            report_dir=report_dir,
-            output_path=output_path,
-            report_output_path=report_output_path,
-            progress_window=progress_window,
-            device=device,
-        )
+        terminal_reporter = _TrainingTerminalProgress(terminal_progress)
+        with terminal_reporter:
+            result = _call_backend(
+                backend,
+                stages=stages,
+                run_name=run_name,
+                max_batches=max_batches,
+                train_runs_per_batch=train_runs_per_batch,
+                eval_runs=eval_runs,
+                train_max_steps=train_max_steps,
+                eval_max_steps=eval_max_steps,
+                seed=seed,
+                character_id=character_id,
+                ascension=ascension,
+                hidden_size=hidden_size,
+                hidden_layers=hidden_layers,
+                head_hidden_layers=head_hidden_layers,
+                activation=activation,
+                learning_rate=learning_rate,
+                gamma=gamma,
+                gae_lambda=gae_lambda,
+                clip_ratio=clip_ratio,
+                value_coef=value_coef,
+                entropy_coef=entropy_coef,
+                planning_coef=planning_coef,
+                teacher_mix=teacher_mix,
+                imitation_coef=imitation_coef,
+                ppo_epochs=ppo_epochs,
+                minibatch_size=minibatch_size,
+                target_reward=target_reward,
+                target_eval_successes=target_eval_successes,
+                target_consecutive_successes=target_consecutive_successes,
+                target_success_rate=target_success_rate,
+                resume=resume,
+                resume_from_path=resume_from_path,
+                checkpoint_dir=checkpoint_dir,
+                report_dir=report_dir,
+                output_path=output_path,
+                report_output_path=report_output_path,
+                progress_window=progress_window,
+                device=device,
+                rollout_workers=rollout_workers,
+                rollout_inference=rollout_inference,
+                history_mode=history_mode,
+                envs_per_worker=envs_per_worker,
+                policy_server_min_batch=policy_server_min_batch,
+                policy_server_max_wait_ms=policy_server_max_wait_ms,
+                progress_reporter=terminal_reporter,
+            )
     except BackendUnavailable as exc:
         _backend_error(exc)
 

@@ -5980,14 +5980,15 @@ def _apply_card_reward_taken_trigger(
 
 
 def _reward_card_spec(state: RunState, card_id: str) -> dict[str, Any]:
-    library = _card_library(state.flags)
-    for key in (card_id, card_id.upper(), _normalized_id(card_id)):
-        if key in library:
-            card_spec = dict(library[key])
-            break
+    explicit_library = _card_library(state.flags)
+    explicit_spec = _card_spec_from_library(explicit_library, card_id)
+    if explicit_spec is not None:
+        card_spec = explicit_spec
+        card_spec["card_id"] = str(card_spec.get("card_id", card_spec.get("id", card_id)))
     else:
-        card_spec = {"card_id": card_id}
-    card_spec["card_id"] = str(card_spec.get("card_id", card_spec.get("id", card_id)))
+        cached_library = _card_library({"cards": _cached_source_rows(state, "cards")})
+        card_spec = _card_spec_from_library(cached_library, card_id) or {"card_id": card_id}
+        card_spec["card_id"] = _normalized_id(card_id)
     card_spec.pop("instance_id", None)
     return card_spec
 
@@ -22782,14 +22783,26 @@ def _instantiate_deck(
 
 def _deck_item_spec(raw_item: Any, library: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     if isinstance(raw_item, str):
-        return dict(library.get(raw_item, {"card_id": raw_item}))
+        return _card_spec_from_library(library, raw_item) or {"card_id": raw_item}
     spec = _mapping_from(raw_item)
     if not spec:
         return {}
     card_id = str(spec.get("card_id", spec.get("id", "")))
-    merged = dict(library.get(card_id, {}))
+    if _card_spec_has_explicit_behavior(spec):
+        explicit = dict(spec)
+        explicit["card_id"] = _normalized_id(card_id or str(spec.get("name", "")))
+        return explicit
+    merged = (
+        _card_spec_from_library(library, card_id)
+        or _card_spec_from_library(library, str(spec.get("name", "")))
+        or {}
+    )
     merged.update(spec)
     return merged
+
+
+def _card_spec_has_explicit_behavior(spec: Mapping[str, Any]) -> bool:
+    return any(key in spec for key in _EXPLICIT_CARD_BEHAVIOR_KEYS)
 
 
 def _card_from_spec(
@@ -23164,20 +23177,59 @@ def _default_starter_deck() -> tuple[dict[str, Any], ...]:
 def _card_library(source: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     raw = source.get("card_library", source.get("cards", {}))
     if isinstance(raw, Mapping):
-        return {
-            str(key): _mapping_from(value) or {"card_id": str(key)}
-            for key, value in raw.items()
-        }
+        mapping_library: dict[str, Mapping[str, Any]] = {}
+        for key, value in raw.items():
+            spec = _mapping_from(value) or {"card_id": str(key)}
+            _add_card_library_entry(mapping_library, str(key), spec)
+        return mapping_library
     if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes, bytearray)):
-        library: dict[str, Mapping[str, Any]] = {}
+        sequence_library: dict[str, Mapping[str, Any]] = {}
         for value in raw:
             spec = _mapping_from(value)
             if spec:
                 card_id = str(spec.get("card_id", spec.get("id", "")))
                 if card_id:
-                    library[card_id] = spec
-        return library
+                    _add_card_library_entry(sequence_library, card_id, spec)
+        return sequence_library
     return {}
+
+
+def _card_library_for_state(state: RunState) -> dict[str, Mapping[str, Any]]:
+    library = _card_library({"cards": _cached_source_rows(state, "cards")})
+    library.update(_card_library(state.flags))
+    return library
+
+
+def _card_spec_from_library(
+    library: Mapping[str, Mapping[str, Any]],
+    card_id: str,
+) -> dict[str, Any] | None:
+    for key in (card_id, card_id.upper(), _normalized_id(card_id)):
+        if key in library:
+            return dict(library[key])
+    return None
+
+
+def _add_card_library_entry(
+    library: dict[str, Mapping[str, Any]],
+    key: str,
+    spec: Mapping[str, Any],
+) -> None:
+    aliases = {
+        key,
+        key.upper(),
+        _normalized_id(key),
+        str(spec.get("id", "")),
+        str(spec.get("id", "")).upper(),
+        _normalized_id(spec.get("id", "")),
+        str(spec.get("card_id", "")),
+        str(spec.get("card_id", "")).upper(),
+        _normalized_id(spec.get("card_id", "")),
+        _normalized_id(spec.get("name", "")),
+    }
+    for alias in aliases:
+        if alias:
+            library.setdefault(alias, spec)
 
 
 def _character_source(character_id: str, source: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -24588,6 +24640,25 @@ _CARD_RUNTIME_KEYS = frozenset(
         "target",
         "type",
         "upgraded",
+    }
+)
+_EXPLICIT_CARD_BEHAVIOR_KEYS = frozenset(
+    {
+        "all_damage",
+        "apply_status",
+        "block",
+        "damage",
+        "description",
+        "description_raw",
+        "draw",
+        "effect",
+        "effects",
+        "energy",
+        "gain_strength_and_dexterity",
+        "heal",
+        "magic_number",
+        "status",
+        "text",
     }
 )
 _STATUS_LOOKUP_ALIASES = {

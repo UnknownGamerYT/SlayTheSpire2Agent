@@ -46,6 +46,30 @@ def test_env_step_decodes_discrete_action_id(monkeypatch) -> None:
     assert next_info["action"]["type"] == "choose_ancient"
 
 
+def test_env_reuses_cached_agent_view_with_stable_action_ids(monkeypatch) -> None:
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *args, **kwargs: None)
+    env = Sts2Env(seed=13, character_id="TEST", ascension=0, max_actions=16)
+    observation, info = env.reset()
+
+    first_action_ids = [descriptor["id"] for descriptor in info["action_space"]]
+    cached_observation = env._observation()
+    cached_info = env._info()
+
+    assert env._agent_view_cache is not None
+    assert cached_observation["action_mask"] == observation["action_mask"]
+    assert [descriptor["id"] for descriptor in cached_info["action_space"]] == first_action_ids
+    assert cached_info["legal_action_count"] == info["legal_action_count"]
+
+    env.step(first_action_ids[0])
+    next_info = env._info()
+
+    assert env._agent_view_cache is not None
+    assert next_info["legal_action_count"] == len(action_space(env.state))
+    assert next_info["action_mask"][: next_info["legal_action_count"]] == [1] * next_info[
+        "legal_action_count"
+    ]
+
+
 def test_env_records_policy_output_and_realized_preview_memory(monkeypatch) -> None:
     monkeypatch.setattr(importlib.util, "find_spec", lambda name, *args, **kwargs: None)
     env = Sts2Env(seed=12, character_id="TEST", ascension=0, max_actions=16)

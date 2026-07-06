@@ -621,9 +621,11 @@ def _reward_skip_penalty(
         return config.skip_relic_penalty
     if skip_kind == "potion":
         return config.skip_potion_penalty if _potion_slots_available(previous) else 0.0
-    if skip_kind in {"card_options", "card_group", "fixed_card", "card"}:
-        if _master_deck_count(previous) <= max(0, config.early_card_skip_deck_size):
-            return config.early_card_skip_penalty
+    if (
+        skip_kind in {"card_options", "card_group", "fixed_card", "card"}
+        and _master_deck_count(previous) <= max(0, config.early_card_skip_deck_size)
+    ):
+        return config.early_card_skip_penalty
     return 0.0
 
 
@@ -1906,10 +1908,7 @@ def _relic_ids(payload: Mapping[str, Any]) -> tuple[str, ...]:
     relics = _sequence(player.get("relics", payload.get("relics")))
     ids: list[str] = []
     for relic in relics:
-        if isinstance(relic, Mapping):
-            relic_id = relic.get("relic_id", relic.get("id"))
-        else:
-            relic_id = relic
+        relic_id = relic.get("relic_id", relic.get("id")) if isinstance(relic, Mapping) else relic
         normalized = _normalized_id(relic_id)
         if normalized:
             ids.append(normalized)
