@@ -11,3 +11,6 @@ build/
 data/cache/
 generated_maps/
 external/live_bridges/repos/
+
+checkpoints/
+reports/
