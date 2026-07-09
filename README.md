@@ -220,7 +220,8 @@ Runtime simulation should use local cached data, not live network fetches.
 
 ## Notes
 
-- Generated checkpoints and reports can be large.
+- The selected latest checkpoint is tracked with Git LFS. Other generated
+  checkpoints and reports are local outputs and are ignored by default.
 - Full parity depends on content coverage. Missing cards, relics, potions,
   powers, event options, or monster moves should be treated as explicit gaps.
 - For internal project state and next engineering steps, read

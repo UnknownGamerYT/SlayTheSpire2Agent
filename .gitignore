@@ -12,5 +12,6 @@ data/cache/
 generated_maps/
 external/live_bridges/repos/
 
-checkpoints/
+checkpoints/*
+!checkpoints/ppo_curriculum_silu_full_act1_boss.pt
 reports/
