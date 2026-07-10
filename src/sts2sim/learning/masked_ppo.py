@@ -7,6 +7,7 @@ state, while card/node descriptors carry reusable semantics.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import math
@@ -71,6 +72,7 @@ from sts2sim.mechanics.synergy import (
 )
 
 NETWORK_SCHEMA_VERSION = 5
+REWARD_SCHEMA_VERSION = 9
 PLANNING_HEAD_SCHEMA: tuple[str, ...] = (
     "aggression_target",
     "hp_floor",
@@ -290,6 +292,7 @@ class TrainingTarget:
 class _ResumeState:
     path: str | None = None
     result: Mapping[str, Any] | None = None
+    checkpoint_checks: tuple[Mapping[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -385,6 +388,8 @@ def train_masked_ppo(
     activation_name = _normalize_activation_name(activation)
     content_vocab = load_content_vocab()
     content_metadata = content_vocab_metadata(content_vocab)
+    reward_config_checksum = _reward_config_checksum()
+    game_logic_checksum = _game_logic_checksum()
     architecture = {
         "observation_dim": observation_dim,
         "action_feature_dim": ACTION_FEATURE_DIM,
@@ -395,6 +400,9 @@ def train_masked_ppo(
         "planning_head_schema": list(PLANNING_HEAD_SCHEMA),
         "planning_head_dim": PLANNING_HEAD_DIM,
         "network_schema_version": NETWORK_SCHEMA_VERSION,
+        "reward_schema_version": REWARD_SCHEMA_VERSION,
+        "reward_config_checksum": reward_config_checksum,
+        "game_logic_checksum": game_logic_checksum,
         **content_metadata,
         "hidden_size": hidden_size,
         "hidden_layers": max(1, hidden_layers),
@@ -403,6 +411,7 @@ def train_masked_ppo(
         "uses_agent_memory": True,
         "recurrent": False,
     }
+    architecture["network_contract_checksum"] = _network_contract_checksum(architecture)
     model = model_class(
         observation_dim=observation_dim,
         action_feature_dim=ACTION_FEATURE_DIM,
@@ -428,6 +437,7 @@ def train_masked_ppo(
     )
     resumed_from = resume_state.path
     previous_result = _mapping(resume_state.result)
+    checkpoint_checks = tuple(dict(check) for check in resume_state.checkpoint_checks)
     metadata = {
         "algorithm": "masked_action_descriptor_ppo",
         "seed": seed,
@@ -460,7 +470,11 @@ def train_masked_ppo(
         "active_env_streams": resolved_rollout_workers * resolved_envs_per_worker,
         "policy_server_min_batch": resolved_policy_min_batch,
         "policy_server_max_wait_ms": resolved_policy_max_wait_ms,
-        "reward_schema_version": 5,
+        "reward_schema_version": REWARD_SCHEMA_VERSION,
+        "reward_config_checksum": reward_config_checksum,
+        "game_logic_checksum": game_logic_checksum,
+        "network_contract_checksum": str(architecture.get("network_contract_checksum", "")),
+        "checkpoint_compatibility_checks": list(checkpoint_checks),
         "reward_config": DEFAULT_REWARD_CONFIG.model_dump(mode="json"),
     }
     teacher_agent = (
@@ -506,7 +520,9 @@ def train_masked_ppo(
         batch_limit=batch_limit,
         until_stopped=until_stopped,
         resumed_from_path=resumed_from,
-            device=str(torch_device),
+        checkpoint_checks=list(checkpoint_checks),
+        checkpoint_decision="resume" if resumed_from else "fresh",
+        device=str(torch_device),
         rollout_workers=resolved_rollout_workers,
         rollout_inference=resolved_rollout_inference,
         history_mode=resolved_history_mode,
@@ -4064,6 +4080,10 @@ def _ppo_result(
         "wins": sum(1 for point in training_points if point.win),
         "deaths": sum(1 for point in training_points if point.death),
         "resumed_from_path": resumed_from,
+        "checkpoint_decision": "resume" if resumed_from else "fresh",
+        "checkpoint_compatibility_checks": list(
+            _sequence(metadata.get("checkpoint_compatibility_checks"))
+        ),
         "model_path": str(model_output_path) if model_output_path is not None else None,
         "output_path": str(output_path) if output_path is not None else None,
         "progress_output_path": (
@@ -4465,6 +4485,7 @@ def _reward_component_keys(batches: Sequence[Mapping[str, Any]]) -> tuple[str, .
         "potion_waste_penalty",
         "resource_pickup_reward",
         "reward_skip_penalty",
+        "opportunity_cost_penalty",
         "deck_capability_reward",
         "deck_burden_penalty",
         "starter_deck_similarity_penalty",
@@ -4609,39 +4630,90 @@ def _load_checkpoint_if_available(
     resume_from_path: Path | str | None,
     model_output_path: Path | str | None,
 ) -> _ResumeState:
+    checks: list[Mapping[str, Any]] = []
     if not resume:
-        return _ResumeState()
-    for candidate in (
-        Path(resume_from_path) if resume_from_path is not None else None,
-        Path(model_output_path) if model_output_path is not None else None,
-    ):
+        return _ResumeState(
+            checkpoint_checks=(
+                {
+                    "decision": "fresh",
+                    "reason": "resume disabled",
+                    "resume_requested": False,
+                },
+            )
+        )
+    candidates = tuple(
+        candidate
+        for candidate in (
+            Path(resume_from_path) if resume_from_path is not None else None,
+            Path(model_output_path) if model_output_path is not None else None,
+        )
+        if candidate is not None
+    )
+    if not candidates:
+        return _ResumeState(
+            checkpoint_checks=(
+                {
+                    "decision": "fresh",
+                    "reason": "no checkpoint path configured",
+                    "resume_requested": True,
+                },
+            )
+        )
+    for candidate in candidates:
         if candidate is None or not candidate.exists():
+            checks.append(
+                {
+                    "checkpoint_path": str(candidate),
+                    "decision": "missing",
+                    "compatible": False,
+                    "reason": "checkpoint file not found",
+                }
+            )
             continue
         payload = torch.load(candidate, map_location=device)
         if isinstance(payload, Mapping):
             architecture = payload.get("architecture")
-            if isinstance(architecture, Mapping) and not _architecture_matches(
-                architecture,
-                expected_architecture,
-            ):
-                raise RuntimeError(
-                    "Refusing to resume from an incompatible PPO checkpoint. "
-                    f"Checkpoint architecture={dict(architecture)!r}; "
-                    f"expected={dict(expected_architecture)!r}. "
-                    "Start a fresh run or choose a checkpoint with matching "
-                    "network_schema_version and dimensions."
+            if isinstance(architecture, Mapping):
+                mismatches = _architecture_mismatches(architecture, expected_architecture)
+                if mismatches:
+                    checks.append(
+                        {
+                            "checkpoint_path": str(candidate),
+                            "decision": "fresh",
+                            "compatible": False,
+                            "reason": "checkpoint hash or schema changed",
+                            "mismatches": list(mismatches),
+                            "matched_keys": _architecture_match_keys(
+                                architecture,
+                                expected_architecture,
+                            ),
+                        }
+                    )
+                    continue
+            else:
+                checks.append(
+                    {
+                        "checkpoint_path": str(candidate),
+                        "decision": "fresh",
+                        "compatible": False,
+                        "reason": "checkpoint has no architecture metadata",
+                    }
                 )
-            if not isinstance(architecture, Mapping):
-                raise RuntimeError(
-                    "Refusing to resume from a PPO checkpoint without architecture "
-                    "metadata. Start a fresh run with resume disabled."
-                )
+                continue
             model_state = payload.get("model_state")
             optimizer_state = payload.get("optimizer_state")
             if model_state is not None:
                 try:
                     model.load_state_dict(model_state)
                 except RuntimeError:
+                    checks.append(
+                        {
+                            "checkpoint_path": str(candidate),
+                            "decision": "fresh",
+                            "compatible": False,
+                            "reason": "model state could not load",
+                        }
+                    )
                     continue
             if optimizer_state is not None:
                 try:
@@ -4650,11 +4722,32 @@ def _load_checkpoint_if_available(
                 except ValueError:
                     optimizer_state = None
             result = payload.get("result")
+            checks.append(
+                {
+                    "checkpoint_path": str(candidate),
+                    "decision": "resume",
+                    "compatible": True,
+                    "reason": "all checkpoint hashes and schemas match",
+                    "matched_keys": _architecture_match_keys(
+                        architecture,
+                        expected_architecture,
+                    ),
+                }
+            )
             return _ResumeState(
                 path=str(candidate),
                 result=result if isinstance(result, Mapping) else None,
+                checkpoint_checks=tuple(checks),
             )
-    return _ResumeState()
+        checks.append(
+            {
+                "checkpoint_path": str(candidate),
+                "decision": "fresh",
+                "compatible": False,
+                "reason": "checkpoint payload is not a mapping",
+            }
+        )
+    return _ResumeState(checkpoint_checks=tuple(checks))
 
 
 def _move_optimizer_state_to_device(optimizer: Any, device: Any) -> None:
@@ -4713,6 +4806,10 @@ def _checkpoint_architecture(result: Mapping[str, Any]) -> dict[str, Any]:
     metadata = _mapping(result.get("metadata"))
     return {
         "network_schema_version": _int(metadata.get("network_schema_version")),
+        "reward_schema_version": _int(metadata.get("reward_schema_version")),
+        "reward_config_checksum": str(metadata.get("reward_config_checksum", "")),
+        "game_logic_checksum": str(metadata.get("game_logic_checksum", "")),
+        "network_contract_checksum": str(metadata.get("network_contract_checksum", "")),
         "observation_dim": _int(metadata.get("observation_dim")),
         "action_feature_dim": _int(metadata.get("action_feature_dim")),
         "content_vocab_schema_version": _int(metadata.get("content_vocab_schema_version")),
@@ -4735,8 +4832,47 @@ def _architecture_matches(
     checkpoint_architecture: Mapping[str, Any],
     expected_architecture: Mapping[str, Any],
 ) -> bool:
+    return not _architecture_mismatches(checkpoint_architecture, expected_architecture)
+
+
+def _architecture_mismatches(
+    checkpoint_architecture: Mapping[str, Any],
+    expected_architecture: Mapping[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    mismatches: list[dict[str, Any]] = []
+    for key in _checkpoint_compatibility_keys():
+        checkpoint_value = checkpoint_architecture.get(key)
+        expected_value = expected_architecture.get(key)
+        if str(checkpoint_value) == str(expected_value):
+            continue
+        mismatches.append(
+            {
+                "key": key,
+                "checkpoint": checkpoint_value,
+                "expected": expected_value,
+            }
+        )
+    return tuple(mismatches)
+
+
+def _architecture_match_keys(
+    checkpoint_architecture: Mapping[str, Any],
+    expected_architecture: Mapping[str, Any],
+) -> list[str]:
+    return [
+        key
+        for key in _checkpoint_compatibility_keys()
+        if str(checkpoint_architecture.get(key)) == str(expected_architecture.get(key))
+    ]
+
+
+def _checkpoint_compatibility_keys() -> tuple[str, ...]:
     keys = (
         "network_schema_version",
+        "reward_schema_version",
+        "reward_config_checksum",
+        "game_logic_checksum",
+        "network_contract_checksum",
         "observation_dim",
         "action_feature_dim",
         "content_vocab_schema_version",
@@ -4751,10 +4887,72 @@ def _architecture_matches(
         "head_hidden_layers",
         "activation",
     )
-    return all(
-        str(checkpoint_architecture.get(key)) == str(expected_architecture.get(key))
-        for key in keys
+    return keys
+
+
+def _reward_config_checksum() -> str:
+    payload = json.dumps(
+        DEFAULT_REWARD_CONFIG.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
     )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _network_contract_checksum(architecture: Mapping[str, Any]) -> str:
+    payload = {
+        key: architecture.get(key)
+        for key in (
+            "network_schema_version",
+            "observation_dim",
+            "action_feature_dim",
+            "content_vocab_schema_version",
+            "content_vocab_size",
+            "content_vocab_checksum",
+            "content_identity_slots",
+            "content_identity_embedding_dim",
+            "planning_head_dim",
+            "planning_head_schema",
+            "hidden_size",
+            "hidden_layers",
+            "head_hidden_layers",
+            "activation",
+            "uses_agent_memory",
+            "recurrent",
+        )
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _game_logic_checksum() -> str:
+    package_root = Path(__file__).resolve().parents[1]
+    paths: list[Path] = []
+    for relative in (
+        "engine",
+        "mechanics",
+        "content",
+        "api.py",
+        "agent_api.py",
+        "agent_previews.py",
+        "gymnasium_env.py",
+        "replay.py",
+        "run_files.py",
+    ):
+        target = package_root / relative
+        if target.is_dir():
+            paths.extend(sorted(target.rglob("*.py")))
+        elif target.is_file():
+            paths.append(target)
+    digest = hashlib.sha256()
+    for path in sorted(set(paths)):
+        relative_path = path.relative_to(package_root).as_posix()
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _load_torch() -> tuple[Any, Any, Any]:

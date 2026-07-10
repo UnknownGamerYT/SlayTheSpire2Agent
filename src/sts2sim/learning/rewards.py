@@ -55,10 +55,20 @@ class LearningRewardConfig(BaseModel):
     relic_pickup_reward: float = 0.08
     potion_pickup_reward: float = 0.03
     card_remove_reward: float = 0.05
-    skip_gold_penalty: float = 0.0
-    skip_relic_penalty: float = 0.0
+    skip_gold_penalty: float = -0.5
+    skip_relic_penalty: float = -0.25
+    relic_skip_penalty_decay: float = 0.60
+    exclusive_relic_choice_skip_penalty: float = -0.05
     skip_potion_penalty: float = 0.0
-    early_card_skip_penalty: float = 0.01
+    shop_affordable_relic_leave_penalty: float = -0.08
+    shop_affordable_relic_leave_decay: float = 0.55
+    shop_unaffordable_relic_shortfall_weight: float = -0.001
+    shop_unaffordable_relic_penalty_cap: float = 0.12
+    shop_leave_opportunity_penalty_cap: float = 0.35
+    shop_restock_opportunity_penalty_cap: float = 0.12
+    choice_opportunity_weight: float = 0.05
+    choice_opportunity_penalty_cap: float = 0.30
+    early_card_skip_penalty: float = -0.01
     early_card_skip_deck_size: int = 14
     deck_capability_reward_weight: float = 0.01
     deck_capability_reward_cap: float = 0.15
@@ -116,6 +126,7 @@ class LearningRewardBreakdown(BaseModel):
     potion_waste_penalty: float = 0.0
     resource_pickup_reward: float = 0.0
     reward_skip_penalty: float = 0.0
+    opportunity_cost_penalty: float = 0.0
     deck_capability_reward: float = 0.0
     deck_burden_penalty: float = 0.0
     starter_deck_similarity_penalty: float = 0.0
@@ -279,6 +290,7 @@ def learning_reward_breakdown(
     potion_penalty = _potion_waste_penalty(previous, descriptor, config)
     resource_pickup = _resource_pickup_reward(previous, current, descriptor, config)
     reward_skip = _reward_skip_penalty(previous, descriptor, config)
+    opportunity_cost = _opportunity_cost_penalty(previous, descriptor, config)
     deck_capability = _deck_capability_reward(previous, current, config)
     deck_burden = _deck_burden_penalty(previous, current, descriptor, config)
     starter_similarity = _starter_deck_similarity_penalty(current, config, tracker)
@@ -299,6 +311,7 @@ def learning_reward_breakdown(
         potion_waste_penalty=round(potion_penalty, 6),
         resource_pickup_reward=round(resource_pickup, 6),
         reward_skip_penalty=round(reward_skip, 6),
+        opportunity_cost_penalty=round(opportunity_cost, 6),
         deck_capability_reward=round(deck_capability, 6),
         deck_burden_penalty=round(deck_burden, 6),
         starter_deck_similarity_penalty=round(starter_similarity, 6),
@@ -611,14 +624,20 @@ def _reward_skip_penalty(
     action_descriptor: Mapping[str, Any],
     config: LearningRewardConfig,
 ) -> float:
-    if str(action_descriptor.get("type", "")) != "skip_reward":
+    action_type = str(action_descriptor.get("type", ""))
+    if action_type == "proceed":
+        return (
+            (config.skip_gold_penalty if _unclaimed_gold_amount(previous) > 0 else 0.0)
+            + _unclaimed_relic_skip_penalty(previous, config)
+        )
+    if action_type != "skip_reward":
         return 0.0
     reward_choice = _mapping(action_descriptor.get("reward_choice"))
     skip_kind = str(reward_choice.get("skip_kind", reward_choice.get("kind", "")))
     if skip_kind == "gold":
         return config.skip_gold_penalty
     if skip_kind == "relic":
-        return config.skip_relic_penalty
+        return _unclaimed_relic_skip_penalty(previous, config, minimum_choices=1)
     if skip_kind == "potion":
         return config.skip_potion_penalty if _potion_slots_available(previous) else 0.0
     if (
@@ -627,6 +646,306 @@ def _reward_skip_penalty(
     ):
         return config.early_card_skip_penalty
     return 0.0
+
+
+def _opportunity_cost_penalty(
+    previous: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    return round(
+        _shop_leave_opportunity_cost(previous, action_descriptor, config)
+        + _choice_opportunity_cost(previous, action_descriptor, config),
+        6,
+    )
+
+
+def _shop_leave_opportunity_cost(
+    previous: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    action_type = str(action_descriptor.get("type", ""))
+    if action_type not in {"shop_leave", "proceed"}:
+        return 0.0
+    if _phase(previous) not in {"shop"}:
+        return 0.0
+    shop = _mapping(previous.get("shop"))
+    if not shop:
+        return 0.0
+    gold = _player_gold(previous)
+    relic_prices: list[int] = []
+    for raw_item in _sequence(shop.get("items")):
+        item = _mapping(raw_item)
+        if str(item.get("kind", "")).lower() != "relic" or _bool(item.get("purchased")):
+            continue
+        price = max(0, _int(item.get("price")))
+        if price > 0:
+            relic_prices.append(price)
+    if not relic_prices:
+        return 0.0
+
+    affordable_count = _affordable_shop_purchase_count(gold, relic_prices)
+    penalty = _diminishing_penalty(
+        config.shop_affordable_relic_leave_penalty,
+        affordable_count,
+        config.shop_affordable_relic_leave_decay,
+    )
+    unaffordable_shortfalls = [price - gold for price in relic_prices if price > gold]
+    if unaffordable_shortfalls:
+        penalty += max(
+            -config.shop_unaffordable_relic_penalty_cap,
+            min(unaffordable_shortfalls) * config.shop_unaffordable_relic_shortfall_weight,
+        )
+    cap = (
+        config.shop_restock_opportunity_penalty_cap
+        if _shop_restock_enabled(previous)
+        else config.shop_leave_opportunity_penalty_cap
+    )
+    return max(-cap, penalty)
+
+
+def _affordable_shop_purchase_count(gold: int, prices: Sequence[int]) -> int:
+    remaining = max(0, gold)
+    count = 0
+    for price in sorted(price for price in prices if price > 0 and price <= remaining):
+        if price > remaining:
+            continue
+        remaining -= price
+        count += 1
+    return count
+
+
+def _shop_restock_enabled(payload: Mapping[str, Any]) -> bool:
+    if any(relic_id in {"the_courier", "courier"} for relic_id in _relic_ids(payload)):
+        return True
+    flags = _mapping(payload.get("flags"))
+    if _bool(flags.get("shop_restock_enabled")):
+        return True
+    shop = _mapping(payload.get("shop"))
+    return _bool(shop.get("restock_enabled"))
+
+
+def _choice_opportunity_cost(
+    previous: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    action_type = str(action_descriptor.get("type", ""))
+    if action_type == "choose_ancient":
+        return _option_choice_opportunity_cost(
+            previous,
+            action_descriptor,
+            option_container="ancient",
+            selected_option=_mapping(action_descriptor.get("ancient_option")),
+            config=config,
+        )
+    if action_type == "choose_event":
+        return _option_choice_opportunity_cost(
+            previous,
+            action_descriptor,
+            option_container="event",
+            selected_option=_mapping(action_descriptor.get("event_option")),
+            config=config,
+        )
+    return 0.0
+
+
+def _option_choice_opportunity_cost(
+    previous: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+    *,
+    option_container: str,
+    selected_option: Mapping[str, Any],
+    config: LearningRewardConfig,
+) -> float:
+    if not selected_option:
+        return 0.0
+    container = _mapping(previous.get(option_container))
+    options = tuple(_mapping(item) for item in _sequence(container.get("options")))
+    if len(options) <= 1:
+        return 0.0
+    selected_id = str(
+        selected_option.get("option_id")
+        or _mapping(action_descriptor.get("action")).get("target_id")
+        or ""
+    )
+    chosen_score = _generic_option_value_score(selected_option)
+    other_scores = [
+        _generic_option_value_score(option)
+        for option in options
+        if str(option.get("option_id", "")) != selected_id
+        and not _bool(option.get("disabled"))
+    ]
+    if not other_scores:
+        return 0.0
+    visible_gap = max(other_scores) - chosen_score
+    if visible_gap <= 0:
+        return 0.0
+    return -min(
+        config.choice_opportunity_penalty_cap,
+        visible_gap * config.choice_opportunity_weight,
+    )
+
+
+def _generic_option_value_score(option: Mapping[str, Any]) -> float:
+    metadata = _mapping(option.get("metadata"))
+    fixed_relic_count = _int(metadata.get("fixed_relic_count"))
+    if option.get("relic_id"):
+        fixed_relic_count += 1
+    if _sequence(metadata.get("fixed_relic_ids")):
+        fixed_relic_count += len(_sequence(metadata.get("fixed_relic_ids")))
+    relic_count = (
+        fixed_relic_count
+        + _int(option.get("random_relic_count"))
+        + _int(metadata.get("random_relic_count"))
+        + _int(option.get("event_reward_relic_count"))
+        + _int(metadata.get("event_reward_relic_count"))
+    )
+    upgrade_count = (
+        _int(option.get("upgrade_random_count"))
+        + _int(metadata.get("upgrade_random_count"))
+        + _int(metadata.get("upgrade_count"))
+        + _int(metadata.get("card_upgrade_count"))
+    )
+    card_reward_count = _int(option.get("card_reward_count")) + _int(
+        metadata.get("card_reward_count")
+    )
+    remove_count = (
+        _int(option.get("remove_random_count"))
+        + _int(metadata.get("remove_random_count"))
+        + _int(metadata.get("remove_count"))
+    )
+    transform_count = (
+        _int(option.get("transform_random_count"))
+        + _int(metadata.get("transform_random_count"))
+        + _int(metadata.get("transform_count"))
+    )
+    potion_count = (
+        _int(option.get("random_potion_count"))
+        + _int(metadata.get("random_potion_count"))
+        + _int(metadata.get("potion_count"))
+    )
+    max_hp_delta = _int(option.get("max_hp_delta")) + _int(metadata.get("max_hp_delta"))
+    hp_delta = _int(option.get("hp_delta")) + _int(metadata.get("hp_delta"))
+    gold_delta = _int(option.get("gold_delta")) + _int(metadata.get("gold_delta"))
+    curse_count = _int(metadata.get("curse_count")) + _int(metadata.get("random_curse_count"))
+    if metadata.get("card_id") and "curse" in _normalized_id(metadata.get("card_id")):
+        curse_count += 1
+    risk = _float(metadata.get("risk"))
+    return (
+        relic_count * 1.0
+        + upgrade_count * 0.35
+        + remove_count * 0.30
+        + transform_count * 0.22
+        + card_reward_count * 0.16
+        + potion_count * 0.12
+        + max(0, max_hp_delta) * 0.04
+        + min(max(0, gold_delta) * 0.01, 0.5)
+        + max(0, hp_delta) * 0.02
+        + min(0, hp_delta) * 0.03
+        - curse_count * 0.45
+        - risk * 0.20
+    )
+
+
+def _unclaimed_gold_amount(payload: Mapping[str, Any]) -> int:
+    reward = _mapping(payload.get("reward"))
+    if not reward:
+        return 0
+    if _bool(reward.get("gold_claimed")) or _bool(reward.get("gold_skipped")):
+        return 0
+    return max(0, _int(reward.get("gold")))
+
+
+def _unclaimed_relic_skip_penalty(
+    payload: Mapping[str, Any],
+    config: LearningRewardConfig,
+    *,
+    minimum_choices: int = 0,
+) -> float:
+    reward = _mapping(payload.get("reward"))
+    unclaimed = _unclaimed_relic_count(payload)
+    if unclaimed <= 0 and minimum_choices <= 0:
+        return 0.0
+    choice_limit = _reward_relic_choice_limit(reward)
+    if choice_limit > 0:
+        claimed = _claimed_relic_count(reward)
+        missed_choices = max(0, min(choice_limit, _available_relic_count(reward)) - claimed)
+        return _diminishing_penalty(
+            config.exclusive_relic_choice_skip_penalty,
+            max(minimum_choices, missed_choices),
+            config.relic_skip_penalty_decay,
+        )
+    return _diminishing_penalty(
+        config.skip_relic_penalty,
+        max(minimum_choices, unclaimed),
+        config.relic_skip_penalty_decay,
+    )
+
+
+def _unclaimed_relic_count(payload: Mapping[str, Any]) -> int:
+    reward = _mapping(payload.get("reward"))
+    if not reward:
+        return 0
+    claimed = {_normalized_id(item) for item in _sequence(reward.get("claimed_relic_ids"))}
+    skipped = {_normalized_id(item) for item in _sequence(reward.get("skipped_relic_ids"))}
+    relic_ids = tuple(
+        _normalized_id(item)
+        for item in _sequence(reward.get("relic_ids"))
+        if _normalized_id(item)
+    )
+    if relic_ids:
+        return sum(
+            1 for relic_id in relic_ids if relic_id not in claimed and relic_id not in skipped
+        )
+    relic_id = _normalized_id(reward.get("relic_id"))
+    if not relic_id:
+        return 0
+    if _bool(reward.get("relic_claimed")) or _bool(reward.get("relic_skipped")):
+        return 0
+    if relic_id in claimed or relic_id in skipped:
+        return 0
+    return 1
+
+
+def _diminishing_penalty(base_penalty: float, count: int, decay: float) -> float:
+    if count <= 0 or base_penalty == 0.0:
+        return 0.0
+    clamped_decay = _clamp(float(decay), 0.0, 1.0)
+    return sum(base_penalty * (clamped_decay**index) for index in range(count))
+
+
+def _reward_relic_choice_limit(reward: Mapping[str, Any]) -> int:
+    if not reward:
+        return 0
+    metadata = _mapping(reward.get("metadata"))
+    for key in (
+        "max_relic_choices",
+        "relic_max_choices",
+        "relic_choice_count",
+        "choose_relic_count",
+        "relic_pick_count",
+    ):
+        value = _int(metadata.get(key))
+        if value > 0:
+            return value
+    if _bool(metadata.get("exclusive_relic_choices")) or _bool(
+        reward.get("exclusive_relic_choices")
+    ):
+        return 1
+    return 0
+
+
+def _available_relic_count(reward: Mapping[str, Any]) -> int:
+    relic_ids = tuple(_normalized_id(item) for item in _sequence(reward.get("relic_ids")))
+    return len(tuple(item for item in relic_ids if item)) + int(
+        bool(_normalized_id(reward.get("relic_id")))
+    )
+
+
+def _claimed_relic_count(reward: Mapping[str, Any]) -> int:
+    return len(_sequence(reward.get("claimed_relic_ids"))) + int(_bool(reward.get("relic_claimed")))
 
 
 def _deck_capability_reward(

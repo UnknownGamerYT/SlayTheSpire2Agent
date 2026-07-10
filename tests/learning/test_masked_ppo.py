@@ -25,6 +25,7 @@ from sts2sim.learning.masked_ppo import (
     ACTION_FEATURE_DIM,
     PLANNING_HEAD_DIM,
     PLANNING_HEAD_SCHEMA,
+    REWARD_SCHEMA_VERSION,
     TrainingTarget,
     _accumulate_run_diagnostics,
     _action_features,
@@ -439,7 +440,11 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert "content_vocab_checksum" in second["metadata"]
     assert second["metadata"]["planning_head_schema"] == list(PLANNING_HEAD_SCHEMA)
     assert second["metadata"]["target_success_rate"] == 0.0
-    assert second["metadata"]["reward_schema_version"] == 5
+    assert second["metadata"]["reward_schema_version"] == REWARD_SCHEMA_VERSION
+    assert "reward_config_checksum" in second["metadata"]
+    assert "game_logic_checksum" in second["metadata"]
+    assert "network_contract_checksum" in second["metadata"]
+    assert second["metadata"]["checkpoint_compatibility_checks"][-1]["decision"] == "resume"
     assert second["metadata"]["rollout_workers"] == 1
     assert second["metadata"]["rollout_inference"] == "worker"
     assert second["metadata"]["history_mode"] == "highlights"
@@ -571,7 +576,9 @@ def test_train_masked_ppo_batched_gpu_multi_env_smoke(tmp_path: Path) -> None:
     assert throughput["rollout_inference"] == "batched-gpu"
 
 
-def test_train_masked_ppo_rejects_incompatible_old_checkpoint(tmp_path: Path) -> None:
+def test_train_masked_ppo_starts_fresh_for_incompatible_old_checkpoint(
+    tmp_path: Path,
+) -> None:
     if importlib.util.find_spec("torch") is None:
         pytest.skip("PyTorch is not installed in this environment.")
 
@@ -593,19 +600,80 @@ def test_train_masked_ppo_rejects_incompatible_old_checkpoint(tmp_path: Path) ->
         model_path,
     )
 
-    with pytest.raises(RuntimeError, match="incompatible PPO checkpoint"):
-        train_masked_ppo(
-            max_batches=1,
-            train_runs_per_batch=1,
-            train_max_steps=1,
-            eval_runs=1,
-            eval_max_steps=1,
-            resume=True,
-            model_output_path=model_path,
-            output_path=tmp_path / "ppo.json",
-            progress_output_path=tmp_path / "ppo_progress.json",
-            report_output_path=tmp_path / "ppo.html",
-        )
+    result = train_masked_ppo(
+        max_batches=1,
+        train_runs_per_batch=1,
+        train_max_steps=1,
+        eval_runs=1,
+        eval_max_steps=1,
+        resume=True,
+        model_output_path=model_path,
+        output_path=tmp_path / "ppo.json",
+        progress_output_path=tmp_path / "ppo_progress.json",
+        report_output_path=tmp_path / "ppo.html",
+    )
+
+    checks = result["metadata"]["checkpoint_compatibility_checks"]
+    assert result["resumed_from_path"] is None
+    assert result["previous_batches"] == 0
+    assert checks[-1]["decision"] == "fresh"
+    assert checks[-1]["compatible"] is False
+    mismatch_keys = {mismatch["key"] for mismatch in checks[-1]["mismatches"]}
+    assert "network_schema_version" in mismatch_keys
+
+
+def test_train_masked_ppo_starts_fresh_for_old_reward_schema_checkpoint(
+    tmp_path: Path,
+) -> None:
+    if importlib.util.find_spec("torch") is None:
+        pytest.skip("PyTorch is not installed in this environment.")
+
+    import torch
+
+    model_path = tmp_path / "ppo.pt"
+    output_path = tmp_path / "ppo.json"
+    progress_path = tmp_path / "ppo_progress.json"
+    report_path = tmp_path / "ppo.html"
+    train_masked_ppo(
+        max_batches=1,
+        train_runs_per_batch=0,
+        train_max_steps=1,
+        eval_runs=1,
+        eval_max_steps=1,
+        seed="old-reward-schema",
+        resume=False,
+        target_eval_successes=99,
+        target_consecutive_successes=99,
+        history_mode="off",
+        model_output_path=model_path,
+        output_path=output_path,
+        progress_output_path=progress_path,
+        report_output_path=report_path,
+    )
+    payload = torch.load(model_path, map_location="cpu")
+    payload["architecture"]["reward_schema_version"] = REWARD_SCHEMA_VERSION - 1
+    torch.save(payload, model_path)
+
+    result = train_masked_ppo(
+        max_batches=1,
+        train_runs_per_batch=1,
+        train_max_steps=1,
+        eval_runs=1,
+        eval_max_steps=1,
+        resume=True,
+        model_output_path=model_path,
+        output_path=output_path,
+        progress_output_path=progress_path,
+        report_output_path=report_path,
+    )
+
+    checks = result["metadata"]["checkpoint_compatibility_checks"]
+    assert result["resumed_from_path"] is None
+    assert result["previous_batches"] == 0
+    assert checks[-1]["decision"] == "fresh"
+    assert checks[-1]["compatible"] is False
+    mismatch_keys = {mismatch["key"] for mismatch in checks[-1]["mismatches"]}
+    assert "reward_schema_version" in mismatch_keys
 
 
 def test_train_masked_ppo_explains_missing_torch(tmp_path) -> None:

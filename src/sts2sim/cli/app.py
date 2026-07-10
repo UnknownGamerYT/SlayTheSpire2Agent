@@ -167,6 +167,8 @@ def _compact_training_result(payload: Any) -> Any:
         "wins",
         "deaths",
         "resumed_from_path",
+        "checkpoint_decision",
+        "checkpoint_compatibility_checks",
         "model_path",
         "output_path",
         "progress_output_path",
@@ -185,6 +187,11 @@ def _compact_training_result(payload: Any) -> Any:
                 "character_name",
                 "ascension",
                 "network_schema_version",
+                "reward_schema_version",
+                "network_contract_checksum",
+                "reward_config_checksum",
+                "game_logic_checksum",
+                "checkpoint_compatibility_checks",
                 "parameter_count",
                 "device",
                 "cuda_available",
@@ -325,6 +332,8 @@ class _TrainingTerminalProgress:
                 f"active_envs={payload.get('active_env_streams')}, "
                 f"until_stopped={payload.get('until_stopped')}"
             )
+            for line in _checkpoint_check_lines(payload):
+                progress.console.log(line)
             return
         if event == "batch_start":
             self._remove_task(self._train_task)
@@ -409,6 +418,8 @@ class _TrainingTerminalProgress:
                 f"active_envs={payload.get('active_env_streams')}, "
                 f"until_stopped={payload.get('until_stopped')}"
             )
+            for line in _checkpoint_check_lines(payload):
+                typer.echo(line)
         elif event == "batch_start":
             typer.echo(
                 f"Batch {payload.get('batch_index')} started: "
@@ -449,6 +460,39 @@ def _target_name(value: Any) -> str:
     if isinstance(value, Mapping):
         return str(value.get("name", "unknown"))
     return str(value)
+
+
+def _checkpoint_check_lines(payload: Mapping[str, Any]) -> list[str]:
+    checks = [
+        check
+        for check in payload.get("checkpoint_checks", [])
+        if isinstance(check, Mapping)
+    ]
+    decision = str(payload.get("checkpoint_decision", "fresh"))
+    if not checks:
+        return [f"Checkpoint: {decision}; no checkpoint checks were needed."]
+    lines: list[str] = []
+    for check in checks:
+        path = str(check.get("checkpoint_path", "") or "")
+        check_decision = str(check.get("decision", "fresh"))
+        reason = str(check.get("reason", ""))
+        prefix = f"Checkpoint: {check_decision}"
+        if path:
+            prefix += f" {path}"
+        if reason:
+            prefix += f" ({reason})"
+        lines.append(prefix)
+        mismatches = [
+            mismatch
+            for mismatch in check.get("mismatches", [])
+            if isinstance(mismatch, Mapping)
+        ]
+        if mismatches:
+            keys = ", ".join(str(mismatch.get("key", "")) for mismatch in mismatches[:8])
+            if len(mismatches) > 8:
+                keys += f", +{len(mismatches) - 8} more"
+            lines.append(f"  changed: {keys}")
+    return lines
 
 
 def _run_progress_line(payload: Mapping[str, Any]) -> str:
@@ -493,6 +537,7 @@ def _reward_signal_line(payload: Mapping[str, Any]) -> str:
         f"hp_loss={_progress_float(rewards.get('hp_loss_penalty')):.2f}",
         f"gold={_progress_float(rewards.get('gold_reward')):.2f}",
         f"skip={_progress_float(rewards.get('reward_skip_penalty')):.2f}",
+        f"opp={_progress_float(rewards.get('opportunity_cost_penalty')):.2f}",
         f"deck={_progress_float(rewards.get('deck_capability_reward')):.2f}",
     ]
     return "  reward avg: " + ", ".join(parts)

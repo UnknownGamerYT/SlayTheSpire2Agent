@@ -147,11 +147,253 @@ def test_reward_skips_do_not_double_count_pickup_incentives_by_default() -> None
             "reward_choice": {"skip_kind": "card_options"},
         },
     )
+    relic = learning_reward_breakdown(
+        _base_payload(
+            phase="reward",
+            reward={
+                "reward_id": "combat:1",
+                "source": "combat",
+                "relic_id": "anchor",
+                "relic_claimed": False,
+            },
+        ),
+        previous,
+        action_descriptor={
+            "type": "skip_reward",
+            "reward_choice": {"skip_kind": "relic"},
+        },
+    )
 
-    assert gold.reward_skip_penalty == 0.0
+    assert gold.reward_skip_penalty == DEFAULT_REWARD_CONFIG.skip_gold_penalty
+    assert gold.reward_skip_penalty < 0.0
     assert card.reward_skip_penalty == DEFAULT_REWARD_CONFIG.early_card_skip_penalty
-    assert DEFAULT_REWARD_CONFIG.skip_gold_penalty == 0.0
-    assert DEFAULT_REWARD_CONFIG.early_card_skip_penalty <= DEFAULT_REWARD_CONFIG.card_pickup_reward
+    assert card.reward_skip_penalty < 0.0
+    assert relic.reward_skip_penalty == DEFAULT_REWARD_CONFIG.skip_relic_penalty
+    assert relic.reward_skip_penalty < 0.0
+    assert abs(DEFAULT_REWARD_CONFIG.skip_gold_penalty) > DEFAULT_REWARD_CONFIG.card_pickup_reward
+
+
+def test_proceeding_with_unclaimed_gold_is_penalized() -> None:
+    previous = _base_payload(
+        phase="reward",
+        reward={
+            "reward_id": "combat:1",
+            "source": "combat",
+            "gold": 19,
+            "gold_claimed": False,
+        },
+    )
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "proceed"},
+    )
+
+    assert breakdown.reward_skip_penalty == DEFAULT_REWARD_CONFIG.skip_gold_penalty
+    assert breakdown.total == DEFAULT_REWARD_CONFIG.skip_gold_penalty
+
+
+def test_proceeding_with_unclaimed_relic_is_penalized_per_relic() -> None:
+    previous = _base_payload(
+        phase="reward",
+        reward={
+            "reward_id": "event:relics",
+            "source": "event",
+            "relic_ids": ["anchor", "bag_of_marbles"],
+            "claimed_relic_ids": ["anchor"],
+            "skipped_relic_ids": [],
+        },
+    )
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "proceed"},
+    )
+
+    assert breakdown.reward_skip_penalty == DEFAULT_REWARD_CONFIG.skip_relic_penalty
+    assert breakdown.total == DEFAULT_REWARD_CONFIG.skip_relic_penalty
+
+
+def test_multiple_unclaimed_relics_have_diminishing_skip_penalty() -> None:
+    previous = _base_payload(
+        phase="reward",
+        reward={
+            "reward_id": "event:relics",
+            "source": "event",
+            "relic_ids": ["anchor", "bag_of_marbles", "kunai"],
+            "claimed_relic_ids": [],
+            "skipped_relic_ids": [],
+        },
+    )
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "proceed"},
+    )
+
+    expected = DEFAULT_REWARD_CONFIG.skip_relic_penalty * (
+        1
+        + DEFAULT_REWARD_CONFIG.relic_skip_penalty_decay
+        + DEFAULT_REWARD_CONFIG.relic_skip_penalty_decay**2
+    )
+    linear = DEFAULT_REWARD_CONFIG.skip_relic_penalty * 3
+    assert breakdown.reward_skip_penalty == pytest.approx(expected)
+    assert abs(breakdown.reward_skip_penalty) < abs(linear)
+
+
+def test_exclusive_relic_choices_are_not_penalized_as_all_unclaimed() -> None:
+    previous = _base_payload(
+        phase="reward",
+        reward={
+            "reward_id": "ancient:relic-choice",
+            "source": "ancient",
+            "relic_ids": ["anchor", "bag_of_marbles", "kunai"],
+            "claimed_relic_ids": [],
+            "skipped_relic_ids": [],
+            "metadata": {"exclusive_relic_choices": True, "max_relic_choices": 1},
+        },
+    )
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "proceed"},
+    )
+
+    assert (
+        breakdown.reward_skip_penalty
+        == DEFAULT_REWARD_CONFIG.exclusive_relic_choice_skip_penalty
+    )
+    assert abs(breakdown.reward_skip_penalty) < abs(DEFAULT_REWARD_CONFIG.skip_relic_penalty)
+
+
+def test_shop_leave_relic_opportunity_cost_respects_affordability() -> None:
+    previous = _base_payload(phase="shop", gold=100)
+    previous["shop"] = {
+        "items": [
+            {"kind": "relic", "item_id": "anchor", "price": 80, "purchased": False},
+            {"kind": "relic", "item_id": "kunai", "price": 175, "purchased": False},
+            {"kind": "relic", "item_id": "shovel", "price": 500, "purchased": False},
+            {"kind": "card", "item_id": "strike", "price": 50, "purchased": False},
+            {"kind": "relic", "item_id": "bag", "price": 50, "purchased": True},
+        ]
+    }
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "shop_leave"},
+    )
+
+    expected = (
+        DEFAULT_REWARD_CONFIG.shop_affordable_relic_leave_penalty
+        - min(
+            DEFAULT_REWARD_CONFIG.shop_unaffordable_relic_penalty_cap,
+            75 * abs(DEFAULT_REWARD_CONFIG.shop_unaffordable_relic_shortfall_weight),
+        )
+    )
+    assert breakdown.opportunity_cost_penalty == pytest.approx(expected)
+
+
+def test_shop_leave_multiple_affordable_relics_use_diminishing_penalty() -> None:
+    previous = _base_payload(phase="shop", gold=500)
+    previous["shop"] = {
+        "items": [
+            {"kind": "relic", "item_id": "anchor", "price": 80, "purchased": False},
+            {"kind": "relic", "item_id": "kunai", "price": 100, "purchased": False},
+            {"kind": "relic", "item_id": "shovel", "price": 120, "purchased": False},
+        ]
+    }
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "shop_leave"},
+    )
+
+    expected = DEFAULT_REWARD_CONFIG.shop_affordable_relic_leave_penalty * (
+        1
+        + DEFAULT_REWARD_CONFIG.shop_affordable_relic_leave_decay
+        + DEFAULT_REWARD_CONFIG.shop_affordable_relic_leave_decay**2
+    )
+    linear = DEFAULT_REWARD_CONFIG.shop_affordable_relic_leave_penalty * 3
+    assert breakdown.opportunity_cost_penalty == pytest.approx(expected)
+    assert abs(breakdown.opportunity_cost_penalty) < abs(linear)
+
+
+def test_courier_shop_leave_opportunity_cost_uses_restock_cap() -> None:
+    previous = _base_payload(phase="shop", gold=999, relics=("the_courier",))
+    previous["shop"] = {
+        "items": [
+            {"kind": "relic", "item_id": f"relic_{index}", "price": 80, "purchased": False}
+            for index in range(6)
+        ]
+    }
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "shop_leave"},
+    )
+
+    assert breakdown.opportunity_cost_penalty == pytest.approx(
+        -DEFAULT_REWARD_CONFIG.shop_restock_opportunity_penalty_cap
+    )
+
+
+def test_ancient_choice_opportunity_cost_only_penalizes_visibly_lower_branch() -> None:
+    previous = _base_payload(phase="ancient")
+    previous["ancient"] = {
+        "ancient_id": "neow",
+        "options": [
+            {"option_id": "relic", "relic_id": "anchor", "random_relic_count": 0},
+            {"option_id": "upgrade", "upgrade_random_count": 1},
+        ],
+    }
+
+    lower = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={
+            "type": "choose_ancient",
+            "ancient_option": {"option_id": "upgrade", "upgrade_random_count": 1},
+        },
+    )
+    stronger = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={
+            "type": "choose_ancient",
+            "ancient_option": {"option_id": "relic", "relic_id": "anchor"},
+        },
+    )
+
+    assert lower.opportunity_cost_penalty < 0.0
+    assert stronger.opportunity_cost_penalty == 0.0
+
+
+def test_proceeding_after_gold_claimed_is_not_penalized() -> None:
+    previous = _base_payload(
+        phase="reward",
+        reward={
+            "reward_id": "combat:1",
+            "source": "combat",
+            "gold": 19,
+            "gold_claimed": True,
+        },
+    )
+
+    breakdown = learning_reward_breakdown(
+        previous,
+        previous,
+        action_descriptor={"type": "proceed"},
+    )
+
+    assert breakdown.reward_skip_penalty == 0.0
+    assert breakdown.total == 0.0
 
 
 def test_deck_capability_reward_credits_mechanical_growth() -> None:
