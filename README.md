@@ -1,48 +1,117 @@
 # sts2sim
 
-Headless Slay the Spire 2 simulator for deterministic agent training.
+Headless Slay the Spire 2 simulator and tooling for deterministic runs,
+content validation, parity checks, and training experiments.
 
-The project intentionally separates source data, deterministic simulation, game
-mechanics, executable content handlers, and CLI tooling. Graphics and game
-assets are out of scope.
+This repository focuses on local simulation and developer tools. Graphics and
+game assets are out of scope. Implementation notes and current project direction
+live in [HANDOFF.md](HANDOFF.md).
 
-## Source Data
+## Requirements
 
-The simulator uses Spire Codex as the primary public reference for current
-Slay the Spire 2 data and mechanics:
+- Windows or Linux with Python 3.12 or newer.
+- `uv` for dependency management.
+- Optional: a CUDA-capable PyTorch setup for faster PPO training.
 
-- <https://spire-codex.com/docs>
-- <https://spire-codex.com/developers>
-- <https://github.com/ptrlrd/spire-codex>
+Install `uv` on Windows if it is not already available:
 
-Use cached snapshots with attribution and polite API access. Runtime simulation
-must use local cached JSON rather than fetching during agent training.
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
-## Development
+Then restart the terminal, or add it to the current session:
+
+```powershell
+$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+```
+
+## Setup
+
+Basic install:
+
+```powershell
+uv sync
+```
+
+Install development tools:
 
 ```powershell
 uv sync --extra dev
-uv run pytest
-uv run ruff check .
-uv run mypy src/sts2sim
 ```
 
-CLI entrypoint:
+Install training dependencies:
+
+```powershell
+uv sync --extra rl
+```
+
+Install everything commonly used while developing and training:
+
+```powershell
+uv sync --extra dev --extra rl
+```
+
+If `uv` warns that hardlinking failed, the install is still valid. To suppress
+that warning:
+
+```powershell
+uv sync --extra dev --extra rl --link-mode=copy
+```
+
+## Quick Checks
+
+```powershell
+uv run sts2sim --help
+uv run pytest -q
+uv run ruff check
+uv run mypy
+```
+
+If you only installed `--extra rl`, `pytest`, `ruff`, and `mypy` will not be
+available. Run `uv sync --extra dev --extra rl` before using those checks.
+
+## CLI Overview
+
+Show every command:
 
 ```powershell
 uv run sts2sim --help
 ```
 
-Map text preview:
+Useful command families:
+
+```powershell
+uv run sts2sim audit-coverage
+uv run sts2sim audit-events
+uv run sts2sim audit-combat
+uv run sts2sim audit-cards
+uv run sts2sim play-run --help
+uv run sts2sim replay --help
+uv run sts2sim learning-progress-report --help
+```
+
+## Simulator API
+
+```python
+from sts2sim import legal_actions, load_state, new_run, serialize, step
+
+state = new_run(seed=1, character_id="IRONCLAD", ascension=0)
+action = legal_actions(state)[0]
+transition = step(state, action)
+payload = serialize(transition.state)
+restored = load_state(payload)
+```
+
+## Map Preview
 
 ```powershell
 uv run python visualize_map.py
 uv run python visualize_map.py 12345
-uv run python visualize_map.py --seed 12345 --output generated_maps/map.txt
 uv run python visualize_map.py --seed 12345 --character DEFECT
+uv run python visualize_map.py --seed 12345 --output generated_maps/map.txt
 ```
 
-Interactive shop tester:
+## Shop Tester
 
 ```powershell
 uv run python shop_test.py
@@ -51,13 +120,25 @@ uv run python shop_test.py --seed 12345 --gold 500 --potion foul_potion
 uv run python shop_test.py --web --relic the_courier
 ```
 
-The tester uses the real simulator shop actions, so buying Membership Card,
-Smiling Mask, card removal, cards, colorless cards, relics, potions, and
-throwing Foul Potion all update the same state the agent will use. Use
-`--relic the_courier` to test Courier restocks, since The Courier is
-blacklisted from normal merchant stock.
+The shop tester uses the same simulator actions as normal runs, including card
+removal, cards, colorless cards, relics, potions, Membership Card, Smiling Mask,
+The Courier restocks, and Foul Potion throws.
 
-Interactive combat reward tester:
+## Combat Tester
+
+```powershell
+uv run python combat_test.py
+uv run python combat_test.py --web
+uv run python combat_test.py --web --seed 12345 --relic anchor --potion fire_potion
+uv run python combat_test.py --web --character SILENT --ascension 6
+```
+
+The combat tester starts a deterministic one-room fight and drives the same
+`legal_actions` and `step` API used by the simulator. The web view includes
+hands, piles, deck state, enemy state, orbs, relics, potions, and optional debug
+tools.
+
+## Combat Reward Tester
 
 ```powershell
 uv run python combat_reward_test.py --web
@@ -65,31 +146,10 @@ uv run python combat_reward_test.py --encounter elite --seed 12345
 uv run python combat_reward_test.py --web --encounter event --event-preset fake_merchant
 ```
 
-The combat reward tester generates the same `RewardState` used by the engine
-after monster, elite, boss, and event fights. It also lists event options from
-the cached Spire Codex data that mention combat or rewards, with mapped presets
-for known post-fight bundles such as Fake Merchant and Battleworn Dummy.
+Use this to inspect post-fight reward generation for monster, elite, boss, and
+event encounters.
 
-Interactive combat tester:
-
-```powershell
-uv run python combat_test.py --web
-uv run python combat_test.py --web --seed 12345 --relic anchor --potion fire_potion
-uv run python combat_test.py --web --character SILENT --ascension 6
-uv run python combat_test.py
-```
-
-The combat tester starts a deterministic one-room fight from the selected
-character's cached starter deck, starting HP, gold, energy, and starter relics.
-It drives the same `legal_actions` and `step` API that the agent will use.
-The page shows the hand, draw pile, discard pile, exhaust pile, and master deck
-by default, plus the active orb slots for characters and relics that use them.
-Optional debug controls for infinite energy, healing, drawing cards, adding
-cards to specific piles, channeling or evoking orbs, mutating player or enemy
-statuses, spawning enemies, adding relics and potions, and inspecting the raw
-combat payload are hidden until you click `Show Debug Tools`.
-
-Parity trace comparison:
+## Parity And Live Capture
 
 ```powershell
 uv run sts2sim trace-template --output traces/example.parity.json
@@ -102,45 +162,67 @@ uv run sts2sim capture-live --output traces/live-state.parity.json
 uv run sts2sim live-play --max-steps 5 --policy first --output traces/live-play.parity.json
 ```
 
-Parity traces are sparse by default: a captured `before`, `after`, or
-`initial_state` snapshot only needs to include the fields you want to verify.
-That lets us compare live-game captures, run-file imports, or hand-written
-golden cases before every field has a canonical exporter. Use `--mode exact`
-when a snapshot should match the simulator payload without extra fields.
+Parity traces are sparse by default. A `before`, `after`, or `initial_state`
+snapshot only needs the fields you want to verify. Use `--mode exact` when a
+snapshot should match the simulator payload without extra fields.
 
-Finished run-history files are useful but usually not action-by-action replays.
-`import-run` summarizes a local `.run`/JSON file and writes a non-replayable
-trace scaffold with the raw payload attached in metadata. For live captures,
-`probe-live`, `capture-live`, and `live-play` know the common STS2MCP and
-STS2-Agent ports. Use `--base-url http://localhost:15526` or
-`--base-url http://127.0.0.1:8080` if you want to force a specific bridge, and
-override `--state-path`, `--actions-path`, or `--action-path` if that mod's
-current endpoint names differ. Local third-party bridge source references live
-under `external/live_bridges/`.
+For live captures, the CLI knows the common STS2MCP and STS2-Agent bridge ports.
+Use `--base-url http://localhost:15526` or
+`--base-url http://127.0.0.1:8080` to force a specific bridge.
 
-## Public API
+## Training
 
-The intended stable API is:
+Install RL dependencies first:
 
-```python
-from sts2sim import legal_actions, load_state, new_run, replay, serialize, step
-
-state = new_run(seed=1, character_id="IRONCLAD", ascension=0)
-action = legal_actions(state)[0]
-transition = step(state, action)
-payload = serialize(transition.state)
-restored = load_state(payload)
+```powershell
+uv sync --extra rl
 ```
 
-Golden parity traces can be compared from Python too:
+Single-target Act 1 boss training:
 
-```python
-from sts2sim import compare_trace_file
-
-report = compare_trace_file("traces/example.parity.json")
-assert report.matched
+```powershell
+uv run sts2sim train-masked-ppo --target act1-boss --until-stopped --train-runs-per-batch 16 --train-max-steps 1000 --eval-runs 8 --eval-max-steps 1000 --seed ppo-act1 --character IRONCLAD --ascension 0 --device auto --no-resume --model-output checkpoints\ppo_act1_boss.pt --output reports\ppo_act1_boss_latest.json --progress-output reports\ppo_act1_boss_progress.json --report-output reports\ppo_act1_boss_latest.html --terminal-progress
 ```
 
-Full parity is gated by content coverage. A missing card, relic, potion, power,
-event option, or monster move should be reported as an explicit blocker rather
-than silently approximated.
+Curriculum training through Act 1, Act 2, Act 3, and game completion:
+
+```powershell
+uv run sts2sim train-ppo-curriculum --stages act1-boss,act2-boss,act3-boss,game-clear --run-name ppo_curriculum --train-runs-per-batch 16 --eval-runs 20 --target-success-rate 0.95 --target-consecutive-successes 3 --seed ppo-curriculum --character IRONCLAD --ascension 0 --device auto --no-resume --output reports\ppo_curriculum_latest.json --report-output reports\ppo_curriculum_latest.html --terminal-progress
+```
+
+Resume a training run by replacing `--no-resume` with `--resume` and keeping
+the same checkpoint/report paths.
+
+Useful training options:
+
+- `--rollout-workers 0` auto-uses available CPU cores for rollouts.
+- `--rollout-inference batched-gpu` centralizes action selection on the trainer
+  device.
+- `--history-mode highlights` writes compact best/worst evaluation histories.
+- `--history-mode all-eval` writes histories for every evaluation run.
+
+Open a generated report:
+
+```powershell
+Start-Process reports\ppo_curriculum_latest.html
+```
+
+## Source Data
+
+The simulator uses Spire Codex as the primary public reference for current
+Slay the Spire 2 data and mechanics:
+
+- <https://spire-codex.com/docs>
+- <https://spire-codex.com/developers>
+- <https://github.com/ptrlrd/spire-codex>
+
+Runtime simulation should use local cached data, not live network fetches.
+
+## Notes
+
+- The selected latest checkpoint is tracked with Git LFS. Other generated
+  checkpoints and reports are local outputs and are ignored by default.
+- Full parity depends on content coverage. Missing cards, relics, potions,
+  powers, event options, or monster moves should be treated as explicit gaps.
+- For internal project state and next engineering steps, read
+  [HANDOFF.md](HANDOFF.md).
