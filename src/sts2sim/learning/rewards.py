@@ -1,9 +1,11 @@
-"""Outcome-based reward functions for self-learning agents.
+"""Reward shaping functions for self-learning agents.
 
-The rewarder deliberately avoids direct advice like "this card is good" or
-"always take this relic".  It rewards measurable outcomes instead: survival,
-combat progress, useful gold, node progression, and combat victories.  Cards,
-relics, removals, and skips earn value only through later outcomes.
+The rewarder avoids direct advice like "this card is good" or "always take this
+relic".  Most value comes from measurable outcomes: survival, combat progress,
+useful gold, node progression, and combat victories.  Reward screens also get
+small conservative pickup/skip nudges so obvious resources are not treated as
+neutral, while card and relic quality is still learned mostly through later run
+outcomes.
 """
 
 from __future__ import annotations
