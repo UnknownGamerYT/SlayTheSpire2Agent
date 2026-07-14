@@ -39,6 +39,7 @@ from sts2sim.learning.masked_ppo import (
     _masked_actor_critic_class,
     _observation_vector,
     _policy_input,
+    _resolve_policy_server_settings,
     max_consecutive_target_successes,
     resolve_ppo_target,
     train_masked_ppo,
@@ -290,6 +291,39 @@ def test_training_terminal_eta_text_is_explicit_before_first_run() -> None:
     assert _eta_progress_text(10.0, 128, 128, now=74.0) == "eta 0:00"
 
 
+def test_policy_server_auto_settings_scale_per_rollout_phase() -> None:
+    train_settings = _resolve_policy_server_settings(
+        requested_min_batch=None,
+        requested_max_wait_ms=None,
+        job_count=100,
+        rollout_workers=15,
+        envs_per_worker=4,
+        rollout_inference="batched-gpu",
+    )
+    eval_settings = _resolve_policy_server_settings(
+        requested_min_batch=None,
+        requested_max_wait_ms=None,
+        job_count=21,
+        rollout_workers=15,
+        envs_per_worker=4,
+        rollout_inference="batched-gpu",
+    )
+
+    assert train_settings == (24, 15)
+    assert eval_settings == (9, 10)
+
+
+def test_policy_server_manual_settings_override_auto_tuning() -> None:
+    assert _resolve_policy_server_settings(
+        requested_min_batch=16,
+        requested_max_wait_ms=0,
+        job_count=21,
+        rollout_workers=15,
+        envs_per_worker=4,
+        rollout_inference="batched-gpu",
+    ) == (16, 0)
+
+
 def test_batched_worker_run_done_updates_progress_before_worker_done() -> None:
     result_queue: queue.Queue[dict[str, object]] = queue.Queue()
     run = _run(7, act=1, floor=4)
@@ -523,8 +557,9 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert second["metadata"]["rollout_inference"] == "worker"
     assert second["metadata"]["history_mode"] == "highlights"
     assert second["metadata"]["envs_per_worker"] == 1
-    assert second["metadata"]["policy_server_min_batch"] == 1
-    assert second["metadata"]["policy_server_max_wait_ms"] == 20
+    assert second["metadata"]["policy_server_batching"] == "auto"
+    assert second["metadata"]["policy_server_min_batch_requested"] is None
+    assert second["metadata"]["policy_server_max_wait_ms_requested"] is None
     assert "throughput" in second["batch_summaries"][-1]
     assert second["batch_summaries"][-1]["throughput"]["env_steps_per_second"] > 0.0
     assert "planning_output_averages" in second["batch_summaries"][-1]
@@ -660,8 +695,9 @@ def test_train_masked_ppo_batched_gpu_multi_env_smoke(tmp_path: Path) -> None:
     assert len(result["evaluation_progress"]) == 2
     assert result["metadata"]["envs_per_worker"] == 2
     assert result["metadata"]["active_env_streams"] == 4
-    assert result["metadata"]["policy_server_min_batch"] == 2
-    assert result["metadata"]["policy_server_max_wait_ms"] == 5
+    assert result["metadata"]["policy_server_batching"] == "manual"
+    assert result["metadata"]["policy_server_min_batch_requested"] == 2
+    assert result["metadata"]["policy_server_max_wait_ms_requested"] == 5
     throughput = result["batch_summaries"][-1]["throughput"]
     assert throughput["active_env_streams"] == 4
     assert throughput["rollout_inference"] == "batched-gpu"

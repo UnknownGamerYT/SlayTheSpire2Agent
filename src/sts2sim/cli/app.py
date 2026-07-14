@@ -333,6 +333,7 @@ class _TrainingTerminalProgress:
                 f"device={payload.get('device')}, "
                 f"workers={payload.get('rollout_workers')}, "
                 f"inference={payload.get('rollout_inference')}, "
+                f"batching={payload.get('policy_server_batching')}, "
                 f"history={payload.get('history_mode')}, "
                 f"active_envs={payload.get('active_env_streams')}, "
                 f"until_stopped={payload.get('until_stopped')}"
@@ -440,6 +441,7 @@ class _TrainingTerminalProgress:
                 f"device={payload.get('device')}, "
                 f"workers={payload.get('rollout_workers')}, "
                 f"inference={payload.get('rollout_inference')}, "
+                f"batching={payload.get('policy_server_batching')}, "
                 f"history={payload.get('history_mode')}, "
                 f"active_envs={payload.get('active_env_streams')}, "
                 f"until_stopped={payload.get('until_stopped')}"
@@ -641,10 +643,29 @@ def _throughput_progress_line(payload: Mapping[str, Any]) -> str:
     parts = [
         f"steps/s={_progress_float(throughput.get('env_steps_per_second')):.1f}",
         f"runs/s={_progress_float(throughput.get('runs_per_second')):.2f}",
-        f"active_envs={_progress_int(throughput.get('active_env_streams'))}",
-        f"min_batch={_progress_int(throughput.get('policy_server_min_batch'))}",
-        f"wait_ms={_progress_int(throughput.get('policy_server_max_wait_ms'))}",
     ]
+    if "train_policy_server_min_batch" in throughput:
+        parts.extend(
+            [
+                "active_envs="
+                f"train:{_progress_int(throughput.get('train_active_env_streams'))}/"
+                f"eval:{_progress_int(throughput.get('eval_active_env_streams'))}",
+                "min_batch="
+                f"train:{_progress_int(throughput.get('train_policy_server_min_batch'))}/"
+                f"eval:{_progress_int(throughput.get('eval_policy_server_min_batch'))}",
+                "wait_ms="
+                f"train:{_progress_int(throughput.get('train_policy_server_max_wait_ms'))}/"
+                f"eval:{_progress_int(throughput.get('eval_policy_server_max_wait_ms'))}",
+            ]
+        )
+    else:
+        parts.extend(
+            [
+                f"active_envs={_progress_int(throughput.get('active_env_streams'))}",
+                f"min_batch={_progress_int(throughput.get('policy_server_min_batch'))}",
+                f"wait_ms={_progress_int(throughput.get('policy_server_max_wait_ms'))}",
+            ]
+        )
     return "  throughput: " + ", ".join(parts)
 
 
@@ -2175,21 +2196,21 @@ def train_masked_ppo(
         ),
     ] = 1,
     policy_server_min_batch: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-min-batch",
-            min=1,
-            help="Minimum decision requests to batch before GPU policy inference.",
+            min=0,
+            help="Minimum GPU decision batch; omit or use 0 to auto-tune per phase.",
         ),
-    ] = 1,
+    ] = None,
     policy_server_max_wait_ms: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-max-wait-ms",
             min=0,
-            help="Maximum milliseconds to wait for a larger GPU policy batch.",
+            help="Maximum GPU batch wait; omit to auto-tune, or use 0 for no wait.",
         ),
-    ] = 20,
+    ] = None,
     terminal_progress: Annotated[
         bool,
         typer.Option(
@@ -2516,21 +2537,21 @@ def train_ppo_curriculum(
         ),
     ] = 1,
     policy_server_min_batch: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-min-batch",
-            min=1,
-            help="Minimum decision requests to batch before GPU policy inference.",
+            min=0,
+            help="Minimum GPU decision batch; omit or use 0 to auto-tune per phase.",
         ),
-    ] = 1,
+    ] = None,
     policy_server_max_wait_ms: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-max-wait-ms",
             min=0,
-            help="Maximum milliseconds to wait for a larger GPU policy batch.",
+            help="Maximum GPU batch wait; omit to auto-tune, or use 0 for no wait.",
         ),
-    ] = 20,
+    ] = None,
     terminal_progress: Annotated[
         bool,
         typer.Option(

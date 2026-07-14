@@ -107,8 +107,8 @@ def train_masked_ppo_curriculum(
     rollout_inference: str = "worker",
     history_mode: str = "highlights",
     envs_per_worker: int = 1,
-    policy_server_min_batch: int = 1,
-    policy_server_max_wait_ms: int = 20,
+    policy_server_min_batch: int | None = None,
+    policy_server_max_wait_ms: int | None = None,
     progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
     trainer: PPOTrainer | None = None,
 ) -> dict[str, Any]:
@@ -567,8 +567,8 @@ def _curriculum_result(
     rollout_inference: str,
     history_mode: str,
     envs_per_worker: int,
-    policy_server_min_batch: int,
-    policy_server_max_wait_ms: int,
+    policy_server_min_batch: int | None,
+    policy_server_max_wait_ms: int | None,
 ) -> dict[str, Any]:
     completed_stages = sum(
         1 for stage in stage_summaries if bool(stage.get("reached_target", False))

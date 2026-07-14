@@ -365,8 +365,8 @@ def train_masked_ppo(
     rollout_inference: str = "worker",
     history_mode: str = "highlights",
     envs_per_worker: int = 1,
-    policy_server_min_batch: int = 1,
-    policy_server_max_wait_ms: int = 20,
+    policy_server_min_batch: int | None = None,
+    policy_server_max_wait_ms: int | None = None,
     progress_callback: Callable[[Mapping[str, Any]], None] | None = None,
     progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
@@ -378,8 +378,8 @@ def train_masked_ppo(
     resolved_rollout_inference = _normalize_rollout_inference(rollout_inference)
     resolved_history_mode = _normalize_history_mode(history_mode)
     resolved_envs_per_worker = _resolve_envs_per_worker(envs_per_worker)
-    resolved_policy_min_batch = max(1, _int(policy_server_min_batch))
-    resolved_policy_max_wait_ms = max(0, _int(policy_server_max_wait_ms))
+    requested_policy_min_batch = _optional_nonnegative_int(policy_server_min_batch)
+    requested_policy_max_wait_ms = _optional_nonnegative_int(policy_server_max_wait_ms)
     if resolved_envs_per_worker > 1 and resolved_rollout_inference != "batched-gpu":
         raise ValueError("envs_per_worker > 1 requires rollout_inference='batched-gpu'.")
     resolved_target = resolve_ppo_target(target)
@@ -471,8 +471,13 @@ def train_masked_ppo(
         "history_mode": resolved_history_mode,
         "envs_per_worker": resolved_envs_per_worker,
         "active_env_streams": resolved_rollout_workers * resolved_envs_per_worker,
-        "policy_server_min_batch": resolved_policy_min_batch,
-        "policy_server_max_wait_ms": resolved_policy_max_wait_ms,
+        "policy_server_batching": (
+            "auto"
+            if requested_policy_min_batch is None and requested_policy_max_wait_ms is None
+            else "manual"
+        ),
+        "policy_server_min_batch_requested": requested_policy_min_batch,
+        "policy_server_max_wait_ms_requested": requested_policy_max_wait_ms,
         "reward_schema_version": REWARD_SCHEMA_VERSION,
         "reward_config_checksum": reward_config_checksum,
         "game_logic_checksum": game_logic_checksum,
@@ -531,8 +536,7 @@ def train_masked_ppo(
         history_mode=resolved_history_mode,
         envs_per_worker=resolved_envs_per_worker,
         active_env_streams=resolved_rollout_workers * resolved_envs_per_worker,
-        policy_server_min_batch=resolved_policy_min_batch,
-        policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+        policy_server_batching=metadata["policy_server_batching"],
     )
     for batch_index in batch_indices:
         batch_started_at = time.perf_counter()
@@ -554,6 +558,14 @@ def train_masked_ppo(
             (len(training_points) + index, _random_run_seed(train_rng))
             for index in range(max(0, train_runs_per_batch))
         )
+        train_policy_min_batch, train_policy_max_wait_ms = _resolve_policy_server_settings(
+            requested_min_batch=requested_policy_min_batch,
+            requested_max_wait_ms=requested_policy_max_wait_ms,
+            job_count=len(train_jobs),
+            rollout_workers=resolved_rollout_workers,
+            envs_per_worker=resolved_envs_per_worker,
+            rollout_inference=resolved_rollout_inference,
+        )
         train_outputs = _collect_training_rollouts(
             torch=torch,
             nn=nn,
@@ -573,8 +585,8 @@ def train_masked_ppo(
             rollout_workers=resolved_rollout_workers,
             rollout_inference=resolved_rollout_inference,
             envs_per_worker=resolved_envs_per_worker,
-            policy_server_min_batch=resolved_policy_min_batch,
-            policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+            policy_server_min_batch=train_policy_min_batch,
+            policy_server_max_wait_ms=train_policy_max_wait_ms,
             progress_reporter=progress_reporter,
             batch_index=batch_index,
         )
@@ -631,6 +643,14 @@ def train_masked_ppo(
             (len(evaluation_points) + index, _random_run_seed(eval_rng))
             for index in range(max(0, eval_runs))
         )
+        eval_policy_min_batch, eval_policy_max_wait_ms = _resolve_policy_server_settings(
+            requested_min_batch=requested_policy_min_batch,
+            requested_max_wait_ms=requested_policy_max_wait_ms,
+            job_count=len(eval_jobs),
+            rollout_workers=resolved_rollout_workers,
+            envs_per_worker=resolved_envs_per_worker,
+            rollout_inference=resolved_rollout_inference,
+        )
         eval_results = _collect_evaluation_rollouts(
             torch=torch,
             nn=nn,
@@ -646,8 +666,8 @@ def train_masked_ppo(
             rollout_workers=resolved_rollout_workers,
             rollout_inference=resolved_rollout_inference,
             envs_per_worker=resolved_envs_per_worker,
-            policy_server_min_batch=resolved_policy_min_batch,
-            policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+            policy_server_min_batch=eval_policy_min_batch,
+            policy_server_max_wait_ms=eval_policy_max_wait_ms,
             progress_reporter=progress_reporter,
             batch_index=batch_index,
         )
@@ -699,8 +719,10 @@ def train_masked_ppo(
             rollout_workers=resolved_rollout_workers,
             envs_per_worker=resolved_envs_per_worker,
             rollout_inference=resolved_rollout_inference,
-            policy_server_min_batch=resolved_policy_min_batch,
-            policy_server_max_wait_ms=resolved_policy_max_wait_ms,
+            train_policy_server_min_batch=train_policy_min_batch,
+            train_policy_server_max_wait_ms=train_policy_max_wait_ms,
+            eval_policy_server_min_batch=eval_policy_min_batch,
+            eval_policy_server_max_wait_ms=eval_policy_max_wait_ms,
         )
         batch_summaries.append(batch_summary)
         result = _ppo_result(
@@ -835,6 +857,59 @@ def _resolve_rollout_workers(value: object) -> int:
 
 def _resolve_envs_per_worker(value: object) -> int:
     return max(1, _int(value))
+
+
+def _optional_nonnegative_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return max(0, _int(value))
+
+
+def _resolve_policy_server_settings(
+    *,
+    requested_min_batch: int | None,
+    requested_max_wait_ms: int | None,
+    job_count: int,
+    rollout_workers: int,
+    envs_per_worker: int,
+    rollout_inference: str,
+) -> tuple[int, int]:
+    """Choose GPU batching settings for the current rollout phase.
+
+    Automatic settings deliberately use the number of jobs that can run now,
+    rather than the total configured streams.  A 21-run evaluation should not
+    wait for a 60-environment batch simply because the training phase can use it.
+    """
+    if rollout_inference != "batched-gpu":
+        return (max(1, requested_min_batch or 1), max(0, requested_max_wait_ms or 0))
+
+    active_streams = min(
+        max(1, job_count),
+        max(1, rollout_workers) * max(1, envs_per_worker),
+    )
+    if requested_min_batch is None or requested_min_batch == 0:
+        min_batch = (
+            1
+            if active_streams <= 4
+            else min(32, max(2, math.ceil(active_streams * 0.4)))
+        )
+    else:
+        min_batch = min(active_streams, requested_min_batch)
+
+    if requested_max_wait_ms is None:
+        if active_streams <= 4:
+            max_wait_ms = 0
+        elif active_streams <= 8:
+            max_wait_ms = 3
+        elif active_streams <= 16:
+            max_wait_ms = 5
+        elif active_streams <= 32:
+            max_wait_ms = 10
+        else:
+            max_wait_ms = 15
+    else:
+        max_wait_ms = requested_max_wait_ms
+    return (min_batch, max_wait_ms)
 
 
 def _normalize_rollout_inference(value: object) -> str:
@@ -3752,8 +3827,10 @@ def _throughput_summary(
     rollout_workers: int,
     envs_per_worker: int,
     rollout_inference: str,
-    policy_server_min_batch: int,
-    policy_server_max_wait_ms: int,
+    train_policy_server_min_batch: int,
+    train_policy_server_max_wait_ms: int,
+    eval_policy_server_min_batch: int,
+    eval_policy_server_max_wait_ms: int,
 ) -> dict[str, Any]:
     elapsed = max(1.0e-9, float(elapsed_seconds))
     run_count = len(train_results) + len(eval_results)
@@ -3771,8 +3848,12 @@ def _throughput_summary(
         "envs_per_worker": int(envs_per_worker),
         "active_env_streams": active_env_streams,
         "rollout_inference": rollout_inference,
-        "policy_server_min_batch": int(policy_server_min_batch),
-        "policy_server_max_wait_ms": int(policy_server_max_wait_ms),
+        "train_active_env_streams": min(active_env_streams, max(1, len(train_results))),
+        "eval_active_env_streams": min(active_env_streams, max(1, len(eval_results))),
+        "train_policy_server_min_batch": int(train_policy_server_min_batch),
+        "train_policy_server_max_wait_ms": int(train_policy_server_max_wait_ms),
+        "eval_policy_server_min_batch": int(eval_policy_server_min_batch),
+        "eval_policy_server_max_wait_ms": int(eval_policy_server_max_wait_ms),
     }
 
 
@@ -4501,7 +4582,8 @@ def _ppo_progress_html(
     <table>
       <thead>
         <tr><th>Batch</th><th>Steps/S</th><th>Runs/S</th>
-        <th>Active Envs</th><th>Min Batch</th><th>Wait Ms</th></tr>
+        <th>Active Envs (Train/Eval)</th><th>Min Batch (Train/Eval)</th>
+        <th>Wait Ms (Train/Eval)</th></tr>
       </thead>
       <tbody>{throughput_rows}</tbody>
     </table>
@@ -4680,14 +4762,26 @@ def _throughput_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
     rows: list[str] = []
     for batch in batches:
         throughput = _mapping(batch.get("throughput"))
+        train_active = _int(throughput.get("train_active_env_streams"))
+        eval_active = _int(throughput.get("eval_active_env_streams"))
+        train_min_batch = _int(throughput.get("train_policy_server_min_batch"))
+        eval_min_batch = _int(throughput.get("eval_policy_server_min_batch"))
+        train_wait_ms = _int(throughput.get("train_policy_server_max_wait_ms"))
+        eval_wait_ms = _int(throughput.get("eval_policy_server_max_wait_ms"))
+        if train_min_batch == 0 and eval_min_batch == 0:
+            train_active = eval_active = _int(throughput.get("active_env_streams"))
+            train_min_batch = eval_min_batch = _int(throughput.get("policy_server_min_batch"))
+            train_wait_ms = eval_wait_ms = _int(
+                throughput.get("policy_server_max_wait_ms")
+            )
         rows.append(
             "<tr>"
             f"<td>{_int(batch.get('batch_index'))}</td>"
             f"<td>{_float(throughput.get('env_steps_per_second')):.3f}</td>"
             f"<td>{_float(throughput.get('runs_per_second')):.3f}</td>"
-            f"<td>{_int(throughput.get('active_env_streams'))}</td>"
-            f"<td>{_int(throughput.get('policy_server_min_batch'))}</td>"
-            f"<td>{_int(throughput.get('policy_server_max_wait_ms'))}</td>"
+            f"<td>{train_active}/{eval_active}</td>"
+            f"<td>{train_min_batch}/{eval_min_batch}</td>"
+            f"<td>{train_wait_ms}/{eval_wait_ms}</td>"
             "</tr>"
         )
     return "\n".join(rows)
