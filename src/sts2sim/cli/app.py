@@ -11,6 +11,7 @@ import dataclasses
 import importlib
 import inspect
 import json
+import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, cast
@@ -261,6 +262,9 @@ def _compact_highlight_histories(histories: Mapping[str, Any]) -> dict[str, Any]
                 "json_path",
                 "html_path",
                 "map_path",
+                "summary_json_path",
+                "summary_txt_path",
+                "summary_html_path",
             )
             if key in entry
         }
@@ -273,6 +277,8 @@ class _TrainingTerminalProgress:
         self._progress: Any | None = None
         self._train_task: Any | None = None
         self._eval_task: Any | None = None
+        self._train_started_at: float | None = None
+        self._eval_started_at: float | None = None
 
     def __enter__(self) -> _TrainingTerminalProgress:
         if not self.enabled:
@@ -284,7 +290,6 @@ class _TrainingTerminalProgress:
                 SpinnerColumn,
                 TextColumn,
                 TimeElapsedColumn,
-                TimeRemainingColumn,
             )
 
             progress = Progress(
@@ -293,7 +298,7 @@ class _TrainingTerminalProgress:
                 BarColumn(),
                 TextColumn("{task.completed}/{task.total}"),
                 TimeElapsedColumn(),
-                TimeRemainingColumn(),
+                TextColumn("{task.fields[eta]}"),
                 transient=False,
             )
             progress.__enter__()
@@ -339,25 +344,36 @@ class _TrainingTerminalProgress:
             self._remove_task(self._train_task)
             self._remove_task(self._eval_task)
             self._eval_task = None
+            self._train_started_at = time.perf_counter()
+            self._eval_started_at = None
             total = _progress_int(payload.get("train_runs_per_batch"))
             self._train_task = progress.add_task(
-                f"Batch {payload.get('batch_index')} train runs",
+                (
+                    f"Batch {payload.get('batch_index')} "
+                    f"{_progress_target_name(payload)} train runs"
+                ),
                 total=max(1, total),
+                eta=_eta_progress_text(self._train_started_at, 0, total),
             )
             progress.console.log(
                 f"Batch {payload.get('batch_index')} started "
+                f"stage={_progress_target_name(payload)} "
                 f"({total} train runs, {payload.get('eval_runs')} eval runs)"
             )
             return
         if event == "train_run_end":
             if self._train_task is not None:
+                completed = _progress_int(payload.get("run_position"))
+                total = _progress_int(payload.get("run_total"))
                 progress.update(
                     self._train_task,
-                    completed=_progress_int(payload.get("run_position")),
+                    completed=completed,
                     description=(
                         f"Batch {payload.get('batch_index')} train "
-                        f"floor {payload.get('final_act')}.{payload.get('final_floor')}"
+                        f"{_progress_target_name(payload)} "
+                        f"{_act_floor_text(payload)}"
                     ),
+                    eta=_eta_progress_text(self._train_started_at, completed, total),
                 )
             if payload.get("failed_to_continue") or payload.get("error"):
                 progress.console.log(f"Train run issue: {_run_progress_line(payload)}")
@@ -373,24 +389,34 @@ class _TrainingTerminalProgress:
             return
         if event == "eval_start":
             self._remove_task(self._eval_task)
+            self._eval_started_at = time.perf_counter()
             total = _progress_int(payload.get("eval_runs"))
             self._eval_task = progress.add_task(
-                f"Batch {payload.get('batch_index')} eval runs",
+                (
+                    f"Batch {payload.get('batch_index')} "
+                    f"{_progress_target_name(payload)} eval runs"
+                ),
                 total=max(1, total),
+                eta=_eta_progress_text(self._eval_started_at, 0, total),
             )
             return
         if event == "eval_run_end":
             if self._eval_task is not None:
+                completed = _progress_int(payload.get("run_position"))
+                total = _progress_int(payload.get("run_total"))
                 progress.update(
                     self._eval_task,
-                    completed=_progress_int(payload.get("run_position")),
+                    completed=completed,
                     description=(
                         f"Batch {payload.get('batch_index')} eval "
-                        f"floor {payload.get('final_act')}.{payload.get('final_floor')}"
+                        f"{_progress_target_name(payload)} "
+                        f"{_act_floor_text(payload)}"
                     ),
+                    eta=_eta_progress_text(self._eval_started_at, completed, total),
                 )
-            if payload.get("reached_target") or payload.get("failed_to_continue"):
-                progress.console.log(f"Eval run: {_run_progress_line(payload)}")
+            # Evaluation is small enough to show every completed run.  Printing only
+            # successes made the final success count look inconsistent with the log.
+            progress.console.log(f"Eval run: {_run_progress_line(payload)}")
             return
         if event == "batch_saved":
             progress.console.log(_batch_progress_line(payload))
@@ -423,6 +449,7 @@ class _TrainingTerminalProgress:
         elif event == "batch_start":
             typer.echo(
                 f"Batch {payload.get('batch_index')} started: "
+                f"stage={_progress_target_name(payload)}, "
                 f"{payload.get('train_runs_per_batch')} train runs, "
                 f"{payload.get('eval_runs')} eval runs"
             )
@@ -457,9 +484,18 @@ class _TrainingTerminalProgress:
 
 
 def _target_name(value: Any) -> str:
+    if value is None or value == "":
+        return "unknown"
     if isinstance(value, Mapping):
         return str(value.get("name", "unknown"))
     return str(value)
+
+
+def _progress_target_name(payload: Mapping[str, Any]) -> str:
+    target_name = payload.get("target_name")
+    if target_name is not None and target_name != "":
+        return str(target_name)
+    return _target_name(payload.get("target"))
 
 
 def _checkpoint_check_lines(payload: Mapping[str, Any]) -> list[str]:
@@ -498,13 +534,50 @@ def _checkpoint_check_lines(payload: Mapping[str, Any]) -> list[str]:
 def _run_progress_line(payload: Mapping[str, Any]) -> str:
     return (
         f"{payload.get('run_position')}/{payload.get('run_total')} "
+        f"stage={_progress_target_name(payload)} "
         f"seed={payload.get('seed')} "
         f"reward={_progress_float(payload.get('total_reward')):.2f} "
-        f"floor={payload.get('final_act')}.{payload.get('final_floor')} "
+        f"{_act_floor_text(payload)} "
         f"phase={payload.get('final_phase')} "
         f"steps={payload.get('steps_taken')} "
         f"target={payload.get('reached_target')}"
     )
+
+
+def _act_floor_text(payload: Mapping[str, Any]) -> str:
+    return f"act={payload.get('final_act')} floor={payload.get('final_floor')}"
+
+
+def _eta_progress_text(
+    started_at: float | None,
+    completed: int,
+    total: int,
+    *,
+    now: float | None = None,
+) -> str:
+    """Return stable ETA text for terminal progress bars."""
+
+    if total <= 0:
+        return "eta -"
+    if completed >= total:
+        return "eta 0:00"
+    if started_at is None or completed <= 0:
+        return "eta calculating"
+    current_time = time.perf_counter() if now is None else now
+    elapsed = max(0.0, current_time - started_at)
+    if elapsed <= 0.0:
+        return "eta calculating"
+    remaining = (elapsed / max(1, completed)) * max(0, total - completed)
+    return f"eta {_format_progress_duration(remaining)}"
+
+
+def _format_progress_duration(seconds: float) -> str:
+    total_seconds = max(0, int(round(seconds)))
+    minutes, secs = divmod(total_seconds, 60)
+    hours, mins = divmod(minutes, 60)
+    if hours:
+        return f"{hours}:{mins:02d}:{secs:02d}"
+    return f"{mins}:{secs:02d}"
 
 
 def _batch_progress_line(payload: Mapping[str, Any]) -> str:
@@ -512,6 +585,7 @@ def _batch_progress_line(payload: Mapping[str, Any]) -> str:
     success_target = _progress_float(payload.get("target_success_rate_threshold"))
     return (
         f"Batch {payload.get('batch_index')} saved: "
+        f"stage={_progress_target_name(payload)}, "
         f"success={success_rate:.3f}/{success_target:.3f} "
         f"({payload.get('target_successes')}/{payload.get('eval_runs')} eval), "
         f"avg_floor={_progress_float(payload.get('evaluation_average_floor')):.2f}, "

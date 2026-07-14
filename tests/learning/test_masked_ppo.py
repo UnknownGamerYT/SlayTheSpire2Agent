@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import queue
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,10 @@ from sts2sim.cli.app import (
     _batch_progress_line,
     _compact_training_result,
     _diagnostic_progress_line,
+    _eta_progress_text,
     _reward_signal_line,
+    _run_progress_line,
+    _target_name,
     _throughput_progress_line,
     app,
 )
@@ -29,6 +33,7 @@ from sts2sim.learning.masked_ppo import (
     TrainingTarget,
     _accumulate_run_diagnostics,
     _action_features,
+    _drain_batched_worker_results,
     _empty_observation_vector,
     _final_run_diagnostics,
     _masked_actor_critic_class,
@@ -64,6 +69,10 @@ def test_resolve_ppo_target_presets() -> None:
 
     assert act_2 == TrainingTarget(name="act2-boss", target_act=2, target_floor=15)
     assert game_clear.target_phase == "complete"
+
+
+def test_target_name_accepts_curriculum_target_mapping() -> None:
+    assert _target_name({"name": "act1-boss", "target_act": 1}) == "act1-boss"
 
 
 def test_resolve_ppo_target_rejects_unknown_target() -> None:
@@ -132,6 +141,9 @@ def test_training_cli_summary_omits_embedded_histories() -> None:
                     "json_path": "best.json",
                     "html_path": "best.html",
                     "map_path": "best.txt",
+                    "summary_json_path": "best_summary.json",
+                    "summary_txt_path": "best_summary.txt",
+                    "summary_html_path": "best_summary.html",
                 },
             },
         }
@@ -142,12 +154,17 @@ def test_training_cli_summary_omits_embedded_histories() -> None:
     assert compact["latest_batch"]["batch_index"] == 2
     assert compact["highlight_run_histories"]["generated_at"] == "2026-06-24T00:00:00Z"
     assert "history" not in compact["highlight_run_histories"]["best"]
+    assert (
+        compact["highlight_run_histories"]["best"]["summary_html_path"]
+        == "best_summary.html"
+    )
 
 
 def test_training_terminal_batch_progress_shows_health_snapshot() -> None:
     line = _batch_progress_line(
         {
             "batch_index": 7,
+            "target_name": "act1-boss",
             "evaluation_target_success_rate": 0.25,
             "target_success_rate_threshold": 0.75,
             "target_successes": 1,
@@ -164,6 +181,7 @@ def test_training_terminal_batch_progress_shows_health_snapshot() -> None:
     )
 
     assert "Batch 7 saved" in line
+    assert "stage=act1-boss" in line
     assert "success=0.250/0.750 (1/4 eval)" in line
     assert "avg_floor=8.50" in line
     assert "best_floor=14" in line
@@ -173,6 +191,27 @@ def test_training_terminal_batch_progress_shows_health_snapshot() -> None:
     assert "errors=1" in line
     assert "failed=3" in line
     assert "runs_trained=56" in line
+
+
+def test_training_terminal_run_progress_prints_act_and_floor_separately() -> None:
+    line = _run_progress_line(
+        {
+            "run_position": 1,
+            "run_total": 64,
+            "target_name": "act1-boss",
+            "seed": 612195804,
+            "total_reward": 13.68,
+            "final_act": 1,
+            "final_floor": 16,
+            "final_phase": "combat",
+            "steps_taken": 68,
+            "reached_target": True,
+        }
+    )
+
+    assert "stage=act1-boss" in line
+    assert "act=1 floor=16" in line
+    assert "floor=1.16" not in line
 
 
 def test_training_terminal_reward_and_diagnostic_lines_are_compact() -> None:
@@ -243,6 +282,41 @@ def test_training_terminal_throughput_line_is_compact() -> None:
         "  throughput: steps/s=123.5, runs/s=4.25, "
         "active_envs=8, min_batch=4, wait_ms=15"
     )
+
+
+def test_training_terminal_eta_text_is_explicit_before_first_run() -> None:
+    assert _eta_progress_text(10.0, 0, 128, now=40.0) == "eta calculating"
+    assert _eta_progress_text(10.0, 32, 128, now=74.0) == "eta 3:12"
+    assert _eta_progress_text(10.0, 128, 128, now=74.0) == "eta 0:00"
+
+
+def test_batched_worker_run_done_updates_progress_before_worker_done() -> None:
+    result_queue: queue.Queue[dict[str, object]] = queue.Queue()
+    run = _run(7, act=1, floor=4)
+    result_queue.put({"type": "run_done", "worker_id": 0, "run": run})
+    result_queue.put({"type": "worker_done", "worker_id": 0, "outputs": ((run, ()),)})
+    events: list[dict[str, object]] = []
+    outputs: list[object] = []
+
+    completed_workers, completed_runs = _drain_batched_worker_results(
+        result_queue=result_queue,
+        completed_workers=0,
+        completed_runs=0,
+        outputs=outputs,
+        progress_reporter=events.append,
+        progress_event="train_run_end",
+        batch_index=3,
+        total_runs=4,
+        target=resolve_ppo_target("act1-boss"),
+    )
+
+    assert completed_workers == 1
+    assert completed_runs == 1
+    assert len(outputs) == 1
+    assert len(events) == 1
+    assert events[0]["run_position"] == 1
+    assert events[0]["run_total"] == 4
+    assert events[0]["target_name"] == "act1-boss"
 
 
 def test_reward_pickup_diagnostics_count_presented_items_once() -> None:
@@ -463,22 +537,37 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
         html_path = Path(entry["html_path"])
         json_path = Path(entry["json_path"])
         map_path = Path(entry["map_path"])
+        summary_json_path = Path(entry["summary_json_path"])
+        summary_txt_path = Path(entry["summary_txt_path"])
+        summary_html_path = Path(entry["summary_html_path"])
         assert html_path.exists()
         assert json_path.exists()
         assert map_path.exists()
+        assert summary_json_path.exists()
+        assert summary_txt_path.exists()
+        assert summary_html_path.exists()
         assert entry["generated_at"].endswith("Z")
         html_text = html_path.read_text(encoding="utf-8")
+        summary_html = summary_html_path.read_text(encoding="utf-8")
         assert "Map Path" in html_text
         assert "Timeline" in html_text
+        assert "Short Run Summary" in summary_html
+        assert "open detailed replay" in summary_html
         assert "Generated At" in html_text
         history_payload = json.loads(json_path.read_text(encoding="utf-8"))
+        summary_payload = json.loads(summary_json_path.read_text(encoding="utf-8"))
         assert history_payload["generated_at"] == entry["generated_at"]
         assert history_payload["highlight_role"] == role
+        assert summary_payload["generated_at"] == entry["generated_at"]
+        assert summary_payload["highlight_role"] == role
+        assert "nodes" in summary_payload
         assert history_payload["steps"]
         assert "reward_total" in history_payload["steps"][0]["decision"]
         map_text = map_path.read_text(encoding="utf-8")
+        summary_text = summary_txt_path.read_text(encoding="utf-8")
         assert f"Generated at: {entry['generated_at']}" in map_text
         assert "Legend:" in map_text
+        assert "Short run summary" in summary_text
     report_text = report_path.read_text(encoding="utf-8")
     assert "Planning Head Trends" in report_text
     assert "Reward Component Trends" in report_text
@@ -486,7 +575,9 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert "Throughput" in report_text
     assert "Best And Worst Evaluation Run Histories" in report_text
     assert "Generated" in report_text
+    assert "Summary" in report_text
     assert "ppo_best_run_history.html" in report_text
+    assert "ppo_best_run_summary.html" in report_text
 
 
 def test_train_masked_ppo_history_off_skips_highlight_artifacts(tmp_path: Path) -> None:

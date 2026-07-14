@@ -315,6 +315,695 @@ def write_run_history_map_text(history: RunHistory | Mapping[str, Any], path: Pa
     target.write_text(run_history_map_text(history) + "\n", encoding="utf-8")
 
 
+def write_run_history_summary(
+    history: RunHistory | Mapping[str, Any],
+    path: Path | str,
+    *,
+    links: Mapping[str, str] | None = None,
+) -> None:
+    """Write the short node-by-node run summary as formatted JSON."""
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(run_history_summary(history, links=links), indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def write_run_history_summary_text(
+    history: RunHistory | Mapping[str, Any],
+    path: Path | str,
+    *,
+    links: Mapping[str, str] | None = None,
+) -> None:
+    """Write a quick text journal of the chosen route and node outcomes."""
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(run_history_summary_text(history, links=links) + "\n", encoding="utf-8")
+
+
+def write_run_history_summary_html(
+    history: RunHistory | Mapping[str, Any],
+    path: Path | str,
+    *,
+    links: Mapping[str, str] | None = None,
+) -> None:
+    """Write a standalone HTML short route summary."""
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(run_history_summary_html(history, links=links), encoding="utf-8")
+
+
+def run_history_summary(
+    history: RunHistory | Mapping[str, Any],
+    *,
+    links: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return a compact route journal grouped by ancient/map node."""
+
+    payload = _history_payload(history)
+    steps = tuple(_mapping(step) for step in _sequence(payload.get("steps")))
+    initial = _mapping(payload.get("initial"))
+    final = _mapping(payload.get("final"))
+    nodes = _summary_nodes(steps, links=dict(links or {}))
+    totals = _summary_totals(nodes, initial, final)
+    return {
+        "schema_version": 1,
+        "generated_at": payload.get("generated_at", ""),
+        "highlight_role": payload.get("highlight_role", ""),
+        "seed": payload.get("seed", ""),
+        "character_id": payload.get("character_id", ""),
+        "ascension": _int(payload.get("ascension")),
+        "policy": payload.get("policy", ""),
+        "links": dict(links or {}),
+        "initial": _summary_player_snapshot(initial),
+        "final": _summary_player_snapshot(final) | {
+            "act": _int(final.get("act")),
+            "floor": _int(final.get("floor")),
+            "phase": str(final.get("phase", "")),
+        },
+        "totals": totals,
+        "nodes": nodes,
+    }
+
+
+def run_history_summary_text(
+    history: RunHistory | Mapping[str, Any],
+    *,
+    links: Mapping[str, str] | None = None,
+) -> str:
+    """Render a compact plain-text route journal."""
+
+    summary = run_history_summary(history, links=links)
+    totals = _mapping(summary.get("totals"))
+    final = _mapping(summary.get("final"))
+    lines = [
+        "Short run summary",
+        (
+            f"Generated at: {summary.get('generated_at') or '-'} | "
+            f"Role: {summary.get('highlight_role') or '-'} | "
+            f"Seed: {summary.get('seed')} | "
+            f"{summary.get('character_id')} A{summary.get('ascension')}"
+        ),
+        (
+            f"Final: act {_int(final.get('act'))} floor {_int(final.get('floor'))} "
+            f"{final.get('phase', '')}, HP {_int(final.get('hp'))}/"
+            f"{_int(final.get('max_hp'))}, gold {_int(final.get('gold'))}"
+        ),
+        (
+            f"Totals: HP lost {_int(totals.get('hp_lost'))}, healed "
+            f"{_int(totals.get('healed'))}, gold +{_int(totals.get('gold_gained'))}/"
+            f"-{_int(totals.get('gold_spent'))}, cards +{_int(totals.get('cards_gained'))}/"
+            f"-{_int(totals.get('cards_lost'))}, relics +{_int(totals.get('relics_gained'))}, "
+            f"potions +{_int(totals.get('potions_gained'))}/"
+            f"-{_int(totals.get('potions_lost'))}"
+        ),
+    ]
+    link_lines = _summary_link_lines(_mapping(summary.get("links")))
+    if link_lines:
+        lines.append("Links: " + " | ".join(link_lines))
+    for index, raw_node in enumerate(_sequence(summary.get("nodes")), start=1):
+        node = _mapping(raw_node)
+        lines.append("")
+        lines.append(f"{index:02d}. {_summary_node_title(node)}")
+        lines.append(
+            f"    Steps {_int(node.get('step_start'))}-{_int(node.get('step_end'))}; "
+            f"HP {_int(node.get('hp_before'))}->{_int(node.get('hp_after'))} "
+            f"(lost {_int(node.get('hp_lost'))}, healed {_int(node.get('healed'))}); "
+            f"gold {_int(node.get('gold_before'))}->{_int(node.get('gold_after'))}"
+        )
+        gained = _summary_gain_line(node)
+        if gained:
+            lines.append(f"    Took: {gained}")
+        lost = _summary_loss_line(node)
+        if lost:
+            lines.append(f"    Lost/used: {lost}")
+        skipped = _summary_filtered_lines(node, prefixes=("Reward skip:", "Reward screen left"))
+        if skipped:
+            lines.append("    Skipped: " + "; ".join(skipped[:3]))
+        choices = _sequence(node.get("choices"))
+        if choices:
+            lines.append("    Choices: " + "; ".join(str(item) for item in choices[:4]))
+        combat_actions = _sequence(node.get("combat_actions"))
+        if combat_actions:
+            actions = "; ".join(str(item) for item in combat_actions[:12])
+            suffix = " ..." if len(combat_actions) > 12 else ""
+            lines.append(f"    Combat: {actions}{suffix}")
+        changes = [
+            str(line)
+            for line in _sequence(node.get("changes"))
+            if str(line) not in skipped
+        ]
+        if changes:
+            lines.append("    Changes: " + "; ".join(changes[:5]))
+        node_links = _mapping(node.get("links"))
+        replay = node_links.get("history")
+        if replay:
+            lines.append(f"    Replay: {replay}")
+    return "\n".join(lines)
+
+
+def run_history_summary_html(
+    history: RunHistory | Mapping[str, Any],
+    *,
+    links: Mapping[str, str] | None = None,
+    title: str = "Short Run Summary",
+) -> str:
+    """Render a short node-by-node HTML route journal."""
+
+    summary = run_history_summary(history, links=links)
+    totals = _mapping(summary.get("totals"))
+    final = _mapping(summary.get("final"))
+    safe_title = html_escape(title)
+    link_html = _summary_links_html(_mapping(summary.get("links")))
+    total_items = {
+        "Generated": summary.get("generated_at") or "-",
+        "Role": summary.get("highlight_role") or "-",
+        "Seed": summary.get("seed"),
+        "Character": f"{summary.get('character_id')} A{summary.get('ascension')}",
+        "Final": (
+            f"act {_int(final.get('act'))} floor {_int(final.get('floor'))} "
+            f"{final.get('phase', '')}"
+        ),
+        "HP": f"{_int(final.get('hp'))}/{_int(final.get('max_hp'))}",
+        "Gold": _int(final.get("gold")),
+        "HP Lost": _int(totals.get("hp_lost")),
+        "Gold Gained": _int(totals.get("gold_gained")),
+    }
+    overview = "".join(
+        "<div>"
+        f"<strong>{html_escape(str(key))}</strong>"
+        f"<span>{html_escape(str(value))}</span>"
+        "</div>"
+        for key, value in total_items.items()
+    )
+    node_html = "\n".join(
+        _summary_node_html(index, _mapping(node))
+        for index, node in enumerate(_sequence(summary.get("nodes")), start=1)
+    )
+    if not node_html:
+        node_html = '<p class="muted">No route steps were recorded.</p>'
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{safe_title}</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #62707a;
+      --line: #d9e0e5;
+      --panel: #fff;
+      --paper: #f5f7f8;
+      --accent: #2459a6;
+    }}
+    body {{
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 14px/1.45 system-ui, sans-serif;
+    }}
+    main {{ width: min(1100px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 48px; }}
+    h1 {{ margin: 0 0 4px; font-size: 28px; }}
+    h2 {{ margin: 28px 0 12px; font-size: 19px; }}
+    h3 {{ margin: 0 0 8px; font-size: 17px; }}
+    a {{ color: var(--accent); }}
+    .muted {{ color: var(--muted); }}
+    .overview {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin: 18px 0;
+    }}
+    .overview div, article {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }}
+    .overview strong {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }}
+    .overview span {{ display: block; margin-top: 4px; font-weight: 700; }}
+    article {{ margin-bottom: 12px; }}
+    .meta {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; color: var(--muted); }}
+    .badge {{
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #f8fafb;
+      font-size: 12px;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }}
+    .box {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px;
+      background: #fbfcfd;
+    }}
+    .box strong {{ display: block; margin-bottom: 4px; }}
+    ul, ol {{ margin: 6px 0 0; padding-left: 20px; }}
+    li {{ margin: 2px 0; }}
+  </style>
+</head>
+<body>
+<main>
+  <h1>{safe_title}</h1>
+  <p class="muted">
+    Compact route journal grouped by start choice and map node. Use the links
+    to open the full replay, JSON, or visual map when a node needs inspection.
+  </p>
+  {link_html}
+  <section class="overview">{overview}</section>
+  <h2>Route</h2>
+  {node_html}
+</main>
+</body>
+</html>
+"""
+
+
+def _summary_nodes(
+    steps: Sequence[Mapping[str, Any]],
+    *,
+    links: Mapping[str, str],
+) -> list[dict[str, Any]]:
+    segments: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+
+    def flush() -> None:
+        nonlocal current
+        if current is None:
+            return
+        segment_steps = tuple(_mapping(step) for step in _sequence(current.get("steps")))
+        if segment_steps:
+            segments.append(_summary_segment(current, segment_steps, links=links))
+        current = None
+
+    for raw_step in steps:
+        step = _mapping(raw_step)
+        action_type = str(_mapping(step.get("action")).get("type", ""))
+        if action_type in {"choose_ancient", "choose_node"}:
+            flush()
+            current = _summary_segment_header(step)
+        elif current is None:
+            current = _summary_start_header(step)
+        current.setdefault("steps", []).append(step)
+    flush()
+    return segments
+
+
+def _summary_start_header(step: Mapping[str, Any]) -> dict[str, Any]:
+    before = _mapping(step.get("context_before"))
+    return {
+        "node_id": "start",
+        "kind": "start",
+        "act": _int(before.get("act")),
+        "floor": _int(before.get("floor")),
+        "lane": None,
+        "label": "Run start",
+        "steps": [],
+    }
+
+
+def _summary_segment_header(step: Mapping[str, Any]) -> dict[str, Any]:
+    action = _mapping(step.get("action"))
+    action_type = str(action.get("type", ""))
+    target_id = _optional_str(action.get("target_id"))
+    before = _mapping(step.get("context_before"))
+    after = _mapping(step.get("context_after"))
+    if action_type == "choose_node":
+        before_map = _mapping(before.get("map"))
+        after_map = _mapping(after.get("map"))
+        node = (
+            _find_map_node(before_map, target_id)
+            or _find_map_node(after_map, target_id)
+            or {}
+        )
+        kind = str(node.get("kind") or "node")
+        floor = _int(node.get("floor"))
+        lane = _int(node.get("lane"))
+        act = _int(before_map.get("act")) or _int(after_map.get("act")) or _int(before.get("act"))
+        return {
+            "node_id": target_id or "",
+            "kind": kind,
+            "act": act,
+            "floor": floor,
+            "lane": lane,
+            "label": f"Act {act} floor {floor} {kind}",
+            "steps": [],
+        }
+    ancient = _mapping(before.get("ancient")) or _mapping(after.get("ancient"))
+    act = _int(ancient.get("act")) or _int(before.get("act")) or _int(after.get("act"))
+    option = _find_ancient_option(ancient, target_id) or {}
+    label = str(option.get("name") or target_id or "Ancient option")
+    return {
+        "node_id": f"ancient:a{act}",
+        "kind": "ancient",
+        "act": act,
+        "floor": _int(before.get("floor")),
+        "lane": None,
+        "label": f"Act {act} ancient: {label}",
+        "steps": [],
+    }
+
+
+def _summary_segment(
+    header: Mapping[str, Any],
+    steps: Sequence[Mapping[str, Any]],
+    *,
+    links: Mapping[str, str],
+) -> dict[str, Any]:
+    first = steps[0]
+    last = steps[-1]
+    before = _mapping(first.get("context_before"))
+    after = _mapping(last.get("context_after"))
+    before_player = _summary_context_player(before)
+    after_player = _summary_context_player(after)
+    hp_lost, healed = _summary_metric_flow(steps, "hp")
+    gold_spent, gold_gained = _summary_metric_flow(steps, "gold")
+    choices: list[str] = []
+    combat_actions: list[str] = []
+    reward_actions: list[str] = []
+    shop_actions: list[str] = []
+    other_actions: list[str] = []
+    all_actions: list[str] = []
+    changes: list[str] = []
+    for step in steps:
+        action_type = str(_mapping(step.get("action")).get("type", ""))
+        action_summary = str(step.get("action_summary", "Action"))
+        all_actions.append(action_summary)
+        if action_type in {
+            "choose_ancient",
+            "choose_node",
+            "choose_event",
+            "smith",
+            "rest",
+            "toke",
+        }:
+            choices.append(action_summary)
+        elif action_type in {
+            "play_card",
+            "use_potion",
+            "discard_potion",
+            "discard_card",
+            "exhaust_card",
+            "choose_card",
+            "end_turn",
+        }:
+            combat_actions.append(action_summary)
+        elif action_type.startswith("take_reward") or action_type in {"skip_reward", "proceed"}:
+            reward_actions.append(action_summary)
+        elif action_type.startswith("shop_") or action_type == "throw_potion_at_merchant":
+            shop_actions.append(action_summary)
+        else:
+            other_actions.append(action_summary)
+        changes.extend(_summary_step_lines(step))
+
+    before_deck = _summary_card_inventory(before_player)
+    after_deck = _summary_card_inventory(after_player)
+    before_relics = tuple(str(item) for item in _sequence(before_player.get("relics")))
+    after_relics = tuple(str(item) for item in _sequence(after_player.get("relics")))
+    before_potions = tuple(str(item) for item in _sequence(before_player.get("potions")))
+    after_potions = tuple(str(item) for item in _sequence(after_player.get("potions")))
+    node_links = _summary_node_links(links, _int(first.get("step_index")))
+    return {
+        "node_id": header.get("node_id"),
+        "kind": header.get("kind"),
+        "act": _int(header.get("act")),
+        "floor": _int(header.get("floor")),
+        "lane": header.get("lane"),
+        "label": header.get("label"),
+        "step_start": _int(first.get("step_index")),
+        "step_end": _int(last.get("step_index")),
+        "phase_before": first.get("phase_before", ""),
+        "phase_after": last.get("phase_after", ""),
+        "hp_before": _int(before_player.get("hp")),
+        "hp_after": _int(after_player.get("hp")),
+        "max_hp_before": _int(before_player.get("max_hp")),
+        "max_hp_after": _int(after_player.get("max_hp")),
+        "hp_lost": hp_lost,
+        "healed": healed,
+        "gold_before": _int(before_player.get("gold")),
+        "gold_after": _int(after_player.get("gold")),
+        "gold_gained": gold_gained,
+        "gold_spent": gold_spent,
+        "cards_gained": list(_ordered_counter_delta(after_deck, before_deck)),
+        "cards_lost": list(_ordered_counter_delta(before_deck, after_deck)),
+        "relics_gained": list(_ordered_counter_delta(after_relics, before_relics)),
+        "relics_lost": list(_ordered_counter_delta(before_relics, after_relics)),
+        "potions_gained": list(_ordered_counter_delta(after_potions, before_potions)),
+        "potions_lost": list(_ordered_counter_delta(before_potions, after_potions)),
+        "choices": list(dict.fromkeys(choices)),
+        "combat_actions": combat_actions,
+        "reward_actions": reward_actions,
+        "shop_actions": shop_actions,
+        "other_actions": other_actions,
+        "actions": all_actions,
+        "changes": list(_dedupe_lines(changes)),
+        "links": node_links,
+    }
+
+
+def _summary_step_lines(step: Mapping[str, Any]) -> tuple[str, ...]:
+    before = _mapping(step.get("context_before"))
+    after = _mapping(step.get("context_after"))
+    action_type = str(_mapping(step.get("action")).get("type", ""))
+    lines: list[str] = list(_compact_step_change_lines(step))
+    lines.extend(_shop_outcome_lines(action_type, before, after))
+    lines.extend(_event_outcome_lines(action_type, before, after, _sequence(step.get("events"))))
+    return tuple(lines)
+
+
+def _summary_context_player(context: Mapping[str, Any]) -> Mapping[str, Any]:
+    return _mapping(context.get("player"))
+
+
+def _summary_card_inventory(player: Mapping[str, Any]) -> tuple[str, ...]:
+    return tuple(_card_change_label(_mapping(card)) for card in _sequence(player.get("deck")))
+
+
+def _summary_metric_flow(steps: Sequence[Mapping[str, Any]], key: str) -> tuple[int, int]:
+    gained = 0
+    spent = 0
+    for step in steps:
+        before = _summary_context_player(_mapping(step.get("context_before")))
+        after = _summary_context_player(_mapping(step.get("context_after")))
+        if not before or not after:
+            continue
+        delta = _int(after.get(key)) - _int(before.get(key))
+        if delta > 0:
+            gained += delta
+        elif delta < 0:
+            spent += -delta
+    return spent, gained
+
+
+def _summary_player_snapshot(context: Mapping[str, Any]) -> dict[str, Any]:
+    player = _summary_context_player(context)
+    return {
+        "hp": _int(player.get("hp")),
+        "max_hp": _int(player.get("max_hp")),
+        "gold": _int(player.get("gold")),
+        "deck_count": _int(player.get("deck_count")),
+        "relics": list(_sequence(player.get("relics"))),
+        "potions": list(_sequence(player.get("potions"))),
+    }
+
+
+def _summary_totals(
+    nodes: Sequence[Mapping[str, Any]],
+    initial: Mapping[str, Any],
+    final: Mapping[str, Any],
+) -> dict[str, Any]:
+    initial_player = _summary_context_player(initial)
+    final_player = _summary_context_player(final)
+    return {
+        "nodes": len(nodes),
+        "hp_lost": sum(_int(node.get("hp_lost")) for node in nodes),
+        "healed": sum(_int(node.get("healed")) for node in nodes),
+        "gold_gained": sum(_int(node.get("gold_gained")) for node in nodes),
+        "gold_spent": sum(_int(node.get("gold_spent")) for node in nodes),
+        "cards_gained": sum(len(_sequence(node.get("cards_gained"))) for node in nodes),
+        "cards_lost": sum(len(_sequence(node.get("cards_lost"))) for node in nodes),
+        "relics_gained": sum(len(_sequence(node.get("relics_gained"))) for node in nodes),
+        "relics_lost": sum(len(_sequence(node.get("relics_lost"))) for node in nodes),
+        "potions_gained": sum(len(_sequence(node.get("potions_gained"))) for node in nodes),
+        "potions_lost": sum(len(_sequence(node.get("potions_lost"))) for node in nodes),
+        "initial_hp": _int(initial_player.get("hp")),
+        "final_hp": _int(final_player.get("hp")),
+        "initial_gold": _int(initial_player.get("gold")),
+        "final_gold": _int(final_player.get("gold")),
+        "final_deck_count": _int(final_player.get("deck_count")),
+    }
+
+
+def _summary_node_links(links: Mapping[str, str], step_index: int) -> dict[str, str]:
+    result = {key: value for key, value in links.items() if value}
+    history_link = result.get("history")
+    if history_link:
+        result["history"] = f"{history_link}#step-{step_index}"
+    return result
+
+
+def _summary_link_lines(links: Mapping[str, Any]) -> tuple[str, ...]:
+    labels = {
+        "history": "full replay",
+        "history_json": "full json",
+        "map": "map",
+        "summary_html": "summary html",
+        "summary_json": "summary json",
+        "summary_txt": "summary text",
+    }
+    return tuple(
+        f"{labels.get(key, key)} {value}"
+        for key, value in links.items()
+        if value
+    )
+
+
+def _summary_links_html(links: Mapping[str, Any]) -> str:
+    if not links:
+        return ""
+    label_by_key = {
+        "history": "Full Replay",
+        "history_json": "Full JSON",
+        "map": "Map",
+        "summary_json": "Summary JSON",
+        "summary_txt": "Summary Text",
+    }
+    anchors = []
+    for key, value in links.items():
+        if not value or key == "summary_html":
+            continue
+        label = label_by_key.get(key, key.replace("_", " ").title())
+        anchors.append(
+            f'<a class="badge" href="{html_escape(str(value))}">{html_escape(label)}</a>'
+        )
+    if not anchors:
+        return ""
+    return '<nav class="meta">' + "".join(anchors) + "</nav>"
+
+
+def _summary_node_title(node: Mapping[str, Any]) -> str:
+    kind = str(node.get("kind") or "node")
+    label = str(node.get("label") or "")
+    node_id = str(node.get("node_id") or "")
+    if kind == "ancient":
+        return label
+    if kind == "start":
+        return "Run start"
+    return (
+        f"Act {_int(node.get('act'))} floor {_int(node.get('floor'))} "
+        f"{kind} {node_id}"
+    ).strip()
+
+
+def _summary_gain_line(node: Mapping[str, Any]) -> str:
+    chunks: list[str] = []
+    if _int(node.get("gold_gained")):
+        chunks.append(f"gold {_int(node.get('gold_gained'))}")
+    for key, label in (
+        ("cards_gained", "cards"),
+        ("relics_gained", "relics"),
+        ("potions_gained", "potions"),
+    ):
+        values = [str(item) for item in _sequence(node.get(key))]
+        if values:
+            chunks.append(f"{label} " + ", ".join(values))
+    return "; ".join(chunks)
+
+
+def _summary_loss_line(node: Mapping[str, Any]) -> str:
+    chunks: list[str] = []
+    if _int(node.get("gold_spent")):
+        chunks.append(f"gold {_int(node.get('gold_spent'))}")
+    for key, label in (
+        ("cards_lost", "cards"),
+        ("relics_lost", "relics"),
+        ("potions_lost", "potions"),
+    ):
+        values = [str(item) for item in _sequence(node.get(key))]
+        if values:
+            chunks.append(f"{label} " + ", ".join(values))
+    return "; ".join(chunks)
+
+
+def _summary_filtered_lines(
+    node: Mapping[str, Any],
+    *,
+    prefixes: Sequence[str],
+) -> tuple[str, ...]:
+    return tuple(
+        str(line)
+        for line in _sequence(node.get("changes"))
+        if any(str(line).startswith(prefix) for prefix in prefixes)
+    )
+
+
+def _summary_node_html(index: int, node: Mapping[str, Any]) -> str:
+    title = _summary_node_title(node)
+    node_links = _mapping(node.get("links"))
+    replay = node_links.get("history")
+    replay_link = (
+        f' <a href="{html_escape(str(replay))}">open detailed replay</a>'
+        if replay
+        else ""
+    )
+    meta = [
+        f"steps {_int(node.get('step_start'))}-{_int(node.get('step_end'))}",
+        f"HP {_int(node.get('hp_before'))}->{_int(node.get('hp_after'))}",
+        f"lost {_int(node.get('hp_lost'))}",
+        f"healed {_int(node.get('healed'))}",
+        f"gold {_int(node.get('gold_before'))}->{_int(node.get('gold_after'))}",
+    ]
+    meta_html = "".join(f'<span class="badge">{html_escape(item)}</span>' for item in meta)
+    boxes = [
+        _summary_box_html("Took", _summary_gain_line(node)),
+        _summary_box_html("Lost / Used", _summary_loss_line(node)),
+        _summary_list_box_html("Choices", _sequence(node.get("choices")), limit=6),
+        _summary_list_box_html("Combat", _sequence(node.get("combat_actions")), limit=16),
+        _summary_list_box_html("Rewards", _sequence(node.get("reward_actions")), limit=8),
+        _summary_list_box_html("Changes", _sequence(node.get("changes")), limit=8),
+    ]
+    return (
+        "<article>"
+        f"<h3>{index:02d}. {html_escape(title)}{replay_link}</h3>"
+        f'<div class="meta">{meta_html}</div>'
+        f'<div class="grid">{"".join(boxes)}</div>'
+        "</article>"
+    )
+
+
+def _summary_box_html(title: str, value: str) -> str:
+    body = html_escape(value) if value else '<span class="muted">None.</span>'
+    return f'<div class="box"><strong>{html_escape(title)}</strong>{body}</div>'
+
+
+def _summary_list_box_html(title: str, values: Sequence[Any], *, limit: int) -> str:
+    items = [str(item) for item in values if str(item)]
+    if not items:
+        return _summary_box_html(title, "")
+    visible = items[:limit]
+    suffix = f"<li>... {len(items) - limit} more</li>" if len(items) > limit else ""
+    body = "<ol>" + "".join(f"<li>{html_escape(item)}</li>" for item in visible) + suffix + "</ol>"
+    return f'<div class="box"><strong>{html_escape(title)}</strong>{body}</div>'
+
+
 def run_history_map_text(history: RunHistory | Mapping[str, Any]) -> str:
     """Return a compact floor-by-floor map with visited nodes underlined by marker."""
 
@@ -626,6 +1315,7 @@ def _combat_step_ends_group(step: Mapping[str, Any]) -> bool:
 def _combat_turn_group_html(steps: Sequence[Mapping[str, Any]]) -> str:
     first = steps[0]
     last = steps[-1]
+    first_step_index = _int(first.get("step_index"))
     first_before = _mapping(first.get("context_before"))
     first_after = _mapping(first.get("context_after"))
     start_combat = _mapping(first_before.get("combat")) or _mapping(first_after.get("combat"))
@@ -674,7 +1364,7 @@ def _combat_turn_group_html(steps: Sequence[Mapping[str, Any]]) -> str:
         main_lines = "<li>No visible combat state change.</li>"
     details = _combat_step_details_html(steps)
     return (
-        '<article class="combat-turn">'
+        f'<article class="combat-turn" id="step-{first_step_index}">'
         f"<h3>Combat Turn {turn}</h3>"
         f'<div class="step-meta">{meta_html}</div>'
         f'<div class="turn-actions">{action_cards}{potion_cards}{other_cards}</div>'
@@ -757,10 +1447,11 @@ def _action_list_html(title: str, actions: Sequence[str]) -> str:
 def _combat_step_details_html(steps: Sequence[Mapping[str, Any]]) -> str:
     rows = []
     for step in steps:
+        step_index = _int(step.get("step_index"))
         change_text = "; ".join(_compact_step_change_lines(step)) or "no visible change"
         rows.append(
-            "<tr>"
-            f"<td>{_int(step.get('step_index'))}</td>"
+            f'<tr id="detail-step-{step_index}">'
+            f"<td>{step_index}</td>"
             f"<td>{html_escape(str(step.get('action_summary', 'Action')))}</td>"
             f"<td>{_float(step.get('reward')):.3f}</td>"
             f"<td>{html_escape(change_text)}</td>"
@@ -804,9 +1495,10 @@ def _step_html(step: Mapping[str, Any]) -> str:
         narrative = "<li>No visible state change.</li>"
     events_html = _events_html(events)
     decision_html = _decision_html(decision)
+    step_index = _int(step.get("step_index"))
     return (
-        "<article>"
-        f"<h3>Step {_int(step.get('step_index'))}: "
+        f'<article id="step-{step_index}">'
+        f"<h3>Step {step_index}: "
         f"{html_escape(str(step.get('action_summary', 'Action')))}</h3>"
         f'<div class="step-meta">{meta_html}</div>'
         f'<ul class="narrative">{narrative}</ul>'

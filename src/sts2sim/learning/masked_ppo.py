@@ -35,6 +35,9 @@ from sts2sim.history import (
     write_run_history,
     write_run_history_html,
     write_run_history_map_text,
+    write_run_history_summary,
+    write_run_history_summary_html,
+    write_run_history_summary_text,
 )
 from sts2sim.learning.content_vocab import (
     CONTENT_IDENTITY_EMBED_DIM,
@@ -537,6 +540,7 @@ def train_masked_ppo(
             progress_reporter,
             "batch_start",
             batch_index=batch_index,
+            target_name=resolved_target.name,
             train_runs_per_batch=max(0, train_runs_per_batch),
             eval_runs=max(0, eval_runs),
             train_max_steps=train_max_steps,
@@ -589,6 +593,7 @@ def train_masked_ppo(
                 progress_reporter,
                 "ppo_update_start",
                 batch_index=batch_index,
+                target_name=resolved_target.name,
                 transition_count=len(transitions),
             )
             _ppo_update(
@@ -611,6 +616,7 @@ def train_masked_ppo(
                 progress_reporter,
                 "ppo_update_end",
                 batch_index=batch_index,
+                target_name=resolved_target.name,
                 transition_count=len(transitions),
             )
 
@@ -618,6 +624,7 @@ def train_masked_ppo(
             progress_reporter,
             "eval_start",
             batch_index=batch_index,
+            target_name=resolved_target.name,
             eval_runs=max(0, eval_runs),
         )
         eval_jobs = tuple(
@@ -735,6 +742,7 @@ def train_masked_ppo(
             progress_reporter,
             "batch_saved",
             batch_index=batch_index,
+            target_name=resolved_target.name,
             batches_completed=len(batch_summaries),
             runs_trained=len(training_points),
             total_steps=total_steps,
@@ -1338,12 +1346,8 @@ def _drain_batched_worker_results(
             continue
         if message.get("type") == "worker_error":
             raise RuntimeError(str(message.get("error", "rollout worker failed")))
-        if message.get("type") != "worker_done":
-            continue
-        completed_workers += 1
-        for output in _sequence(message.get("outputs")):
-            outputs.append(output)
-            run = output[0] if isinstance(output, tuple) else output
+        if message.get("type") == "run_done":
+            run = message.get("run")
             if isinstance(run, LearningRunResult):
                 completed_runs += 1
                 _report_run_end_progress(
@@ -1355,6 +1359,12 @@ def _drain_batched_worker_results(
                     run=run,
                     target=target,
                 )
+            continue
+        if message.get("type") != "worker_done":
+            continue
+        completed_workers += 1
+        for output in _sequence(message.get("outputs")):
+            outputs.append(output)
 
 
 def _raise_if_batched_worker_failed(
@@ -1502,8 +1512,9 @@ def _training_batched_inference_worker(
     try:
         target = TrainingTarget(**dict(_mapping(payload.get("target"))))
         teacher_agent = _strategic_teacher_agent() if payload.get("use_teacher") else None
-        outputs = [
-            _collect_training_run_with_policy_server(
+        outputs = []
+        for run_index, run_seed in _worker_jobs(payload):
+            output = _collect_training_run_with_policy_server(
                 worker_id=worker_id,
                 request_queue=request_queue,
                 response_queue=response_queue,
@@ -1519,8 +1530,14 @@ def _training_batched_inference_worker(
                 teacher_mix=max(0.0, min(1.0, _float(payload.get("teacher_mix")))),
                 imitation_enabled=bool(payload.get("imitation_enabled")),
             )
-            for run_index, run_seed in _worker_jobs(payload)
-        ]
+            outputs.append(output)
+            result_queue.put(
+                {
+                    "type": "run_done",
+                    "worker_id": worker_id,
+                    "run": output[0],
+                }
+            )
         result_queue.put(
             {"type": "worker_done", "worker_id": worker_id, "outputs": tuple(outputs)}
         )
@@ -1543,8 +1560,9 @@ def _evaluation_batched_inference_worker(
 ) -> None:
     try:
         target = TrainingTarget(**dict(_mapping(payload.get("target"))))
-        outputs = [
-            _evaluate_one_run_with_policy_server(
+        outputs = []
+        for run_index, run_seed in _worker_jobs(payload):
+            output = _evaluate_one_run_with_policy_server(
                 worker_id=worker_id,
                 request_queue=request_queue,
                 response_queue=response_queue,
@@ -1556,8 +1574,14 @@ def _evaluation_batched_inference_worker(
                 ascension=_int(payload.get("ascension")),
                 include_history=bool(payload.get("include_history")),
             )
-            for run_index, run_seed in _worker_jobs(payload)
-        ]
+            outputs.append(output)
+            result_queue.put(
+                {
+                    "type": "run_done",
+                    "worker_id": worker_id,
+                    "run": output,
+                }
+            )
         result_queue.put(
             {"type": "worker_done", "worker_id": worker_id, "outputs": tuple(outputs)}
         )
@@ -2010,6 +2034,7 @@ def _report_run_end_progress(
         final_act=run.final_act,
         final_floor=run.final_floor,
         final_phase=run.final_phase,
+        target_name=target.name,
         reached_target=_run_reached_target(run, target),
         failed_to_continue=run.failed_to_continue,
         error=run.error,
@@ -4008,6 +4033,9 @@ def _highlight_history_entry(
         "json_path": str(paths["json"]) if "json" in paths else None,
         "html_path": str(paths["html"]) if "html" in paths else None,
         "map_path": str(paths["map"]) if "map" in paths else None,
+        "summary_json_path": str(paths["summary_json"]) if "summary_json" in paths else None,
+        "summary_txt_path": str(paths["summary_txt"]) if "summary_txt" in paths else None,
+        "summary_html_path": str(paths["summary_html"]) if "summary_html" in paths else None,
         "history": history,
     }
 
@@ -4029,6 +4057,9 @@ def _highlight_paths(base: Path, role: str) -> dict[str, Path]:
         "json": base.with_name(f"{base.name}_{safe_role}_run_history.json"),
         "html": base.with_name(f"{base.name}_{safe_role}_run_history.html"),
         "map": base.with_name(f"{base.name}_{safe_role}_run_map.txt"),
+        "summary_json": base.with_name(f"{base.name}_{safe_role}_run_summary.json"),
+        "summary_txt": base.with_name(f"{base.name}_{safe_role}_run_summary.txt"),
+        "summary_html": base.with_name(f"{base.name}_{safe_role}_run_summary.html"),
     }
 
 
@@ -4162,6 +4193,9 @@ def _write_highlight_run_history_artifacts(result: Mapping[str, Any]) -> None:
         json_path = _optional_path(entry.get("json_path"))
         html_path = _optional_path(entry.get("html_path"))
         map_path = _optional_path(entry.get("map_path"))
+        summary_json_path = _optional_path(entry.get("summary_json_path"))
+        summary_txt_path = _optional_path(entry.get("summary_txt_path"))
+        summary_html_path = _optional_path(entry.get("summary_html_path"))
         if json_path is not None:
             write_run_history(history, json_path)
         if html_path is not None:
@@ -4182,6 +4216,40 @@ def _write_highlight_run_history_artifacts(result: Mapping[str, Any]) -> None:
             )
         if map_path is not None:
             write_run_history_map_text(history, map_path)
+        summary_links = _highlight_summary_links(
+            history_path=html_path,
+            history_json_path=json_path,
+            map_path=map_path,
+            summary_json_path=summary_json_path,
+            summary_txt_path=summary_txt_path,
+            summary_html_path=summary_html_path,
+        )
+        if summary_json_path is not None:
+            write_run_history_summary(history, summary_json_path, links=summary_links)
+        if summary_txt_path is not None:
+            write_run_history_summary_text(history, summary_txt_path, links=summary_links)
+        if summary_html_path is not None:
+            write_run_history_summary_html(history, summary_html_path, links=summary_links)
+
+
+def _highlight_summary_links(
+    *,
+    history_path: Path | None,
+    history_json_path: Path | None,
+    map_path: Path | None,
+    summary_json_path: Path | None,
+    summary_txt_path: Path | None,
+    summary_html_path: Path | None,
+) -> dict[str, str]:
+    paths = {
+        "history": history_path,
+        "history_json": history_json_path,
+        "map": map_path,
+        "summary_json": summary_json_path,
+        "summary_txt": summary_txt_path,
+        "summary_html": summary_html_path,
+    }
+    return {key: path.name for key, path in paths.items() if path is not None}
 
 
 def _highlight_links_html(
@@ -4196,7 +4264,13 @@ def _highlight_links_html(
         if not entry:
             continue
         links = []
-        for label, key in (("Timeline", "html_path"), ("JSON", "json_path"), ("Map", "map_path")):
+        for label, key in (
+            ("Summary", "summary_html_path"),
+            ("Text", "summary_txt_path"),
+            ("Timeline", "html_path"),
+            ("JSON", "json_path"),
+            ("Map", "map_path"),
+        ):
             path = entry.get(key)
             if path:
                 href = _relative_link(report_output_path, path)

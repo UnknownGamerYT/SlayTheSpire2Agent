@@ -15,9 +15,15 @@ from sts2sim.history import (
     record_history_step,
     run_history_html,
     run_history_map_text,
+    run_history_summary,
+    run_history_summary_html,
+    run_history_summary_text,
     start_run_history,
     write_run_history_html,
     write_run_history_map_text,
+    write_run_history_summary,
+    write_run_history_summary_html,
+    write_run_history_summary_text,
 )
 from sts2sim.learning import collect_random_rollouts
 
@@ -387,6 +393,64 @@ def test_history_reports_treasure_available_taken_and_left() -> None:
     assert f"Reward pickup: took relic {relic_id}" in html
     assert "Treasure outcome: took" in html
     assert "Treasure left behind" not in html
+
+
+def test_history_writes_short_route_summary_with_links(tmp_path) -> None:
+    state = _treasure_map_state()
+    enter_action = _action(state, "choose_node", "target")
+    treasure_state = step(state, enter_action)
+    after_gold = step(treasure_state, _action(treasure_state, "take_reward_gold", "reward:gold"))
+    after_relic = step(after_gold, _action(after_gold, "take_reward_relic", "reward:relic"))
+    after_proceed = step(after_relic, _action(after_relic, "proceed"))
+
+    history = start_run_history(state, policy="test")
+    previous = state
+    for index, (action, current) in enumerate(
+        (
+            (enter_action, treasure_state),
+            (_action(treasure_state, "take_reward_gold", "reward:gold"), after_gold),
+            (_action(after_gold, "take_reward_relic", "reward:relic"), after_relic),
+            (_action(after_relic, "proceed"), after_proceed),
+        )
+    ):
+        history = append_history_step(
+            history,
+            record_history_step(
+                step_index=index,
+                before_state=previous,
+                action=action,
+                after_state=current,
+            ),
+            current,
+        )
+        previous = current
+
+    links = {
+        "history": "full.html",
+        "history_json": "full.json",
+        "map": "map.txt",
+    }
+    summary = run_history_summary(history, links=links)
+    text = run_history_summary_text(history, links=links)
+    html = run_history_summary_html(history, links=links)
+    json_path = tmp_path / "summary.json"
+    text_path = tmp_path / "summary.txt"
+    html_path = tmp_path / "summary.html"
+    write_run_history_summary(history, json_path, links=links)
+    write_run_history_summary_text(history, text_path, links=links)
+    write_run_history_summary_html(history, html_path, links=links)
+
+    assert summary["nodes"][0]["kind"] == "treasure"
+    assert summary["nodes"][0]["gold_gained"] > 0
+    assert summary["nodes"][0]["relics_gained"]
+    assert summary["nodes"][0]["links"]["history"] == "full.html#step-0"
+    assert "Short run summary" in text
+    assert "Took: gold" in text
+    assert "open detailed replay" in html
+    assert "full.html#step-0" in html
+    assert json.loads(json_path.read_text(encoding="utf-8"))["nodes"][0]["kind"] == "treasure"
+    assert "Replay: full.html#step-0" in text_path.read_text(encoding="utf-8")
+    assert html_path.read_text(encoding="utf-8").startswith("<!doctype html>")
 
 
 def test_strategic_run_returns_and_writes_history(tmp_path) -> None:
