@@ -983,6 +983,42 @@ def test_ancient_heal_is_reduced_on_ascension_two_plus() -> None:
     assert state.player.hp == 68
 
 
+def test_act_advance_applies_the_same_ancient_heal_rule() -> None:
+    for ascension, expected_hp in ((0, 80), (1, 80), (2, 68)):
+        state = new_run(
+            seed=f"act-heal-{ascension}",
+            character_id="TEST",
+            ascension=ascension,
+            source_data={
+                "max_acts": 2,
+                "boss_reward_card_count": 0,
+                "boss_reward_relic_count": 0,
+                "deck": [
+                    {
+                        "card_id": "debug_kill",
+                        "name": "Debug Kill",
+                        "type": "attack",
+                        "cost": 0,
+                        "target": "enemy",
+                        "effects": {"damage": 999},
+                    }
+                ],
+            },
+        )
+        state = _choose_first_ancient(state)
+        state = state.model_copy(
+            update={"player": state.player.model_copy(update={"hp": 20, "max_hp": 80})}
+        )
+        state = _force_next_room(state, RoomKind.BOSS)
+        state = step(state, _action(state, "choose_node", "target"))
+        state = _play_card_by_id(state, "debug_kill")
+        state = _proceed(state)
+
+        assert state.phase == RunPhase.ANCIENT
+        assert state.act == 2
+        assert state.player.hp == expected_hp
+
+
 def test_spoils_map_marks_next_act_treasure_and_redeems_if_card_is_kept() -> None:
     state = new_run(
         seed=145,

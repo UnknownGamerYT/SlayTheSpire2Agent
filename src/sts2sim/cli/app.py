@@ -277,8 +277,10 @@ class _TrainingTerminalProgress:
         self._progress: Any | None = None
         self._train_task: Any | None = None
         self._eval_task: Any | None = None
+        self._checkpoint_task: Any | None = None
         self._train_started_at: float | None = None
         self._eval_started_at: float | None = None
+        self._checkpoint_started_at: float | None = None
 
     def __enter__(self) -> _TrainingTerminalProgress:
         if not self.enabled:
@@ -333,12 +335,77 @@ class _TrainingTerminalProgress:
                 f"device={payload.get('device')}, "
                 f"workers={payload.get('rollout_workers')}, "
                 f"inference={payload.get('rollout_inference')}, "
+                f"batching={payload.get('policy_server_batching')}, "
                 f"history={payload.get('history_mode')}, "
                 f"active_envs={payload.get('active_env_streams')}, "
-                f"until_stopped={payload.get('until_stopped')}"
+                f"champion_eval={payload.get('champion_eval_runs')}, "
+                f"until_stopped={payload.get('until_stopped')}, "
+                f"target_metrics_reset={payload.get('target_schema_metrics_reset')}"
             )
+            if payload.get("requested_active_env_streams") != payload.get("active_env_streams"):
+                progress.console.log(
+                    "Batched rollout worker cap applied: "
+                    f"requested={payload.get('requested_active_env_streams')}, "
+                    f"using={payload.get('active_env_streams')} "
+                    f"(cap={payload.get('batched_worker_cap')})."
+                )
             for line in _checkpoint_check_lines(payload):
                 progress.console.log(line)
+            return
+        if event == "champion_holdout_start":
+            progress.console.log(
+                "Champion holdout started: "
+                f"batch={payload.get('batch_index')}, "
+                f"stage={payload.get('target_name')}, "
+                f"runs={payload.get('eval_runs')}, source={payload.get('source')}"
+            )
+            return
+        if event == "champion_holdout_end":
+            progress.console.log(_champion_holdout_progress_line(payload))
+            return
+        if event == "checkpoint_validation_start":
+            self._remove_task(self._checkpoint_task)
+            self._checkpoint_started_at = time.perf_counter()
+            total = _progress_int(payload.get("eval_runs"))
+            self._checkpoint_task = progress.add_task(
+                "Checkpoint "
+                f"{payload.get('checkpoint_stage')} -> {payload.get('target_name')} validation",
+                total=max(1, total),
+                eta=_eta_progress_text(self._checkpoint_started_at, 0, total),
+            )
+            progress.console.log(
+                "Checkpoint validation started: "
+                f"stage={payload.get('checkpoint_stage')}, "
+                f"target={payload.get('target_name')}, runs={total}"
+            )
+            return
+        if event == "checkpoint_validation_run_end":
+            if self._checkpoint_task is not None:
+                completed = _progress_int(payload.get("run_position"))
+                total = _progress_int(payload.get("run_total"))
+                progress.update(
+                    self._checkpoint_task,
+                    completed=completed,
+                    description=(
+                        "Checkpoint "
+                        f"{payload.get('checkpoint_stage')} -> "
+                        f"{payload.get('validation_target')} validation "
+                        f"{_act_floor_text(payload)}"
+                    ),
+                    eta=_eta_progress_text(self._checkpoint_started_at, completed, total),
+                )
+            return
+        if event == "checkpoint_validation_end":
+            self._remove_task(self._checkpoint_task)
+            self._checkpoint_task = None
+            progress.console.log(_checkpoint_validation_summary_line(payload))
+            return
+        if event == "curriculum_resume_check":
+            for line in _curriculum_checkpoint_check_lines(payload):
+                progress.console.log(line)
+            return
+        if event == "curriculum_checkpoint_migrated":
+            progress.console.log(_curriculum_checkpoint_migration_line(payload))
             return
         if event == "batch_start":
             self._remove_task(self._train_task)
@@ -426,9 +493,15 @@ class _TrainingTerminalProgress:
             diagnostic_line = _diagnostic_progress_line(payload)
             if diagnostic_line:
                 progress.console.log(diagnostic_line)
+            map_event_line = _map_event_progress_line(payload)
+            if map_event_line:
+                progress.console.log(map_event_line)
             throughput_line = _throughput_progress_line(payload)
             if throughput_line:
                 progress.console.log(throughput_line)
+            champion_line = _champion_batch_progress_line(payload)
+            if champion_line:
+                progress.console.log(champion_line)
 
     def _print_plain(self, payload: Mapping[str, Any]) -> None:
         event = str(payload.get("event", ""))
@@ -440,12 +513,50 @@ class _TrainingTerminalProgress:
                 f"device={payload.get('device')}, "
                 f"workers={payload.get('rollout_workers')}, "
                 f"inference={payload.get('rollout_inference')}, "
+                f"batching={payload.get('policy_server_batching')}, "
                 f"history={payload.get('history_mode')}, "
                 f"active_envs={payload.get('active_env_streams')}, "
-                f"until_stopped={payload.get('until_stopped')}"
+                f"champion_eval={payload.get('champion_eval_runs')}, "
+                f"until_stopped={payload.get('until_stopped')}, "
+                f"target_metrics_reset={payload.get('target_schema_metrics_reset')}"
             )
+            if payload.get("requested_active_env_streams") != payload.get("active_env_streams"):
+                typer.echo(
+                    "Batched rollout worker cap applied: "
+                    f"requested={payload.get('requested_active_env_streams')}, "
+                    f"using={payload.get('active_env_streams')} "
+                    f"(cap={payload.get('batched_worker_cap')})."
+                )
             for line in _checkpoint_check_lines(payload):
                 typer.echo(line)
+        elif event == "champion_holdout_start":
+            typer.echo(
+                "Champion holdout started: "
+                f"batch={payload.get('batch_index')}, "
+                f"stage={payload.get('target_name')}, "
+                f"runs={payload.get('eval_runs')}, source={payload.get('source')}"
+            )
+        elif event == "champion_holdout_end":
+            typer.echo(_champion_holdout_progress_line(payload))
+        elif event == "checkpoint_validation_start":
+            typer.echo(
+                "Checkpoint validation started: "
+                f"stage={payload.get('checkpoint_stage')}, "
+                f"target={payload.get('target_name')}, "
+                f"runs={payload.get('eval_runs')}"
+            )
+        elif event == "checkpoint_validation_run_end":
+            typer.echo(
+                "Checkpoint validation run: "
+                f"{_run_progress_line(payload)}"
+            )
+        elif event == "checkpoint_validation_end":
+            typer.echo(_checkpoint_validation_summary_line(payload))
+        elif event == "curriculum_resume_check":
+            for line in _curriculum_checkpoint_check_lines(payload):
+                typer.echo(line)
+        elif event == "curriculum_checkpoint_migrated":
+            typer.echo(_curriculum_checkpoint_migration_line(payload))
         elif event == "batch_start":
             typer.echo(
                 f"Batch {payload.get('batch_index')} started: "
@@ -470,9 +581,15 @@ class _TrainingTerminalProgress:
             diagnostic_line = _diagnostic_progress_line(payload)
             if diagnostic_line:
                 typer.echo(diagnostic_line)
+            map_event_line = _map_event_progress_line(payload)
+            if map_event_line:
+                typer.echo(map_event_line)
             throughput_line = _throughput_progress_line(payload)
             if throughput_line:
                 typer.echo(throughput_line)
+            champion_line = _champion_batch_progress_line(payload)
+            if champion_line:
+                typer.echo(champion_line)
 
     def _remove_task(self, task_id: Any | None) -> None:
         if self._progress is None or task_id is None:
@@ -529,6 +646,82 @@ def _checkpoint_check_lines(payload: Mapping[str, Any]) -> list[str]:
                 keys += f", +{len(mismatches) - 8} more"
             lines.append(f"  changed: {keys}")
     return lines
+
+
+def _curriculum_checkpoint_check_lines(payload: Mapping[str, Any]) -> list[str]:
+    latest_check = payload.get("latest_checkpoint_check")
+    checks = [
+        check
+        for check in payload.get("checkpoint_checks", [])
+        if isinstance(check, Mapping)
+    ]
+    lines: list[str] = []
+    if isinstance(latest_check, Mapping):
+        lines.append(
+            "Curriculum latest checkpoint: "
+            f"active_stage={latest_check.get('checkpoint_stage') or 'unknown'}, "
+            f"decision={latest_check.get('decision', 'unknown')}, "
+            f"preconditions={latest_check.get('preconditions_passed')}, "
+            f"compatible={latest_check.get('compatible')}"
+        )
+        for target_check in latest_check.get("target_checks", []):
+            if not isinstance(target_check, Mapping):
+                continue
+            lines.append(
+                "  latest gate: "
+                f"target={target_check.get('target', 'unknown')}, "
+                f"success={_progress_float(target_check.get('target_success_rate')):.3f}, "
+                f"count={_progress_int(target_check.get('target_successes'))}/"
+                f"{_progress_int(target_check.get('eval_runs'))}, "
+                f"passed={target_check.get('passed')}, "
+                f"reason={target_check.get('reason', 'unknown')}"
+            )
+    for check in checks:
+        lines.append(
+            "Curriculum checkpoint: "
+            f"stage={check.get('stage', 'unknown')}, "
+            f"decision={check.get('decision', 'unknown')}, "
+            f"preconditions={check.get('preconditions_passed')}, "
+            f"stage_target={check.get('stage_target_passed')}"
+        )
+        for target_check in check.get("target_checks", []):
+            if not isinstance(target_check, Mapping):
+                continue
+            lines.append(
+                "  gate: "
+                f"target={target_check.get('target', 'unknown')}, "
+                f"success={_progress_float(target_check.get('target_success_rate')):.3f}, "
+                f"count={_progress_int(target_check.get('target_successes'))}/"
+                f"{_progress_int(target_check.get('eval_runs'))}, "
+                f"passed={target_check.get('passed')}, "
+                f"reason={target_check.get('reason', 'unknown')}"
+            )
+    return lines
+
+
+def _curriculum_checkpoint_migration_line(payload: Mapping[str, Any]) -> str:
+    """Describe the one-time move from legacy mutable stage files to latest."""
+
+    source_path = Path(str(payload.get("source_path", "unknown"))).name
+    latest_path = Path(str(payload.get("latest_path", "unknown"))).name
+    return (
+        "Curriculum checkpoint migration: "
+        f"moved legacy active checkpoint {source_path} to {latest_path}"
+    )
+
+
+def _checkpoint_validation_summary_line(payload: Mapping[str, Any]) -> str:
+    return (
+        "Checkpoint validation complete: "
+        f"stage={payload.get('checkpoint_stage', 'unknown')}, "
+        f"target={payload.get('target', payload.get('target_name', 'unknown'))}, "
+        f"success={_progress_float(payload.get('target_success_rate')):.3f}, "
+        f"count={_progress_int(payload.get('target_successes'))}/"
+        f"{_progress_int(payload.get('eval_runs'))}, "
+        f"consec={_progress_int(payload.get('max_consecutive_successes'))}, "
+        f"passed={payload.get('passed')}, "
+        f"reason={payload.get('reason', 'unknown')}"
+    )
 
 
 def _run_progress_line(payload: Mapping[str, Any]) -> str:
@@ -599,6 +792,37 @@ def _batch_progress_line(payload: Mapping[str, Any]) -> str:
     )
 
 
+def _champion_holdout_progress_line(payload: Mapping[str, Any]) -> str:
+    return (
+        "Champion holdout complete: "
+        f"batch={payload.get('batch_index')}, "
+        f"success={_progress_float(payload.get('target_success_rate')):.3f} "
+        f"({_progress_int(payload.get('target_successes'))}/"
+        f"{_progress_int(payload.get('eval_runs'))}), "
+        f"consec={_progress_int(payload.get('max_consecutive_successes'))}, "
+        f"passed={payload.get('passed')}"
+    )
+
+
+def _champion_batch_progress_line(payload: Mapping[str, Any]) -> str:
+    holdout = _progress_mapping(payload.get("champion_holdout"))
+    if not holdout:
+        return ""
+    flags: list[str] = []
+    if payload.get("champion_updated"):
+        flags.append("new champion")
+    if payload.get("champion_rollback"):
+        flags.append("rolled back to champion")
+    suffix = f", {', '.join(flags)}" if flags else ""
+    return (
+        "  champion: "
+        f"holdout={_progress_float(holdout.get('target_success_rate')):.3f} "
+        f"({_progress_int(holdout.get('target_successes'))}/"
+        f"{_progress_int(holdout.get('eval_runs'))}), "
+        f"passed={holdout.get('passed')}{suffix}"
+    )
+
+
 def _reward_signal_line(payload: Mapping[str, Any]) -> str:
     rewards = _progress_mapping(payload.get("reward_component_averages"))
     if not rewards:
@@ -634,6 +858,52 @@ def _diagnostic_progress_line(payload: Mapping[str, Any]) -> str:
     return "  deck/items avg: " + ", ".join(parts)
 
 
+def _map_event_progress_line(payload: Mapping[str, Any]) -> str:
+    summary = _progress_mapping(payload.get("map_event_summary"))
+    if not summary:
+        return ""
+    visits = _progress_mapping(summary.get("map_visits"))
+    events = _progress_mapping(summary.get("events"))
+    shop = _progress_mapping(summary.get("shop"))
+    rest = _progress_mapping(summary.get("rest"))
+    if not visits and not events:
+        return ""
+    parts = [
+        "map="
+        f"M:{_progress_float(visits.get('monster')):.2f} "
+        f"E:{_progress_float(visits.get('elite')):.2f} "
+        f"?:{_progress_float(visits.get('event')):.2f} "
+        f"$:{_progress_float(visits.get('shop')):.2f} "
+        f"F:{_progress_float(visits.get('rest')):.2f} "
+        f"T:{_progress_float(visits.get('treasure')):.2f}",
+        "events="
+        f"choose:{_progress_float(events.get('options_chosen_per_run')):.2f} "
+        f"skip:{_progress_float(events.get('options_skipped_per_run')):.2f} "
+        f"per_event:{_progress_float(events.get('decisions_per_event')):.2f}",
+        "shops="
+        f"buy:{_progress_float(shop.get('purchases_per_run')):.2f} "
+        f"leave:{_progress_float(shop.get('leaves_per_run')):.2f}",
+        "fires="
+        f"rest:{_progress_float(rest.get('rest')):.2f} "
+        f"smith:{_progress_float(rest.get('smith')):.2f}",
+    ]
+    top_choices = _sequence_of_mappings(events.get("top_choices"))
+    if top_choices:
+        choice = top_choices[0]
+        parts.append(
+            "top_event="
+            f"{choice.get('event_id', 'unknown')}:{choice.get('option_id', 'unknown')}"
+            f" x{_progress_float(choice.get('count')):.0f}"
+        )
+    return "  route/event avg: " + ", ".join(parts)
+
+
+def _sequence_of_mappings(value: object) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list | tuple):
+        return []
+    return [item for item in value if isinstance(item, Mapping)]
+
+
 def _throughput_progress_line(payload: Mapping[str, Any]) -> str:
     throughput = _progress_mapping(payload.get("throughput"))
     if not throughput:
@@ -641,10 +911,29 @@ def _throughput_progress_line(payload: Mapping[str, Any]) -> str:
     parts = [
         f"steps/s={_progress_float(throughput.get('env_steps_per_second')):.1f}",
         f"runs/s={_progress_float(throughput.get('runs_per_second')):.2f}",
-        f"active_envs={_progress_int(throughput.get('active_env_streams'))}",
-        f"min_batch={_progress_int(throughput.get('policy_server_min_batch'))}",
-        f"wait_ms={_progress_int(throughput.get('policy_server_max_wait_ms'))}",
     ]
+    if "train_policy_server_min_batch" in throughput:
+        parts.extend(
+            [
+                "active_envs="
+                f"train:{_progress_int(throughput.get('train_active_env_streams'))}/"
+                f"eval:{_progress_int(throughput.get('eval_active_env_streams'))}",
+                "min_batch="
+                f"train:{_progress_int(throughput.get('train_policy_server_min_batch'))}/"
+                f"eval:{_progress_int(throughput.get('eval_policy_server_min_batch'))}",
+                "wait_ms="
+                f"train:{_progress_int(throughput.get('train_policy_server_max_wait_ms'))}/"
+                f"eval:{_progress_int(throughput.get('eval_policy_server_max_wait_ms'))}",
+            ]
+        )
+    else:
+        parts.extend(
+            [
+                f"active_envs={_progress_int(throughput.get('active_env_streams'))}",
+                f"min_batch={_progress_int(throughput.get('policy_server_min_batch'))}",
+                f"wait_ms={_progress_int(throughput.get('policy_server_max_wait_ms'))}",
+            ]
+        )
     return "  throughput: " + ", ".join(parts)
 
 
@@ -1930,7 +2219,7 @@ def train_masked_ppo(
         str,
         typer.Option(
             "--target",
-            help="Curriculum target: act1-boss, act2-boss, act3-boss, or game-clear.",
+            help="Curriculum target: act1-boss, act2-boss, or act3-boss.",
         ),
     ] = "act1-boss",
     max_batches: Annotated[
@@ -1972,6 +2261,22 @@ def train_masked_ppo(
         int,
         typer.Option("--eval-max-steps", min=1, help="Maximum steps per evaluation run."),
     ] = 1200,
+    champion_eval_runs: Annotated[
+        int | None,
+        typer.Option(
+            "--champion-eval-runs",
+            min=1,
+            help="Fixed-seed champion holdout runs per batch; defaults to --eval-runs.",
+        ),
+    ] = None,
+    champion_patience: Annotated[
+        int,
+        typer.Option(
+            "--champion-patience",
+            min=1,
+            help="Consecutive lower champion-holdout scores before PPO rolls back.",
+        ),
+    ] = 3,
     seed: Annotated[
         str,
         typer.Option("--seed", help="Top-level trainer seed used to sample run seeds."),
@@ -2175,21 +2480,21 @@ def train_masked_ppo(
         ),
     ] = 1,
     policy_server_min_batch: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-min-batch",
-            min=1,
-            help="Minimum decision requests to batch before GPU policy inference.",
+            min=0,
+            help="Minimum GPU decision batch; omit or use 0 to auto-tune per phase.",
         ),
-    ] = 1,
+    ] = None,
     policy_server_max_wait_ms: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-max-wait-ms",
             min=0,
-            help="Maximum milliseconds to wait for a larger GPU policy batch.",
+            help="Maximum GPU batch wait; omit to auto-tune, or use 0 for no wait.",
         ),
-    ] = 20,
+    ] = None,
     terminal_progress: Annotated[
         bool,
         typer.Option(
@@ -2217,6 +2522,8 @@ def train_masked_ppo(
                 train_max_steps=train_max_steps,
                 eval_runs=eval_runs,
                 eval_max_steps=eval_max_steps,
+                champion_eval_runs=champion_eval_runs,
+                champion_patience=champion_patience,
                 seed=seed,
                 character_id=character_id,
                 ascension=ascension,
@@ -2269,10 +2576,10 @@ def train_ppo_curriculum(
             "--stages",
             help=(
                 "Comma-separated stage targets. Default: "
-                "act1-boss,act2-boss,act3-boss,game-clear."
+                "act1-boss,act2-boss,act3-boss."
             ),
         ),
-    ] = "act1-boss,act2-boss,act3-boss,game-clear",
+    ] = "act1-boss,act2-boss,act3-boss",
     run_name: Annotated[
         str,
         typer.Option("--run-name", help="Prefix for stage checkpoints and reports."),
@@ -2526,21 +2833,37 @@ def train_ppo_curriculum(
         ),
     ] = 1,
     policy_server_min_batch: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--policy-server-min-batch",
-            min=1,
-            help="Minimum decision requests to batch before GPU policy inference.",
+            min=0,
+            help="Minimum GPU decision batch; omit or use 0 to auto-tune per phase.",
         ),
-    ] = 1,
-    policy_server_max_wait_ms: Annotated[
+    ] = None,
+    champion_eval_runs: Annotated[
+        int | None,
+        typer.Option(
+            "--champion-eval-runs",
+            min=1,
+            help="Fixed-seed champion holdout runs per batch; defaults to --eval-runs.",
+        ),
+    ] = None,
+    champion_patience: Annotated[
         int,
+        typer.Option(
+            "--champion-patience",
+            min=1,
+            help="Consecutive lower champion-holdout scores before PPO rolls back.",
+        ),
+    ] = 3,
+    policy_server_max_wait_ms: Annotated[
+        int | None,
         typer.Option(
             "--policy-server-max-wait-ms",
             min=0,
-            help="Maximum milliseconds to wait for a larger GPU policy batch.",
+            help="Maximum GPU batch wait; omit to auto-tune, or use 0 for no wait.",
         ),
-    ] = 20,
+    ] = None,
     terminal_progress: Annotated[
         bool,
         typer.Option(
@@ -2569,6 +2892,8 @@ def train_ppo_curriculum(
                 eval_runs=eval_runs,
                 train_max_steps=train_max_steps,
                 eval_max_steps=eval_max_steps,
+                champion_eval_runs=champion_eval_runs,
+                champion_patience=champion_patience,
                 seed=seed,
                 character_id=character_id,
                 ascension=ascension,

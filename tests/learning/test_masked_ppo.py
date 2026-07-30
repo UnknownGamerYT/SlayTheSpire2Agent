@@ -11,9 +11,13 @@ from typer.testing import CliRunner
 from sts2sim import Sts2Env
 from sts2sim.cli.app import (
     _batch_progress_line,
+    _champion_batch_progress_line,
+    _champion_holdout_progress_line,
+    _checkpoint_validation_summary_line,
     _compact_training_result,
     _diagnostic_progress_line,
     _eta_progress_text,
+    _map_event_progress_line,
     _reward_signal_line,
     _run_progress_line,
     _target_name,
@@ -33,12 +37,21 @@ from sts2sim.learning.masked_ppo import (
     TrainingTarget,
     _accumulate_run_diagnostics,
     _action_features,
+    _batched_worker_count,
+    _champion_holdout_jobs,
     _drain_batched_worker_results,
+    _effective_active_env_streams,
     _empty_observation_vector,
+    _final_run_decision_summary,
     _final_run_diagnostics,
+    _map_event_summary,
     _masked_actor_critic_class,
     _observation_vector,
     _policy_input,
+    _ppo_result,
+    _record_champion_baseline,
+    _resolve_policy_server_settings,
+    _update_champion_state,
     max_consecutive_target_successes,
     resolve_ppo_target,
     train_masked_ppo,
@@ -64,30 +77,92 @@ def _run(index: int, *, act: int, floor: int, phase: str = "map") -> LearningRun
 
 
 def test_resolve_ppo_target_presets() -> None:
+    act_1 = resolve_ppo_target("act1-boss")
     act_2 = resolve_ppo_target("act2_boss")
-    game_clear = resolve_ppo_target("game-clear")
+    act_3 = resolve_ppo_target("act3-boss")
 
-    assert act_2 == TrainingTarget(name="act2-boss", target_act=2, target_floor=15)
-    assert game_clear.target_phase == "complete"
+    assert act_1 == TrainingTarget(
+        name="act1-boss",
+        target_act=2,
+        target_floor=0,
+        target_phase="ancient",
+    )
+    assert act_2 == TrainingTarget(
+        name="act2-boss",
+        target_act=3,
+        target_floor=0,
+        target_phase="ancient",
+    )
+    assert act_3 == TrainingTarget(
+        name="act3-boss",
+        target_act=3,
+        target_floor=15,
+        target_phase="complete",
+    )
+
+
+def test_boss_targets_require_the_expected_post_boss_or_boss_state() -> None:
+    act_1 = resolve_ppo_target("act1-boss")
+    act_2 = resolve_ppo_target("act2-boss")
+    act_3 = resolve_ppo_target("act3-boss")
+
+    assert act_1.reached({"act": 1, "floor": 16, "phase": "combat"}) is False
+    assert act_1.reached({"act": 2, "floor": 0, "phase": "ancient"}) is True
+    assert act_2.reached({"act": 2, "floor": 15, "phase": "combat"}) is False
+    assert act_2.reached({"act": 3, "floor": 0, "phase": "ancient"}) is True
+    assert act_3.reached({"act": 3, "floor": 15, "phase": "combat"}) is False
+    assert act_3.reached({"act": 3, "floor": 15, "phase": "complete"}) is True
 
 
 def test_target_name_accepts_curriculum_target_mapping() -> None:
     assert _target_name({"name": "act1-boss", "target_act": 1}) == "act1-boss"
 
 
+def test_ppo_result_requires_the_current_checkpoint_to_pass_target() -> None:
+    result = _ppo_result(
+        target=resolve_ppo_target("act1-boss"),
+        reached_batch=37,
+        checkpoint_reached_target=False,
+        max_batches=50,
+        previous_batch_count=43,
+        requested_new_batches=50,
+        batch_limit=93,
+        until_stopped=False,
+        train_runs_per_batch=100,
+        total_steps=1,
+        total_reward=1.0,
+        resumed_from="checkpoints/ppo_curriculum_latest.pt",
+        model_output_path="checkpoints/ppo_curriculum_latest.pt",
+        output_path="reports/ppo_curriculum_act1_boss_latest.json",
+        progress_output_path="reports/ppo_curriculum_act1_boss_progress.json",
+        report_output_path="reports/ppo_curriculum_act1_boss_latest.html",
+        training_points=(),
+        evaluation_points=(),
+        batch_summaries=(),
+        highlight_run_histories={},
+        metadata={},
+    )
+
+    assert result["reached_target"] is False
+    assert result["ever_reached_target"] is True
+    assert result["reached_batch"] == 37
+
+
 def test_resolve_ppo_target_rejects_unknown_target() -> None:
     with pytest.raises(ValueError, match="Valid targets"):
         resolve_ppo_target("heart")
+    with pytest.raises(ValueError, match="Valid targets"):
+        resolve_ppo_target("game-clear")
 
 
 def test_max_consecutive_target_successes_counts_holdout_streaks() -> None:
     target = resolve_ppo_target("act2-boss")
     runs = (
-        _run(0, act=1, floor=16),
-        _run(1, act=2, floor=15),
-        _run(2, act=3, floor=0),
+        _run(0, act=2, floor=15, phase="combat"),
+        _run(1, act=3, floor=0, phase="ancient"),
+        _run(2, act=3, floor=0, phase="ancient"),
         _run(3, act=2, floor=10),
-        _run(4, act=2, floor=15),
+        _run(4, act=3, floor=0, phase="ancient"),
     )
 
     assert max_consecutive_target_successes(runs, target) == 2
@@ -284,10 +359,237 @@ def test_training_terminal_throughput_line_is_compact() -> None:
     )
 
 
+def test_map_and_event_diagnostics_show_visits_and_choices() -> None:
+    event_state = {
+        "phase": "event",
+        "map": {
+            "current_node_id": "a1:4:2",
+            "nodes": [{"node_id": "a1:4:2", "kind": "event"}],
+        },
+        "event": {"event_id": "THE_CLERIC"},
+        "player": {"relics": [], "potions": [], "gold": 99},
+        "master_deck": [],
+    }
+    shop_state = {
+        "phase": "shop",
+        "map": {
+            "current_node_id": "a1:5:2",
+            "nodes": [{"node_id": "a1:5:2", "kind": "shop"}],
+        },
+        "player": {"relics": [], "potions": [], "gold": 75},
+        "master_deck": [],
+    }
+    diagnostics: dict[str, object] = {}
+
+    _accumulate_run_diagnostics(
+        diagnostics,
+        before_state=event_state,
+        after_state=event_state,
+        action_descriptor={
+            "type": "choose_event",
+            "event_option": {
+                "event_id": "THE_CLERIC",
+                "option_id": "heal",
+                "title": "Heal",
+                "skip_action": False,
+            },
+        },
+    )
+    _accumulate_run_diagnostics(
+        diagnostics,
+        before_state=event_state,
+        after_state=event_state,
+        action_descriptor={
+            "type": "proceed",
+            "event_option": {
+                "event_id": "THE_CLERIC",
+                "option_id": "__skip_event__",
+                "title": "Proceed",
+                "skip_action": True,
+            },
+        },
+    )
+    _accumulate_run_diagnostics(
+        diagnostics,
+        before_state=shop_state,
+        after_state=shop_state,
+        action_descriptor={"type": "shop_buy", "item": {"kind": "relic"}},
+    )
+
+    final_diagnostics = _final_run_diagnostics(diagnostics, shop_state)
+    decision_summary = _final_run_decision_summary(diagnostics)
+    assert final_diagnostics["map_event_visited"] == 1.0
+    assert final_diagnostics["map_shop_visited"] == 1.0
+    assert final_diagnostics["event_options_chosen"] == 1.0
+    assert final_diagnostics["event_options_skipped"] == 1.0
+    assert final_diagnostics["shop_purchases"] == 1.0
+    assert decision_summary["event_options_chosen"]["THE_CLERIC\x1fheal"] == 1.0
+
+    run = LearningRunResult(
+        run_index=0,
+        seed=1,
+        character_id="IRONCLAD",
+        ascension=0,
+        policy="test",
+        steps_taken=3,
+        total_reward=0.0,
+        terminated=False,
+        truncated=False,
+        final_phase="shop",
+        final_act=1,
+        final_floor=5,
+        diagnostics=final_diagnostics,
+        decision_summary=decision_summary,
+    )
+    summary = _map_event_summary((run,))
+    assert summary["map_visits"]["event"] == 1.0
+    assert summary["map_visits"]["shop"] == 1.0
+    assert summary["events"]["decisions_per_event"] == 2.0
+    assert summary["events"]["top_choices"][0]["option_id"] == "heal"
+    terminal_line = _map_event_progress_line({"map_event_summary": summary})
+    assert terminal_line.startswith("  route/event avg:")
+    assert "events=choose:1.00 skip:1.00 per_event:2.00" in terminal_line
+
+
 def test_training_terminal_eta_text_is_explicit_before_first_run() -> None:
     assert _eta_progress_text(10.0, 0, 128, now=40.0) == "eta calculating"
     assert _eta_progress_text(10.0, 32, 128, now=74.0) == "eta 3:12"
     assert _eta_progress_text(10.0, 128, 128, now=74.0) == "eta 0:00"
+
+
+def test_checkpoint_validation_summary_reports_the_gate_result() -> None:
+    line = _checkpoint_validation_summary_line(
+        {
+            "checkpoint_stage": "act2-boss",
+            "target": "act1-boss",
+            "target_success_rate": 0.952381,
+            "target_successes": 20,
+            "eval_runs": 21,
+            "max_consecutive_successes": 7,
+            "passed": True,
+            "reason": "target criteria met",
+        }
+    )
+
+    assert "stage=act2-boss" in line
+    assert "target=act1-boss" in line
+    assert "success=0.952" in line
+    assert "count=20/21" in line
+    assert "passed=True" in line
+
+
+def test_policy_server_auto_settings_scale_per_rollout_phase() -> None:
+    train_settings = _resolve_policy_server_settings(
+        requested_min_batch=None,
+        requested_max_wait_ms=None,
+        job_count=100,
+        rollout_workers=15,
+        envs_per_worker=4,
+        rollout_inference="batched-gpu",
+    )
+    eval_settings = _resolve_policy_server_settings(
+        requested_min_batch=None,
+        requested_max_wait_ms=None,
+        job_count=21,
+        rollout_workers=15,
+        envs_per_worker=4,
+        rollout_inference="batched-gpu",
+    )
+
+    assert train_settings == (24, 15)
+    assert eval_settings == (9, 10)
+
+
+def test_batched_gpu_worker_count_is_capped_before_spawning_processes() -> None:
+    assert _effective_active_env_streams(
+        rollout_workers=15,
+        envs_per_worker=21,
+        rollout_inference="batched-gpu",
+    ) == 64
+
+
+def test_champion_holdout_seeds_are_stable_and_regression_rolls_back() -> None:
+    target = resolve_ppo_target("act1-boss")
+    assert _champion_holdout_jobs(
+        holdout_seed="test-holdout",
+        target=target,
+        eval_runs=4,
+    ) == _champion_holdout_jobs(
+        holdout_seed="test-holdout",
+        target=target,
+        eval_runs=4,
+    )
+
+    baseline = {
+        "target_success_rate": 0.6,
+        "target_successes": 6,
+        "max_consecutive_successes": 2,
+        "average_reward": 80.0,
+        "passed": False,
+    }
+    state = _record_champion_baseline(
+        {
+            "patience": 3,
+            "updates": 0,
+            "rollbacks": 0,
+            "consecutive_regressions": 0,
+        },
+        baseline,
+        batch_index=1,
+    )
+    improved, decision = _update_champion_state(
+        state,
+        {**baseline, "target_success_rate": 0.7},
+        batch_index=2,
+    )
+    assert decision == {"updated": True, "rollback": False, "relation": "improved"}
+    assert improved["best"]["batch_index"] == 2
+
+    lower = {**baseline, "target_success_rate": 0.2}
+    for batch_index in (3, 4):
+        improved, decision = _update_champion_state(
+            improved,
+            lower,
+            batch_index=batch_index,
+        )
+        assert decision["rollback"] is False
+    improved, decision = _update_champion_state(improved, lower, batch_index=5)
+    assert decision == {"updated": False, "rollback": True, "relation": "regressed"}
+    assert improved["rollbacks"] == 1
+    assert improved["consecutive_regressions"] == 0
+
+
+def test_champion_terminal_lines_explain_holdout_and_rollback() -> None:
+    holdout = {
+        "batch_index": 4,
+        "target_success_rate": 0.5,
+        "target_successes": 2,
+        "eval_runs": 4,
+        "max_consecutive_successes": 2,
+        "passed": False,
+    }
+    assert "success=0.500 (2/4)" in _champion_holdout_progress_line(holdout)
+    line = _champion_batch_progress_line(
+        {"champion_holdout": holdout, "champion_updated": True, "champion_rollback": True}
+    )
+    assert "new champion" in line
+    assert "rolled back to champion" in line
+    assert _batched_worker_count(
+        job_count=100,
+        rollout_workers=15,
+        envs_per_worker=21,
+    ) == 64
+
+
+def test_policy_server_manual_settings_override_auto_tuning() -> None:
+    assert _resolve_policy_server_settings(
+        requested_min_batch=16,
+        requested_max_wait_ms=0,
+        job_count=21,
+        rollout_workers=15,
+        envs_per_worker=4,
+        rollout_inference="batched-gpu",
+    ) == (16, 0)
 
 
 def test_batched_worker_run_done_updates_progress_before_worker_done() -> None:
@@ -523,13 +825,18 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert second["metadata"]["rollout_inference"] == "worker"
     assert second["metadata"]["history_mode"] == "highlights"
     assert second["metadata"]["envs_per_worker"] == 1
-    assert second["metadata"]["policy_server_min_batch"] == 1
-    assert second["metadata"]["policy_server_max_wait_ms"] == 20
+    assert second["metadata"]["policy_server_batching"] == "auto"
+    assert second["metadata"]["policy_server_min_batch_requested"] is None
+    assert second["metadata"]["policy_server_max_wait_ms_requested"] is None
+    assert Path(second["champion"]["checkpoint_path"]).exists()
+    assert second["champion"]["eval_runs"] == 1
+    assert "champion_holdout" in second["batch_summaries"][-1]
     assert "throughput" in second["batch_summaries"][-1]
     assert second["batch_summaries"][-1]["throughput"]["env_steps_per_second"] > 0.0
     assert "planning_output_averages" in second["batch_summaries"][-1]
     assert "reward_component_averages" in second["batch_summaries"][-1]
     assert "diagnostic_averages" in second["batch_summaries"][-1]
+    assert "map_event_summary" in second["batch_summaries"][-1]
     assert "total" in second["batch_summaries"][-1]["reward_component_averages"]
     histories = second["highlight_run_histories"]
     for role in ("best", "worst"):
@@ -572,6 +879,7 @@ def test_train_masked_ppo_resume_continues_batches_and_progress(tmp_path: Path) 
     assert "Planning Head Trends" in report_text
     assert "Reward Component Trends" in report_text
     assert "Reward And Deck Diagnostics" in report_text
+    assert "Map And Event Decisions" in report_text
     assert "Throughput" in report_text
     assert "Best And Worst Evaluation Run Histories" in report_text
     assert "Generated" in report_text
@@ -660,8 +968,9 @@ def test_train_masked_ppo_batched_gpu_multi_env_smoke(tmp_path: Path) -> None:
     assert len(result["evaluation_progress"]) == 2
     assert result["metadata"]["envs_per_worker"] == 2
     assert result["metadata"]["active_env_streams"] == 4
-    assert result["metadata"]["policy_server_min_batch"] == 2
-    assert result["metadata"]["policy_server_max_wait_ms"] == 5
+    assert result["metadata"]["policy_server_batching"] == "manual"
+    assert result["metadata"]["policy_server_min_batch_requested"] == 2
+    assert result["metadata"]["policy_server_max_wait_ms_requested"] == 5
     throughput = result["batch_summaries"][-1]["throughput"]
     assert throughput["active_env_streams"] == 4
     assert throughput["rollout_inference"] == "batched-gpu"

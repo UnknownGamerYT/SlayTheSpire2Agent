@@ -184,11 +184,17 @@ Single-target Act 1 boss training:
 uv run sts2sim train-masked-ppo --target act1-boss --until-stopped --train-runs-per-batch 16 --train-max-steps 1000 --eval-runs 8 --eval-max-steps 1000 --seed ppo-act1 --character IRONCLAD --ascension 0 --device auto --no-resume --model-output checkpoints\ppo_act1_boss.pt --output reports\ppo_act1_boss_latest.json --progress-output reports\ppo_act1_boss_progress.json --report-output reports\ppo_act1_boss_latest.html --terminal-progress
 ```
 
-Curriculum training through Act 1, Act 2, Act 3, and game completion:
+Curriculum training through the Act 1, Act 2, and final Act 3 boss clears:
 
 ```powershell
-uv run sts2sim train-ppo-curriculum --stages act1-boss,act2-boss,act3-boss,game-clear --until-stopped --run-name ppo_curriculum --train-runs-per-batch 16 --eval-runs 20 --target-success-rate 0.95 --target-consecutive-successes 3 --seed ppo-curriculum --character IRONCLAD --ascension 0 --device auto --no-resume --output reports\ppo_curriculum_latest.json --report-output reports\ppo_curriculum_latest.html --terminal-progress
+uv run sts2sim train-ppo-curriculum --stages act1-boss,act2-boss,act3-boss --until-stopped --run-name ppo_curriculum --train-runs-per-batch 16 --eval-runs 20 --champion-eval-runs 64 --champion-patience 3 --target-success-rate 0.95 --target-consecutive-successes 3 --seed ppo-curriculum --character IRONCLAD --ascension 0 --device auto --no-resume --output reports\ppo_curriculum_latest.json --report-output reports\ppo_curriculum_latest.html --terminal-progress
 ```
+
+PPO now keeps a per-stage `*_champion.pt` checkpoint. It evaluates that policy on the
+same fixed holdout seeds every batch, promotes only the champion, and rolls back the
+mutable `*_latest.pt` model after three consecutively worse champion-holdout results.
+Use `--champion-eval-runs` to choose the fixed holdout size and
+`--champion-patience` to adjust the rollback threshold.
 
 Resume a training run by replacing `--no-resume` with `--resume` and keeping
 the same checkpoint/report paths.
