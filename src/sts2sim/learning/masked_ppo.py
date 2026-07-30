@@ -76,6 +76,12 @@ from sts2sim.mechanics.synergy import (
 
 NETWORK_SCHEMA_VERSION = 5
 REWARD_SCHEMA_VERSION = 9
+TARGET_SCHEMA_VERSION = 3
+CHAMPION_SCHEMA_VERSION = 1
+# Windows process workers each load Python plus a simulator environment.  This is
+# deliberately a process cap, rather than a GPU batch cap: the policy server can
+# still batch requests from the bounded set of rollout workers.
+MAX_BATCHED_ROLLOUT_WORKERS = 64
 PLANNING_HEAD_SCHEMA: tuple[str, ...] = (
     "aggression_target",
     "hp_floor",
@@ -91,10 +97,14 @@ PLANNING_HEAD_SCHEMA: tuple[str, ...] = (
 PLANNING_HEAD_DIM = len(PLANNING_HEAD_SCHEMA)
 
 PPO_TARGET_PRESETS: dict[str, dict[str, int | str | None]] = {
-    "act1-boss": {"target_act": 1, "target_floor": 16, "target_phase": None},
-    "act2-boss": {"target_act": 2, "target_floor": 15, "target_phase": None},
-    "act3-boss": {"target_act": 3, "target_floor": 15, "target_phase": None},
-    "game-clear": {"target_act": 4, "target_floor": 0, "target_phase": "complete"},
+    # The first two stages deliberately require the boss to be defeated. The
+    # simulator enters boss combat on the final map floor, so using that floor
+    # alone would stop a rollout before it learned the fight or boss reward.
+    "act1-boss": {"target_act": 2, "target_floor": 0, "target_phase": "ancient"},
+    "act2-boss": {"target_act": 3, "target_floor": 0, "target_phase": "ancient"},
+    # Defeating the Act 3 boss is the end of the run, so this is the final
+    # curriculum target rather than a separate game-clear stage.
+    "act3-boss": {"target_act": 3, "target_floor": 15, "target_phase": "complete"},
 }
 _ACTION_TYPE_COUNT = 32
 _CARD_TYPE_IDS = {"attack": 1, "skill": 2, "power": 3, "status": 4, "curse": 5}
@@ -284,10 +294,21 @@ class TrainingTarget:
     target_phase: str | None = None
 
     def reached(self, observation: Mapping[str, Any]) -> bool:
-        if self.target_phase is not None:
-            return str(observation.get("phase", "")) == self.target_phase
         act = _lookup_vector_int(observation, "act")
         floor = _lookup_vector_int(observation, "floor")
+        return self.reached_values(
+            act=act,
+            floor=floor,
+            phase=str(observation.get("phase", "")),
+        )
+
+    def reached_values(self, *, act: int, floor: int, phase: str) -> bool:
+        if self.target_phase is not None:
+            return (
+                phase == self.target_phase
+                and act >= self.target_act
+                and floor >= self.target_floor
+            )
         return act > self.target_act or (act == self.target_act and floor >= self.target_floor)
 
 
@@ -367,6 +388,9 @@ def train_masked_ppo(
     envs_per_worker: int = 1,
     policy_server_min_batch: int | None = None,
     policy_server_max_wait_ms: int | None = None,
+    champion_model_path: Path | str | None = None,
+    champion_eval_runs: int | None = None,
+    champion_patience: int = 3,
     progress_callback: Callable[[Mapping[str, Any]], None] | None = None,
     progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
@@ -380,6 +404,15 @@ def train_masked_ppo(
     resolved_envs_per_worker = _resolve_envs_per_worker(envs_per_worker)
     requested_policy_min_batch = _optional_nonnegative_int(policy_server_min_batch)
     requested_policy_max_wait_ms = _optional_nonnegative_int(policy_server_max_wait_ms)
+    resolved_champion_path = _resolve_champion_model_path(
+        model_output_path=model_output_path,
+        champion_model_path=champion_model_path,
+    )
+    resolved_champion_eval_runs = max(
+        1,
+        _int(champion_eval_runs) if champion_eval_runs is not None else max(1, eval_runs),
+    )
+    resolved_champion_patience = max(1, _int(champion_patience))
     if resolved_envs_per_worker > 1 and resolved_rollout_inference != "batched-gpu":
         raise ValueError("envs_per_worker > 1 requires rollout_inference='batched-gpu'.")
     resolved_target = resolve_ppo_target(target)
@@ -387,36 +420,18 @@ def train_masked_ppo(
     train_rng = random.Random(f"{seed}:ppo-train")
     eval_rng = random.Random(f"{seed}:ppo-eval")
     model_class = _masked_actor_critic_class(nn)
-    observation_dim = len(_empty_observation_vector())
     activation_name = _normalize_activation_name(activation)
     content_vocab = load_content_vocab()
-    content_metadata = content_vocab_metadata(content_vocab)
-    reward_config_checksum = _reward_config_checksum()
-    game_logic_checksum = _game_logic_checksum()
-    architecture = {
-        "observation_dim": observation_dim,
-        "action_feature_dim": ACTION_FEATURE_DIM,
-        "path_plan_feature_dim": _PATH_PLAN_FEATURE_DIM,
-        "reward_bundle_feature_dim": _REWARD_BUNDLE_FEATURE_DIM,
-        "potion_strategy_feature_dim": _POTION_STRATEGY_FEATURE_DIM,
-        "action_preview_feature_dim": _PREVIEW_FEATURE_DIM,
-        "planning_head_schema": list(PLANNING_HEAD_SCHEMA),
-        "planning_head_dim": PLANNING_HEAD_DIM,
-        "network_schema_version": NETWORK_SCHEMA_VERSION,
-        "reward_schema_version": REWARD_SCHEMA_VERSION,
-        "reward_config_checksum": reward_config_checksum,
-        "game_logic_checksum": game_logic_checksum,
-        **content_metadata,
-        "hidden_size": hidden_size,
-        "hidden_layers": max(1, hidden_layers),
-        "head_hidden_layers": max(1, head_hidden_layers),
-        "activation": activation_name,
-        "uses_agent_memory": True,
-        "recurrent": False,
-    }
-    architecture["network_contract_checksum"] = _network_contract_checksum(architecture)
+    architecture = _expected_ppo_architecture(
+        hidden_size=hidden_size,
+        hidden_layers=hidden_layers,
+        head_hidden_layers=head_hidden_layers,
+        activation=activation_name,
+    )
+    reward_config_checksum = str(architecture["reward_config_checksum"])
+    game_logic_checksum = str(architecture["game_logic_checksum"])
     model = model_class(
-        observation_dim=observation_dim,
+        observation_dim=_int(architecture["observation_dim"]),
         action_feature_dim=ACTION_FEATURE_DIM,
         content_vocab_size=content_vocab.size,
         content_identity_slots=CONTENT_IDENTITY_SLOTS,
@@ -440,6 +455,17 @@ def train_masked_ppo(
     )
     resumed_from = resume_state.path
     previous_result = _mapping(resume_state.result)
+    previous_target_schema = _int(
+        _mapping(previous_result.get("metadata")).get("target_schema_version")
+    )
+    target_schema_reset = bool(previous_result) and (
+        previous_target_schema != TARGET_SCHEMA_VERSION
+    )
+    if target_schema_reset:
+        # The model/optimizer remain useful pretraining, but prior rollout and
+        # evaluation metrics used different stage completion semantics. Do not
+        # merge those measurements into the new curriculum stage.
+        previous_result = {}
     checkpoint_checks = tuple(dict(check) for check in resume_state.checkpoint_checks)
     metadata = {
         "algorithm": "masked_action_descriptor_ppo",
@@ -450,6 +476,8 @@ def train_masked_ppo(
         "target_eval_successes": max(1, target_eval_successes),
         "target_consecutive_successes": max(1, target_consecutive_successes),
         "target_success_rate": success_rate_threshold,
+        "target_schema_version": TARGET_SCHEMA_VERSION,
+        "target_schema_metrics_reset": target_schema_reset,
         **architecture,
         "parameter_count": _parameter_count(model),
         **_torch_device_metadata(torch, torch_device, requested_device=device),
@@ -470,7 +498,15 @@ def train_masked_ppo(
         "rollout_inference": resolved_rollout_inference,
         "history_mode": resolved_history_mode,
         "envs_per_worker": resolved_envs_per_worker,
-        "active_env_streams": resolved_rollout_workers * resolved_envs_per_worker,
+        "requested_active_env_streams": _requested_active_env_streams(
+            rollout_workers=resolved_rollout_workers,
+            envs_per_worker=resolved_envs_per_worker,
+        ),
+        "active_env_streams": _effective_active_env_streams(
+            rollout_workers=resolved_rollout_workers,
+            envs_per_worker=resolved_envs_per_worker,
+            rollout_inference=resolved_rollout_inference,
+        ),
         "policy_server_batching": (
             "auto"
             if requested_policy_min_batch is None and requested_policy_max_wait_ms is None
@@ -478,6 +514,12 @@ def train_masked_ppo(
         ),
         "policy_server_min_batch_requested": requested_policy_min_batch,
         "policy_server_max_wait_ms_requested": requested_policy_max_wait_ms,
+        "champion_schema_version": CHAMPION_SCHEMA_VERSION,
+        "champion_model_path": (
+            str(resolved_champion_path) if resolved_champion_path is not None else None
+        ),
+        "champion_eval_runs": resolved_champion_eval_runs,
+        "champion_patience": resolved_champion_patience,
         "reward_schema_version": REWARD_SCHEMA_VERSION,
         "reward_config_checksum": reward_config_checksum,
         "game_logic_checksum": game_logic_checksum,
@@ -505,8 +547,26 @@ def train_masked_ppo(
         if previous_result.get("reached_batch") is not None
         else None
     )
+    # `reached_batch` is historical: it tells us whether this training lineage
+    # has ever met its target. Stage promotion, however, must only use weights
+    # from a checkpoint that still meets the target. A resumed run can otherwise
+    # overwrite a qualifying checkpoint with weaker later batches and still look
+    # complete merely because an old report retained `reached_batch`.
+    checkpoint_reached_target = False
     _advance_run_seed_rng(train_rng, len(training_points))
     _advance_run_seed_rng(eval_rng, len(evaluation_points))
+    champion_state = _resume_champion_state(
+        previous_result=previous_result,
+        champion_model_path=resolved_champion_path,
+        target=resolved_target,
+        seed=seed,
+        eval_runs=resolved_champion_eval_runs,
+        eval_max_steps=eval_max_steps,
+        patience=resolved_champion_patience,
+        target_eval_successes=target_eval_successes,
+        target_consecutive_successes=target_consecutive_successes,
+        target_success_rate=success_rate_threshold,
+    )
 
     highlight_run_histories = _resume_highlight_run_histories(previous_result)
     previous_batch_count = len(batch_summaries)
@@ -527,6 +587,7 @@ def train_masked_ppo(
         previous_batches=previous_batch_count,
         batch_limit=batch_limit,
         until_stopped=until_stopped,
+        target_schema_metrics_reset=target_schema_reset,
         resumed_from_path=resumed_from,
         checkpoint_checks=list(checkpoint_checks),
         checkpoint_decision="resume" if resumed_from else "fresh",
@@ -535,9 +596,53 @@ def train_masked_ppo(
         rollout_inference=resolved_rollout_inference,
         history_mode=resolved_history_mode,
         envs_per_worker=resolved_envs_per_worker,
-        active_env_streams=resolved_rollout_workers * resolved_envs_per_worker,
+        active_env_streams=metadata["active_env_streams"],
+        requested_active_env_streams=metadata["requested_active_env_streams"],
+        batched_worker_cap=MAX_BATCHED_ROLLOUT_WORKERS,
         policy_server_batching=metadata["policy_server_batching"],
+        champion_model_path=(
+            str(resolved_champion_path) if resolved_champion_path is not None else None
+        ),
+        champion_eval_runs=resolved_champion_eval_runs,
+        champion_patience=resolved_champion_patience,
     )
+    if resolved_champion_path is not None and not _champion_has_baseline(champion_state):
+        baseline_holdout = _evaluate_champion_holdout(
+            torch=torch,
+            nn=nn,
+            model=model,
+            model_kwargs=_model_kwargs_from_architecture(architecture),
+            target=resolved_target,
+            holdout_seed=str(champion_state["holdout_seed"]),
+            eval_runs=resolved_champion_eval_runs,
+            eval_max_steps=eval_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=torch_device,
+            rollout_workers=resolved_rollout_workers,
+            rollout_inference=resolved_rollout_inference,
+            envs_per_worker=resolved_envs_per_worker,
+            policy_server_min_batch=requested_policy_min_batch,
+            policy_server_max_wait_ms=requested_policy_max_wait_ms,
+            progress_reporter=progress_reporter,
+            batch_index=previous_batch_count,
+            source="baseline",
+            target_eval_successes=target_eval_successes,
+            target_consecutive_successes=target_consecutive_successes,
+            target_success_rate=success_rate_threshold,
+        )
+        champion_state = _record_champion_baseline(
+            champion_state,
+            baseline_holdout,
+            batch_index=previous_batch_count,
+        )
+        _save_ppo_checkpoint(
+            torch=torch,
+            model=model,
+            optimizer=optimizer,
+            target=resolved_champion_path,
+            result={"metadata": metadata, "champion": champion_state},
+        )
     for batch_index in batch_indices:
         batch_started_at = time.perf_counter()
         _report_training_progress(
@@ -693,13 +798,56 @@ def train_masked_ppo(
         )
         target_success_rate = target_successes / len(eval_results) if eval_results else 0.0
         max_consecutive = max_consecutive_target_successes(eval_results, resolved_target)
-        batch_reached = (
+        random_eval_reached = (
             target_successes >= max(1, target_eval_successes)
             and max_consecutive >= max(1, target_consecutive_successes)
             and target_success_rate >= success_rate_threshold
         )
-        if batch_reached and reached_batch is None:
-            reached_batch = batch_index
+        champion_holdout = _evaluate_champion_holdout(
+            torch=torch,
+            nn=nn,
+            model=model,
+            model_kwargs=_model_kwargs_from_architecture(architecture),
+            target=resolved_target,
+            holdout_seed=str(champion_state["holdout_seed"]),
+            eval_runs=resolved_champion_eval_runs,
+            eval_max_steps=eval_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=torch_device,
+            rollout_workers=resolved_rollout_workers,
+            rollout_inference=resolved_rollout_inference,
+            envs_per_worker=resolved_envs_per_worker,
+            policy_server_min_batch=requested_policy_min_batch,
+            policy_server_max_wait_ms=requested_policy_max_wait_ms,
+            progress_reporter=progress_reporter,
+            batch_index=batch_index,
+            source="batch",
+            target_eval_successes=target_eval_successes,
+            target_consecutive_successes=target_consecutive_successes,
+            target_success_rate=success_rate_threshold,
+        )
+        champion_state, champion_decision = _update_champion_state(
+            champion_state,
+            champion_holdout,
+            batch_index=batch_index,
+        )
+        if champion_decision["rollback"] and resolved_champion_path is not None:
+            restored = _restore_ppo_checkpoint(
+                torch=torch,
+                model=model,
+                optimizer=optimizer,
+                checkpoint_path=resolved_champion_path,
+                device=torch_device,
+            )
+            champion_decision["rollback"] = restored
+            if not restored:
+                champion_state["consecutive_regressions"] = 0
+        checkpoint_reached_target = bool(
+            _mapping(champion_state.get("best")).get("passed", False)
+        )
+        if checkpoint_reached_target and reached_batch is None:
+            reached_batch = _int(_mapping(champion_state.get("best")).get("batch_index"))
 
         batch_summary = _ppo_batch_summary(
             batch_index=batch_index,
@@ -709,9 +857,14 @@ def train_masked_ppo(
             target_successes=target_successes,
             target_success_rate_threshold=success_rate_threshold,
             max_consecutive=max_consecutive,
-            reached_target=batch_reached,
+            reached_target=random_eval_reached,
             planning_outputs=batch_planning_outputs,
         )
+        batch_summary["random_eval_reached_target"] = random_eval_reached
+        batch_summary["champion_holdout"] = dict(champion_holdout)
+        batch_summary["champion_updated"] = bool(champion_decision["updated"])
+        batch_summary["champion_rollback"] = bool(champion_decision["rollback"])
+        batch_summary["champion_score_relation"] = str(champion_decision["relation"])
         batch_summary["throughput"] = _throughput_summary(
             train_results=batch_train_results,
             eval_results=eval_results,
@@ -728,6 +881,7 @@ def train_masked_ppo(
         result = _ppo_result(
             target=resolved_target,
             reached_batch=reached_batch,
+            checkpoint_reached_target=checkpoint_reached_target,
             max_batches=max_batches,
             previous_batch_count=previous_batch_count,
             requested_new_batches=requested_new_batches,
@@ -746,6 +900,7 @@ def train_masked_ppo(
             batch_summaries=batch_summaries,
             highlight_run_histories=highlight_run_histories,
             metadata=metadata,
+            champion=champion_state,
         )
         _persist_ppo(
             torch=torch,
@@ -758,6 +913,14 @@ def train_masked_ppo(
             report_output_path=report_output_path,
             progress_window=progress_window,
         )
+        if champion_decision["updated"] and resolved_champion_path is not None:
+            _save_ppo_checkpoint(
+                torch=torch,
+                model=model,
+                optimizer=optimizer,
+                target=resolved_champion_path,
+                result=result,
+            )
         if progress_callback is not None:
             progress_callback(result)
         _report_training_progress(
@@ -783,17 +946,26 @@ def train_masked_ppo(
             evaluation_max_consecutive_successes=max_consecutive,
             reward_component_averages=batch_summary.get("reward_component_averages"),
             diagnostic_averages=batch_summary.get("diagnostic_averages"),
+            map_event_summary=batch_summary.get("map_event_summary"),
             throughput=batch_summary.get("throughput"),
-            reached_target=batch_reached,
+            reached_target=checkpoint_reached_target,
+            random_eval_reached_target=random_eval_reached,
+            champion_holdout=champion_holdout,
+            champion_updated=champion_decision["updated"],
+            champion_rollback=champion_decision["rollback"],
+            champion_path=(
+                str(resolved_champion_path) if resolved_champion_path is not None else None
+            ),
             model_path=str(model_output_path) if model_output_path is not None else None,
             output_path=str(output_path) if output_path is not None else None,
         )
-        if batch_reached and not until_stopped:
+        if checkpoint_reached_target and not until_stopped:
             return result
 
     result = _ppo_result(
         target=resolved_target,
         reached_batch=reached_batch,
+        checkpoint_reached_target=checkpoint_reached_target,
         max_batches=max_batches,
         previous_batch_count=previous_batch_count,
         requested_new_batches=requested_new_batches,
@@ -812,6 +984,7 @@ def train_masked_ppo(
         batch_summaries=batch_summaries,
         highlight_run_histories=highlight_run_histories,
         metadata=metadata,
+        champion=champion_state,
     )
     _persist_ppo(
         torch=torch,
@@ -859,6 +1032,567 @@ def _resolve_envs_per_worker(value: object) -> int:
     return max(1, _int(value))
 
 
+def _resolve_champion_model_path(
+    *,
+    model_output_path: Path | str | None,
+    champion_model_path: Path | str | None,
+) -> Path | None:
+    if champion_model_path is not None:
+        return Path(champion_model_path)
+    if model_output_path is None:
+        return None
+    latest_path = Path(model_output_path)
+    return latest_path.with_name(f"{latest_path.stem}_champion{latest_path.suffix}")
+
+
+def _champion_holdout_seed(*, seed: int | str, target: TrainingTarget) -> str:
+    return f"{seed}:ppo-champion-holdout:v{CHAMPION_SCHEMA_VERSION}:{target.name}"
+
+
+def _resume_champion_state(
+    *,
+    previous_result: Mapping[str, Any],
+    champion_model_path: Path | None,
+    target: TrainingTarget,
+    seed: int | str,
+    eval_runs: int,
+    eval_max_steps: int,
+    patience: int,
+    target_eval_successes: int,
+    target_consecutive_successes: int,
+    target_success_rate: float,
+) -> dict[str, Any]:
+    holdout_seed = _champion_holdout_seed(seed=seed, target=target)
+    default = {
+        "schema_version": CHAMPION_SCHEMA_VERSION,
+        "target": target.name,
+        "checkpoint_path": str(champion_model_path) if champion_model_path is not None else None,
+        "holdout_seed": holdout_seed,
+        "eval_runs": eval_runs,
+        "eval_max_steps": eval_max_steps,
+        "patience": patience,
+        "target_eval_successes": max(1, target_eval_successes),
+        "target_consecutive_successes": max(1, target_consecutive_successes),
+        "target_success_rate": target_success_rate,
+        "best": {},
+        "updates": 0,
+        "rollbacks": 0,
+        "consecutive_regressions": 0,
+    }
+    saved = _mapping(previous_result.get("champion"))
+    expected_path = default["checkpoint_path"]
+    saved_path = saved.get("checkpoint_path")
+    compatible = (
+        _int(saved.get("schema_version")) == CHAMPION_SCHEMA_VERSION
+        and str(saved.get("target", "")) == target.name
+        and str(saved.get("holdout_seed", "")) == holdout_seed
+        and _int(saved.get("eval_runs")) == eval_runs
+        and _int(saved.get("eval_max_steps")) == eval_max_steps
+        and _int(saved.get("target_eval_successes")) == max(1, target_eval_successes)
+        and _int(saved.get("target_consecutive_successes"))
+        == max(1, target_consecutive_successes)
+        and _float(saved.get("target_success_rate")) == target_success_rate
+        and saved_path == expected_path
+        and champion_model_path is not None
+        and champion_model_path.exists()
+    )
+    if not compatible:
+        return default
+    default.update(
+        {
+            "best": dict(_mapping(saved.get("best"))),
+            "updates": max(0, _int(saved.get("updates"))),
+            "rollbacks": max(0, _int(saved.get("rollbacks"))),
+            "consecutive_regressions": max(
+                0,
+                _int(saved.get("consecutive_regressions")),
+            ),
+        }
+    )
+    return default
+
+
+def _champion_has_baseline(state: Mapping[str, Any]) -> bool:
+    return bool(_mapping(state.get("best")))
+
+
+def _champion_holdout_jobs(
+    *,
+    holdout_seed: str,
+    target: TrainingTarget,
+    eval_runs: int,
+) -> tuple[tuple[int, int], ...]:
+    rng = random.Random(f"{holdout_seed}:{target.name}")
+    return tuple(
+        (index, _random_run_seed(rng))
+        for index in range(max(1, eval_runs))
+    )
+
+
+def _evaluate_champion_holdout(
+    *,
+    torch: Any,
+    nn: Any,
+    model: Any,
+    model_kwargs: Mapping[str, Any],
+    target: TrainingTarget,
+    holdout_seed: str,
+    eval_runs: int,
+    eval_max_steps: int,
+    character_id: str,
+    ascension: int,
+    device: Any,
+    rollout_workers: int,
+    rollout_inference: str,
+    envs_per_worker: int,
+    policy_server_min_batch: int | None,
+    policy_server_max_wait_ms: int | None,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+    batch_index: int,
+    source: str,
+    target_eval_successes: int,
+    target_consecutive_successes: int,
+    target_success_rate: float,
+) -> dict[str, Any]:
+    """Evaluate the current model on a stable, stage-specific seed set."""
+
+    jobs = _champion_holdout_jobs(
+        holdout_seed=holdout_seed,
+        target=target,
+        eval_runs=eval_runs,
+    )
+    min_batch, max_wait_ms = _resolve_policy_server_settings(
+        requested_min_batch=policy_server_min_batch,
+        requested_max_wait_ms=policy_server_max_wait_ms,
+        job_count=len(jobs),
+        rollout_workers=rollout_workers,
+        envs_per_worker=envs_per_worker,
+        rollout_inference=rollout_inference,
+    )
+    _report_training_progress(
+        progress_reporter,
+        "champion_holdout_start",
+        batch_index=batch_index,
+        target_name=target.name,
+        eval_runs=len(jobs),
+        source=source,
+    )
+    results = _collect_evaluation_rollouts(
+        torch=torch,
+        nn=nn,
+        model=model,
+        model_kwargs=model_kwargs,
+        target=target,
+        jobs=jobs,
+        max_steps=eval_max_steps,
+        character_id=character_id,
+        ascension=ascension,
+        device=device,
+        include_history=False,
+        rollout_workers=rollout_workers,
+        rollout_inference=rollout_inference,
+        envs_per_worker=envs_per_worker,
+        policy_server_min_batch=min_batch,
+        policy_server_max_wait_ms=max_wait_ms,
+        progress_reporter=None,
+        batch_index=batch_index,
+    )
+    successes = sum(1 for run in results if _run_reached_target(run, target))
+    success_rate = successes / len(results) if results else 0.0
+    max_consecutive = max_consecutive_target_successes(results, target)
+    summary = {
+        "target": target.name,
+        "source": source,
+        "batch_index": batch_index,
+        "holdout_seed": holdout_seed,
+        "eval_runs": len(results),
+        "target_successes": successes,
+        "target_success_rate": round(success_rate, 6),
+        "max_consecutive_successes": max_consecutive,
+        "average_reward": _average(run.total_reward for run in results),
+        "average_floor": _average(run.final_floor for run in results),
+        "evaluation_errors": sum(1 for run in results if run.error is not None),
+        "evaluation_failed_to_continue": sum(
+            1 for run in results if run.failed_to_continue
+        ),
+        "passed": (
+            successes >= max(1, target_eval_successes)
+            and max_consecutive >= max(1, target_consecutive_successes)
+            and success_rate >= target_success_rate
+        ),
+        "effective_policy_server_min_batch": min_batch,
+        "effective_policy_server_max_wait_ms": max_wait_ms,
+    }
+    _report_training_progress(
+        progress_reporter,
+        "champion_holdout_end",
+        **summary,
+    )
+    return summary
+
+
+def _champion_score(summary: Mapping[str, Any]) -> tuple[float, int, int, float]:
+    return (
+        _float(summary.get("target_success_rate")),
+        _int(summary.get("target_successes")),
+        _int(summary.get("max_consecutive_successes")),
+        _float(summary.get("average_reward")),
+    )
+
+
+def _record_champion_baseline(
+    state: Mapping[str, Any],
+    summary: Mapping[str, Any],
+    *,
+    batch_index: int,
+) -> dict[str, Any]:
+    updated = dict(state)
+    best = dict(summary)
+    best["batch_index"] = batch_index
+    best["score"] = list(_champion_score(best))
+    updated["best"] = best
+    updated["updates"] = max(1, _int(updated.get("updates")))
+    updated["consecutive_regressions"] = 0
+    return updated
+
+
+def _update_champion_state(
+    state: Mapping[str, Any],
+    summary: Mapping[str, Any],
+    *,
+    batch_index: int,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    updated = dict(state)
+    candidate = dict(summary)
+    candidate["batch_index"] = batch_index
+    candidate["score"] = list(_champion_score(candidate))
+    best = _mapping(updated.get("best"))
+    if not best:
+        return _record_champion_baseline(updated, candidate, batch_index=batch_index), {
+            "updated": True,
+            "rollback": False,
+            "relation": "baseline",
+        }
+
+    candidate_score = _champion_score(candidate)
+    best_score = _champion_score(best)
+    if candidate_score > best_score:
+        updated["best"] = candidate
+        updated["updates"] = max(0, _int(updated.get("updates"))) + 1
+        updated["consecutive_regressions"] = 0
+        return updated, {"updated": True, "rollback": False, "relation": "improved"}
+    if candidate_score == best_score:
+        updated["consecutive_regressions"] = 0
+        return updated, {"updated": False, "rollback": False, "relation": "equal"}
+
+    regressions = max(0, _int(updated.get("consecutive_regressions"))) + 1
+    updated["consecutive_regressions"] = regressions
+    rollback = regressions >= max(1, _int(updated.get("patience")))
+    if rollback:
+        updated["rollbacks"] = max(0, _int(updated.get("rollbacks"))) + 1
+        updated["consecutive_regressions"] = 0
+    return updated, {"updated": False, "rollback": rollback, "relation": "regressed"}
+
+
+def _requested_active_env_streams(*, rollout_workers: int, envs_per_worker: int) -> int:
+    return max(1, int(rollout_workers)) * max(1, int(envs_per_worker))
+
+
+def _effective_active_env_streams(
+    *,
+    rollout_workers: int,
+    envs_per_worker: int,
+    rollout_inference: str,
+) -> int:
+    requested = _requested_active_env_streams(
+        rollout_workers=rollout_workers,
+        envs_per_worker=envs_per_worker,
+    )
+    if rollout_inference == "batched-gpu":
+        return min(requested, MAX_BATCHED_ROLLOUT_WORKERS)
+    return requested
+
+
+def _batched_worker_count(
+    *,
+    job_count: int,
+    rollout_workers: int,
+    envs_per_worker: int,
+) -> int:
+    return min(
+        max(1, int(job_count)),
+        _effective_active_env_streams(
+            rollout_workers=rollout_workers,
+            envs_per_worker=envs_per_worker,
+            rollout_inference="batched-gpu",
+        ),
+    )
+
+
+def _expected_ppo_architecture(
+    *,
+    hidden_size: int,
+    hidden_layers: int,
+    head_hidden_layers: int,
+    activation: str,
+) -> dict[str, Any]:
+    content_vocab = load_content_vocab()
+    architecture: dict[str, Any] = {
+        "observation_dim": len(_empty_observation_vector()),
+        "action_feature_dim": ACTION_FEATURE_DIM,
+        "path_plan_feature_dim": _PATH_PLAN_FEATURE_DIM,
+        "reward_bundle_feature_dim": _REWARD_BUNDLE_FEATURE_DIM,
+        "potion_strategy_feature_dim": _POTION_STRATEGY_FEATURE_DIM,
+        "action_preview_feature_dim": _PREVIEW_FEATURE_DIM,
+        "planning_head_schema": list(PLANNING_HEAD_SCHEMA),
+        "planning_head_dim": PLANNING_HEAD_DIM,
+        "network_schema_version": NETWORK_SCHEMA_VERSION,
+        "reward_schema_version": REWARD_SCHEMA_VERSION,
+        "reward_config_checksum": _reward_config_checksum(),
+        "game_logic_checksum": _game_logic_checksum(),
+        **content_vocab_metadata(content_vocab),
+        "hidden_size": hidden_size,
+        "hidden_layers": max(1, hidden_layers),
+        "head_hidden_layers": max(1, head_hidden_layers),
+        "activation": _normalize_activation_name(activation),
+        "uses_agent_memory": True,
+        "recurrent": False,
+    }
+    architecture["network_contract_checksum"] = _network_contract_checksum(architecture)
+    return architecture
+
+
+def validate_masked_ppo_checkpoint(
+    checkpoint_path: Path | str,
+    *,
+    hidden_size: int = 256,
+    hidden_layers: int = 3,
+    head_hidden_layers: int = 2,
+    activation: str = "silu",
+) -> dict[str, Any]:
+    """Validate a PPO checkpoint against the current simulator and network contract."""
+    path = Path(checkpoint_path)
+    if not path.exists():
+        return {
+            "checkpoint_path": str(path),
+            "decision": "missing",
+            "compatible": False,
+            "reason": "checkpoint file not found",
+        }
+    try:
+        torch, _, _ = _load_torch()
+        payload = torch.load(path, map_location="cpu")
+    except (OSError, RuntimeError, ValueError) as error:
+        return {
+            "checkpoint_path": str(path),
+            "decision": "fresh",
+            "compatible": False,
+            "reason": f"checkpoint could not be loaded: {error}",
+        }
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("architecture"), Mapping):
+        return {
+            "checkpoint_path": str(path),
+            "decision": "fresh",
+            "compatible": False,
+            "reason": "checkpoint has no architecture metadata",
+        }
+    expected = _expected_ppo_architecture(
+        hidden_size=hidden_size,
+        hidden_layers=hidden_layers,
+        head_hidden_layers=head_hidden_layers,
+        activation=activation,
+    )
+    mismatches = _architecture_mismatches(payload["architecture"], expected)
+    return {
+        "checkpoint_path": str(path),
+        "decision": "resume" if not mismatches else "fresh",
+        "compatible": not mismatches,
+        "reason": (
+            "all checkpoint hashes and schemas match"
+            if not mismatches
+            else "checkpoint hash or schema changed"
+        ),
+        "mismatches": list(mismatches),
+    }
+
+
+def evaluate_masked_ppo_checkpoint(
+    checkpoint_path: Path | str,
+    *,
+    target: str | TrainingTarget,
+    eval_runs: int,
+    eval_max_steps: int,
+    character_id: str = "IRONCLAD",
+    ascension: int = 0,
+    seed: int | str = "ppo-checkpoint-validation",
+    device: str = "auto",
+    rollout_workers: int = 1,
+    rollout_inference: str = "worker",
+    envs_per_worker: int = 1,
+    policy_server_min_batch: int | None = None,
+    policy_server_max_wait_ms: int | None = None,
+    target_eval_successes: int = 1,
+    target_consecutive_successes: int = 1,
+    target_success_rate: float = 0.0,
+    hidden_size: int = 256,
+    hidden_layers: int = 3,
+    head_hidden_layers: int = 2,
+    activation: str = "silu",
+    checkpoint_stage: str | None = None,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Evaluate one checkpoint without collecting training transitions or updating it."""
+    path = Path(checkpoint_path)
+    resolved_target = target if isinstance(target, TrainingTarget) else resolve_ppo_target(target)
+    _report_training_progress(
+        progress_reporter,
+        "checkpoint_validation_start",
+        checkpoint_stage=checkpoint_stage or resolved_target.name,
+        checkpoint_path=str(path),
+        target_name=resolved_target.name,
+        eval_runs=max(0, eval_runs),
+    )
+    compatibility = validate_masked_ppo_checkpoint(
+        path,
+        hidden_size=hidden_size,
+        hidden_layers=hidden_layers,
+        head_hidden_layers=head_hidden_layers,
+        activation=activation,
+    )
+    result: dict[str, Any] = {
+        "checkpoint_path": str(path),
+        "target": resolved_target.name,
+        "compatibility": compatibility,
+        "compatible": bool(compatibility.get("compatible", False)),
+        "eval_runs": max(0, eval_runs),
+    }
+    if not result["compatible"]:
+        result.update(
+            {
+                "passed": False,
+                "reason": "checkpoint is incompatible",
+                "target_successes": 0,
+                "target_success_rate": 0.0,
+                "max_consecutive_successes": 0,
+            }
+        )
+        _report_training_progress(
+            progress_reporter,
+            "checkpoint_validation_end",
+            checkpoint_stage=checkpoint_stage or resolved_target.name,
+            **result,
+        )
+        return result
+
+    torch, nn, _ = _load_torch()
+    torch_device = _resolve_torch_device(torch, device)
+    resolved_workers = _resolve_rollout_workers(rollout_workers)
+    resolved_inference = _normalize_rollout_inference(rollout_inference)
+    resolved_envs = _resolve_envs_per_worker(envs_per_worker)
+    if resolved_envs > 1 and resolved_inference != "batched-gpu":
+        raise ValueError("envs_per_worker > 1 requires rollout_inference='batched-gpu'.")
+    requested_min_batch = _optional_nonnegative_int(policy_server_min_batch)
+    requested_wait_ms = _optional_nonnegative_int(policy_server_max_wait_ms)
+    effective_min_batch, effective_wait_ms = _resolve_policy_server_settings(
+        requested_min_batch=requested_min_batch,
+        requested_max_wait_ms=requested_wait_ms,
+        job_count=max(0, eval_runs),
+        rollout_workers=resolved_workers,
+        envs_per_worker=resolved_envs,
+        rollout_inference=resolved_inference,
+    )
+    content_vocab = load_content_vocab()
+    model = _masked_actor_critic_class(nn)(
+        observation_dim=len(_empty_observation_vector()),
+        action_feature_dim=ACTION_FEATURE_DIM,
+        content_vocab_size=content_vocab.size,
+        content_identity_slots=CONTENT_IDENTITY_SLOTS,
+        content_identity_embedding_dim=CONTENT_IDENTITY_EMBED_DIM,
+        hidden_size=hidden_size,
+        hidden_layers=hidden_layers,
+        head_hidden_layers=head_hidden_layers,
+        activation=_normalize_activation_name(activation),
+    )
+    payload = torch.load(path, map_location=torch_device)
+    model.load_state_dict(payload["model_state"])
+    model.to(torch_device)
+    model.eval()
+    validation_rng = random.Random(f"{seed}:checkpoint:{path.name}:{resolved_target.name}")
+    jobs = tuple(
+        (index, _random_run_seed(validation_rng))
+        for index in range(max(0, eval_runs))
+    )
+
+    def report_validation_run(payload: Mapping[str, Any]) -> None:
+        if str(payload.get("event", "")) != "eval_run_end":
+            return
+        _report_training_progress(
+            progress_reporter,
+            "checkpoint_validation_run_end",
+            checkpoint_stage=checkpoint_stage or resolved_target.name,
+            validation_target=resolved_target.name,
+            **{key: value for key, value in payload.items() if key != "event"},
+        )
+
+    eval_results = _collect_evaluation_rollouts(
+        torch=torch,
+        nn=nn,
+        model=model,
+        model_kwargs=_model_kwargs_from_architecture(
+            _expected_ppo_architecture(
+                hidden_size=hidden_size,
+                hidden_layers=hidden_layers,
+                head_hidden_layers=head_hidden_layers,
+                activation=activation,
+            )
+        ),
+        target=resolved_target,
+        jobs=jobs,
+        max_steps=eval_max_steps,
+        character_id=character_id,
+        ascension=ascension,
+        device=torch_device,
+        include_history=False,
+        rollout_workers=resolved_workers,
+        rollout_inference=resolved_inference,
+        envs_per_worker=resolved_envs,
+        policy_server_min_batch=effective_min_batch,
+        policy_server_max_wait_ms=effective_wait_ms,
+        progress_reporter=report_validation_run,
+        batch_index=0,
+    )
+    successes = sum(1 for run in eval_results if _run_reached_target(run, resolved_target))
+    success_rate = successes / len(eval_results) if eval_results else 0.0
+    max_consecutive = max_consecutive_target_successes(eval_results, resolved_target)
+    passed = (
+        successes >= max(1, target_eval_successes)
+        and max_consecutive >= max(1, target_consecutive_successes)
+        and success_rate >= _success_rate_threshold(target_success_rate)
+    )
+    result.update(
+        {
+            "passed": passed,
+            "reason": "target criteria met" if passed else "target criteria not met",
+            "target_successes": successes,
+            "target_success_rate": round(success_rate, 6),
+            "max_consecutive_successes": max_consecutive,
+            "evaluation_errors": sum(1 for run in eval_results if run.error is not None),
+            "evaluation_failed_to_continue": sum(
+                1 for run in eval_results if run.failed_to_continue
+            ),
+            "effective_policy_server_min_batch": effective_min_batch,
+            "effective_policy_server_max_wait_ms": effective_wait_ms,
+        }
+    )
+    _report_training_progress(
+        progress_reporter,
+        "checkpoint_validation_end",
+        checkpoint_stage=checkpoint_stage or resolved_target.name,
+        **result,
+    )
+    return result
+
+
 def _optional_nonnegative_int(value: object) -> int | None:
     if value is None:
         return None
@@ -885,7 +1619,11 @@ def _resolve_policy_server_settings(
 
     active_streams = min(
         max(1, job_count),
-        max(1, rollout_workers) * max(1, envs_per_worker),
+        _effective_active_env_streams(
+            rollout_workers=rollout_workers,
+            envs_per_worker=envs_per_worker,
+            rollout_inference=rollout_inference,
+        ),
     )
     if requested_min_batch is None or requested_min_batch == 0:
         min_batch = (
@@ -1026,7 +1764,11 @@ def _collect_training_rollouts(
 
     worker_count = min(max(1, rollout_workers), len(jobs))
     if rollout_inference == "batched-gpu":
-        worker_count = min(max(1, rollout_workers * max(1, envs_per_worker)), len(jobs))
+        worker_count = _batched_worker_count(
+            job_count=len(jobs),
+            rollout_workers=rollout_workers,
+            envs_per_worker=envs_per_worker,
+        )
         return _collect_training_rollouts_batched_inference(
             torch=torch,
             model=model,
@@ -1138,7 +1880,11 @@ def _collect_evaluation_rollouts(
 
     worker_count = min(max(1, rollout_workers), len(jobs))
     if rollout_inference == "batched-gpu":
-        worker_count = min(max(1, rollout_workers * max(1, envs_per_worker)), len(jobs))
+        worker_count = _batched_worker_count(
+            job_count=len(jobs),
+            rollout_workers=rollout_workers,
+            envs_per_worker=envs_per_worker,
+        )
         return _collect_evaluation_rollouts_batched_inference(
             torch=torch,
             model=model,
@@ -1813,6 +2559,7 @@ def _collect_training_run_with_policy_server(
             failed_to_continue=failed_to_continue,
             reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
             diagnostics=_final_run_diagnostics(diagnostics, env.state),
+            decision_summary=_final_run_decision_summary(diagnostics),
             steps=(),
         ),
         tuple(transitions),
@@ -1930,6 +2677,7 @@ def _evaluate_one_run_with_policy_server(
         failed_to_continue=failed_to_continue,
         reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
         diagnostics=_final_run_diagnostics(diagnostics, env.state),
+        decision_summary=_final_run_decision_summary(diagnostics),
         history=history.model_dump(mode="json") if history is not None else None,
         steps=(),
     )
@@ -2299,6 +3047,7 @@ def _collect_training_run(
             failed_to_continue=failed_to_continue,
             reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
             diagnostics=_final_run_diagnostics(diagnostics, env.state),
+            decision_summary=_final_run_decision_summary(diagnostics),
             steps=(),
         ),
         tuple(transitions),
@@ -2414,6 +3163,7 @@ def _evaluate_one_run(
         failed_to_continue=failed_to_continue,
         reward_breakdown_totals=_rounded_reward_totals(reward_breakdown_totals),
         diagnostics=_final_run_diagnostics(diagnostics, env.state),
+        decision_summary=_final_run_decision_summary(diagnostics),
         history=history.model_dump(mode="json") if history is not None else None,
         steps=(),
     )
@@ -2470,6 +3220,10 @@ def _accumulate_run_diagnostics(
     before = _state_payload(before_state)
     after = _state_payload(after_state)
     action_type = str(action_descriptor.get("type", ""))
+    _accumulate_map_visit_diagnostics(target, before)
+    _accumulate_map_visit_diagnostics(target, after)
+    _accumulate_event_decision_diagnostics(target, before, action_descriptor)
+    _accumulate_location_action_diagnostics(target, before, action_descriptor)
     _accumulate_reward_presentation_diagnostics(target, before)
     _accumulate_reward_presentation_diagnostics(target, after)
     target["actions"] = target.get("actions", 0.0) + 1.0
@@ -2522,6 +3276,97 @@ def _accumulate_run_diagnostics(
         target["relics_gained"] = target.get("relics_gained", 0.0) + (
             after_relics - before_relics
         )
+
+
+def _accumulate_map_visit_diagnostics(
+    target: dict[str, Any],
+    payload: Mapping[str, Any],
+) -> None:
+    game_map = _mapping(payload.get("map"))
+    node_id = str(game_map.get("current_node_id") or "")
+    if not node_id:
+        return
+    seen = target.setdefault("__seen_map_node_ids", set())
+    if not isinstance(seen, set) or node_id in seen:
+        return
+    nodes = {
+        str(_mapping(node).get("node_id", "")): _mapping(node)
+        for node in _sequence(game_map.get("nodes"))
+    }
+    node = nodes.get(node_id, {})
+    kind = _normalized_id(node.get("kind"))
+    if not kind:
+        return
+    seen.add(node_id)
+    target["map_nodes_visited"] = target.get("map_nodes_visited", 0.0) + 1.0
+    target[f"map_{kind}_visited"] = target.get(f"map_{kind}_visited", 0.0) + 1.0
+
+
+def _accumulate_event_decision_diagnostics(
+    target: dict[str, Any],
+    before: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+) -> None:
+    if str(before.get("phase", "")) != "event":
+        return
+    event = _mapping(before.get("event"))
+    event_id = str(event.get("event_id") or "unknown_event")
+    game_map = _mapping(before.get("map"))
+    node_id = str(game_map.get("current_node_id") or event_id)
+    visit_key = f"{node_id}\x1f{event_id}"
+    seen = target.setdefault("__seen_event_visits", set())
+    if isinstance(seen, set) and visit_key not in seen:
+        seen.add(visit_key)
+        _increment_diagnostic_counter(target, "__event_visit_counts", event_id)
+
+    option = _mapping(action_descriptor.get("event_option"))
+    if not option:
+        return
+    action_type = str(action_descriptor.get("type", ""))
+    skipped = bool(option.get("skip_action", False))
+    if action_type != "choose_event" and not skipped:
+        return
+    option_id = str(option.get("option_id") or "unknown_option")
+    option_key = f"{event_id}\x1f{option_id}"
+    labels = target.setdefault("__event_option_labels", {})
+    if isinstance(labels, dict):
+        labels[option_key] = str(option.get("title") or option_id)
+    if skipped:
+        target["event_options_skipped"] = target.get("event_options_skipped", 0.0) + 1.0
+        _increment_diagnostic_counter(target, "__event_option_skipped_counts", option_key)
+    else:
+        target["event_options_chosen"] = target.get("event_options_chosen", 0.0) + 1.0
+        _increment_diagnostic_counter(target, "__event_option_chosen_counts", option_key)
+
+
+def _accumulate_location_action_diagnostics(
+    target: dict[str, Any],
+    before: Mapping[str, Any],
+    action_descriptor: Mapping[str, Any],
+) -> None:
+    action_type = str(action_descriptor.get("type", ""))
+    if action_type == "choose_node":
+        node_kind = _normalized_id(_mapping(action_descriptor.get("node")).get("kind"))
+        target["map_path_choices"] = target.get("map_path_choices", 0.0) + 1.0
+        if node_kind:
+            key = f"map_path_to_{node_kind}"
+            target[key] = target.get(key, 0.0) + 1.0
+    phase = str(before.get("phase", ""))
+    if phase == "shop":
+        if action_type == "shop_buy":
+            target["shop_purchases"] = target.get("shop_purchases", 0.0) + 1.0
+        elif action_type in {"shop_leave", "proceed"}:
+            target["shop_leaves"] = target.get("shop_leaves", 0.0) + 1.0
+    elif phase == "rest" and action_type in {"rest", "smith", "dig", "lift", "toke", "recall"}:
+        key = f"rest_{action_type}_chosen"
+        target[key] = target.get(key, 0.0) + 1.0
+
+
+def _increment_diagnostic_counter(target: dict[str, Any], key: str, entry: str) -> None:
+    counter = target.setdefault(key, {})
+    if not isinstance(counter, dict):
+        return
+    counter[entry] = _float(counter.get(entry)) + 1.0
 
 
 def _accumulate_reward_presentation_diagnostics(
@@ -2643,6 +3488,34 @@ def _final_run_diagnostics(values: Mapping[str, Any], state: Any) -> dict[str, f
     result["final_potion_count"] = float(len(potions))
     result["final_gold"] = float(_int(player.get("gold")))
     return result
+
+
+def _final_run_decision_summary(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep compact, named event choice counters out of flat numeric diagnostics."""
+
+    return {
+        "event_visits": _diagnostic_counter(values, "__event_visit_counts"),
+        "event_options_chosen": _diagnostic_counter(
+            values,
+            "__event_option_chosen_counts",
+        ),
+        "event_options_skipped": _diagnostic_counter(
+            values,
+            "__event_option_skipped_counts",
+        ),
+        "event_option_labels": {
+            str(key): str(value)
+            for key, value in _mapping(values.get("__event_option_labels")).items()
+        },
+    }
+
+
+def _diagnostic_counter(values: Mapping[str, Any], key: str) -> dict[str, float]:
+    return {
+        str(entry): round(_float(value), 6)
+        for entry, value in _mapping(values.get(key)).items()
+        if _float(value) > 0.0
+    }
 
 
 def _state_payload(state: Any) -> Mapping[str, Any]:
@@ -3745,11 +4618,11 @@ def _empty_observation_vector() -> tuple[float, ...]:
 
 
 def _run_reached_target(run: LearningRunResult, target: TrainingTarget) -> bool:
-    if target.target_phase is not None:
-        return run.final_phase == target.target_phase
-    if run.final_act > target.target_act:
-        return True
-    return run.final_act == target.target_act and run.final_floor >= target.target_floor
+    return target.reached_values(
+        act=run.final_act,
+        floor=run.final_floor,
+        phase=run.final_phase,
+    )
 
 
 def _progress_from_run(run: LearningRunResult, policy: str) -> LearningProgressPoint:
@@ -3815,6 +4688,7 @@ def _ppo_batch_summary(
         "planning_output_averages": planning_averages,
         "reward_component_averages": reward_averages,
         "diagnostic_averages": diagnostic_averages,
+        "map_event_summary": _map_event_summary(eval_results),
         "reached_target": reached_target,
     }
 
@@ -3837,7 +4711,15 @@ def _throughput_summary(
     step_count = sum(run.steps_taken for run in train_results) + sum(
         run.steps_taken for run in eval_results
     )
-    active_env_streams = max(1, int(rollout_workers) * max(1, int(envs_per_worker)))
+    requested_active_env_streams = _requested_active_env_streams(
+        rollout_workers=rollout_workers,
+        envs_per_worker=envs_per_worker,
+    )
+    active_env_streams = _effective_active_env_streams(
+        rollout_workers=rollout_workers,
+        envs_per_worker=envs_per_worker,
+        rollout_inference=rollout_inference,
+    )
     return {
         "elapsed_seconds": round(elapsed, 6),
         "env_steps": step_count,
@@ -3846,6 +4728,7 @@ def _throughput_summary(
         "runs_per_second": round(run_count / elapsed, 6),
         "rollout_workers": int(rollout_workers),
         "envs_per_worker": int(envs_per_worker),
+        "requested_active_env_streams": requested_active_env_streams,
         "active_env_streams": active_env_streams,
         "rollout_inference": rollout_inference,
         "train_active_env_streams": min(active_env_streams, max(1, len(train_results))),
@@ -3954,6 +4837,110 @@ def _run_diagnostic_averages(runs: Sequence[LearningRunResult]) -> dict[str, flo
         )
         for key in sorted(keys)
     }
+
+
+def _map_event_summary(runs: Sequence[LearningRunResult]) -> dict[str, Any]:
+    """Aggregate route visits and named event decisions across evaluation runs."""
+
+    if not runs:
+        return {}
+    run_count = max(1, len(runs))
+    map_kinds = ("monster", "elite", "event", "shop", "rest", "treasure", "boss")
+    map_visits = {
+        kind: round(
+            sum(_float(run.diagnostics.get(f"map_{kind}_visited")) for run in runs)
+            / run_count,
+            6,
+        )
+        for kind in map_kinds
+    }
+    chosen_counts: dict[str, float] = {}
+    skipped_counts: dict[str, float] = {}
+    event_visit_counts: dict[str, float] = {}
+    labels: dict[str, str] = {}
+    for run in runs:
+        summary = _mapping(run.decision_summary)
+        _merge_counter(chosen_counts, _mapping(summary.get("event_options_chosen")))
+        _merge_counter(skipped_counts, _mapping(summary.get("event_options_skipped")))
+        _merge_counter(event_visit_counts, _mapping(summary.get("event_visits")))
+        labels.update(
+            {
+                str(key): str(value)
+                for key, value in _mapping(summary.get("event_option_labels")).items()
+            }
+        )
+    event_visits = sum(event_visit_counts.values())
+    chosen = sum(chosen_counts.values())
+    skipped = sum(skipped_counts.values())
+    return {
+        "map_visits": map_visits,
+        "shop": {
+            "purchases_per_run": round(
+                sum(_float(run.diagnostics.get("shop_purchases")) for run in runs)
+                / run_count,
+                6,
+            ),
+            "leaves_per_run": round(
+                sum(_float(run.diagnostics.get("shop_leaves")) for run in runs)
+                / run_count,
+                6,
+            ),
+        },
+        "rest": {
+            action: round(
+                sum(_float(run.diagnostics.get(f"rest_{action}_chosen")) for run in runs)
+                / run_count,
+                6,
+            )
+            for action in ("rest", "smith", "dig", "lift", "toke", "recall")
+        },
+        "events": {
+            "visits_per_run": round(event_visits / run_count, 6),
+            "options_chosen_per_run": round(chosen / run_count, 6),
+            "options_skipped_per_run": round(skipped / run_count, 6),
+            "decisions_per_event": round((chosen + skipped) / max(1.0, event_visits), 6),
+            "top_events": _top_event_rows(event_visit_counts),
+            "top_choices": _top_event_option_rows(chosen_counts, labels),
+            "top_skips": _top_event_option_rows(skipped_counts, labels),
+        },
+    }
+
+
+def _merge_counter(target: dict[str, float], values: Mapping[str, Any]) -> None:
+    for key, value in values.items():
+        target[str(key)] = target.get(str(key), 0.0) + _float(value)
+
+
+def _top_event_rows(counts: Mapping[str, float], *, limit: int = 5) -> list[dict[str, Any]]:
+    return [
+        {"event_id": event_id, "count": round(count, 6)}
+        for event_id, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[
+            :limit
+        ]
+    ]
+
+
+def _top_event_option_rows(
+    counts: Mapping[str, float],
+    labels: Mapping[str, str],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for key, choice_count in sorted(
+        counts.items(),
+        key=lambda item: (-item[1], item[0]),
+    )[:limit]:
+        event_id, _, option_id = key.partition("\x1f")
+        rows.append(
+            {
+                "event_id": event_id,
+                "option_id": option_id or key,
+                "title": str(labels.get(key, option_id or key)),
+                "count": round(choice_count, 6),
+            }
+        )
+    return rows
 
 
 def _highlight_run_histories_for_mode(
@@ -4152,6 +5139,7 @@ def _ppo_result(
     *,
     target: TrainingTarget,
     reached_batch: int | None,
+    checkpoint_reached_target: bool,
     max_batches: int,
     previous_batch_count: int,
     requested_new_batches: int | None,
@@ -4170,6 +5158,7 @@ def _ppo_result(
     batch_summaries: Sequence[Mapping[str, Any]],
     highlight_run_histories: Mapping[str, Any],
     metadata: Mapping[str, Any],
+    champion: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     completed_runs = max(1, len(training_points))
     progress = with_moving_averages(training_points, window=20)
@@ -4177,7 +5166,11 @@ def _ppo_result(
     return {
         "algorithm": "masked_action_descriptor_ppo",
         "target": target.__dict__,
-        "reached_target": reached_batch is not None,
+        # This is deliberately about the weights stored in `model_path`, not an
+        # earlier batch in this checkpoint's history. Curriculum promotion must
+        # never promote a model after it has regressed below the comfort gate.
+        "reached_target": checkpoint_reached_target,
+        "ever_reached_target": reached_batch is not None,
         "reached_batch": reached_batch,
         "batches_completed": len(batch_summaries),
         "max_batches": max_batches,
@@ -4208,6 +5201,7 @@ def _ppo_result(
         "progress": [point.model_dump(mode="json") for point in progress],
         "evaluation_progress": [point.model_dump(mode="json") for point in eval_progress],
         "highlight_run_histories": dict(highlight_run_histories),
+        "champion": dict(champion or {}),
         "metadata": dict(metadata),
     }
 
@@ -4225,16 +5219,12 @@ def _persist_ppo(
     progress_window: int,
 ) -> None:
     if model_output_path is not None:
-        target = Path(model_output_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(
-            {
-                "model_state": model.state_dict(),
-                "optimizer_state": optimizer.state_dict(),
-                "architecture": _checkpoint_architecture(result),
-                "result": dict(result),
-            },
-            target,
+        _save_ppo_checkpoint(
+            torch=torch,
+            model=model,
+            optimizer=optimizer,
+            target=Path(model_output_path),
+            result=result,
         )
     if output_path is not None:
         _write_json(result, output_path)
@@ -4311,6 +5301,54 @@ def _write_highlight_run_history_artifacts(result: Mapping[str, Any]) -> None:
             write_run_history_summary_text(history, summary_txt_path, links=summary_links)
         if summary_html_path is not None:
             write_run_history_summary_html(history, summary_html_path, links=summary_links)
+
+
+def _save_ppo_checkpoint(
+    *,
+    torch: Any,
+    model: Any,
+    optimizer: Any,
+    target: Path,
+    result: Mapping[str, Any],
+) -> None:
+    """Atomically save a latest or champion model checkpoint."""
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(f"{target.suffix}.tmp")
+    torch.save(
+        {
+            "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "architecture": _checkpoint_architecture(result),
+            "result": dict(result),
+        },
+        temporary,
+    )
+    temporary.replace(target)
+
+
+def _restore_ppo_checkpoint(
+    *,
+    torch: Any,
+    model: Any,
+    optimizer: Any,
+    checkpoint_path: Path,
+    device: Any,
+) -> bool:
+    """Restore a validated champion after repeated fixed-holdout regression."""
+
+    try:
+        payload = torch.load(checkpoint_path, map_location=device)
+        if not isinstance(payload, Mapping):
+            return False
+        model.load_state_dict(payload["model_state"])
+        optimizer_state = payload.get("optimizer_state")
+        if optimizer_state is not None:
+            optimizer.load_state_dict(optimizer_state)
+            _move_optimizer_state_to_device(optimizer, device)
+    except (KeyError, OSError, RuntimeError, ValueError):
+        return False
+    return True
 
 
 def _highlight_summary_links(
@@ -4427,9 +5465,12 @@ def _ppo_progress_html(
         if isinstance(batch, Mapping)
     )
     last_batch = _mapping(batches[-1]) if batches else {}
+    champion = _mapping(result.get("champion"))
+    champion_best = _mapping(champion.get("best"))
     planning_rows = _planning_rows_html(batches[-12:])
     reward_rows = _reward_component_rows_html(batches[-12:])
     diagnostic_rows = _diagnostic_rows_html(batches[-12:])
+    map_event_rows = _map_event_rows_html(batches[-12:])
     throughput_rows = _throughput_rows_html(batches[-12:])
     highlight_links = _highlight_links_html(
         result,
@@ -4443,6 +5484,13 @@ def _ppo_progress_html(
         "latest_eval_reward": _float(last_batch.get("evaluation_average_reward")),
         "latest_eval_floor": _float(last_batch.get("evaluation_average_floor")),
         "latest_success_rate": _float(last_batch.get("evaluation_target_success_rate")),
+        "champion_holdout_rate": _float(champion_best.get("target_success_rate")),
+        "champion_holdout_successes": (
+            f"{_int(champion_best.get('target_successes'))}/"
+            f"{_int(champion_best.get('eval_runs'))}"
+        ),
+        "champion_batch": _int(champion_best.get("batch_index")),
+        "champion_rollbacks": _int(champion.get("rollbacks")),
         "parameter_count": _int(metadata.get("parameter_count")),
     }
     summary_items = "\n".join(
@@ -4577,6 +5625,17 @@ def _ppo_progress_html(
       <tbody>{diagnostic_rows}</tbody>
     </table>
   </div>
+  <h2>Map And Event Decisions</h2>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Batch</th><th>Map Visits / Run (M/E/?/$/F/T)</th>
+        <th>Shop Buy / Leave</th><th>Fire Rest / Smith</th><th>Event Choose / Skip</th>
+        <th>Event Decisions / Event</th><th>Common Event Choices</th></tr>
+      </thead>
+      <tbody>{map_event_rows}</tbody>
+    </table>
+  </div>
   <h2>Throughput</h2>
   <div class="scroll">
     <table>
@@ -4681,6 +5740,25 @@ def _reward_component_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
 
 def _diagnostic_keys(batches: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
     preferred = (
+        "map_nodes_visited",
+        "map_monster_visited",
+        "map_elite_visited",
+        "map_event_visited",
+        "map_shop_visited",
+        "map_rest_visited",
+        "map_treasure_visited",
+        "map_boss_visited",
+        "map_path_choices",
+        "map_path_to_monster",
+        "map_path_to_elite",
+        "map_path_to_event",
+        "map_path_to_shop",
+        "map_path_to_rest",
+        "map_path_to_treasure",
+        "event_options_chosen",
+        "event_options_skipped",
+        "shop_purchases",
+        "shop_leaves",
         "reward_card_picked",
         "reward_card_presented",
         "reward_card_skipped",
@@ -4753,6 +5831,48 @@ def _diagnostic_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
             "<tr>"
             f"<td>{_int(batch.get('batch_index'))}</td>"
             f"{cells}"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
+def _map_event_rows_html(batches: Sequence[Mapping[str, Any]]) -> str:
+    rows: list[str] = []
+    for batch in batches:
+        summary = _mapping(batch.get("map_event_summary"))
+        visits = _mapping(summary.get("map_visits"))
+        shop = _mapping(summary.get("shop"))
+        rest = _mapping(summary.get("rest"))
+        events = _mapping(summary.get("events"))
+        top_choices = [
+            choice
+            for choice in _sequence(events.get("top_choices"))
+            if isinstance(choice, Mapping)
+        ]
+        map_text = "/".join(
+            f"{_float(visits.get(kind)):.2f}"
+            for kind in ("monster", "elite", "event", "shop", "rest", "treasure")
+        )
+        choices = "; ".join(
+            "{}: {} ({:.0f})".format(
+                html_escape(str(choice.get("event_id", "unknown"))),
+                html_escape(str(choice.get("title", choice.get("option_id", "unknown")))),
+                _float(choice.get("count")),
+            )
+            for choice in top_choices
+        ) or "-"
+        rows.append(
+            "<tr>"
+            f"<td>{_int(batch.get('batch_index'))}</td>"
+            f"<td>{map_text}</td>"
+            f"<td>{_float(shop.get('purchases_per_run')):.2f}/"
+            f"{_float(shop.get('leaves_per_run')):.2f}</td>"
+            f"<td>{_float(rest.get('rest')):.2f}/"
+            f"{_float(rest.get('smith')):.2f}</td>"
+            f"<td>{_float(events.get('options_chosen_per_run')):.2f}/"
+            f"{_float(events.get('options_skipped_per_run')):.2f}</td>"
+            f"<td>{_float(events.get('decisions_per_event')):.2f}</td>"
+            f"<td>{choices}</td>"
             "</tr>"
         )
     return "\n".join(rows)
@@ -5200,6 +6320,8 @@ def _action_space(info: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
 
 
 def _lookup_vector_int(observation: Mapping[str, Any], field: str) -> int:
+    if field in observation:
+        return _int(observation.get(field))
     schema = observation.get("vector_schema")
     vector = observation.get("vector")
     if isinstance(schema, list | tuple) and isinstance(vector, list | tuple):

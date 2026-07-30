@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 
-from sts2sim.learning.masked_ppo import resolve_ppo_target, train_masked_ppo
+from sts2sim.learning.masked_ppo import (
+    evaluate_masked_ppo_checkpoint,
+    resolve_ppo_target,
+    train_masked_ppo,
+)
 
 DEFAULT_CURRICULUM_STAGES: tuple[str, ...] = (
     "act1-boss",
     "act2-boss",
     "act3-boss",
-    "game-clear",
 )
 
 
@@ -46,13 +50,6 @@ CURRICULUM_STAGE_DEFAULTS: dict[str, CurriculumStageDefaults] = {
         target_consecutive_successes=2,
     ),
     "act3-boss": CurriculumStageDefaults(
-        max_batches=120,
-        train_max_steps=2200,
-        eval_max_steps=2200,
-        target_eval_successes=5,
-        target_consecutive_successes=2,
-    ),
-    "game-clear": CurriculumStageDefaults(
         max_batches=160,
         train_max_steps=3000,
         eval_max_steps=3000,
@@ -109,6 +106,8 @@ def train_masked_ppo_curriculum(
     envs_per_worker: int = 1,
     policy_server_min_batch: int | None = None,
     policy_server_max_wait_ms: int | None = None,
+    champion_eval_runs: int | None = None,
+    champion_patience: int = 3,
     progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
     trainer: PPOTrainer | None = None,
 ) -> dict[str, Any]:
@@ -120,19 +119,158 @@ def train_masked_ppo_curriculum(
     report_root = Path(report_dir)
     checkpoint_root.mkdir(parents=True, exist_ok=True)
     report_root.mkdir(parents=True, exist_ok=True)
+    latest_model_path = checkpoint_root / f"{run_name}_latest.pt"
+    migrated_checkpoint = _migrate_legacy_active_checkpoint(
+        output_path=output_path,
+        resolved_stages=resolved_stages,
+        checkpoint_root=checkpoint_root,
+        run_name=run_name,
+        latest_model_path=latest_model_path,
+        resume=resume,
+    )
+    if progress_reporter is not None and migrated_checkpoint is not None:
+        progress_reporter(
+            {
+                "event": "curriculum_checkpoint_migrated",
+                "source_path": str(migrated_checkpoint),
+                "latest_path": str(latest_model_path),
+            }
+        )
 
-    previous_model_path = Path(resume_from_path) if resume_from_path is not None else None
-    stage_summaries: list[dict[str, Any]] = []
+    latest_checkpoint_stage = _saved_curriculum_current_stage(
+        output_path=output_path,
+        resolved_stages=resolved_stages,
+    )
+    latest_checkpoint_check = (
+        _latest_checkpoint_preflight(
+            latest_model_path=latest_model_path,
+            latest_checkpoint_stage=latest_checkpoint_stage,
+            resolved_stages=resolved_stages,
+            hidden_size=hidden_size,
+            hidden_layers=hidden_layers,
+            head_hidden_layers=head_hidden_layers,
+            activation=activation,
+            eval_runs=eval_runs,
+            eval_max_steps_override=eval_max_steps,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+            rollout_workers=rollout_workers,
+            rollout_inference=rollout_inference,
+            envs_per_worker=envs_per_worker,
+            policy_server_min_batch=policy_server_min_batch,
+            policy_server_max_wait_ms=policy_server_max_wait_ms,
+            target_eval_successes=target_eval_successes,
+            target_consecutive_successes=target_consecutive_successes,
+            target_success_rate=target_success_rate,
+            progress_reporter=progress_reporter,
+        )
+        if resume
+        else None
+    )
+    resume_checkpoint_checks = (
+        _curriculum_checkpoint_preflight(
+            resolved_stages=resolved_stages,
+            checkpoint_root=checkpoint_root,
+            run_name=run_name,
+            hidden_size=hidden_size,
+            hidden_layers=hidden_layers,
+            head_hidden_layers=head_hidden_layers,
+            activation=activation,
+            eval_runs=eval_runs,
+            eval_max_steps_override=eval_max_steps,
+            seed=seed,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+            rollout_workers=rollout_workers,
+            rollout_inference=rollout_inference,
+            envs_per_worker=envs_per_worker,
+            policy_server_min_batch=policy_server_min_batch,
+            policy_server_max_wait_ms=policy_server_max_wait_ms,
+            target_eval_successes=target_eval_successes,
+            target_consecutive_successes=target_consecutive_successes,
+            target_success_rate=target_success_rate,
+            progress_reporter=progress_reporter,
+        )
+        if resume
+        else ()
+    )
+    resumed_stage_summaries = _completed_curriculum_stage_summaries(
+        output_path=output_path,
+        resolved_stages=resolved_stages,
+        checkpoint_root=checkpoint_root,
+        report_root=report_root,
+        run_name=run_name,
+        resume=resume,
+        hidden_size=hidden_size,
+        hidden_layers=hidden_layers,
+        head_hidden_layers=head_hidden_layers,
+        activation=activation,
+        checkpoint_checks={
+            str(check["stage"]): check
+            for check in resume_checkpoint_checks
+            if isinstance(check, Mapping)
+        },
+    )
+    stage_summaries = [dict(summary) for summary in resumed_stage_summaries]
+    previous_model_path = (
+        _stage_checkpoint_path(
+            checkpoint_root,
+            run_name,
+            resolved_stages[len(stage_summaries) - 1],
+        )
+        if stage_summaries
+        else (Path(resume_from_path) if resume_from_path is not None else None)
+    )
     stopped_reason = "completed"
+    if progress_reporter is not None and (
+        latest_checkpoint_check is not None or resume_checkpoint_checks
+    ):
+        progress_reporter(
+            {
+                "event": "curriculum_resume_check",
+                "latest_checkpoint_check": latest_checkpoint_check,
+                "checkpoint_checks": list(resume_checkpoint_checks),
+            }
+        )
 
-    for stage_index, stage_name in enumerate(resolved_stages):
+    for stage_index in range(len(stage_summaries), len(resolved_stages)):
+        stage_name = resolved_stages[stage_index]
         defaults = CURRICULUM_STAGE_DEFAULTS[stage_name]
         slug = stage_name.replace("-", "_")
         model_path = checkpoint_root / f"{run_name}_{slug}.pt"
+        champion_model_path = checkpoint_root / f"{run_name}_{slug}_champion.pt"
         stage_output_path = report_root / f"{run_name}_{slug}_latest.json"
         stage_progress_path = report_root / f"{run_name}_{slug}_progress.json"
         stage_report_path = report_root / f"{run_name}_{slug}_latest.html"
-        stage_resume_from = previous_model_path if previous_model_path is not None else None
+        # An unfinished stage resumes its own checkpoint. A newly entered stage
+        # starts from the preceding completed stage's checkpoint.
+        # `latest` belongs to the stage recorded as active in the curriculum report.
+        # A stale legacy report can otherwise point at an older stage than the
+        # verified milestone prefix (for example Act 1 after Act 2 was finished).
+        use_latest_checkpoint = (
+            resume
+            and latest_model_path.exists()
+            and (
+                latest_checkpoint_check is None
+                or bool(latest_checkpoint_check.get("passed", False))
+            )
+            and (
+                latest_checkpoint_stage is None
+                or latest_checkpoint_stage == stage_name
+                or (
+                    stage_index > 0
+                    and latest_checkpoint_stage == resolved_stages[stage_index - 1]
+                )
+            )
+        )
+        stage_resume_from = (
+            latest_model_path
+            if use_latest_checkpoint
+            else (previous_model_path if previous_model_path is not None else None)
+        )
         stage_should_resume = resume or stage_resume_from is not None
 
         if output_path is not None:
@@ -146,7 +284,7 @@ def train_masked_ppo_curriculum(
                                 stage_index=stage_index,
                                 stage_name=stage_name,
                                 resume_from_path=stage_resume_from,
-                                model_path=model_path,
+                                model_path=latest_model_path,
                                 output_path=stage_output_path,
                                 progress_output_path=stage_progress_path,
                                 report_output_path=stage_report_path,
@@ -192,7 +330,7 @@ def train_masked_ppo_curriculum(
             callback_stage_index: int = stage_index,
             callback_stage_name: str = stage_name,
             callback_resume_from: Path | None = stage_resume_from,
-            callback_model_path: Path = model_path,
+            callback_model_path: Path = latest_model_path,
             callback_output_path: Path = stage_output_path,
             callback_progress_path: Path = stage_progress_path,
             callback_report_path: Path = stage_report_path,
@@ -289,7 +427,8 @@ def train_masked_ppo_curriculum(
                 target_success_rate=target_success_rate,
                 resume=stage_should_resume,
                 resume_from_path=stage_resume_from,
-                model_output_path=model_path,
+                model_output_path=latest_model_path,
+                champion_model_path=champion_model_path,
                 output_path=stage_output_path,
                 progress_output_path=stage_progress_path,
                 report_output_path=stage_report_path,
@@ -301,27 +440,48 @@ def train_masked_ppo_curriculum(
                 envs_per_worker=envs_per_worker,
                 policy_server_min_batch=policy_server_min_batch,
                 policy_server_max_wait_ms=policy_server_max_wait_ms,
+                champion_eval_runs=champion_eval_runs,
+                champion_patience=champion_patience,
                 progress_callback=update_active_stage_summary,
                 progress_reporter=progress_reporter,
             )
         )
+        reached_stage_target = bool(stage_result.get("reached_target", False))
+        promotion_source = (
+            champion_model_path if champion_model_path.exists() else latest_model_path
+        )
+        if reached_stage_target:
+            _promote_stage_checkpoint(promotion_source, model_path)
+            _promote_stage_checkpoint(promotion_source, latest_model_path)
         stage_summary = _stage_summary(
             stage_index=stage_index,
             stage_name=stage_name,
             stage_result=stage_result,
             resume_from_path=stage_resume_from,
-            model_path=model_path,
+            model_path=model_path if reached_stage_target else latest_model_path,
             output_path=stage_output_path,
             progress_output_path=stage_progress_path,
             report_output_path=stage_report_path,
-            status="complete" if bool(stage_result.get("reached_target", False)) else "stopped",
+            status="complete" if reached_stage_target else "stopped",
         )
         stage_summaries.append(stage_summary)
 
-        if not bool(stage_result.get("reached_target", False)):
+        if not reached_stage_target:
             stopped_reason = f"stage {stage_name} did not meet comfort criteria"
             break
         previous_model_path = model_path
+        latest_checkpoint_stage = stage_name
+        latest_checkpoint_check = {
+            "stage": "latest",
+            "checkpoint_stage": stage_name,
+            "checkpoint_path": str(latest_model_path),
+            "decision": "resume",
+            "compatible": True,
+            "preconditions_passed": True,
+            "passed": True,
+            "reason": "written by the current successful curriculum stage",
+            "target_checks": [],
+        }
 
         if output_path is not None:
             _persist_curriculum_result(
@@ -424,6 +584,483 @@ def resolve_curriculum_stages(stages: str | Sequence[str] | None = None) -> tupl
     return normalized
 
 
+def _stage_checkpoint_path(
+    checkpoint_root: Path,
+    run_name: str,
+    stage_name: str,
+) -> Path:
+    return checkpoint_root / f"{run_name}_{stage_name.replace('-', '_')}.pt"
+
+
+def _migrate_legacy_active_checkpoint(
+    *,
+    output_path: Path | str | None,
+    resolved_stages: Sequence[str],
+    checkpoint_root: Path,
+    run_name: str,
+    latest_model_path: Path,
+    resume: bool,
+) -> Path | None:
+    """Move one old mutable stage checkpoint into the new latest-checkpoint slot."""
+    if not resume or output_path is None or latest_model_path.exists():
+        return None
+    path = Path(output_path)
+    if not path.exists():
+        return None
+    try:
+        with path.open(encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    saved_stages = payload.get("stages_requested")
+    if not isinstance(saved_stages, (list, tuple)) or tuple(saved_stages) != tuple(
+        resolved_stages
+    ):
+        return None
+    active_stage = str(payload.get("current_stage", ""))
+    if active_stage not in resolved_stages:
+        return None
+    legacy_path = _stage_checkpoint_path(checkpoint_root, run_name, active_stage)
+    if not legacy_path.exists():
+        return None
+    latest_model_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(legacy_path), str(latest_model_path))
+    return legacy_path
+
+
+def _promote_stage_checkpoint(source: Path, destination: Path) -> None:
+    """Publish an immutable stage checkpoint only after that stage is passed."""
+    if not source.exists():
+        raise FileNotFoundError(
+            f"Cannot promote {destination.name}: latest checkpoint {source} is missing."
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = destination.with_suffix(f"{destination.suffix}.tmp")
+    shutil.copy2(source, temporary_path)
+    temporary_path.replace(destination)
+
+
+def _curriculum_checkpoint_preflight(
+    *,
+    resolved_stages: Sequence[str],
+    checkpoint_root: Path,
+    run_name: str,
+    hidden_size: int,
+    hidden_layers: int,
+    head_hidden_layers: int,
+    activation: str,
+    eval_runs: int,
+    eval_max_steps_override: int | None,
+    seed: int | str,
+    character_id: str,
+    ascension: int,
+    device: str,
+    rollout_workers: int,
+    rollout_inference: str,
+    envs_per_worker: int,
+    policy_server_min_batch: int | None,
+    policy_server_max_wait_ms: int | None,
+    target_eval_successes: int | None,
+    target_consecutive_successes: int | None,
+    target_success_rate: float,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+) -> tuple[dict[str, Any], ...]:
+    """Verify existing checkpoints against every curriculum target they must retain."""
+    checks: list[dict[str, Any]] = []
+    for stage_index, stage_name in enumerate(resolved_stages):
+        checkpoint_path = _stage_checkpoint_path(checkpoint_root, run_name, stage_name)
+        if not checkpoint_path.exists():
+            continue
+        target_checks: list[dict[str, Any]] = []
+        preconditions_passed = True
+        for target_name in resolved_stages[:stage_index]:
+            defaults = CURRICULUM_STAGE_DEFAULTS[target_name]
+            target_check = evaluate_masked_ppo_checkpoint(
+                checkpoint_path,
+                target=target_name,
+                eval_runs=eval_runs,
+                eval_max_steps=eval_max_steps_override or defaults.eval_max_steps,
+                character_id=character_id,
+                ascension=ascension,
+                seed=seed,
+                device=device,
+                rollout_workers=rollout_workers,
+                rollout_inference=rollout_inference,
+                envs_per_worker=envs_per_worker,
+                policy_server_min_batch=policy_server_min_batch,
+                policy_server_max_wait_ms=policy_server_max_wait_ms,
+                target_eval_successes=(
+                    target_eval_successes or defaults.target_eval_successes
+                ),
+                target_consecutive_successes=(
+                    target_consecutive_successes or defaults.target_consecutive_successes
+                ),
+                target_success_rate=target_success_rate,
+                hidden_size=hidden_size,
+                hidden_layers=hidden_layers,
+                head_hidden_layers=head_hidden_layers,
+                activation=activation,
+                checkpoint_stage=stage_name,
+                progress_reporter=progress_reporter,
+            )
+            target_checks.append(target_check)
+            if not bool(target_check.get("passed", False)):
+                preconditions_passed = False
+                break
+
+        if preconditions_passed:
+            own_defaults = CURRICULUM_STAGE_DEFAULTS[stage_name]
+            own_target_check = evaluate_masked_ppo_checkpoint(
+                checkpoint_path,
+                target=stage_name,
+                eval_runs=eval_runs,
+                eval_max_steps=eval_max_steps_override or own_defaults.eval_max_steps,
+                character_id=character_id,
+                ascension=ascension,
+                seed=seed,
+                device=device,
+                rollout_workers=rollout_workers,
+                rollout_inference=rollout_inference,
+                envs_per_worker=envs_per_worker,
+                policy_server_min_batch=policy_server_min_batch,
+                policy_server_max_wait_ms=policy_server_max_wait_ms,
+                target_eval_successes=(
+                    target_eval_successes or own_defaults.target_eval_successes
+                ),
+                target_consecutive_successes=(
+                    target_consecutive_successes or own_defaults.target_consecutive_successes
+                ),
+                target_success_rate=target_success_rate,
+                hidden_size=hidden_size,
+                hidden_layers=hidden_layers,
+                head_hidden_layers=head_hidden_layers,
+                activation=activation,
+                checkpoint_stage=stage_name,
+                progress_reporter=progress_reporter,
+            )
+            target_checks.append(own_target_check)
+        else:
+            own_target_check = {
+                "compatible": bool(target_checks[-1].get("compatible", False)),
+                "passed": False,
+                "reason": "prerequisite target criteria not met",
+            }
+        checks.append(
+            {
+                "stage": stage_name,
+                "checkpoint_path": str(checkpoint_path),
+                "decision": "resume" if bool(own_target_check.get("compatible")) else "fresh",
+                "compatible": bool(own_target_check.get("compatible", False)),
+                "preconditions_passed": preconditions_passed,
+                "stage_target_passed": bool(own_target_check.get("passed", False)),
+                "passed": preconditions_passed and bool(own_target_check.get("passed", False)),
+                "reason": str(own_target_check.get("reason", "unknown")),
+                "target_checks": target_checks,
+            }
+        )
+    return tuple(checks)
+
+
+def _latest_checkpoint_preflight(
+    *,
+    latest_model_path: Path,
+    latest_checkpoint_stage: str | None,
+    resolved_stages: Sequence[str],
+    hidden_size: int,
+    hidden_layers: int,
+    head_hidden_layers: int,
+    activation: str,
+    eval_runs: int,
+    eval_max_steps_override: int | None,
+    seed: int | str,
+    character_id: str,
+    ascension: int,
+    device: str,
+    rollout_workers: int,
+    rollout_inference: str,
+    envs_per_worker: int,
+    policy_server_min_batch: int | None,
+    policy_server_max_wait_ms: int | None,
+    target_eval_successes: int | None,
+    target_consecutive_successes: int | None,
+    target_success_rate: float,
+    progress_reporter: Callable[[Mapping[str, Any]], None] | None,
+) -> dict[str, Any]:
+    """Verify the mutable checkpoint before inspecting promoted milestones."""
+
+    if not latest_model_path.exists():
+        return {
+            "stage": "latest",
+            "checkpoint_stage": latest_checkpoint_stage,
+            "checkpoint_path": str(latest_model_path),
+            "decision": "missing",
+            "compatible": False,
+            "preconditions_passed": False,
+            "passed": False,
+            "reason": "latest checkpoint file not found",
+            "target_checks": [],
+        }
+
+    active_stage_index = (
+        resolved_stages.index(latest_checkpoint_stage)
+        if latest_checkpoint_stage in resolved_stages
+        else None
+    )
+    prerequisite_targets = (
+        resolved_stages[:active_stage_index]
+        if active_stage_index is not None
+        else ()
+    )
+    if not prerequisite_targets:
+        # Evaluate zero runs purely to exercise the same checkpoint loader,
+        # schema/hash checks, and terminal reporting as normal validation.
+        probe_target: str
+        if isinstance(latest_checkpoint_stage, str) and latest_checkpoint_stage in resolved_stages:
+            probe_target = latest_checkpoint_stage
+        else:
+            probe_target = resolved_stages[0]
+        probe = evaluate_masked_ppo_checkpoint(
+            latest_model_path,
+            target=probe_target,
+            eval_runs=0,
+            eval_max_steps=(
+                eval_max_steps_override
+                or CURRICULUM_STAGE_DEFAULTS[probe_target].eval_max_steps
+            ),
+            character_id=character_id,
+            ascension=ascension,
+            seed=seed,
+            device=device,
+            rollout_workers=rollout_workers,
+            rollout_inference=rollout_inference,
+            envs_per_worker=envs_per_worker,
+            policy_server_min_batch=policy_server_min_batch,
+            policy_server_max_wait_ms=policy_server_max_wait_ms,
+            target_eval_successes=1,
+            target_consecutive_successes=1,
+            target_success_rate=0.0,
+            hidden_size=hidden_size,
+            hidden_layers=hidden_layers,
+            head_hidden_layers=head_hidden_layers,
+            activation=activation,
+            checkpoint_stage="latest",
+            progress_reporter=progress_reporter,
+        )
+        compatible = bool(probe.get("compatible", False))
+        return {
+            "stage": "latest",
+            "checkpoint_stage": latest_checkpoint_stage,
+            "checkpoint_path": str(latest_model_path),
+            "decision": "resume" if compatible else "fresh",
+            "compatible": compatible,
+            "preconditions_passed": compatible,
+            "passed": compatible,
+            "reason": (
+                "latest checkpoint hashes and schemas match"
+                if compatible
+                else str(probe.get("reason", "latest checkpoint is incompatible"))
+            ),
+            "target_checks": [],
+        }
+
+    target_checks: list[dict[str, Any]] = []
+    preconditions_passed = True
+    compatible = True
+    for target_name in prerequisite_targets:
+        defaults = CURRICULUM_STAGE_DEFAULTS[target_name]
+        target_check = evaluate_masked_ppo_checkpoint(
+            latest_model_path,
+            target=target_name,
+            eval_runs=eval_runs,
+            eval_max_steps=eval_max_steps_override or defaults.eval_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            seed=seed,
+            device=device,
+            rollout_workers=rollout_workers,
+            rollout_inference=rollout_inference,
+            envs_per_worker=envs_per_worker,
+            policy_server_min_batch=policy_server_min_batch,
+            policy_server_max_wait_ms=policy_server_max_wait_ms,
+            target_eval_successes=(target_eval_successes or defaults.target_eval_successes),
+            target_consecutive_successes=(
+                target_consecutive_successes or defaults.target_consecutive_successes
+            ),
+            target_success_rate=target_success_rate,
+            hidden_size=hidden_size,
+            hidden_layers=hidden_layers,
+            head_hidden_layers=head_hidden_layers,
+            activation=activation,
+            checkpoint_stage="latest",
+            progress_reporter=progress_reporter,
+        )
+        target_checks.append(target_check)
+        compatible = compatible and bool(target_check.get("compatible", False))
+        if not bool(target_check.get("passed", False)):
+            preconditions_passed = False
+            break
+
+    passed = compatible and preconditions_passed
+    return {
+        "stage": "latest",
+        "checkpoint_stage": latest_checkpoint_stage,
+        "checkpoint_path": str(latest_model_path),
+        "decision": "resume" if passed else "fallback",
+        "compatible": compatible,
+        "preconditions_passed": preconditions_passed,
+        "passed": passed,
+        "reason": (
+            "latest checkpoint retained every completed-stage target"
+            if passed
+            else str(target_checks[-1].get("reason", "latest checkpoint failed a prerequisite"))
+        ),
+        "target_checks": target_checks,
+    }
+
+
+def _completed_curriculum_stage_summaries(
+    *,
+    output_path: Path | str | None,
+    resolved_stages: Sequence[str],
+    checkpoint_root: Path,
+    report_root: Path,
+    run_name: str,
+    resume: bool,
+    hidden_size: int,
+    hidden_layers: int,
+    head_hidden_layers: int,
+    activation: str,
+    checkpoint_checks: Mapping[str, Mapping[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Return the verified completed prefix from a prior curriculum summary."""
+    if not resume or output_path is None:
+        return ()
+    path = Path(output_path)
+    if not path.exists():
+        return ()
+    try:
+        with path.open(encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return ()
+    if not isinstance(payload, Mapping):
+        return ()
+    raw_saved_stages = payload.get("stages_requested")
+    saved_stages = (
+        tuple(str(stage) for stage in raw_saved_stages)
+        if isinstance(raw_saved_stages, (list, tuple))
+        else ()
+    )
+    if saved_stages != tuple(resolved_stages):
+        return ()
+
+    completed: list[dict[str, Any]] = []
+    summaries = _sequence_of_mappings(payload.get("stage_summaries"))
+    for stage_index, stage_name in enumerate(resolved_stages):
+        summary = (
+            summaries[stage_index]
+            if stage_index < len(summaries)
+            and str(summaries[stage_index].get("stage", "")) == stage_name
+            else _completed_stage_summary_from_report(
+                stage_index=stage_index,
+                stage_name=stage_name,
+                checkpoint_root=checkpoint_root,
+                report_root=report_root,
+                run_name=run_name,
+            )
+        )
+        if summary is None:
+            break
+        if not bool(summary.get("reached_target", False)) or not _target_passed_by_checkpoint_chain(
+            checkpoint_checks,
+            stage_name,
+        ):
+            break
+        completed.append(dict(summary))
+    return tuple(completed)
+
+
+def _completed_stage_summary_from_report(
+    *,
+    stage_index: int,
+    stage_name: str,
+    checkpoint_root: Path,
+    report_root: Path,
+    run_name: str,
+) -> dict[str, Any] | None:
+    """Recover a completed stage from its own report when the root report is stale."""
+
+    slug = stage_name.replace("-", "_")
+    stage_output_path = report_root / f"{run_name}_{slug}_latest.json"
+    if not stage_output_path.exists():
+        return None
+    try:
+        payload = json.loads(stage_output_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, Mapping) or not bool(payload.get("reached_target", False)):
+        return None
+    target = payload.get("target")
+    if isinstance(target, Mapping) and str(target.get("name", "")) != stage_name:
+        return None
+    return _stage_summary(
+        stage_index=stage_index,
+        stage_name=stage_name,
+        stage_result=payload,
+        resume_from_path=None,
+        model_path=_stage_checkpoint_path(checkpoint_root, run_name, stage_name),
+        output_path=stage_output_path,
+        progress_output_path=report_root / f"{run_name}_{slug}_progress.json",
+        report_output_path=report_root / f"{run_name}_{slug}_latest.html",
+        status="complete",
+    )
+
+
+def _saved_curriculum_current_stage(
+    *,
+    output_path: Path | str | None,
+    resolved_stages: Sequence[str],
+) -> str | None:
+    """Read the stage that owns the mutable latest checkpoint, when available."""
+
+    if output_path is None:
+        return None
+    path = Path(output_path)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    saved_stages = payload.get("stages_requested")
+    if not isinstance(saved_stages, (list, tuple)) or tuple(saved_stages) != tuple(
+        resolved_stages
+    ):
+        return None
+    stage_name = str(payload.get("current_stage", ""))
+    return stage_name if stage_name in resolved_stages else None
+
+
+def _target_passed_by_checkpoint_chain(
+    checkpoint_checks: Mapping[str, Mapping[str, Any]],
+    target_name: str,
+) -> bool:
+    """A later checkpoint may supply valid evidence for an earlier milestone."""
+    for checkpoint_check in checkpoint_checks.values():
+        for target_check in checkpoint_check.get("target_checks", []):
+            if (
+                isinstance(target_check, Mapping)
+                and str(target_check.get("target", "")) == target_name
+                and bool(target_check.get("passed", False))
+            ):
+                return True
+    return False
+
+
 def _stage_summary(
     *,
     stage_index: int,
@@ -457,6 +1094,7 @@ def _stage_summary(
         "progress_output_path": str(progress_output_path),
         "report_output_path": str(report_output_path),
         "latest_batch": latest_batch,
+        "champion": dict(_mapping(stage_result.get("champion"))),
     }
 
 

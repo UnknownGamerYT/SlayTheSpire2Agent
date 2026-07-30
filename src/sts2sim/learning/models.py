@@ -51,6 +51,7 @@ class LearningRunResult(LearningModel):
     failed_to_continue: bool = False
     reward_breakdown_totals: dict[str, float] = Field(default_factory=dict)
     diagnostics: dict[str, float] = Field(default_factory=dict)
+    decision_summary: dict[str, Any] = Field(default_factory=dict)
     history: dict[str, Any] | None = None
     steps: tuple[LearningStep, ...] = ()
 
