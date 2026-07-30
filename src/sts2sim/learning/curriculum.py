@@ -69,6 +69,7 @@ def train_masked_ppo_curriculum(
     stages: str | Sequence[str] | None = None,
     run_name: str = "ppo_curriculum",
     max_batches: int | None = None,
+    until_stopped: bool = False,
     train_runs_per_batch: int = 128,
     eval_runs: int = 32,
     train_max_steps: int | None = None,
@@ -112,7 +113,12 @@ def train_masked_ppo_curriculum(
     progress_reporter: Callable[[Mapping[str, Any]], None] | None = None,
     trainer: PPOTrainer | None = None,
 ) -> dict[str, Any]:
-    """Train PPO through staged targets, advancing only after comfort criteria pass."""
+    """Train PPO through staged targets, advancing only after comfort criteria pass.
+
+    With ``until_stopped=True``, each stage is resumed in successive batches until
+    it reaches its advancement criteria. The curriculum then moves to the next
+    stage and finishes after the final target succeeds.
+    """
 
     resolved_stages = resolve_curriculum_stages(stages)
     trainer_func = trainer or train_masked_ppo
@@ -252,59 +258,69 @@ def train_masked_ppo_curriculum(
                 report_output_path,
             )
 
-        stage_result = dict(
-            trainer_func(
-                target=stage_name,
-                max_batches=max_batches or defaults.max_batches,
-                train_runs_per_batch=train_runs_per_batch,
-                train_max_steps=train_max_steps or defaults.train_max_steps,
-                eval_runs=eval_runs,
-                eval_max_steps=eval_max_steps or defaults.eval_max_steps,
-                seed=f"{seed}:{stage_name}",
-                character_id=character_id,
-                ascension=ascension,
-                hidden_size=hidden_size,
-                hidden_layers=hidden_layers,
-                head_hidden_layers=head_hidden_layers,
-                activation=activation,
-                learning_rate=learning_rate,
-                gamma=gamma,
-                gae_lambda=gae_lambda,
-                clip_ratio=clip_ratio,
-                value_coef=value_coef,
-                entropy_coef=entropy_coef,
-                planning_coef=planning_coef,
-                teacher_mix=teacher_mix,
-                imitation_coef=imitation_coef,
-                ppo_epochs=ppo_epochs,
-                minibatch_size=minibatch_size,
-                target_reward=target_reward,
-                target_eval_successes=(
-                    target_eval_successes or defaults.target_eval_successes
-                ),
-                target_consecutive_successes=(
-                    target_consecutive_successes
-                    or defaults.target_consecutive_successes
-                ),
-                target_success_rate=target_success_rate,
-                resume=stage_should_resume,
-                resume_from_path=stage_resume_from,
-                model_output_path=model_path,
-                output_path=stage_output_path,
-                progress_output_path=stage_progress_path,
-                report_output_path=stage_report_path,
-                progress_window=progress_window,
-                device=device,
-                rollout_workers=rollout_workers,
-                rollout_inference=rollout_inference,
-                history_mode=history_mode,
-                envs_per_worker=envs_per_worker,
-                policy_server_min_batch=policy_server_min_batch,
-                policy_server_max_wait_ms=policy_server_max_wait_ms,
-                progress_callback=update_active_stage_summary,
-                progress_reporter=progress_reporter,
+        stage_batch_budget = max_batches or defaults.max_batches
+        while True:
+            stage_result = dict(
+                trainer_func(
+                    target=stage_name,
+                    max_batches=stage_batch_budget,
+                    # The single-stage trainer's until_stopped mode never returns
+                    # after a target is reached. Keep individual invocations finite
+                    # so the curriculum can advance, then resume this stage below.
+                    until_stopped=False,
+                    train_runs_per_batch=train_runs_per_batch,
+                    train_max_steps=train_max_steps or defaults.train_max_steps,
+                    eval_runs=eval_runs,
+                    eval_max_steps=eval_max_steps or defaults.eval_max_steps,
+                    seed=f"{seed}:{stage_name}",
+                    character_id=character_id,
+                    ascension=ascension,
+                    hidden_size=hidden_size,
+                    hidden_layers=hidden_layers,
+                    head_hidden_layers=head_hidden_layers,
+                    activation=activation,
+                    learning_rate=learning_rate,
+                    gamma=gamma,
+                    gae_lambda=gae_lambda,
+                    clip_ratio=clip_ratio,
+                    value_coef=value_coef,
+                    entropy_coef=entropy_coef,
+                    planning_coef=planning_coef,
+                    teacher_mix=teacher_mix,
+                    imitation_coef=imitation_coef,
+                    ppo_epochs=ppo_epochs,
+                    minibatch_size=minibatch_size,
+                    target_reward=target_reward,
+                    target_eval_successes=(
+                        target_eval_successes or defaults.target_eval_successes
+                    ),
+                    target_consecutive_successes=(
+                        target_consecutive_successes
+                        or defaults.target_consecutive_successes
+                    ),
+                    target_success_rate=target_success_rate,
+                    resume=stage_should_resume,
+                    resume_from_path=stage_resume_from,
+                    model_output_path=model_path,
+                    output_path=stage_output_path,
+                    progress_output_path=stage_progress_path,
+                    report_output_path=stage_report_path,
+                    progress_window=progress_window,
+                    device=device,
+                    rollout_workers=rollout_workers,
+                    rollout_inference=rollout_inference,
+                    history_mode=history_mode,
+                    envs_per_worker=envs_per_worker,
+                    policy_server_min_batch=policy_server_min_batch,
+                    policy_server_max_wait_ms=policy_server_max_wait_ms,
+                    progress_callback=update_active_stage_summary,
+                    progress_reporter=progress_reporter,
+                )
             )
-        )
+            if bool(stage_result.get("reached_target", False)) or not until_stopped:
+                break
+            stage_resume_from = model_path
+            stage_should_resume = True
         stage_summary = _stage_summary(
             stage_index=stage_index,
             stage_name=stage_name,

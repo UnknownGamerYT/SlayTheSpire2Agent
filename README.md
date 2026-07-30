@@ -187,11 +187,15 @@ uv run sts2sim train-masked-ppo --target act1-boss --until-stopped --train-runs-
 Curriculum training through Act 1, Act 2, Act 3, and game completion:
 
 ```powershell
-uv run sts2sim train-ppo-curriculum --stages act1-boss,act2-boss,act3-boss,game-clear --run-name ppo_curriculum --train-runs-per-batch 16 --eval-runs 20 --target-success-rate 0.95 --target-consecutive-successes 3 --seed ppo-curriculum --character IRONCLAD --ascension 0 --device auto --no-resume --output reports\ppo_curriculum_latest.json --report-output reports\ppo_curriculum_latest.html --terminal-progress
+uv run sts2sim train-ppo-curriculum --stages act1-boss,act2-boss,act3-boss,game-clear --until-stopped --run-name ppo_curriculum --train-runs-per-batch 16 --eval-runs 20 --target-success-rate 0.95 --target-consecutive-successes 3 --seed ppo-curriculum --character IRONCLAD --ascension 0 --device auto --no-resume --output reports\ppo_curriculum_latest.json --report-output reports\ppo_curriculum_latest.html --terminal-progress
 ```
 
 Resume a training run by replacing `--no-resume` with `--resume` and keeping
 the same checkpoint/report paths.
+
+For curriculum training, `--until-stopped` retries each stage from its latest
+checkpoint until it meets the advancement criteria, then moves to the next act.
+It exits only after the final game-clear stage succeeds or the process is stopped.
 
 Useful training options:
 

@@ -2285,6 +2285,16 @@ def train_ppo_curriculum(
             help="Override max train/evaluate batches for every stage.",
         ),
     ] = None,
+    until_stopped: Annotated[
+        bool,
+        typer.Option(
+            "--until-stopped/--stop-on-target",
+            help=(
+                "Keep resuming each curriculum stage until it meets its advancement "
+                "criteria, then continue through the remaining stages."
+            ),
+        ),
+    ] = False,
     train_runs_per_batch: Annotated[
         int,
         typer.Option(
@@ -2554,6 +2564,7 @@ def train_ppo_curriculum(
                 stages=stages,
                 run_name=run_name,
                 max_batches=max_batches,
+                until_stopped=until_stopped,
                 train_runs_per_batch=train_runs_per_batch,
                 eval_runs=eval_runs,
                 train_max_steps=train_max_steps,

@@ -120,6 +120,42 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
     assert (tmp_path / "curriculum.html").exists()
 
 
+def test_curriculum_until_stopped_retries_stage_then_advances(tmp_path: Path) -> None:
+    calls: list[dict[str, Any]] = []
+    attempts: dict[str, int] = {}
+
+    def fake_trainer(**kwargs: Any) -> dict[str, Any]:
+        calls.append(dict(kwargs))
+        target = str(kwargs["target"])
+        attempts[target] = attempts.get(target, 0) + 1
+        reached = target != "act1-boss" or attempts[target] == 2
+        return {
+            "reached_target": reached,
+            "reached_batch": attempts[target] if reached else None,
+            "batches_completed": attempts[target],
+            "runs_trained": attempts[target] * 2,
+            "total_steps": attempts[target] * 3,
+            "batch_summaries": [{"batch_index": attempts[target]}],
+        }
+
+    result = train_masked_ppo_curriculum(
+        stages=("act1-boss", "act2-boss"),
+        max_batches=1,
+        until_stopped=True,
+        checkpoint_dir=tmp_path / "checkpoints",
+        report_dir=tmp_path / "reports",
+        output_path=tmp_path / "curriculum.json",
+        report_output_path=tmp_path / "curriculum.html",
+        trainer=fake_trainer,
+    )
+
+    assert result["completed_curriculum"] is True
+    assert [call["target"] for call in calls] == ["act1-boss", "act1-boss", "act2-boss"]
+    assert all(call["until_stopped"] is False for call in calls)
+    assert calls[1]["resume"] is True
+    assert calls[1]["resume_from_path"] == tmp_path / "checkpoints" / "ppo_curriculum_act1_boss.pt"
+
+
 def test_stage_summary_prefers_actual_resume_checkpoint(tmp_path: Path) -> None:
     summary = _stage_summary(
         stage_index=0,
@@ -147,6 +183,7 @@ def test_train_ppo_curriculum_help_lists_stage_and_comfort_controls() -> None:
 
     assert result.exit_code == 0
     assert "--stages" in result.output
+    assert "--until-stopped" in result.output
     assert "comfortable" in result.output.lower()
     assert "consecutive" in result.output.lower()
     assert "--report-output" in result.output
