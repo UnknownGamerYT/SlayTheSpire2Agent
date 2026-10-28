@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from combat.test_card_play_status_runtime import _simple
+from combat.test_card_play_status_runtime import _state as _fight
+from combat.test_glam import _play
 
 from sts2sim import action_space, encode_observation, legal_actions, load_state, serialize, step
 from sts2sim.engine import (
@@ -177,7 +180,13 @@ def test_up_to_choices_can_finish_with_zero_or_fewer_than_the_limit(relic_id: st
 def test_chosen_swift_and_sharp_change_card_effects_and_respect_type_filters() -> None:
     state = _pickup("beautiful_bracelet")
     state = _choose(state, "deck:3")
-    assert next(card for card in state.master_deck if card.instance_id == "deck:3").cost == 1
+    swift = next(card for card in state.master_deck if card.instance_id == "deck:3")
+    assert swift.cost == 4
+    swift = swift.model_copy(update={"custom": {**swift.custom, "replay": 1}})
+    combat = _play(_fight(swift, draw=tuple(_simple(f"draw{i}") for i in range(5))), "deck:3")
+    assert combat.player.energy == 16
+    assert len(combat.combat.hand) == 3  # Swift3 draws once despite the replay.
+    assert combat.player.block == 10
 
     state = _pickup("gnarled_hammer")
     assert all(
@@ -186,10 +195,9 @@ def test_chosen_swift_and_sharp_change_card_effects_and_respect_type_filters() -
         if action.type == "choose_card"
     )
     state = _choose(state, "deck:2")
-    assert (
-        next(card for card in state.master_deck if card.instance_id == "deck:2").effects["damage"]
-        == 11
-    )
+    sharp = next(card for card in state.master_deck if card.instance_id == "deck:2")
+    assert sharp.effects["damage"] == 8
+    assert _play(_fight(sharp), "deck:2").combat.monsters[0].hp == 89
     assert not any(action.card_instance_id == "deck:2" for action in legal_actions(state))
 
 

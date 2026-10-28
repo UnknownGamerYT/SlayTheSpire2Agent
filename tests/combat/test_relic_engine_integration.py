@@ -753,7 +753,7 @@ def test_damage_bonus_relics_change_card_damage_math() -> None:
     state = _play_card(state, "enchanted_cut")
 
     assert state.combat is not None
-    assert state.combat.monsters[0].hp == starting_hp - 10 - 9 - 15
+    assert state.combat.monsters[0].hp == starting_hp - 10 - 9 - 16
 
 
 def test_paper_krane_and_tungsten_rod_reduce_incoming_hp_loss() -> None:

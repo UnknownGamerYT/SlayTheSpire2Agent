@@ -61,6 +61,8 @@ def adopt_legacy(card: CardInstance) -> CardInstance:
     if custom.get("source_enchantment_slumber_discount"):
         mods.append(_entry(-int(custom["source_enchantment_slumber_discount"]), False,
                            "played", False))
+    if not mods:
+        return card
     custom.update({_BASE: base, _KEY: mods})
     return _display(card.model_copy(update={"custom": custom}))
 
@@ -95,7 +97,9 @@ def _append(
         return card
     modifiers = _mods(card)
     modifiers.append(_entry(amount, absolute, expiration, reduce_only))
-    return _display(card.model_copy(update={"custom": {**card.custom, _KEY: modifiers}}))
+    return _display(card.model_copy(update={"custom": {
+        **card.custom, _BASE: base, _KEY: modifiers,
+    }}))
 
 
 def set_local_energy_cost(
@@ -139,6 +143,8 @@ def expire(
     card: CardInstance, *, when_played: bool = False, turn_end: bool = False,
 ) -> CardInstance:
     card = adopt_legacy(card)
+    if _KEY not in card.custom:
+        return card
     mask = (_PLAYED if when_played else 0) | (_TURN if turn_end else 0)
     custom = dict(card.custom)
     custom[_KEY] = [m for m in _mods(card) if not int(m.get("expiration", 0)) & mask]

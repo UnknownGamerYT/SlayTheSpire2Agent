@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from combat.test_card_play_status_runtime import _state as _fight
+from combat.test_glam import _play
 
 from sts2sim import load_state, serialize
 from sts2sim.engine import Action, CardInstance, CombatState, EffectEvent, PlayerState, RunState
@@ -63,7 +65,11 @@ def test_bing_bong_copies_count_for_gold_healing_and_each_gets_one_fresnel_encha
     assert result.player.gold == 40  # 15 for each card, including the Bing Bong copy.
     assert result.player.hp == 50
     assert result.flags["relic_counters"]["book_of_five_rings"] == 0
-    assert [card.effects["block"] for card in result.master_deck] == [7, 7]
+    assert [card.effects["block"] for card in result.master_deck] == [5, 5]
+    combat = _fight(*result.master_deck)
+    for card in result.master_deck:
+        combat = _play(combat, card.instance_id)
+    assert combat.player.block == 14  # Each native5 gains its own Nimble2 once.
     assert [len(card.enchantments) for card in result.master_deck] == [1, 1]
     assert [event.amount for event in events if event.kind == "gold_gained"] == [15, 15]
 
@@ -179,8 +185,12 @@ def test_fresnel_enchants_only_block_cards_including_nested_and_formula_effects(
     result, _events = _add(state, (_card("attack"), nested, formula))
 
     assert result.master_deck[0].enchantments == ()
-    assert result.master_deck[1].effects["sequence"][0]["block"] == 5
-    assert result.master_deck[2].effects["block_formula"]["bonus"] == 2
+    assert result.master_deck[1].effects["sequence"][0]["block"] == 3
+    assert "bonus" not in result.master_deck[2].effects["block_formula"]
+    combat = _play(_fight(*result.master_deck), "nested")
+    assert combat.player.block == 5  # Native3 + Nimble2.
+    combat = _play(combat, "formula")
+    assert combat.player.block == 8  # One discarded card + Nimble2.
 
 
 def test_upgrading_fresnel_card_preserves_its_actual_nimble_block_bonus() -> None:
@@ -194,5 +204,6 @@ def test_upgrading_fresnel_card_preserves_its_actual_nimble_block_bonus() -> Non
     upgraded = _upgrade_card_instance(card)
 
     assert upgraded.upgraded is True
-    assert upgraded.effects["sequence"][0]["block"] == 10
+    assert upgraded.effects["sequence"][0]["block"] == 8
     assert len(upgraded.enchantments) == 1
+    assert _play(_fight(upgraded), upgraded.instance_id).player.block == 10
