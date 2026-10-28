@@ -80,6 +80,18 @@ def modify_generated_cards(
                 if card.type.value == kind and t._card_is_upgradable(card):
                     upgrades[index] = True
                     changed.append(index)
+        elif relic in {'glitter', 'lava_lamp'}:
+            from .source_run_passives import apply_late_group_relic
+
+            before = (tuple(upgrades), dict(modifiers))
+            result_upgrades, modifiers = apply_late_group_relic(
+                state.model_copy(update={'flags': flags}), relic, ids, upgrades,
+                group_key=group_key, option_modifiers=modifiers, context=options,
+            )
+            upgrades = list(result_upgrades)
+            changed = [i for i in range(len(ids))
+                       if upgrades[i] != before[0][i]
+                       or modifiers.get(str(i)) != before[1].get(str(i))]
         elif relic in {'wing_charm', 'silken_tress', 'fresnel_lens'}:
             if relic == 'silken_tress' and (
                 not is_card_reward or flags.get('silken_tress_reward_used')

@@ -189,3 +189,12 @@ separate from NoCardModelModifications; the latter permits the source's manual
 CardReward upgrade hooks. New relic acquisition rechecks only the new modifier;
 ordinary reward actions do not repeat old hooks. Driftwood rerolls explicitly
 repopulate their one group and run its factory callbacks again.
+
+The saved item lifecycle fixtures additionally cover Pael's Tooth selecting five
+removable, upgradeable deck instances and returning each serialized instance only
+once (including duplicate card IDs); Tea of Discourtesy's single default charge
+and pre-draw Innate ordering; and Silver Crucible's first treasure entered after
+acquisition rather than the run's first treasure. Sea Glass preserves its three
+five-card factory callbacks for Eggs/Wing Charm/Fresnel Lens; reward-only hooks
+remain excluded from that fixed selection grid. Glitter and Lava Lamp now join
+the shared late-hook dispatcher in actual relic acquisition order.

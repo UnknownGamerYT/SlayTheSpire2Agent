@@ -7041,6 +7041,17 @@ def _apply_relic_pickup_effects(
     if normalized == "byrdpip" and _normalized_id(state.character_id) != "test":
         return _apply_byrdpip_pickup(state)
     state = remove_obtained_source_relic(state, normalized)
+    if normalized == "paels_tooth":
+        flags = {**state.flags, "paels_tooth_serialized_cards": ()}
+        state = state.model_copy(update={"flags": flags})
+        return _queue_relic_deck_choice(state, relic_id, RelicEffectMarker(
+            kind="remove_deck_cards", relic_id=relic_id, amount=5,
+            metadata={"selection": "chosen", "requires_upgradable": True},
+        ))
+    if normalized == "silver_crucible":
+        state = state.model_copy(update={"flags": {
+            **state.flags, "silver_crucible_treasure_rooms_entered": 0,
+        }})
     if normalized == "neows_talisman":
         deck = list(state.master_deck)
         talisman_events: list[EffectEvent] = []
@@ -7590,6 +7601,13 @@ def _apply_relic_remove_deck_cards_marker(
     for card in removed:
         removed_specs.append(card.model_dump(mode="json"))
         removed_ids.append(card.card_id)
+    if _normalized_id(relic_id) == "paels_tooth":
+        serialized = list(_flag_mapping_sequence(state, "paels_tooth_serialized_cards"))
+        serialized.extend(card.model_dump(mode="json") for card in removed)
+        serialized.sort(key=lambda spec: str(spec["card_id"]))
+        flags["paels_tooth_serialized_cards"] = serialized
+        flags["relic_counters"] = {**_mapping_from(flags.get("relic_counters")),
+                                   "paels_tooth": len(serialized)}
     if removed_specs:
         flags["relic_removed_card_specs"] = removed_specs
     if removed_ids:
@@ -7843,6 +7861,10 @@ def _apply_sea_glass_card_selection(
     # Sea Glass has fixed rarity slots, not a roll over the entire color pool:
     # https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Sea_Glass
     # Canonical candidates make source payload order irrelevant to our RNG.
+    from .source_card_reward_modifiers import modify_generated_cards
+
+    option_modifiers: dict[str, Any] = {}
+    modifier_events: list[EffectEvent] = []
     selected_ids: list[str] = []
     rarity_counts: dict[str, int] = {}
     missing_rarity_counts: dict[str, int] = {}
@@ -7871,6 +7893,17 @@ def _apply_sea_glass_card_selection(
             rng.shuffle(candidates)
             chosen = candidates[:5]
             upgraded_flags.extend(False for _ in chosen)
+        state, chosen_upgrades, chosen_modifiers, batch_events = modify_generated_cards(
+            state, rng, chosen, upgraded_flags[-len(chosen):] if chosen else (),
+            is_card_reward=False,
+            context={"group_key": f"sea_glass:{rarity.value}",
+                     "no_upgrade_roll": True, "no_card_pool_modifications": True},
+        )
+        if chosen:
+            upgraded_flags[-len(chosen):] = chosen_upgrades
+        option_modifiers.update({str(len(selected_ids) + int(i)): value
+                                 for i, value in chosen_modifiers.items()})
+        modifier_events.extend(batch_events)
         selected_ids.extend(chosen)
         rarity_counts[rarity.value] = len(chosen)
         if len(chosen) < 5:
@@ -7891,6 +7924,13 @@ def _apply_sea_glass_card_selection(
         "optional_fixed_card_indices": optional_indices
         + tuple(range(first_index, first_index + len(selected))),
     })
+    all_modifiers = dict(_mapping_from(metadata.get("card_reward_option_modifiers")))
+    fixed_modifiers = dict(_mapping_from(all_modifiers.get("fixed")))
+    fixed_modifiers.update({str(first_index + int(i)): value
+                            for i, value in option_modifiers.items()})
+    if fixed_modifiers:
+        all_modifiers["fixed"] = fixed_modifiers
+        metadata["card_reward_option_modifiers"] = all_modifiers
     reward = reward.model_copy(update={
         "card_ids": reward.card_ids + selected,
         "metadata": metadata,
@@ -7910,8 +7950,7 @@ def _apply_sea_glass_card_selection(
                 "missing_rarity_counts": missing_rarity_counts,
             },
         ),
-    )
-
+    ) + tuple(modifier_events)
 
 def _apply_relic_random_relics_marker(
     state: RunState,
@@ -8253,6 +8292,8 @@ def _relic_marker_matches_deck_card(
     card: CardInstance,
     metadata: Mapping[str, object],
 ) -> bool:
+    if _truthy(metadata.get("requires_upgradable")) and not _card_is_upgradable(card):
+        return False
     source_tag = str(metadata.get("match_source_tag", ""))
     if source_tag and not _has_source_card_tag(card, source_tag):
         return False
@@ -9649,7 +9690,7 @@ def _start_combat_for_node(
     if state.combat is not None and state.phase != RunPhase.COMBAT:
         state = state.model_copy(update={"player": _run_player_after_combat(state.player)})
     rng = random_from_state(state.rng)
-    draw_pile, innate_events = _opening_draw_pile(state.master_deck, rng)
+    draw_pile, innate_events = _opening_draw_pile(state.master_deck, rng, prioritize=False)
     metadata: dict[str, Any] = {"item_relic_ids": state.relics, "relic_counters": {
         key: value for key, value in _relic_counters_from_flags(state).items()
         if key not in COMBAT_ONLY_RELIC_COUNTERS
@@ -9740,6 +9781,9 @@ def _start_combat_for_node(
     combat, start_relic_events = _apply_combat_relic_resolution(
         combat, start_relics, rng=rng, state=state,
     )
+    opening_pile, priority_events = _prioritize_opening_cards(combat.draw_pile)
+    combat = combat.model_copy(update={"draw_pile": opening_pile})
+    innate_events += priority_events
     turn_relics = _resolve_combat_relic_trigger(
         GameTrigger.TURN_START,
         state.relics,
@@ -10027,7 +10071,11 @@ def _apply_paels_tooth_add_removed_card_marker(
     rng: Random,
     marker: CombatRelicMarker,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    candidates = _removed_by_relic_card_specs(state)
+    if state.player.hp <= 0:
+        return state, ()
+    source_cards = list(_flag_mapping_sequence(state, "paels_tooth_serialized_cards"))
+    source_saved = "paels_tooth_serialized_cards" in state.flags
+    candidates = tuple(source_cards) if source_saved else _removed_by_relic_card_specs(state)
     if not candidates:
         return state, (
             EffectEvent(
@@ -10043,7 +10091,13 @@ def _apply_paels_tooth_add_removed_card_marker(
             ),
         )
 
-    spec = dict(rng.choice(candidates))
+    spec = dict(random_stream(rng, "rewards").choice(candidates))
+    flags = dict(state.flags)
+    if source_saved:
+        source_cards.remove(spec)
+        flags["paels_tooth_serialized_cards"] = source_cards
+        flags["relic_counters"] = {**_mapping_from(flags.get("relic_counters")),
+                                   "paels_tooth": len(source_cards)}
     card_id = _normalized_id(str(spec.get("card_id", spec.get("id", "")) or ""))
     if not card_id:
         return state, (
@@ -10065,11 +10119,11 @@ def _apply_paels_tooth_add_removed_card_marker(
     deck = list(state.master_deck)
     card = _card_from_spec(card_spec, len(deck) + 1)
     card = _with_unique_deck_card_id(card, deck)
-    if _truthy(marker.metadata.get("upgraded")) and not card.upgraded:
+    if _truthy(marker.metadata.get("upgraded")) and _card_is_upgradable(card):
         card = _upgrade_card_instance(card)
     deck.append(card)
     return (
-        state.model_copy(update={"master_deck": tuple(deck)}),
+        state.model_copy(update={"master_deck": tuple(deck), "flags": flags}),
         (
             EffectEvent(
                 kind="relic_deck_card_added",
@@ -10187,10 +10241,17 @@ def _apply_opening_hand_discard_redraw_marker(
 def _opening_draw_pile(
     master_deck: Sequence[CardInstance],
     rng: Random,
+    *, prioritize: bool = True,
 ) -> tuple[tuple[CardInstance, ...], tuple[EffectEvent, ...]]:
     rng = random_stream(rng, "shuffle")
     shuffled = list(master_deck)
     rng.shuffle(shuffled)
+    return _prioritize_opening_cards(shuffled) if prioritize else (tuple(shuffled), ())
+
+
+def _prioritize_opening_cards(
+    shuffled: Sequence[CardInstance],
+) -> tuple[tuple[CardInstance, ...], tuple[EffectEvent, ...]]:
     bottom_cards = tuple(card for card in shuffled if source_enchantment_hooks.has(card, "imbued"))
     innate_cards = tuple(reversed(tuple(
         card for card in shuffled if _card_is_innate(card) and card not in bottom_cards
@@ -27208,6 +27269,8 @@ def _apply_lifecycle_relics_after_combat(
 ) -> tuple[RunState, CombatState, tuple[EffectEvent, ...]]:
     events: list[EffectEvent] = []
     counters = _combat_relic_counters(combat)
+    if "paels_tooth_serialized_cards" in state.flags:
+        counters["paels_tooth"] = len(_flag_mapping_sequence(state, "paels_tooth_serialized_cards"))
     ticket = "wongos_mystery_ticket"
     if _has_relic(state, ticket):
         state, pickup_events = _apply_lifecycle_relic_pickup(state, ticket)
@@ -29261,13 +29324,19 @@ def _treasure_reward_state(
             floor=node.floor,
             ascension_level=state.ascension,
             owned_relics=state.relics,
-            opened_chests=_flag_int(state, "treasure_chests_opened", 0),
+            opened_chests=(_flag_int(state, "silver_crucible_treasure_rooms_entered", 0)
+                           if _has_relic(state, "silver_crucible")
+                           else _flag_int(state, "treasure_chests_opened", 0)),
         ),
         relic_selector=(
             lambda rarity: draw_source_relic(state, flags, rarity, shared=True)
         ) if has_source_relic_bag(state, shared=True) else None,
         relic_rarity_rng=random_stream(rng, "treasure_room_relics"),
     )
+    if _has_relic(state, "silver_crucible"):
+        flags["silver_crucible_treasure_rooms_entered"] = (
+            _flag_int(state, "silver_crucible_treasure_rooms_entered", 0) + 1
+        )
     relic_id = treasure_reward.relic_id
     explicit_relic_id = _explicit_reward_id(state, "treasure_reward_relic_id")
     if explicit_relic_id is not None and not treasure_reward.empty:

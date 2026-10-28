@@ -595,7 +595,7 @@ def _resolve_start_of_combat_dynamic(
         )
 
     if relic_id == "tea_of_discourtesy":
-        charges = context.relic_counters.get(relic_id, 0)
+        charges = context.relic_counters.get(relic_id, 1)
         if charges <= 0:
             return ()
         return (
