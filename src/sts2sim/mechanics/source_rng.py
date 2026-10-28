@@ -68,6 +68,17 @@ def source_sample(rng: Random, items: Sequence[T], count: int) -> list[T]:
     return [available.pop(rng.randrange(len(available))) for _ in range(count)]
 
 
+def source_take_random(rng: Random, items: Sequence[T], count: int) -> list[T]:
+    """IEnumerableExtensions.TakeRandom: full UnstableShuffle, then Take.
+
+    Unlike explicit repeated NextItem/Remove loops, this consumes n-1 draws
+    even when taking zero items, and consumes no draw for a singleton list.
+    """
+    shuffled = list(items)
+    rng.shuffle(shuffled)
+    return shuffled[:max(0, count)]
+
+
 def draw_source_potion(
     rng: Random, options: Sequence[str], rarities: Mapping[str, str] | None = None
 ) -> str:

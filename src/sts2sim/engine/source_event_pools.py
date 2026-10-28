@@ -26,8 +26,11 @@ def source_event_card_rows(
                                  multiplayer=int(state.flags.get('player_count', 1)) > 1)
 
 
-def source_transform_ids(state: RunState, pool_id: str) -> tuple[str, ...]:
+def source_transform_ids(
+    state: RunState, pool_id: str, *, for_combat_generation: bool = False
+) -> tuple[str, ...]:
     epochs = (tuple(str(epoch) for epoch in state.flags['revealed_epochs'])
               if 'revealed_epochs' in state.flags else None)
     return source_pool_cards(pool_id, unlocked_epochs=epochs,
-                             multiplayer=int(state.flags.get('player_count', 1)) > 1)
+                             multiplayer=int(state.flags.get('player_count', 1)) > 1,
+                             for_combat_generation=for_combat_generation)

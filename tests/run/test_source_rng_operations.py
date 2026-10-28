@@ -57,3 +57,15 @@ def test_weighted_selection_uses_float32_and_source_boundary() -> None:
     assert float32(.1 + .2) == float32(.3)
     with pytest.raises(ValueError):
         source_weighted_item(Fixed(), ['a'], lambda _: 0)
+
+
+def test_take_random_c_shuffle_vector_uses_full_population_not_number_taken():
+    from sts2sim.mechanics.source_rng import source_take_random
+    bank = RunRng('TEST')
+    rng = random_stream(bank, 'shops')
+    assert source_take_random(rng, list(range(10)), 4) == [7, 9, 2, 8]
+    assert capture_random_state(bank).streams['shops'].draws == 9
+    assert source_take_random(rng, [42], 1) == [42]
+    assert capture_random_state(bank).streams['shops'].draws == 9
+    assert source_take_random(rng, [1, 2, 3], 0) == []
+    assert capture_random_state(bank).streams['shops'].draws == 11

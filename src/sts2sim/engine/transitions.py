@@ -204,6 +204,7 @@ from sts2sim.mechanics.source_rng import (
     is_source_rng,
     source_float,
     source_sample,
+    source_take_random,
 )
 from sts2sim.mechanics.stable_pool_order import (
     STABLE_CARD_POOL_ORDER,
@@ -3648,13 +3649,13 @@ def _choose_event_flow_option(
             has_open_potion_slot=len(next_state.potions) < _potion_capacity(next_state))
     if is_source_rng(rng) and state.event.event_id.upper() == "TINKER_TIME":
         if action.target_id.upper() == "CHOOSE_CARD_TYPE":
-            choices = tuple(source_sample(rng, ("ATTACK", "SKILL", "POWER"), 2))
+            choices = tuple(source_take_random(rng, ("ATTACK", "SKILL", "POWER"), 2))
             next_flow = replace(next_flow, data={**next_flow.data, "tinker_type_choices": choices})
         elif flow_state.page_id == "CHOOSE_CARD_TYPE":
             choices = {"ATTACK": ("SAPPING", "VIOLENCE", "CHOKING"),
                        "SKILL": ("ENERGIZED", "WISDOM", "CHAOS"),
                        "POWER": ("EXPERTISE", "CURIOUS", "IMPROVEMENT")}[action.target_id.upper()]
-            selected_riders = tuple(source_sample(rng, choices, 2))
+            selected_riders = tuple(source_take_random(rng, choices, 2))
             next_flow = replace(next_flow, data={**next_flow.data,
                 "tinker_rider_choices": selected_riders})
     event = _event_state_from_flow(
@@ -20695,7 +20696,17 @@ def _generated_choice_cards(
     _sort_source_generation_specs(state, candidates, pool)
     rng = random_stream(rng, "combat_card_generation")
     if is_source_rng(rng):
-        selected = source_sample(rng, candidates, min(choices, len(candidates)))
+        pool_name = "colorless" if payload.get("pool") == "colorless" else _normalized_id(
+            state.character_id
+        )
+        source_ids = source_transform_ids(state, pool_name, for_combat_generation=True)
+        if any(_normalized_id(str(spec.get("card_id", spec.get("id", "")))) in source_ids
+               for spec in candidates):
+            candidates = [spec for spec in candidates if _normalized_id(str(
+                spec.get("card_id", spec.get("id", "")))) in source_ids]
+        candidates = list(order_source_pool(candidates, source_ids,
+            lambda spec: _normalized_id(str(spec.get("card_id", spec.get("id", ""))))))
+        selected = source_take_random(rng, candidates, choices)
     else:
         rng.shuffle(candidates)
         selected = candidates[:choices]

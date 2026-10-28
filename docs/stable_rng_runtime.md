@@ -62,6 +62,14 @@ with the ephemeral model RNG. Legacy MT deliberately retains one stream.
 integration. It does not claim exact whole-run seeded equivalence. Every
 source call's collection ordering, eligibility, player/model mixins, float32
 rounding, counters and number of draws still need complete independent review.
-Python `sample`/`choices` remain simulator helpers where a caller has not been
-ported to the source's algorithm. An end-to-end v0.107.1 game checkpoint or
-action trace remains necessary to establish complete seed parity.
+`source_sample` and `RunRng.sample` model explicit repeated `NextItem`/`Remove`
+loops. The separate `source_take_random` models `IEnumerableExtensions.TakeRandom`:
+shuffle the entire input, then take the requested prefix. It consumes `n-1`
+draws even for a zero-sized result; a singleton shuffle consumes none. Combat
+`GetDistinctForCombat` and Tinker offers use the latter. Card reward factories
+and Reflections use explicit loops. Independent C vectors distinguish these
+contracts and verify both their outputs and counters.
+
+There are no remaining `choices` or `uniform` callers under the simulator source.
+MT utility helpers retain their original behavior. An end-to-end v0.107.1 game
+checkpoint or action trace remains necessary to establish complete seed parity.

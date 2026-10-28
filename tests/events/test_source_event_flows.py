@@ -121,6 +121,7 @@ def test_tinker_types_and_riders_are_two_distinct_model_rng_choices_once_each():
     state = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='CHOOSE_CARD_TYPE'))
     assert len(legal_actions(state)) == 2
     assert state.rng.streams['TINKER_TIME'].draws == 2
+    assert [option.option_id for option in state.event.options] == ['ATTACK', 'POWER']
     card_type = state.event.options[0].option_id
     state = step(load_state(serialize(state)), Action(type=ActionType.CHOOSE_EVENT,
                                                     target_id=card_type))

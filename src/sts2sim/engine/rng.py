@@ -421,6 +421,8 @@ class RunRng(random.Random):
     def sample(
         self, population: Sequence[T], k: int, *, counts: Iterable[int] | None = None
     ) -> list[T]:
+        # Simulator convenience for explicit NextItem/Remove loops. The game's
+        # IEnumerable.TakeRandom is a separate full-shuffle operation.
         if counts is not None:
             raise ValueError("game source sampling does not support repeated population counts")
         return source_sample(self, population, k)
