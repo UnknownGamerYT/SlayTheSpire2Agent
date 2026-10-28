@@ -792,3 +792,48 @@ def source_pool_cards(
                      or SOURCE_CARD_UNLOCK_EPOCHS[card] in epochs)
                  and card not in (SINGLEPLAYER_ONLY if multiplayer else MULTIPLAYER_ONLY)
                  and (not for_combat_generation or card not in COMBAT_GENERATION_EXCLUDED))
+
+
+# CardModel.IsUpgradable and each source card MaxUpgradeLevel override.
+NON_UPGRADABLE_CARD_IDS = frozenset(
+    {
+        "ascenders_bane",
+        "bad_luck",
+        "beckon",
+        "burn",
+        "byrdonis_egg",
+        "clumsy",
+        "curse_of_the_bell",
+        "dazed",
+        "debris",
+        "debt",
+        "decay",
+        "deprecated_card",
+        "disintegration",
+        "doubt",
+        "enthralled",
+        "folly",
+        "frantic_escape",
+        "greed",
+        "guilty",
+        "infection",
+        "injury",
+        "lantern_key",
+        "mind_rot",
+        "normality",
+        "poor_sleep",
+        "regret",
+        "shame",
+        "slimed",
+        "sloth",
+        "soot",
+        "spoils_map",
+        "spore_mind",
+        "toxic",
+        "void",
+        "waste_away",
+        "wither",
+        "wound",
+        "writhe",
+    }
+)

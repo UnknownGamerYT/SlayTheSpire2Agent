@@ -17,6 +17,7 @@ from sts2sim.content.source_card_pools import (
     source_pool_cards,
 )
 from sts2sim.content.sources import STS1_COMPAT_SOURCE
+from sts2sim.content.source_card_pools import NON_UPGRADABLE_CARD_IDS
 from sts2sim.data import load_cached_json
 from sts2sim.mechanics.ancients import (
     AncientChoice as MechanicsAncientChoice,
@@ -11063,17 +11064,6 @@ def _choose_card_for_pending_choice(
                     },
                 )
             )
-            events.extend(
-                _card_movement_events(
-                    GameTrigger.CARD_DRAWN,
-                    (chosen,),
-                    from_pile=pending_choice.zone,
-                    to_pile="hand",
-                    source_id=pending_choice.source_id,
-                    reason="chosen_move_to_hand",
-                    metadata={"remaining": remaining},
-                )
-            )
     elif pending_choice.kind == "set_free_to_play":
         chosen = _apply_choice_runtime_card_modifiers(chosen, pending_choice)
         combat = _replace_card_in_combat_zone(combat, pending_choice.zone, chosen)
@@ -11715,6 +11705,7 @@ def _metadata_after_card_play(
     updated = {
         **dict(metadata),
         "cards_played_this_combat": cards_played_this_combat,
+        "source_core_finished_cards": _metadata_int(metadata, "source_core_finished_cards", 0) + 1,
     }
     card_type = _normalized_id(card.type.value)
     if card_type in {"attack", "skill"}:
@@ -18995,7 +18986,7 @@ def _card_matches_choice_payload(
 
     if payload.get("action") == "add_sly" and _card_has_keyword(card, "sly"):
         return False
-    if payload.get("action") == "upgrade" and card.upgraded:
+    if payload.get("action") == "upgrade" and (card.upgraded or card.card_id in NON_UPGRADABLE_CARD_IDS):
         return False
     color = payload.get("color")
     if isinstance(color, str) and color:
@@ -21859,12 +21850,13 @@ def _apply_card_exhausted_triggers_from_events(
                 for payload in _combat_trigger_payloads(step.get("combat_trigger")):
                     if payload.get("trigger") != "card_exhausted":
                         continue
-                    for inherent_effect in _combat_trigger_effects(payload):
-                        combat, rng_state, inherent_events = _apply_combat_trigger_effect_step(
-                            state, combat, rng_state, exhausted_card, inherent_effect,
-                            context={"exhausted_card": exhausted_card},
-                        )
-                        events.extend(inherent_events)
+                    for _ in range(source_core_hooks.exhaust_play_count(exhausted_card)):
+                        for inherent_effect in _combat_trigger_effects(payload):
+                            combat, rng_state, inherent_events = _apply_combat_trigger_effect_step(
+                                state, combat, rng_state, exhausted_card, inherent_effect,
+                                context={"exhausted_card": exhausted_card},
+                            )
+                            events.extend(inherent_events)
         combat, rng_state, relic_events = _apply_runtime_relic_hook(
             state.model_copy(update={"combat": combat, "player": combat.player}),
             combat,
@@ -28496,6 +28488,8 @@ def _card_add_upgrade_relic_id(state: RunState, card: CardInstance) -> str | Non
 
 
 def _upgrade_card_instance(card: CardInstance) -> CardInstance:
+    if card.card_id in NON_UPGRADABLE_CARD_IDS:
+        return card
     if card.upgraded:
         return card
     source_spec = _mapping_from(card.custom.get("source_spec"))

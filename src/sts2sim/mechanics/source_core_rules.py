@@ -50,11 +50,18 @@ RUNTIME_CARDS = frozenset(
         "gold_axe",
         "dodge_and_roll",
         "hidden_gem",
+        "cinder",
+        "true_grit",
     }
 )
 
 
-def source_core_steps(source: Mapping[str, Any], steps, *, card_library=None):
+def source_core_steps(
+    source: Mapping[str, Any],
+    steps: tuple[Mapping[str, Any], ...],
+    *,
+    card_library: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[Mapping[str, Any], ...]:
     """Replace known lossy source-field/text interpretations with source rules."""
     if source.get("effects") or source.get("effect") or not source.get("description"):
         return steps
@@ -63,14 +70,20 @@ def source_core_steps(source: Mapping[str, Any], steps, *, card_library=None):
     if card_id in RUNTIME_CARDS:
         return ({"source_core": card_id},)
 
-    def status(key, amount, target="self"):
+    def status(key: str, amount: int, target: str = "self") -> dict[str, Any]:
         return {"apply_status": {"target": target, key: amount}}
 
-    def shivs(count, *, inky=False, upgraded=False):
+    def shivs(count: int, *, inky: bool = False, upgraded: bool = False) -> dict[str, Any]:
         return {
             "add_card_to_hand": {"count": count, "card": shiv_spec(upgraded=upgraded, inky=inky)}
         }
 
+    if card_id == "expose":
+        return (
+            {"remove_block": {"target": "enemy"}},
+            {"remove_status": {"target": "enemy", "statuses": ("artifact",)}},
+            status("vulnerable", 3 if upgraded else 2, "enemy"),
+        )
     if card_id == "accuracy":
         return (status("accuracy", 6 if upgraded else 4),)
     if card_id in {"blade_dance", "blade_of_ink", "cloak_and_dagger", "up_my_sleeve"}:
@@ -226,7 +239,7 @@ def source_core_steps(source: Mapping[str, Any], steps, *, card_library=None):
     return steps
 
 
-def shiv_spec(*, upgraded=False, inky=False):
+def shiv_spec(*, upgraded: bool = False, inky: bool = False) -> dict[str, Any]:
     """Canonical Shiv fields retain an independent upgradeable source spec."""
     return {
         "card_id": "shiv",

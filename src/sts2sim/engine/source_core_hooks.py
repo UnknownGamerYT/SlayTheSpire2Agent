@@ -6,21 +6,42 @@ exhaust/discard/draw/child plays retain their normal hooks and serialization.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from random import Random
+from typing import Any
+
+from sts2sim.content.source_card_pools import source_pool_cards
 from sts2sim.mechanics.source_core_rules import shiv_spec
+from sts2sim.mechanics.triggers import GameTrigger
 
-from .models import CardType, EffectEvent
+from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
+from .rng import capture_random_state, random_from_state, random_stream
+
+CoreResult = tuple[CombatState, RngState, tuple[EffectEvent, ...]]
 
 
-def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent, effect, relics):
+def apply_source_core(
+    *,
+    state: RunState | None,
+    combat: CombatState,
+    rng_state: RngState,
+    card: CardInstance,
+    target_id: str | None,
+    energy_spent: int,
+    effect: Mapping[str, Any],
+    relics: Sequence[str],
+) -> CoreResult | None:
     from . import transitions as t
 
     name = effect.get("source_core")
     if not name:
         return None
     up = card.upgraded
-    events = []
+    events: list[EffectEvent] = []
 
-    def run(step, *, target=target_id, source=card):
+    def run(
+        step: Mapping[str, Any], *, target: str | None = target_id, source: CardInstance = card
+    ) -> tuple[EffectEvent, ...]:
         nonlocal combat, rng_state
         combat, rng_state, resolved = t._apply_effect_step(
             state=state,
@@ -35,7 +56,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
         events.extend(resolved)
         return resolved
 
-    def exhaust(cards):
+    def exhaust(cards: Sequence[CardInstance]) -> None:
         nonlocal combat, rng_state
         for chosen in tuple(cards):
             if t._find_card(combat.hand, chosen.instance_id) is None:
@@ -43,7 +64,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
             combat = t._remove_card_from_combat_zone(combat, "hand", chosen.instance_id)
             combat = combat.model_copy(update={"exhaust_pile": combat.exhaust_pile + (chosen,)})
             moved = t._card_movement_events(
-                t.GameTrigger.CARD_EXHAUSTED,
+                GameTrigger.CARD_EXHAUSTED,
                 (chosen,),
                 from_pile="hand",
                 to_pile="exhaust_pile",
@@ -60,7 +81,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
                 )
                 events.extend(triggered)
 
-    def add_damage_bonus(amount):
+    def add_damage_bonus(amount: int) -> None:
         nonlocal combat
         updates = dict(combat.metadata.get("played_card_updates", {}))
         update = dict(updates.get(card.instance_id, {}))
@@ -78,14 +99,20 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
             )
         )
 
-    def bonus():
+    def bonus() -> int:
         return int(card.custom.get("source_core_damage_bonus", 0)) + int(
             combat.metadata.get("played_card_updates", {})
             .get(card.instance_id, {})
             .get("source_core_damage_bonus", 0)
         )
 
-    def play(chosen, zone, *, force_exhaust=False, fixed_target=None):
+    def play(
+        chosen: CardInstance,
+        zone: str,
+        *,
+        force_exhaust: bool = False,
+        fixed_target: str | None = None,
+    ) -> None:
         nonlocal combat, rng_state
         if state is None:
             return
@@ -119,16 +146,10 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
             )
         events.extend(resolved)
 
-    def select_rng(stream="combat_card_selection"):
-        rng = t.random_from_state(rng_state)
-        # Older test RNGs keep their established behavior; the source RNG bank
-        # routes selection separately when available.
-        try:
-            from .rng import random_stream
-        except ImportError:
-            return rng
-        return random_stream(rng, stream)
+    def select_rng(stream: str = "combat_card_selection") -> Random:
+        return random_stream(random_from_state(rng_state), stream)
 
+    following: tuple[Mapping[str, Any], ...]
     if name in {"brand", "burning_pact", "hidden_daggers"}:
         if name == "brand":
             run({"hp_loss": 1})
@@ -151,27 +172,36 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
         else:
             for step in following:
                 run(step)
+    elif name in {"cinder", "true_grit"}:
+        run({"damage": 24 if up else 18} if name == "cinder" else {"block": 9 if up else 7})
+        if name == "true_grit" and up:
+            run({"exhaust_choice": 1})
+        elif combat.hand:
+            rng = select_rng()
+            chosen = rng.choice(combat.hand)
+            rng_state = capture_random_state(rng)
+            exhaust((chosen,))
     elif name == "gold_axe":
-        run({"damage": max(0, int(combat.metadata.get("cards_played_this_combat", 0)) - 1)})
+        run({"damage": int(combat.metadata.get("source_core_finished_cards", 0))})
     elif name == "dodge_and_roll":
         resolved = run({"block": 6 if up else 4})
         amount = sum(e.amount or 0 for e in resolved if e.kind == "player_block")
         run({"next_turn": {"block": amount}})
     elif name == "hidden_gem":
-        candidates = [
+        gem_cards = [
             c
             for c in combat.draw_pile
             if c.type.value not in {"curse", "status"}
             and not t._card_is_unplayable(c)
             and not t._card_has_keyword(c, "replay")
         ]
-        candidates = [
-            c for c in candidates if c.type.value in {"attack", "skill", "power"}
-        ] or candidates
-        if candidates:
+        gem_cards = [
+            c for c in gem_cards if c.type.value in {"attack", "skill", "power"}
+        ] or gem_cards
+        if gem_cards:
             rng = select_rng()
-            chosen = rng.choice(candidates)
-            rng_state = t.capture_random_state(rng)
+            chosen = rng.choice(gem_cards)
+            rng_state = capture_random_state(rng)
             chosen = chosen.model_copy(
                 update={"custom": {**chosen.custom, "replay": 3 if up else 2}}
             )
@@ -265,14 +295,14 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
         count = (5 if up else 4) if name == "ricochet" else (4 if up else 3)
         for _ in range(count):
             rng = select_rng("combat_targets")
-            selected = t._random_alive_monster_id(combat, rng)
-            rng_state = t.capture_random_state(rng)
-            if selected is None:
+            selected_target = t._random_alive_monster_id(combat, rng)
+            rng_state = capture_random_state(rng)
+            if selected_target is None:
                 break
             if name == "bouncing_flask":
-                run({"apply_status": {"target": "enemy", "poison": 3}}, target=selected)
+                run({"apply_status": {"target": "enemy", "poison": 3}}, target=selected_target)
             else:
-                run({"damage": 3}, target=selected)
+                run({"damage": 3}, target=selected_target)
     elif name == "echoing_slash":
         remaining = 1
         while remaining and t._alive_monsters(combat):
@@ -329,11 +359,11 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
     elif name == "thrash":
         run({"damage": (6 if up else 4) + bonus()})
         run({"damage": (6 if up else 4) + bonus()})
-        candidates = tuple(c for c in combat.hand if c.type == CardType.ATTACK)
-        if candidates:
+        thrash_cards = [c for c in combat.hand if c.type == CardType.ATTACK]
+        if thrash_cards:
             rng = select_rng()
-            chosen = rng.choice(candidates)
-            rng_state = t.capture_random_state(rng)
+            chosen = rng.choice(thrash_cards)
+            rng_state = capture_random_state(rng)
             value = next(
                 (
                     int(s.get("damage", s.get("all_damage", 0)))
@@ -368,7 +398,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
         else:
             zone = "discard_pile" if name == "beat_down" else "draw_pile"
             count = (4 if up else 3) if name == "beat_down" else (3 if up else 2)
-            candidates = [
+            play_candidates = [
                 c
                 for c in t._cards_in_combat_zone(combat, zone)
                 if not t._card_is_unplayable(c)
@@ -376,21 +406,21 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
             ]
             if name == "beat_down":
                 rng = select_rng("shuffle")
-                rng.shuffle(candidates)
-                rng_state = t.capture_random_state(rng)
-                for chosen in candidates[:count]:
+                rng.shuffle(play_candidates)
+                rng_state = capture_random_state(rng)
+                for chosen in play_candidates[:count]:
                     play(chosen, zone)
             else:
                 for _ in range(count):
-                    candidates = [
+                    play_candidates = [
                         c for c in combat.draw_pile if not t._card_is_unplayable(c)
                     ] or list(combat.draw_pile)
-                    if not candidates:
+                    if not play_candidates:
                         break
                     rng = select_rng("shuffle")
-                    rng.shuffle(candidates)
-                    rng_state = t.capture_random_state(rng)
-                    play(candidates[0], zone)
+                    rng.shuffle(play_candidates)
+                    rng_state = capture_random_state(rng)
+                    play(play_candidates[0], zone)
     elif name == "armaments":
         run({"block": 5})
         if up:
@@ -400,21 +430,21 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
         else:
             run({"choose_card": {"action": "upgrade", "zone": "hand", "count": 1}})
     elif name == "anointed":
-        candidates = [
+        rare_cards = [
             c
             for c in combat.draw_pile
             if str(t._card_source_spec(c).get("rarity", "")).lower() == "rare"
         ]
         space = t.MAX_HAND_SIZE - len(combat.hand)
-        if len(candidates) > space:
+        if len(rare_cards) > space:
             rng = select_rng()
-            rng.shuffle(candidates)
-            rng_state = t.capture_random_state(rng)
-        chosen = tuple(candidates[:space])
-        selected_ids = {c.instance_id for c in chosen}
+            rng.shuffle(rare_cards)
+            rng_state = capture_random_state(rng)
+        chosen_rares = tuple(rare_cards[:space])
+        selected_ids = {c.instance_id for c in chosen_rares}
         combat = combat.model_copy(
             update={
-                "hand": combat.hand + chosen,
+                "hand": combat.hand + chosen_rares,
                 "draw_pile": tuple(
                     c for c in combat.draw_pile if c.instance_id not in selected_ids
                 ),
@@ -427,7 +457,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
                 target_id=c.instance_id,
                 metadata={"card_id": c.card_id},
             )
-            for c in chosen
+            for c in chosen_rares
         )
     elif name == "primal_force":
         rock = {
@@ -461,7 +491,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
             run({"damage": 30 if up else 25})
         if state is not None:
             raw = t._raw_card_pool_items(state)
-            candidates = [
+            generation_specs = [
                 s
                 for s in raw
                 if isinstance(s, dict)
@@ -478,15 +508,34 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
                     )
                 )
             ]
+            pool = "colorless" if name == "jack_of_all_trades" else state.character_id.lower()
+            epochs = state.flags.get("revealed_epochs", state.flags.get("unlocked_epochs"))
+            allowed = source_pool_cards(
+                pool,
+                unlocked_epochs=epochs,
+                multiplayer=int(state.flags.get("player_count", 1)) > 1,
+                for_combat_generation=True,
+            )
+            order = {cid: i for i, cid in enumerate(allowed)}
+            generation_specs = [
+                spec
+                for spec in generation_specs
+                if str(spec.get("id", spec.get("card_id", ""))).lower() in order
+            ]
+            generation_specs.sort(
+                key=lambda spec: order[str(spec.get("id", spec.get("card_id", ""))).lower()]
+            )
             rng = select_rng("combat_card_generation")
             count = (2 if up else 1) if name == "jack_of_all_trades" else 3
             if name == "jack_of_all_trades":
-                rng.shuffle(candidates)
-                selected = candidates[:count]
+                rng.shuffle(generation_specs)
+                generated_specs = generation_specs[:count]
             else:
-                selected = [rng.choice(candidates) for _ in range(count)] if candidates else []
-            rng_state = t.capture_random_state(rng)
-            for spec in selected:
+                generated_specs = (
+                    [rng.choice(generation_specs) for _ in range(count)] if generation_specs else []
+                )
+            rng_state = capture_random_state(rng)
+            for spec in generated_specs:
                 run(
                     {
                         "add_card_to_hand": {
@@ -497,7 +546,7 @@ def apply_source_core(*, state, combat, rng_state, card, target_id, energy_spent
     return combat, rng_state, tuple(events)
 
 
-def energy_cost(card, combat, default):
+def energy_cost(card: CardInstance, combat: CombatState, default: int) -> int:
     """Late costs from FreeAttack/FreeSkill and the two count-cost cards."""
     kind = card.type.value
     if combat.player.statuses.get(f"source_core_free_{kind}", 0) > 0:
@@ -508,7 +557,7 @@ def energy_cost(card, combat, default):
     return max(0, default - int(combat.metadata.get(key, 0))) if key else default
 
 
-def consume_free(combat, card):
+def consume_free(combat: CombatState, card: CardInstance) -> CombatState:
     key = f"source_core_free_{card.type.value}"
     amount = combat.player.statuses.get(key, 0)
     if not amount:
@@ -523,7 +572,7 @@ def consume_free(combat, card):
     )
 
 
-def record_discards(combat, events):
+def record_discards(combat: CombatState, events: Sequence[EffectEvent]) -> CombatState:
     count = sum(
         e.kind == "card_discarded"
         and e.metadata.get("reason") not in {"end_turn_discard", "played_card_destination"}
@@ -547,7 +596,9 @@ def record_discards(combat, events):
     )
 
 
-def after_play(state, combat, rng_state, card):
+def after_play(
+    state: RunState, combat: CombatState, rng_state: RngState, card: CardInstance
+) -> CoreResult:
     from . import transitions as t
 
     amount = combat.player.statuses.get("source_core_juggling", 0)
@@ -590,9 +641,16 @@ def after_play(state, combat, rng_state, card):
     )
 
 
-def dynamic_card(combat, card):
+def dynamic_card(combat: CombatState, card: CardInstance) -> CardInstance:
     from . import transitions as t
 
     if not t._is_shiv_card(card) or not combat.player.statuses.get("source_core_fan_of_knives"):
         return card
-    return card.model_copy(update={"target": t.TargetType.ALL_ENEMIES})
+    return card.model_copy(update={"target": TargetType.ALL_ENEMIES})
+
+
+def exhaust_play_count(card: CardInstance) -> int:
+    """DrumOfBattle.GeneratePlayCount includes the physical card's Replay."""
+    amount = max(0, int(card.custom.get("replay", 0)))
+    enchantment = sum(max(1, e.amount) for e in card.enchantments if e.keyword.lower() == "replay")
+    return 1 + max(amount, enchantment)

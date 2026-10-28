@@ -425,3 +425,47 @@ def test_hand_trick_grants_single_turn_sly_to_one_skill():
     assert state.combat.hand[0].custom["sly"]
     state = _end_turn(state)
     assert not any(c.custom.get("source_core_temporary_sly") for c in state.combat.discard_pile)
+
+
+def test_gold_axe_during_havoc_does_not_count_unfinished_parent():
+    state = _play(_state(source("havoc"), draw=(source("gold_axe"),)), "havoc")
+    assert state.combat.monsters[0].hp == 100
+    assert state.combat.metadata["source_core_finished_cards"] == 2
+
+
+@pytest.mark.parametrize("up", [False, True])
+def test_drum_of_battle_exhaust_energy_uses_source_replay_count(up):
+    from sts2sim.engine import CardEnchantment
+
+    drum = source("drum_of_battle", up).model_copy(
+        update={
+            "enchantments": (CardEnchantment(keyword="replay", amount=2),),
+        }
+    )
+    state = _play(_state(source("fiend_fire"), drum), "fiend_fire")
+    assert state.player.energy == 18 + 3 * (3 if up else 2)
+
+
+def test_armaments_does_not_upgrade_cards_with_source_max_upgrade_zero():
+    burn = _card_from_spec({"card_id": "burn", "type": "status", "cost": -1}, 0)
+    state = _play(_state(source("armaments", True), burn, source("anger")), "armaments")
+    assert not state.combat.hand[0].upgraded
+    assert state.combat.hand[1].upgraded
+
+
+def test_secret_weapon_is_a_pile_move_without_draw_reactions():
+    state = _play(
+        _state(source("secret_weapon"), draw=(source("anger"),), statuses={"speedster": 2}),
+        "secret_weapon",
+    )
+    state = choose(_reload(state), "anger")
+    assert state.combat.monsters[0].hp == 100
+    assert not any(e.kind == "card_drawn" for e in state.combat.last_events)
+
+
+def test_jackpot_generates_only_eligible_zero_cost_character_cards():
+    pool = (ROWS["ANGER"], {**ROWS["STRIKE_IRONCLAD"], "cost": 0})
+    state = _state(source("jackpot"))
+    state = state.model_copy(update={"character_id": "IRONCLAD", "flags": {"card_pool": pool}})
+    state = _play(state, "jackpot")
+    assert [c.card_id for c in state.combat.hand] == ["anger"] * 3
