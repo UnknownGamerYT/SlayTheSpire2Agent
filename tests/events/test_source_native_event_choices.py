@@ -136,3 +136,141 @@ def test_fixed_card_and_potion_callbacks_preserve_their_source_delivery() -> Non
     result = _choose(courier, 'grab_potions')
     assert result.reward is not None
     assert result.reward.potion_ids == ('foul_potion',) * 3
+
+
+def test_brain_leech_grid_generates_five_once_then_adds_chosen_one():
+    state = _choose(_event('BRAIN_LEECH'), 'share_knowledge')
+    offers = state.event.metadata['generated_cards']
+    assert len(offers) == len(set(offers)) == 5
+    assert state.rng.streams['rewards'].draws == 10
+    assert len(legal_actions(state)) == 5 and state.reward is None
+    original = len(state.master_deck)
+    result = _choose(load_state(serialize(state)), 'choose_cards', (offers[3],))
+    assert len(result.master_deck) == original + 1
+    assert result.master_deck[-1].card_id == offers[3]
+    assert result.rng.streams['rewards'].draws == 10
+
+
+def test_cheese_grid_chooses_two_of_eight_common_cards():
+    state = _choose(_event('ROOM_FULL_OF_CHEESE'), 'gorge')
+    assert len(legal_actions(state)) == 28
+    offers = state.event.metadata['generated_cards']
+    assert len(offers) == len(set(offers)) == 8
+    assert state.rng.streams['rewards'].draws == 8
+    result = _choose(state, 'choose_cards', offers[:2])
+    assert tuple(card.card_id for card in result.master_deck[-2:]) == offers[:2]
+
+
+def test_infested_automaton_adds_one_filtered_power_directly():
+    state = _event('INFESTED_AUTOMATON')
+    result = _choose(state, 'study')
+    assert result.master_deck[-1].type.value == 'power'
+    assert result.rng.streams['rewards'].draws == 2
+    assert result.reward is None
+
+
+def test_native_enchantment_can_target_eternal_but_rejects_existing_enchantment():
+    state = _event('SYMBIOTE')
+    card = state.master_deck[0].model_copy(update={'tags': ('eternal',)})
+    already = e._enchant_card(state.master_deck[1], 'Sharp', 2, source_id='fixture')
+    state = state.model_copy(update={'master_deck': (card, already, *state.master_deck[2:])})
+    actions = [a for a in legal_actions(state) if a.target_id == 'approach']
+    assert any(card.instance_id in a.payload['card_instance_ids'] for a in actions)
+    assert all(already.instance_id not in a.payload['card_instance_ids'] for a in actions)
+    result = _choose(state, 'approach', (card.instance_id,))
+    assert result.master_deck[0].enchantments[-1].keyword == 'Corrupted'
+
+
+def test_waterlogged_sponge_enchants_two_for_exact_gold_without_reward():
+    state = _event('WATERLOGGED_SCRIPTORIUM')
+    ids = tuple(card.instance_id for card in state.master_deck[:2])
+    result = _choose(state, 'prickly_sponge', ids)
+    assert result.player.gold == 201 and result.reward is None
+    assert all(card.enchantments[-1].keyword == 'Steady' for card in result.master_deck[:2])
+
+
+def _with_potions_event(event_id, potions):
+    state = _event(event_id)
+    state = state.model_copy(update={'potions': potions})
+    return e._enter_event_room(state, state.map.nodes[0].model_copy(
+        update={'kind': RoomKind.EVENT}))[0]
+
+
+def test_stone_lift_fixes_potion_before_reload_and_consumes_unused_roll():
+    state = _with_potions_event('STONE_OF_ALL_TIME', ('fire_potion', 'block_potion'))
+    assert state.rng.streams['STONE_OF_ALL_TIME'].draws == 1
+    option = next(o for o in state.event.options if o.option_id == 'lift')
+    selected_index = option.metadata['source_native_rule']['remove_potion_index']
+    selected_potion = state.potions[selected_index]
+    result = _choose(load_state(serialize(state)), 'lift')
+    assert len(result.potions) == 1 and selected_potion not in result.potions
+    assert result.player.max_hp == 90 and result.player.hp == 60
+    assert result.rng.streams['STONE_OF_ALL_TIME'].draws == 2
+
+
+def test_future_of_potions_fixes_types_and_upgrades_all_three_offered_cards():
+    state = _with_potions_event('THE_FUTURE_OF_POTIONS',
+                               ('fire_potion', 'block_potion', 'skill_potion'))
+    assert state.rng.streams['THE_FUTURE_OF_POTIONS'].draws == 3
+    result = _choose(load_state(serialize(state)), 'potion_1')
+    assert len(result.potions) == 2 and result.reward is not None
+    assert len(result.reward.card_options) == 3
+    assert result.reward.metadata['card_option_upgraded'] == (True,) * 3
+    assert result.rng.streams['rewards'].draws == 3
+
+
+def test_colorful_philosophers_fixes_three_other_colors_and_rolls_nine_upgrades():
+    state = _event('COLORFUL_PHILOSOPHERS')
+    assert len(state.event.options) == 3
+    assert all(o.option_id != 'ironclad' for o in state.event.options)
+    assert state.rng.streams['COLORFUL_PHILOSOPHERS'].draws == 1
+    result = _choose(state, state.event.options[0].option_id)
+    assert result.reward is not None
+    assert len(result.reward.card_options) == 3
+    assert len(result.reward.card_option_groups) == 2
+    assert result.rng.streams['rewards'].draws == 18
+
+
+def test_doll_room_take_time_damages_then_offers_two_stably_shuffled_relics():
+    state = _choose(_event('DOLL_ROOM'), 'take_some_time')
+    assert state.player.hp == 45 and len(legal_actions(state)) == 2
+    assert state.rng.streams['DOLL_ROOM'].draws == 2
+    assert state.reward is None
+    relic = state.event.options[0].option_id
+    result = _choose(load_state(serialize(state)), relic)
+    assert relic in result.relics and result.event.resolved_option_id == relic
+
+
+def test_ranwid_potion_offer_and_relic_reward_are_fixed_across_reload():
+    state = _with_potions_event('RANWID_THE_ELDER', ('fire_potion', 'block_potion'))
+    state = _bag(state.model_copy(update={'relics': ('burning_blood', 'anchor', 'kunai')}))
+    state = state.model_copy(update={'flags': {**state.flags, 'player_relic_bag': {
+        'Common': ('LANTERN', 'VAJRA'), 'Uncommon': ('NUNCHAKU', 'PAPER_PHROG'),
+        'Rare': ('TORII',)}}})
+    state = e._enter_event_room(state, state.map.nodes[0].model_copy(
+        update={'kind': RoomKind.EVENT}))[0]
+    assert state.rng.streams['RANWID_THE_ELDER'].draws == 2
+    result = _choose(load_state(serialize(state)), 'potion')
+    assert len(result.potions) == 1 and len(result.relics) == 4
+    assert result.rng.streams['rewards'].draws == 1
+    assert result.reward is None
+
+
+def test_relic_trader_pulls_three_front_offers_on_entry_even_before_selection():
+    state = _bag(_event('RELIC_TRADER').model_copy(update={'relics': (
+        'burning_blood', 'anchor', 'kunai', 'sundial', 'ink_bottle', 'bird_faced_urn')}))
+    state = state.model_copy(update={'flags': {**state.flags, 'player_relic_bag': {
+        'Common': ('LANTERN', 'VAJRA'), 'Uncommon': ('NUNCHAKU', 'PAPER_PHROG'),
+        'Rare': ('TORII',)}}})
+    state = e._enter_event_room(state, state.map.nodes[0].model_copy(
+        update={'kind': RoomKind.EVENT}))[0]
+    assert len(state.event.options) == 3
+    assert state.rng.streams['RELIC_TRADER'].draws == 4
+    assert state.rng.streams['rewards'].draws == 3
+    assert sum(len(ids) for ids in state.flags['player_relic_bag'].values()) == 2
+    option = state.event.options[0]
+    rule = option.metadata['source_native_rule']
+    result = _choose(load_state(serialize(state)), option.option_id)
+    assert rule['remove_relic'] not in result.relics
+    assert rule['add_relics'][0] in result.relics
+    assert result.rng.streams['rewards'].draws == 3

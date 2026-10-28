@@ -36,6 +36,21 @@ class SourceEventRule:
     uniform_potion_reward: bool = False
     potion_rarity: str = ""
     selection_first: bool = False
+    enchant: str = ""
+    enchant_amount: int = 1
+    card_type: str = ""
+    card_cost: int | None = None
+    generated_count: int = 0
+    generated_choose: int = 0
+    generated_rarity: str = ""
+    generated_color: str = ""
+    generated_uniform: bool = False
+    generated_upgrade_roll: bool = False
+    generated_reward: bool = False
+    remove_potion_index: int | None = None
+    remove_relic: str = ""
+    random_relic_count: int = 1
+    doll_offers: int = 0
 
     def payload(self) -> dict[str, object]:
         return asdict(self)
@@ -64,11 +79,25 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "LET_GO": R(selection="transform"),
         "MAINTAIN_CONTROL": R(selection="upgrade"),
     },
+    "BRAIN_LEECH": {
+        "SHARE_KNOWLEDGE": R(generated_count=5, generated_choose=1),
+        "RIP": R(N(hp_loss=5), generated_count=3, generated_color="colorless",
+                 generated_reward=True),
+    },
+    "INFESTED_AUTOMATON": {
+        "STUDY": R(generated_count=1, card_type="power"),
+        "TOUCH_CORE": R(generated_count=1, card_cost=0),
+    },
     "BUGSLAYER": {
         "EXTERMINATION": R(add_cards=("exterminate",)),
         "SQUASH": R(add_cards=("squash",)),
     },
     "BYRDONIS_NEST": {"EAT": R(N(max_hp_delta=7)), "TAKE": R(add_cards=("byrdonis_egg",))},
+    "DOLL_ROOM": {
+        "RANDOM": R(relic_pool=("daughter_of_the_wind", "mr_struggles", "bing_bong")),
+        "TAKE_SOME_TIME": R(N(hp_loss=5), doll_offers=2),
+        "EXAMINE": R(N(hp_loss=15), doll_offers=3),
+    },
     "DOORS_OF_LIGHT_AND_DARK": {
         "LIGHT": R(upgrade_random=2, stable_upgrade_shuffle=True),
         "DARK": R(selection="remove"),
@@ -99,20 +128,40 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "TOUCH_A_MIRROR": R(downgrade_random=2, upgrade_random=4),
         "SHATTER": R(add_cards=("bad_luck",), duplicate_deck=True),
     },
-    "ROOM_FULL_OF_CHEESE": {"SEARCH": R(N(hp_loss=14), add_relics=("chosen_cheese",))},
+    "ROOM_FULL_OF_CHEESE": {
+        "SEARCH": R(N(hp_loss=14), add_relics=("chosen_cheese",)),
+        "GORGE": R(generated_count=8, generated_choose=2,
+                   generated_uniform=True, generated_rarity="common"),
+    },
     "ROUND_TEA_PARTY": {
         "ENJOY_TEA": R(add_relics=("royal_poison",), heal_to_full=True),
         "PICK_FIGHT": R(N(next_page="PICK_FIGHT")),
         "CONTINUE_FIGHT": R(N(hp_loss=11), random_relic=True),
     },
-    "SAPPHIRE_SEED": {"EAT": R(N(heal=9), selection="upgrade")},
+    "SAPPHIRE_SEED": {"EAT": R(N(heal=9), selection="upgrade"),
+                      "PLANT": R(selection="enchant", enchant="Sown")},
+    "SPIRALING_WHIRLPOOL": {"OBSERVE": R(selection="enchant", enchant="Spiral")},
+    "STONE_OF_ALL_TIME": {
+        "LIFT": R(N(max_hp_delta=10), extra_rng_draws=1),
+        "PUSH": R(N(hp_loss=6), selection="enchant", enchant="Vigorous",
+                  enchant_amount=8, extra_rng_draws=1),
+    },
+    "SELF_HELP_BOOK": {
+        "READ_THE_BACK": R(selection="enchant", enchant="Sharp", enchant_amount=2,
+                           card_type="attack"),
+        "READ_PASSAGE": R(selection="enchant", enchant="Nimble", enchant_amount=2,
+                          card_type="skill"),
+        "READ_ENTIRE_BOOK": R(selection="enchant", enchant="Swift", enchant_amount=2,
+                              card_type="power"),
+    },
     "SPIRIT_GRAFTER": {
         "LET_IT_IN": R(N(heal=25), add_cards=("metamorphosis",)),
         "REJECTION": R(N(hp_loss=10), selection="upgrade", selection_first=True),
     },
     "SUNKEN_STATUE": {"GRAB_SWORD": R(add_relics=("sword_of_stone",))},
     "SUNKEN_TREASURY": {"SECOND_CHEST": R(add_cards=("greed",))},
-    "SYMBIOTE": {"KILL_WITH_FIRE": R(selection="transform")},
+    "SYMBIOTE": {"KILL_WITH_FIRE": R(selection="transform"),
+                 "APPROACH": R(selection="enchant", enchant="Corrupted")},
     "TEA_MASTER": {
         "BONE_TEA": R(N(gold_delta=-50), add_relics=("bone_tea",), required_gold=50),
         "EMBER_TEA": R(N(gold_delta=-150), add_relics=("ember_tea",), required_gold=150),
@@ -152,7 +201,13 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "REST": R(heal_to_full=True, add_cards=("poor_sleep",)),
         "KILL": R(N(max_hp_delta=-8), random_relic=True),
     },
-    "WATERLOGGED_SCRIPTORIUM": {"BLOODY_INK": R(N(max_hp_delta=6))},
+    "WATERLOGGED_SCRIPTORIUM": {
+        "BLOODY_INK": R(N(max_hp_delta=6)),
+        "PRICKLY_SPONGE": R(N(gold_delta=-99), selection="enchant", count=2,
+                            enchant="Steady", required_gold=99),
+        "TENTACLE_QUILL": R(N(gold_delta=-55), selection="enchant", enchant="Steady",
+                            required_gold=55),
+    },
     "WELLSPRING": {
         "BOTTLE": R(uniform_potion_reward=True),
         "BATHE": R(selection="remove", add_cards=("guilty",)),

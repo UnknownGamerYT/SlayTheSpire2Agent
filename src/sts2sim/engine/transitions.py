@@ -265,6 +265,8 @@ from .rng import (
 from .serialization import SerializedState, load_state, state_digest
 from .source_enchantment_hooks import can_enchant as can_enchant_source
 from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
+from .source_enchantment_hooks import can_enchant as source_can_enchant
+from .source_event_offers import native_dynamic_offers
 
 ActionInput = Action | Mapping[str, Any]
 SourceData = Mapping[str, Any] | None
@@ -2323,6 +2325,8 @@ def _enter_event_room(
         )
 
     event = _event_state_for_node(state, node, rng)
+    if event.metadata.get("source_startup_flags"):
+        state = state.model_copy(update={"flags": event.metadata["source_startup_flags"]})
     flags = dict(state.flags)
     flags["visited_event_ids"] = list(dict.fromkeys(
         (*_flag_str_sequence(state, "visited_event_ids"), event.event_id)
@@ -2419,6 +2423,10 @@ def _event_state_for_node(
             **result.metadata, "source_numeric_values": startup.values,
             "source_event_rng": result.event_id.upper(),
         }})
+    if is_source_rng(rng):
+        result = native_dynamic_offers(state, result, event_rng,
+            relic_rows=tuple(_cached_source_rows(state, "relics")),
+            potion_rarities=_combat_potion_rarities(state))
     diagnostics = event.get("eligibility_diagnostics")
     if diagnostics:
         result = result.model_copy(update={
@@ -2987,6 +2995,12 @@ def _legal_event_actions(state: RunState) -> tuple[Action, ...]:
         if option.disabled or option.metadata.get("summary_marker"):
             continue
         native_rule = _mapping_from(option.metadata.get("source_native_rule"))
+        if is_source_rng(state.rng) and native_rule.get("selection") == "offered":
+            offered = _string_items(native_rule.get("offered_cards"))
+            count = min(len(offered), _coerce_int(native_rule.get("count"), default=1))
+            actions.extend(Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id,
+                payload={"card_instance_ids": group}) for group in combinations(offered, count))
+            continue
         if is_source_rng(state.rng) and native_rule.get("selection"):
             candidates = _source_event_selection_candidates(state, native_rule)
             count = min(len(candidates), _coerce_int(native_rule.get("count"), default=1))
@@ -3213,6 +3227,10 @@ def _source_event_selection_candidates(
             CardType.ATTACK, CardType.SKILL, CardType.POWER
         }):
             continue
+        if kind == "enchant" and not source_can_enchant(card, str(rule.get("enchant"))):
+            continue
+        if rule.get("card_type") and card.type.value != rule["card_type"]:
+            continue
         source = _card_source_spec(card)
         if rule.get("basic_only") and _normalized_id(str(source.get("rarity", "basic"))) != "basic":
             continue
@@ -3246,8 +3264,15 @@ def _choose_source_native_event(
     rule = _mapping_from(option.metadata.get("source_native_rule"))
     selected = _event_action_card_instance_ids(action)
     candidates = _source_event_selection_candidates(state, rule)
+    offered_ids = _string_items(rule.get("offered_cards"))
+    if rule.get("selection") == "offered":
+        count = min(len(offered_ids), _coerce_int(rule.get("count"), default=1))
+        if (len(selected) != count or len(set(selected)) != count
+                or not set(selected) <= set(offered_ids)):
+            return state, ()
     count = min(len(candidates), _coerce_int(rule.get("count"), default=1))
-    if rule.get("selection") and (len(selected) != count or len(set(selected)) != len(selected)
+    if rule.get("selection") not in {"", "offered"} and (
+            len(selected) != count or len(set(selected)) != len(selected)
             or not set(selected) <= {card.instance_id for card in candidates}):
         return state, ()
     rng = random_stream(random_from_state(state.rng), state.event.event_id.upper())
@@ -3255,6 +3280,17 @@ def _choose_source_native_event(
     events: list[EffectEvent] = [EffectEvent(kind="event_option_chosen",
         source_id=state.event.event_id, target_id=option.option_id,
         metadata={"title": option.title, "card_instance_ids": selected, "native_source": True})]
+    potion_index = rule.get("remove_potion_index")
+    if isinstance(potion_index, int) and 0 <= potion_index < len(next_state.potions):
+        discarded = next_state.potions[potion_index]
+        next_state = next_state.model_copy(update={"potions": tuple(
+            potion for index, potion in enumerate(next_state.potions) if index != potion_index)})
+        events.append(EffectEvent(kind="event_potion_discarded", target_id=discarded))
+    if rule.get("remove_relic"):
+        relic_id = str(rule["remove_relic"])
+        next_state = next_state.model_copy(update={"relics": tuple(
+            relic for relic in next_state.relics if relic != relic_id)})
+        events.append(EffectEvent(kind="event_relic_removed", target_id=relic_id))
     if rule.get("lose_all_gold"):
         lost = next_state.player.gold
         next_state = next_state.model_copy(update={"player": next_state.player.model_copy(
@@ -3275,6 +3311,14 @@ def _choose_source_native_event(
                      for card in next_state.master_deck)
         next_state = next_state.model_copy(update={"master_deck": upgraded_deck})
         events.extend(EffectEvent(kind="card_upgraded", target_id=card_id) for card_id in selected)
+    elif kind == "enchant":
+        keyword = str(rule.get("enchant"))
+        amount = _coerce_int(rule.get("enchant_amount"), default=1)
+        next_state = next_state.model_copy(update={"master_deck": tuple(
+            _enchant_card(card, keyword, amount, source_id=state.event.event_id)
+            if card.instance_id in selected else card for card in next_state.master_deck)})
+        events.extend(EffectEvent(kind="card_enchanted", target_id=card_id, amount=amount,
+                                  metadata={"keyword": keyword}) for card_id in selected)
     elif kind == "transform":
         target = rule.get("target_card")
         marker = EventFlowMarker(kind=EventFlowMarkerKind.CARD_TRANSFORM, count=count,
@@ -3314,7 +3358,75 @@ def _choose_source_native_event(
             deck.append(duplicate)
             events.append(EffectEvent(kind="event_card_duplicated", target_id=duplicate.instance_id,
                                       metadata={"card_id": duplicate.card_id}))
+    if rule.get("doll_offers"):
+        dolls = ["bing_bong", "daughter_of_the_wind", "mr_struggles"]
+        rng.shuffle(dolls)
+        dolls = dolls[:_coerce_int(rule["doll_offers"], default=0)]
+        doll_options = tuple(EventOptionState(option_id=relic, title=relic.replace("_", " "),
+            metadata={"source_native_rule": {"selection": "", "add_relics": (relic,)}})
+            for relic in dolls)
+        event = state.event.model_copy(update={"page_id": option.option_id.upper(),
+            "options": doll_options, "resolved_option_id": None})
+        return next_state.model_copy(update={"event": event,
+            "rng": capture_random_state(rng)}), tuple(events)
+    generated_ids: tuple[str, ...] = ()
+    generated_rarities: tuple[str, ...] = ()
+    generated_upgrades: tuple[bool, ...] = ()
+    if rule.get("colorful_groups"):
+        marker = EventFlowMarker(kind=EventFlowMarkerKind.CARD_REWARD,
+                                 qualifier=str(rule["generated_color"]))
+        pool = _event_flow_card_pool(next_state, marker)
+        groups, group_rarities, upgrade_groups = [], [], []
+        for rarity in ("common", "uncommon", "rare"):
+            ids, rarity_ids, upgrades = source_noncombat_cards(rng, tuple(
+                card for card in pool if card.rarity.value == rarity), 3, uniform=True,
+                no_upgrade_roll=False, act=state.act, ascension=state.ascension)
+            groups.append(ids)
+            group_rarities.append(rarity_ids)
+            upgrade_groups.append(upgrades)
+        colorful_reward = _reward_with_card_option_groups(
+            None, reward_id="event:colorful_philosophers",
+            groups=tuple(groups), rarities=tuple(group_rarities), metadata={
+                "card_option_upgraded": upgrade_groups[0],
+                "card_option_group_upgraded": tuple(upgrade_groups[1:])})
+        event = state.event.model_copy(update={"resolved_option_id": option.option_id})
+        return next_state.model_copy(update={"event": event, "reward": colorful_reward,
+            "rng": capture_random_state(rng)}), (
+                *events, *_reward_generated_events(colorful_reward))
+    generated_count = _coerce_int(rule.get("generated_count"), default=0)
+    if generated_count:
+        marker = EventFlowMarker(kind=EventFlowMarkerKind.RANDOM_CARD,
+                                 qualifier=str(rule.get("generated_color") or "character"))
+        pool = _event_flow_card_pool(next_state, marker)
+        if rule.get("generated_rarity"):
+            pool = tuple(card for card in pool if card.rarity.value == rule["generated_rarity"])
+        if rule.get("card_type"):
+            pool = tuple(card for card in pool
+                         if _reward_card_spec(next_state, card.card_id).get("type", "").lower()
+                         == rule["card_type"])
+        if rule.get("card_cost") is not None:
+            pool = tuple(card for card in pool
+                         if _reward_card_spec(next_state, card.card_id).get("cost")
+                         == rule["card_cost"])
+        generated_ids, generated_rarities, generated_upgrades = source_noncombat_cards(
+            rng, pool, generated_count, uniform=bool(rule.get("generated_uniform")),
+            no_upgrade_roll=not bool(rule.get("generated_upgrade_roll")), act=state.act,
+            ascension=state.ascension)
+        if rule.get("generated_choose") and generated_ids:
+            followup = EventOptionState(option_id="choose_cards", title="Choose cards",
+                metadata={"source_native_rule": {"selection": "offered",
+                    "offered_cards": generated_ids, "count": rule["generated_choose"]}})
+            event = state.event.model_copy(update={"page_id": "CHOOSE_CARDS",
+                "options": (followup,), "resolved_option_id": None,
+                "metadata": {**state.event.metadata, "generated_cards": generated_ids,
+                             "generated_card_upgraded": generated_upgrades}})
+            return next_state.model_copy(update={"event": event,
+                "rng": capture_random_state(rng)}), tuple(events)
     add_cards = list(_string_items(rule.get("add_cards")))
+    if kind == "offered":
+        add_cards.extend(selected)
+    if not rule.get("generated_reward"):
+        add_cards.extend(generated_ids)
     card_pool = _string_items(rule.get("card_pool"))
     if card_pool:
         add_cards.append(rng.choice(card_pool))
@@ -3322,6 +3434,9 @@ def _choose_source_native_event(
         spec = _reward_card_spec(next_state, card_id)
         spec["card_id"] = card_id
         card = _with_unique_deck_card_id(_card_from_spec(spec, len(deck) + 1), deck)
+        card, egg_event = _upgrade_card_for_add_relics(next_state, card)
+        if egg_event is not None:
+            events.append(egg_event)
         deck.append(card)
         events.append(EffectEvent(kind="event_card_added", target_id=card.instance_id,
                                   metadata={"card_id": card_id}))
@@ -3333,7 +3448,8 @@ def _choose_source_native_event(
     relic_pool = _string_items(rule.get("relic_pool"))
     if relic_pool:
         relic_ids.append(rng.choice(relic_pool))
-    if rule.get("random_relic"):
+    for _ in range(_coerce_int(rule.get("random_relic_count"), default=1)
+                   if rule.get("random_relic") else 0):
         if has_source_relic_bag(next_state):
             flags = dict(next_state.flags)
             rarity = source_relic_rarity(random_stream(rng, "rewards"))
@@ -3362,6 +3478,13 @@ def _choose_source_native_event(
         if pool:
             potion_ids.append(random_stream(rng, "rewards").choice(pool))
     reward = None
+    if generated_ids and rule.get("generated_reward"):
+        reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
+            source="event", card_options=generated_ids,
+            metadata={"card_rarities": generated_rarities,
+                      "card_option_upgraded": (tuple(True for _ in generated_ids)
+                        if rule.get("force_generated_upgrade") else generated_upgrades)})
+        events.extend(_reward_generated_events(reward))
     if potion_ids:
         reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
                              source="event", forced=True, potion_ids=tuple(potion_ids))
@@ -4259,6 +4382,10 @@ def _event_flow_card_pool(
     qualifier = _normalized_id(str(marker.qualifier or ""))
     if qualifier == "other_character":
         return _other_character_card_reward_pool(state)
+    if qualifier in {"ironclad", "silent", "defect", "necrobinder", "regent"}:
+        pool = build_character_card_pool(_raw_card_pool_items(state), character_id=qualifier)
+        order = {card_id: i for i, card_id in enumerate(STABLE_CARD_POOL_ORDER[qualifier])}
+        return tuple(sorted(pool, key=lambda card: order.get(card.card_id, len(order))))
     raw_cards = _raw_card_pool_items(state)
     if qualifier == "colorless":
         pool = build_colorless_card_pool(raw_cards)
