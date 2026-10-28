@@ -285,6 +285,7 @@ from .source_enchantment_hooks import can_enchant as source_can_enchant
 from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 from .source_event_offers import native_dynamic_offers
 from .source_event_pools import source_event_card_rows, source_transform_ids
+from .source_reward_reroll import card_reroll_context, legal_reward_rerolls, reroll_card_reward
 
 ActionInput = Action | Mapping[str, Any]
 SourceData = Mapping[str, Any] | None
@@ -644,6 +645,8 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         next_state, events = _take_reward_potion(state, action)
     elif action.type == ActionType.SKIP_REWARD:
         next_state, events = _skip_reward(state, action)
+    elif action.type == ActionType.REROLL_REWARD:
+        next_state, events = reroll_card_reward(state, action)
     elif action.type in _CAMPFIRE_ACTION_TYPES:
         next_state, events = _resolve_campfire_action(state, action)
     elif action.type == ActionType.THROW_POTION_AT_MERCHANT:
@@ -3428,6 +3431,11 @@ def _choose_source_native_event(
         colorful_reward = _reward_with_card_option_groups(
             None, reward_id="event:colorful_philosophers",
             groups=tuple(groups), rarities=tuple(group_rarities), metadata={
+                "card_reroll_contexts": {
+                    "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
+                        pools=(str(rule["generated_color"]),), count=3, uniform=True,
+                        no_upgrade_roll=False, rarity=rarity)
+                    for index, rarity in enumerate(("common", "uncommon", "rare"))},
                 "card_option_upgraded": upgrade_groups[0],
                 "card_option_group_upgraded": tuple(upgrade_groups[1:])})
         event = state.event.model_copy(update={"resolved_option_id": option.option_id})
@@ -3560,6 +3568,15 @@ def _choose_source_native_event(
         reward = _reward_with_card_option_groups(None,
             reward_id=f"event:{state.event.event_id}:{option.option_id}",
             groups=tuple(card_groups), rarities=tuple(card_rarities), metadata={
+                "card_reroll_contexts": {
+                    "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
+                        pools=(str(rule.get("generated_color") or "character"),),
+                        count=generated_count, uniform=bool(rule.get("generated_uniform")),
+                        no_upgrade_roll=not bool(rule.get("generated_upgrade_roll")),
+                        rarity=rule.get("generated_rarity"), card_type=rule.get("card_type"),
+                        card_cost=rule.get("card_cost"),
+                        force_upgrade=bool(rule.get("force_generated_upgrade")))
+                    for index in range(len(card_groups))},
                 "card_option_upgraded": (tuple(True for _ in generated_ids)
                     if rule.get("force_generated_upgrade") else generated_upgrades),
                 "card_option_group_upgraded": tuple(upgrade_groups[1:])})
@@ -4338,6 +4355,13 @@ def _reward_with_card_option_groups(
     normalized_rarities = tuple(
         tuple(str(rarity) for rarity in group) for group in rarities
     )
+    metadata = dict(metadata)
+    metadata.setdefault("card_reroll_contexts", {
+        "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
+            mode="combat" if source == "combat" else "noncombat", count=len(group),
+            encounter=metadata.get("encounter", "normal"))
+        for index, group in enumerate(normalized_groups)
+    })
     if reward is None:
         card_options = normalized_groups[0] if normalized_groups else ()
         extra_groups = normalized_groups[1:]
@@ -4356,6 +4380,13 @@ def _reward_with_card_option_groups(
         )
 
     reward_metadata = dict(reward.metadata)
+    contexts = dict(_mapping_from(reward_metadata.get("card_reroll_contexts")))
+    incoming_contexts = _mapping_from(metadata.get("card_reroll_contexts"))
+    for index in range(len(normalized_groups)):
+        key = "primary" if index == 0 else f"group:{index - 1}"
+        if key in incoming_contexts:
+            contexts[f"group:{len(reward.card_option_groups) + index}"] = incoming_contexts[key]
+    metadata["card_reroll_contexts"] = contexts
     existing_rarities = reward_metadata.get("card_group_rarities", ())
     if isinstance(existing_rarities, Sequence) and not isinstance(
         existing_rarities,
@@ -6508,7 +6539,7 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
     if reward is None:
         return ()
 
-    actions: list[Action] = []
+    actions: list[Action] = list(legal_reward_rerolls(state))
     actions.extend(
         Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
         for target_id, _card in _reward_optional_remove_card_targets(state)
@@ -11289,6 +11320,7 @@ def _normalize_action(state: RunState, action: Action) -> Action:
         ActionType.TAKE_REWARD_CARD,
         ActionType.TAKE_REWARD_POTION,
         ActionType.SKIP_REWARD,
+        ActionType.REROLL_REWARD,
         *_CAMPFIRE_ACTION_TYPES,
         ActionType.SHOP_BUY,
         ActionType.SHOP_LEAVE,
@@ -11388,6 +11420,7 @@ def _action_is_legal(action: Action, legal_actions_: Sequence[Action]) -> bool:
             ActionType.TAKE_REWARD_CARD,
             ActionType.TAKE_REWARD_POTION,
             ActionType.SKIP_REWARD,
+        ActionType.REROLL_REWARD,
             ActionType.SHOP_BUY,
             ActionType.DISCARD_POTION,
         } and legal.target_id == action.target_id:
@@ -28376,6 +28409,12 @@ def _combat_reward_state(
         potion_ids=potion_ids,
         metadata={
             "encounter": encounter.value,
+            "card_reroll_contexts": {
+                "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
+                    mode="combat", pools=(_normalized_id(state.character_id),),
+                    count=len(group), encounter=encounter.value)
+                for index, group in enumerate((card_options, *card_option_groups))
+            },
             "base_gold": bundle.base_gold,
             "card_rarities": bundle.card_rarities,
             "card_option_upgraded": bundle.card_upgraded,

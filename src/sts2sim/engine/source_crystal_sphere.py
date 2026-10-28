@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from random import Random
+from typing import Any
 
 from sts2sim.mechanics.event_flows import EventFlowMarker, EventFlowMarkerKind
 from sts2sim.mechanics.relic_bag_runtime import (
@@ -15,6 +16,7 @@ from sts2sim.mechanics.source_crystal_sphere import SphereBoard, new_sphere_boar
 
 from .models import EffectEvent, EventOptionState, EventState, RewardState, RunState
 from .rng import capture_random_state, random_from_state, random_stream
+from .source_reward_reroll import card_reroll_context
 
 
 def _sphere_event(event: EventState, board: SphereBoard) -> EventState:
@@ -98,6 +100,7 @@ def _sphere_rewards(
     card_groups: list[tuple[str, ...]] = []
     rarities: list[tuple[str, ...]] = []
     upgrades: list[tuple[bool, ...]] = []
+    contexts: dict[str, dict[str, Any]] = {}
     flags = dict(state.flags)
     for item in items:
         if item.kind in {'gold', 'big_gold'}:
@@ -116,6 +119,9 @@ def _sphere_rewards(
             cards, card_rarities, card_upgrades = source_noncombat_cards(
                 rng, pool, 3, uniform=True, no_upgrade_roll=False,
                 item_rng=rng, act=state.act, ascension=state.ascension)
+            key = 'primary' if not card_groups else f'group:{len(card_groups) - 1}'
+            contexts[key] = card_reroll_context(count=3, uniform=True, no_upgrade_roll=False,
+                rng_stream='CRYSTAL_SPHERE', rarity=item.rarity)
             card_groups.append(cards)
             rarities.append(card_rarities)
             upgrades.append(card_upgrades)
@@ -123,6 +129,7 @@ def _sphere_rewards(
     if card_groups:
         reward = e._reward_with_card_option_groups(None, reward_id='event:crystal_sphere',
             groups=tuple(card_groups), rarities=tuple(rarities), metadata={
+                'card_reroll_contexts': contexts,
                 'card_option_upgraded': upgrades[0],
                 'card_option_group_upgraded': tuple(upgrades[1:])})
     if gold or relics or potions:

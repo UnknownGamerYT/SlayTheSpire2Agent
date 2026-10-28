@@ -2222,6 +2222,13 @@ def _action_reward_descriptor(state: Any, action: Action) -> dict[str, Any]:
         # Finishing an optional selection resumes the surrounding reward screen;
         # it does not skip any of those still-unclaimed rewards.
         return {}
+    if action.type == ActionType.REROLL_REWARD:
+        reward = getattr(state, "reward", None)
+        return {"source": str(getattr(reward, "source", "")), "kind": "reroll",
+                "content_id": "driftwood", "gold": 0,
+                "selection_set_id": str(action.target_id or "").removeprefix("reward:reroll:"),
+                "skips_remaining": False, "skips_selection": False,
+                "closes_selection_set": False}
     if action.type not in {
         ActionType.TAKE_REWARD_GOLD,
         ActionType.TAKE_REWARD_RELIC,

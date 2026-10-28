@@ -29,6 +29,8 @@ def source_event_card_rows(
 def source_transform_ids(
     state: RunState, pool_id: str, *, for_combat_generation: bool = False
 ) -> tuple[str, ...]:
+    if state.character_id.lower() not in PLAYABLE_CARD_POOLS or state.flags.get('card_pool'):
+        return ()
     epochs = (tuple(str(epoch) for epoch in state.flags['revealed_epochs'])
               if 'revealed_epochs' in state.flags else None)
     return source_pool_cards(pool_id, unlocked_epochs=epochs,

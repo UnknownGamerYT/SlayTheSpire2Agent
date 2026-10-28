@@ -68,6 +68,7 @@ class ActionType(str, Enum):
     CLONE = "clone"
     HATCH = "hatch"
     MEND = "mend"
+    REROLL_REWARD = "reroll_reward"
 
 
 class CardType(str, Enum):
