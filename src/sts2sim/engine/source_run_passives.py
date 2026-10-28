@@ -17,7 +17,7 @@ from sts2sim.mechanics.source_ancients import source_unlocked_characters
 from sts2sim.mechanics.source_rng import float32, source_float
 
 from .errors import EngineError
-from .models import CombatState, EffectEvent, RunState
+from .models import CombatState, EffectEvent, RoomKind, RunPhase, RunState
 from .rng import random_stream
 from .source_enchantment_hooks import can_enchant
 
@@ -143,6 +143,29 @@ def observe_lava_damage(combat: CombatState, events: Sequence[EffectEvent]) -> C
     return combat
 
 
+def in_combat_room(state: RunState, context: Mapping[str, Any] | None = None) -> bool:
+    """Identify the current room, independently of a nested reward's source.
+
+    Completed CombatState objects remain archived after leaving their room.
+    Event encounters temporarily replace an EventRoom until its reward tail ends.
+    """
+    from . import transitions as t
+
+    if state.phase not in {RunPhase.COMBAT, RunPhase.REWARD}:
+        return False
+    node = t._current_map_node(state)
+    event_fight = bool(state.flags.get('event_combat_restore_flags')) and bool(
+        state.flags.get('event_fight_id'))
+    if node is not None:
+        return node.kind in {RoomKind.MONSTER, RoomKind.ELITE, RoomKind.BOSS} or (
+            node.kind == RoomKind.EVENT and event_fight)
+    # Standalone fixtures have no map room. Their active phase or explicit
+    # creation descriptor provides room provenance, rather than an old combat.
+    return (state.phase == RunPhase.COMBAT or event_fight
+            or bool((context or {}).get('in_combat_room'))
+            or state.reward is not None and state.reward.source == 'combat')
+
+
 def apply_late_group_relic(
     state: RunState, relic_id: str, card_ids: Sequence[str], upgraded: Sequence[bool], *,
     group_key: str, option_modifiers: Mapping[str, Any] | None = None,
@@ -163,8 +186,7 @@ def apply_late_group_relic(
         return upgrades, modifiers
     if relic_id == 'lava_lamp':
         if (state.combat is None or state.combat.metadata.get('lava_lamp_took_damage')
-            or not ((context or {}).get('in_combat_room') or
-                    state.reward is not None and state.reward.source == 'combat')):
+            or not in_combat_room(state, context)):
             return upgrades, modifiers
         upgrades = tuple(flag or t._card_is_upgradable(t._card_from_spec(
             t._reward_card_spec(state, card_id), i + 1))

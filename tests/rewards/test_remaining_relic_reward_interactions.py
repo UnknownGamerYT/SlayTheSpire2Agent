@@ -119,12 +119,13 @@ def test_lava_lamp_upgrades_combat_card_reward_after_no_damage_fight() -> None:
     )
 
     assert state.reward is not None
+    assert tuple(state.reward.metadata["card_option_upgraded"]) == (True,)
+    assert any(event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
+               for event in state.replay_log[-1].events)
     state = step(state, _action(state, "take_reward_card", "reward:card:0"))
 
     gained = state.master_deck[-1]
     assert gained.card_id.lower() == "common_attack"
     assert gained.upgraded is True
-    assert any(
-        event.kind == "relic_card_upgraded" and event.source_id == "lava_lamp"
-        for event in state.replay_log[-1].events
-    )
+    assert not any(event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
+                   for event in state.replay_log[-1].events)

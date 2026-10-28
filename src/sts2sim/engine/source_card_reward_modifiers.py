@@ -81,7 +81,7 @@ def modify_generated_cards(
                     upgrades[index] = True
                     changed.append(index)
         elif relic in {'glitter', 'lava_lamp'}:
-            from .source_run_passives import apply_late_group_relic
+            from .source_run_passives import apply_late_group_relic, in_combat_room
 
             before = (tuple(upgrades), dict(modifiers))
             result_upgrades, modifiers = apply_late_group_relic(
@@ -119,7 +119,9 @@ def modify_generated_cards(
         events.append(EffectEvent(
             kind='relic_card_reward_modified', source_id=relic, amount=len(changed),
             metadata={'card_reward_group': group_key, 'card_indices': changed,
-                      'is_card_reward': is_card_reward},
+                      'is_card_reward': is_card_reward,
+                      **({'in_combat_room': in_combat_room(state, options)}
+                         if relic == 'lava_lamp' else {})},
         ))
     return state.model_copy(update={'flags': flags}), tuple(upgrades), modifiers, tuple(events)
 
