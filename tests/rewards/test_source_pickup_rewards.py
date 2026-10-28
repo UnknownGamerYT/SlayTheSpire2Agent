@@ -171,3 +171,12 @@ def test_arcane_scroll_runs_single_nonreward_factory_wing_and_egg_hooks():
     assert not state.flags.get('silver_crucible_times_used')
     assert not state.flags.get('silken_tress_reward_used')
 
+
+
+def test_paels_wing_stackable_circlet_fallback_can_be_obtained_repeatedly():
+    state = _source_state('anchor', player_relic_bag={}).model_copy(update={
+        'relics': ('paels_wing', 'circlet'), 'reward': RewardState(reward_id='wing',
+            card_options=('anger',), card_option_groups=(('bash',),))})
+    state = _act(state, 'sacrifice_reward', 'reward:sacrifice:primary')
+    state = _act(state, 'sacrifice_reward', 'reward:sacrifice:group:0')
+    assert state.relics.count('circlet') == 2
