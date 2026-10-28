@@ -42,7 +42,7 @@ def _act(state, kind: str, target: str | None = None):
     )
 
 
-def test_bowler_and_dragon_fruit_trigger_on_separate_gold_gains_without_recursion() -> None:
+def test_bowler_modifies_one_gain_and_dragon_fruit_observes_one_notification() -> None:
     state = _state(("BOWLER_HAT", "DRAGON_FRUIT"))
     state = state.model_copy(
         update={
@@ -52,17 +52,17 @@ def test_bowler_and_dragon_fruit_trigger_on_separate_gold_gains_without_recursio
     )
     state = step(state, _act(state, "take_reward_gold"))
     assert state.player.gold == 125
-    assert (state.player.max_hp, state.player.hp) == (82, 42)
+    assert (state.player.max_hp, state.player.hp) == (81, 41)
     assert state.reward.gold == 20  # The offer remains unmodified.
     state = step(state, _act(state, "proceed"))
-    assert (state.player.gold, state.player.max_hp) == (125, 82)
+    assert (state.player.gold, state.player.max_hp) == (125, 81)
 
 
 def test_maw_bank_floor_gold_is_available_on_room_entry_and_stops_after_spending() -> None:
     state = _state(("maw_bank", "bowler_hat", "dragon_fruit"))
     state = step(state, _act(state, "choose_node"))
     assert state.player.gold == 115
-    assert state.player.max_hp == 82
+    assert state.player.max_hp == 81
     state = state.model_copy(
         update={
             "phase": RunPhase.SHOP,
@@ -87,7 +87,7 @@ def test_maw_bank_floor_gold_is_available_on_room_entry_and_stops_after_spending
     state = load_state(serialize(state))
     state = step(state, _act(state, "choose_node"))
     assert state.player.gold == 95
-    assert state.player.max_hp == 82
+    assert state.player.max_hp == 81
 
 
 def test_free_shop_purchase_does_not_disable_maw_bank() -> None:
@@ -125,8 +125,8 @@ def test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy() 
     before = len(state.master_deck)
     state = step(state, _act(state, "take_reward_card"))
     assert len(state.master_deck) == before + 2
-    assert state.player.gold == 136  # Two15gains, each with a separate3Bowler bonus.
-    assert state.player.max_hp == 84  # Dragon Fruit observes four gain notifications.
+    assert state.player.gold == 136  # Two 15-gold gains, each modified to 18.
+    assert state.player.max_hp == 82  # One Dragon Fruit notification per card gain.
     assert state.flags["relic_counters"]["book_of_five_rings"] == 2
     assert len({card.instance_id for card in state.master_deck}) == len(state.master_deck)
 
@@ -204,3 +204,43 @@ def test_juzu_blacklists_fights_without_advancing_their_pity(monkeypatch) -> Non
     assert "monster" in seen
     assert state.flags["unknown_room_odds"]["monster"] == 0.9
     assert state.phase is not RunPhase.COMBAT
+
+
+@pytest.mark.parametrize("relics", [
+    ("ectoplasm", "dragon_fruit"),
+    ("bowler_hat", "ectoplasm", "dragon_fruit"),
+    ("ectoplasm", "bowler_hat", "dragon_fruit"),
+])
+def test_ectoplasm_prevents_gain_and_dragon_fruit_notification_through_reload(relics):
+    state = _state(relics)
+    state = state.model_copy(update={"phase": RunPhase.REWARD,
+        "reward": RewardState(reward_id="gold", source="combat", gold=20)})
+    state = step(load_state(serialize(state)), _act(state, "take_reward_gold"))
+    assert state.player.gold == 100
+    assert (state.player.max_hp, state.player.hp) == (80, 40)
+    event = next(e for e in state.replay_log[-1].events if e.kind == "reward_gold_taken")
+    assert event.amount == 0
+    assert event.metadata["base_gain"] == 20
+    assert not any(e.source_id == "dragon_fruit" for e in state.replay_log[-1].events)
+
+
+def test_bowler_truncates_modified_gain_once_and_reward_replay_reports_actual_gain():
+    state = _state(("bowler_hat", "dragon_fruit"))
+    state = state.model_copy(update={"phase": RunPhase.REWARD,
+        "reward": RewardState(reward_id="gold", source="combat", gold=3)})
+    state = step(load_state(serialize(state)), _act(state, "take_reward_gold"))
+    assert state.player.gold == 103
+    assert (state.player.max_hp, state.player.hp) == (81, 41)
+    assert [e.amount for e in state.replay_log[-1].events
+            if e.kind == "reward_gold_taken"] == [3]
+
+
+def test_ectoplasm_blocks_maw_bank_room_entry_gain_and_reward_card_gold():
+    state = _state(("ectoplasm", "maw_bank", "lucky_fysh", "dragon_fruit"))
+    state = step(state, _act(state, "choose_node"))
+    assert (state.player.gold, state.player.max_hp) == (100, 80)
+    state = state.model_copy(update={"phase": RunPhase.REWARD,
+        "reward": RewardState(reward_id="card", source="combat", card_options=("guard",)),
+        "flags": {**state.flags, "cards": ({"id": "guard", "type": "skill", "block": 5},)}})
+    state = step(load_state(serialize(state)), _act(state, "take_reward_card"))
+    assert (state.player.gold, state.player.max_hp) == (100, 80)

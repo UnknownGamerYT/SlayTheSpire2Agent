@@ -677,8 +677,7 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
     next_state, enchant_events = _apply_silken_tress_reward(next_state)
     events += enchant_events
     next_state, events = _apply_deck_add_relics(state, next_state, action, events)
-    next_state, progression_events = _apply_run_progression_relics(state, next_state, events)
-    events = tuple(events) + progression_events
+    next_state, events = _apply_run_progression_relics(state, next_state, events)
     after_hash = state_digest(next_state)
     entry = ReplayEntry(
         step_index=len(state.replay_log),
@@ -695,64 +694,76 @@ def _apply_run_progression_relics(
     after: RunState,
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    """Finish gold notifications after any engine action, once per actual gain."""
-    extra: list[EffectEvent] = []
+    """Adapt legacy gain events and preserve source gold notifications once."""
+    result: list[EffectEvent] = []
     if _has_relic(after, "maw_bank") and any(
         event.kind in {"shop_item_bought", "shop_card_removed"}
         and _metadata_int(event.metadata, "price", 0) > 0 for event in events
     ):
         after = after.model_copy(update={"flags": {**after.flags, "maw_bank_disabled": True}})
-        extra.append(EffectEvent(kind="maw_bank_disabled", source_id="maw_bank"))
+        result.append(EffectEvent(kind="maw_bank_disabled", source_id="maw_bank"))
     gold_kinds = {
         "reward_gold_taken", "event_gold_gained", "relic_gold_gained", "gold_gained",
         "gold_changed", "spoils_map_redeemed", "foul_potion_thrown_at_merchant",
     }
-    recorded = [event for event in events if event.kind in gold_kinds and (event.amount or 0) > 0]
-    gains = [int(event.amount or 0) for event in recorded
-             if not event.metadata.get("gold_passives_applied")]
-    residual = after.player.gold - before.player.gold - sum(int(e.amount or 0) for e in recorded)
-    if residual > 0:
-        gains.append(residual)
-    after, gold_events = _apply_gold_gain_passives(after, gains)
-    extra.extend(gold_events)
-    if (
-        after.phase == RunPhase.COMBAT
-        and after.combat is not None
-        and after.combat.player != after.player
-    ):
-        after = after.model_copy(update={"combat": after.combat.model_copy(
-            update={"player": after.player}
-        )})
-    return after, tuple(extra)
-
-
-def _apply_gold_gain_passives(
-    state: RunState, gains: Sequence[int]
-) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    events: list[EffectEvent] = []
-    player = state.player
-    for amount in gains:
-        if amount <= 0:
+    recorded_total = sum(int(e.amount or 0) for e in events
+                         if e.kind in gold_kinds and (e.amount or 0) > 0)
+    residual = after.player.gold - before.player.gold - recorded_total
+    for event in events:
+        if (event.kind not in gold_kinds or (event.amount or 0) <= 0
+            or event.metadata.get("gold_passives_applied")):
+            result.append(event)
             continue
-        # Bowler Hat is a separate gain; Dragon Fruit also triggers on its bonus.
-        bonus = amount // 4 if _has_relic(state, "bowler_hat") else 0
-        if bonus:
-            player = player.model_copy(update={"gold": player.gold + bonus})
-            events.append(EffectEvent(
-                kind="relic_gold_gained", source_id="bowler_hat", amount=bonus,
-                metadata={"base_gain": amount, "gold_passives_applied": True},
-            ))
-        if _has_relic(state, "dragon_fruit"):
-            delta = 1 + int(bonus > 0)
-            was_dead = player.hp <= 0
-            player = _change_player_max_hp(player, delta)
-            if was_dead:
-                player = player.model_copy(update={"hp": 0})
-            events.append(EffectEvent(
-                kind="relic_max_hp_changed", source_id="dragon_fruit", amount=delta,
-                metadata={"max_hp": player.max_hp, "gold_gain_notifications": delta},
-            ))
-    return state.model_copy(update={"player": player}), tuple(events)
+        amount = int(event.amount or 0)
+        player = after.player.model_copy(update={"gold": after.player.gold - amount})
+        player, gain_events = _gain_player_gold(
+            player, amount, relics=after.relics, source_id=event.source_id,
+            kind=event.kind, metadata=event.metadata, target_id=event.target_id,
+        )
+        after = after.model_copy(update={"player": player})
+        result.extend(gain_events)
+    if residual > 0:
+        player = after.player.model_copy(update={"gold": after.player.gold - residual})
+        player, gain_events = _gain_player_gold(
+            player, residual, relics=after.relics, source_id=None,
+        )
+        after = after.model_copy(update={"player": player})
+        result.extend(gain_events)
+    if (after.phase == RunPhase.COMBAT and after.combat is not None
+        and after.combat.player != after.player):
+        after = after.model_copy(update={"combat": after.combat.model_copy(
+            update={"player": after.player},
+        )})
+    return after, tuple(result)
+
+
+def _gain_player_gold(
+    player: PlayerState, amount: int, *, relics: Sequence[str],
+    source_id: str | None, kind: str = "gold_gained",
+    metadata: Mapping[str, Any] | None = None, target_id: str | None = PLAYER_TARGET_ID,
+) -> tuple[PlayerState, tuple[EffectEvent, ...]]:
+    """PlayerCmd.GainGold: modify once, truncate, then notify once if positive."""
+    modified = max(0, amount)
+    if _has_relic_id(relics, "ectoplasm"):
+        modified = 0
+    elif _has_relic_id(relics, "bowler_hat"):
+        modified = modified * 5 // 4
+    player = player.model_copy(update={"gold": player.gold + modified})
+    events = [EffectEvent(
+        kind=kind, source_id=source_id, target_id=target_id, amount=modified,
+        metadata={**dict(metadata or {}), "base_gain": amount,
+                  "gold_passives_applied": True},
+    )]
+    if modified > 0 and _has_relic_id(relics, "dragon_fruit"):
+        was_dead = player.hp <= 0
+        player = _change_player_max_hp(player, 1)
+        if was_dead:
+            player = player.model_copy(update={"hp": 0})
+        events.append(EffectEvent(
+            kind="relic_max_hp_changed", source_id="dragon_fruit", amount=1,
+            metadata={"max_hp": player.max_hp, "gold_gain_notifications": 1},
+        ))
+    return player, tuple(events)
 
 
 def replay_actions(
@@ -1556,14 +1567,12 @@ def _choose_node(state: RunState, action: Action) -> tuple[RunState, tuple[Effec
         node.floor > state.floor and _has_relic(state, "maw_bank")
         and not flags.get("maw_bank_disabled")
     ):
-        state = state.model_copy(update={"player": state.player.model_copy(
-            update={"gold": state.player.gold + 12}
-        )})
-        state, gain_events = _apply_gold_gain_passives(state, (12,))
-        entry_events.extend((EffectEvent(
-            kind="relic_gold_gained", source_id="maw_bank", amount=12,
-            metadata={"gold_passives_applied": True},
-        ), *gain_events))
+        player, gain_events = _gain_player_gold(
+            state.player, 12, relics=state.relics, source_id="maw_bank",
+            kind="relic_gold_gained",
+        )
+        state = state.model_copy(update={"player": player})
+        entry_events.extend(gain_events)
     if node.kind is RoomKind.EVENT and _has_relic(state, "planisphere"):
         healed = min(5, max(0, state.player.max_hp - state.player.hp))
         state = state.model_copy(update={"player": state.player.model_copy(
@@ -1749,20 +1758,15 @@ def _apply_spoils_map_room_entry(
 
     gold = _flag_int(state, "spoils_map_reward_gold", SPOILS_MAP_GOLD)
     flags["spoils_map_completed"] = True
-    player = state.player.model_copy(update={"gold": state.player.gold + gold})
+    player, gold_events = _gain_player_gold(
+        state.player, gold, relics=state.relics, source_id=None,
+        kind="spoils_map_redeemed", target_id=node.node_id,
+        metadata={"act": node.act, "floor": node.floor,
+                  "removed_card_instance_id": removed.instance_id},
+    )
     return state.model_copy(
         update={"player": player, "master_deck": tuple(deck), "flags": flags}
-    ), (
-        EffectEvent(
-            kind="spoils_map_redeemed",
-            target_id=node.node_id,
-            amount=gold,
-            metadata={
-                "act": node.act,
-                "floor": node.floor,
-                "removed_card_instance_id": removed.instance_id,
-            },
-        ),
+    ), gold_events + (
         EffectEvent(
             kind="event_card_removed",
             target_id=removed.instance_id,
@@ -6133,19 +6137,14 @@ def _take_reward_gold(
         return state, ()
 
     reward = state.reward.model_copy(update={"gold_claimed": True})
-    player = state.player.model_copy(update={"gold": state.player.gold + state.reward.gold})
+    player, events = _gain_player_gold(
+        state.player, state.reward.gold, relics=state.relics, source_id=None,
+        kind="reward_gold_taken", target_id=None,
+        metadata={"reward_id": state.reward.reward_id, "reward_source": state.reward.source},
+    )
     return (
         state.model_copy(update={"player": player, "reward": reward}),
-        (
-            EffectEvent(
-                kind="reward_gold_taken",
-                amount=state.reward.gold,
-                metadata={
-                    "reward_id": state.reward.reward_id,
-                    "reward_source": state.reward.source,
-                },
-            ),
-        ),
+        events,
     )
 
 
@@ -6441,10 +6440,11 @@ def _apply_relic_pickup_effects(
     if apply_table_effects and not pickup.unsupported:
         player = state.player
         if pickup.gold_delta:
-            player = player.model_copy(update={"gold": max(0, player.gold + pickup.gold_delta)})
-            events.append(
-                EffectEvent(kind="relic_gold_gained", source_id=relic_id, amount=pickup.gold_delta)
+            player, gold_events = _gain_player_gold(
+                player, pickup.gold_delta, relics=state.relics, source_id=relic_id,
+                kind="relic_gold_gained",
             )
+            events.extend(gold_events)
         if pickup.max_hp_delta:
             player = _change_player_max_hp(player, pickup.max_hp_delta)
             events.append(
@@ -6945,7 +6945,7 @@ def _apply_relic_transform_deck_cards_marker(
     event_marker = _relic_event_flow_marker(marker, EventFlowMarkerKind.CARD_TRANSFORM, count)
     next_state, transform_events, transformed_count = _transform_deck_cards(
         state,
-        rng,
+        random_stream(rng, "niche") if _normalized_id(relic_id) == "new_leaf" else rng,
         event_marker,
         selected_card_instance_ids=selected_ids,
         source_id=f"relic:{relic_id}",
@@ -8038,18 +8038,14 @@ def _throw_potion_at_merchant(
         slot_index = potions.index("foul_potion")
         slot_id = _potion_slot_id(slot_index)
     potions.pop(slot_index)
-    player = state.player.model_copy(update={"gold": state.player.gold + 100})
+    player, events = _gain_player_gold(
+        state.player, 100, relics=state.relics, source_id="foul_potion",
+        kind="foul_potion_thrown_at_merchant", target_id="merchant",
+        metadata={"potion_slot": slot_id},
+    )
     return (
         state.model_copy(update={"player": player, "potions": tuple(potions)}),
-        (
-            EffectEvent(
-                kind="foul_potion_thrown_at_merchant",
-                source_id="foul_potion",
-                target_id="merchant",
-                amount=100,
-                metadata={"potion_slot": slot_id},
-            ),
-        ),
+        events,
     )
 
 
@@ -21135,19 +21131,14 @@ def _apply_combat_trigger_effect_step(
 
     if "gold" in effect:
         amount = _effect_amount(effect, "gold", 0)
-        player = combat.player.model_copy(update={"gold": combat.player.gold + amount})
+        player, events = _gain_player_gold(
+            combat.player, amount, relics=state.relics, source_id=source_card.instance_id,
+            metadata={"trigger_source": "combat_trigger"},
+        )
         return (
             combat.model_copy(update={"player": player}),
             rng_state,
-            (
-                EffectEvent(
-                    kind="gold_gained",
-                    source_id=source_card.instance_id,
-                    target_id=PLAYER_TARGET_ID,
-                    amount=amount,
-                    metadata={"trigger_source": "combat_trigger"},
-                ),
-            ),
+            events,
         )
 
     if "optional_deck_remove" in effect:
@@ -22848,11 +22839,11 @@ def _apply_card_kill_outcomes(
                 ))
             gold = _coerce_int(payload.get("gold"), default=0)
             if gold > 0:
-                player = player.model_copy(update={"gold": player.gold + gold})
-                events.append(EffectEvent(
-                    kind="gold_gained", source_id=source_card.instance_id,
-                    target_id=PLAYER_TARGET_ID, amount=gold, metadata=trigger,
-                ))
+                player, gold_events = _gain_player_gold(
+                    player, gold, relics=tuple(combat.metadata.get("item_relic_ids", ())),
+                    source_id=source_card.instance_id, metadata=trigger,
+                )
+                events.extend(gold_events)
             rewards = _coerce_int(payload.get("card_reward"), default=0)
             if rewards > 0:
                 metadata["fatal_card_reward_count"] = (
@@ -24596,8 +24587,16 @@ def _apply_combat_relic_marker(
         events.append(_combat_relic_event(marker, "energy_changed", amount))
     elif marker.kind == "gold_delta" and _marker_targets_player(marker):
         amount = marker.amount or 0
-        player = player.model_copy(update={"gold": max(0, player.gold + amount)})
-        events.append(_combat_relic_event(marker, "gold_changed", amount))
+        if amount > 0:
+            player, gold_events = _gain_player_gold(
+                player, amount, relics=tuple(combat.metadata.get("item_relic_ids", ())),
+                source_id=marker.source_id or marker.relic_id, kind="gold_changed",
+                metadata={"hook": marker.hook.value, "relic_id": marker.relic_id},
+            )
+            events.extend(gold_events)
+        else:
+            player = player.model_copy(update={"gold": max(0, player.gold + amount)})
+            events.append(_combat_relic_event(marker, "gold_changed", amount))
     elif marker.kind == "lose_hp" and _marker_targets_player(marker):
         player, event = _lose_player_hp(
             player,
@@ -26439,15 +26438,15 @@ def _apply_monster_death_spawns(
             continue
         if source_id == "fat_gremlin" and not parent.metadata.get("heist_returned"):
             gold = _metadata_int(parent.metadata, "stolen_gold", 0)
-            player = player.model_copy(update={"gold": player.gold + gold})
+            player, gold_events = _gain_player_gold(
+                player, gold, relics=state.relics, source_id=parent.monster_id,
+                metadata={"trigger": "heist"},
+            )
             monsters[parent_index] = parent.model_copy(update={"metadata": {
                 **parent.metadata, "heist_returned": True,
             }})
             if gold:
-                events.append(EffectEvent(
-                    kind="gold_gained", source_id=parent.monster_id,
-                    target_id=PLAYER_TARGET_ID, amount=gold, metadata={"trigger": "heist"},
-                ))
+                events.extend(gold_events)
         if parent.metadata.get("death_spawn_resolved"):
             continue
         spawn_ids: tuple[str, ...]
@@ -29561,12 +29560,11 @@ def _apply_deck_add_relics(
                 amount=2, metadata={"card_id": card.card_id, "keyword": "Nimble"},
             ))
         if _has_relic(after, "lucky_fysh"):
-            player = player.model_copy(update={"gold": player.gold + 15})
-            result_events.append(EffectEvent(
-                kind="gold_gained", source_id="lucky_fysh", target_id=PLAYER_TARGET_ID,
-                amount=15, metadata={"reason": "deck_card_added",
-                                     "card_instance_id": card.instance_id},
-            ))
+            player, gold_events = _gain_player_gold(
+                player, 15, relics=after.relics, source_id="lucky_fysh",
+                metadata={"reason": "deck_card_added", "card_instance_id": card.instance_id},
+            )
+            result_events.extend(gold_events)
         if _has_relic(after, "book_of_five_rings"):
             count = counters.get("book_of_five_rings", 0) + 1
             counters["book_of_five_rings"] = count % 5
