@@ -13,7 +13,7 @@ from sts2sim.engine import RewardState, RoomKind, RunPhase
 @pytest.mark.parametrize("kind", [RoomKind.MONSTER, RoomKind.ELITE, RoomKind.BOSS, RoomKind.EVENT])
 def test_pumpkin_candle_spends_a_charge_after_each_kind_of_combat_win(kind: RoomKind) -> None:
     state = _enter_combat(_run(relics=("PUMPKIN_CANDLE",)), kind)
-    assert state.player.energy == state.player.max_energy + 1
+    assert (state.player.energy, state.player.max_energy) == (4, 4)
     state = _win(state)
     assert state.flags["relic_counters"]["pumpkin_candle"] == 4
 
@@ -22,22 +22,24 @@ def test_pumpkin_candle_extinguishes_after_fifth_combat_and_persists() -> None:
     state = _run(relics=("pumpkin_candle",))
     for remaining in range(5, 0, -1):
         state = _enter_combat(state)
-        assert state.player.energy == state.player.max_energy + 1
+        assert (state.player.energy, state.player.max_energy) == (4, 4)
         # Turns do not consume charges, and every turn receives the energy.
         state = step(state, next(a for a in legal_actions(state) if a.type == "end_turn"))
-        assert state.player.energy == state.player.max_energy + 1
+        assert (state.player.energy, state.player.max_energy) == (4, 4)
         state = _win(state)
         assert state.flags["relic_counters"]["pumpkin_candle"] == remaining - 1
+        assert state.player.max_energy == 3
     state = load_state(json.loads(json.dumps(serialize(state))))
     state = _enter_combat(state)
-    assert state.player.energy == state.player.max_energy
+    assert (state.player.energy, state.player.max_energy) == (3, 3)
     state = step(state, next(a for a in legal_actions(state) if a.type == "end_turn"))
-    assert state.player.energy == state.player.max_energy
+    assert (state.player.energy, state.player.max_energy) == (3, 3)
 
 
 @pytest.mark.parametrize("charges", [0, 2, 5, 10])
 def test_kindle_adds_five_charges_and_spends_the_rest_site(charges: int) -> None:
-    state = _enter_combat(_run(relics=("pumpkin_candle",)))
+    state = _win(_enter_combat(_run(relics=("pumpkin_candle",))))
+    assert state.player.max_energy == 3
     state = state.model_copy(
         update={
             "phase": RunPhase.REST,
@@ -50,7 +52,7 @@ def test_kindle_adds_five_charges_and_spends_the_rest_site(charges: int) -> None
     assert state.flags["relic_counters"]["pumpkin_candle"] == charges + 5
     assert not any(a.type == "kindle" for a in legal_actions(state))
     state = _enter_combat(state)
-    assert state.player.energy == state.player.max_energy + 1
+    assert (state.player.energy, state.player.max_energy) == (4, 4)
 
 
 def test_kindle_requires_pumpkin_candle() -> None:
