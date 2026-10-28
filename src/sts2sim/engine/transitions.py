@@ -6836,11 +6836,13 @@ def _apply_lifecycle_relic_pickup(
         ) + pickup_events
     if relic_id == "scroll_boxes":
         rng = random_from_state(state.rng)
+        registered_rows = _registered_reward_card_rows(state, state.character_id)
+        pool_rows = _raw_card_pool_items(state) if registered_rows is None else registered_rows
         try:
             packs = scroll_boxes_packs(
                 rng,
                 build_character_card_pool(
-                    _raw_card_pool_items(state), character_id=state.character_id
+                    pool_rows, character_id=state.character_id
                 ),
                 character_id=state.character_id,
             )
@@ -7675,7 +7677,13 @@ def _apply_relic_card_reward_marker(
     if _normalized_id(relic_id) == "dusty_tome":
         selected = state.flags.get("dusty_tome_card_id")
         if not isinstance(selected, str):
-            source_order = SOURCE_CARD_POOLS.get(_normalized_id(state.character_id), ())
+            registered_rows = _registered_reward_card_rows(state, state.character_id)
+            source_order = (
+                tuple(_normalized_id(str(row.get("id", row.get("card_id", ""))))
+                      for row in registered_rows)
+                if registered_rows is not None else
+                SOURCE_CARD_POOLS.get(_normalized_id(state.character_id), ())
+            )
             candidates = [
                 card_id for card_id in source_order
                 if _normalized_id(str(
@@ -7788,8 +7796,10 @@ def _apply_sea_glass_card_selection(
     source_rng = is_source_rng(rng)
     preset = state.flags.get("sea_glass_character_id")
     color = _normalized_id(preset) if isinstance(preset, str) else "ironclad" if source_rng else ""
+    registered_rows = _registered_reward_card_rows(state, color) if color else None
+    pool_rows = _raw_card_pool_items(state) if registered_rows is None else registered_rows
     pool = (
-        build_character_card_pool(_raw_card_pool_items(state), character_id=color)
+        build_character_card_pool(pool_rows, character_id=color)
         if color else _other_character_card_reward_pool(state)
     )
     colors = tuple(sorted({card.color for card in pool}))

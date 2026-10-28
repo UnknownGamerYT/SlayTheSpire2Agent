@@ -1,0 +1,38 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "scope": "Registered/unlocked/player-mode pool filtering only; item reward modifiers and RNG counts are covered separately.",
+  "certifies_game_parity": false,
+  "sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ScrollBoxes.cs",
+      "sha256": "0199d9370fac6d20d9dffeeb668dac478a3983fdac5ded24ea0f98711ad3d1cc",
+      "reviewed_methods": [
+        "CanGenerateBundles/GetUnlockedCards",
+        "GenerateRandomBundles/GetPossibleCards"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SeaGlass.cs",
+      "sha256": "6833f9402cf40a44b2844589ef2b8391519c8181ad557ac8af2d9a1ebaa32665",
+      "reviewed_methods": [
+        "AfterObtained/CardFactory source character pool eligibility"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DustyTome.cs",
+      "sha256": "077a4d84772a1c4f6a98bd3e43112a69d2caa7cbc48e8e28dc1b45aab53bf4b5",
+      "reviewed_methods": [
+        "SetupForPlayer/GetUnlockedCards"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce",
+      "reviewed_methods": [
+        "GetPossibleCards"
+      ]
+    }
+  ]
+}

@@ -353,9 +353,12 @@ def test_native_other_enchanters_have_explicit_keywords_and_no_extra_rewards():
 
 
 def test_drowning_bottle_offers_fixed_glowwater_without_random_draws():
-    result = _choose(_event('DROWNING_BEACON'), 'bottle')
+    state = _event('DROWNING_BEACON')
+    before = {name: stream for name, stream in state.rng.streams.items() if stream.draws}
+    result = _choose(state, 'bottle')
     assert result.reward.potion_ids == ('glowwater_potion',)
-    assert all(stream.draws == 0 for stream in result.rng.streams.values())
+    assert result.rng.draws == state.rng.draws
+    assert {name: stream for name, stream in result.rng.streams.items() if stream.draws} == before
 
 
 def test_reflections_can_downgrade_and_upgrade_eternal_cards():
