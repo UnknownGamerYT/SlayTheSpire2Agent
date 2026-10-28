@@ -24984,7 +24984,9 @@ def _damage_combat_player(
         if is_attack and isinstance(amount, Fraction) and source_monster is not None
         else Fraction(1)
     )
-    multiplier = Fraction(str(attack_multiplier)) if is_attack else Fraction(1)
+    multiplier = (Fraction(str(attack_multiplier)) if is_attack else
+                  Fraction(str(_back_attack_multiplier(combat, source_monster)))
+                  if source_monster is not None else Fraction(1))
     if (
         is_attack and source_monster is not None
         and _status_amount(player.statuses, "source_core_colossus") > 0

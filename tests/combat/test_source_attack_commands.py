@@ -81,3 +81,13 @@ def test_uproar_finishes_own_command_before_autoplaying_child_attack():
     assert [e.amount for e in result.replay_log[-1].events if e.kind == "monster_damaged"] == [
         24, 24, 5,
     ]
+
+
+def test_combat_ending_skips_later_commands_and_preserves_second_queued_charge():
+    attack = _simple("two_commands", card_type="attack", target="enemy", effects={
+        "sequence": ({"damage": 40}, {"damage": 5}),
+    })
+    state = _potion(_potion(_state(attack), "gigantification_potion"), "gigantification_potion")
+    result = _play(_reload(state), "two_commands")
+    events = result.replay_log[-1].events
+    assert sum(e.kind == "next_card_damage_multiplier_consumed" for e in events) == 1

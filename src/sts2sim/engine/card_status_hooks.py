@@ -106,7 +106,7 @@ def other_player_damage_multiplier(
 ) -> float:
     multiplier = 1.0
     for status in ("flanking", "knockdown"):
-        if monster.statuses.get(status, 0) <= 0 or (status == "flanking" and not is_attack):
+        if monster.statuses.get(status, 0) <= 0 or not is_attack:
             continue
         for application in monster.metadata.get(f"{status}_applications", ()):
             if isinstance(application, Mapping) and application.get("owner_id") != actor_id:

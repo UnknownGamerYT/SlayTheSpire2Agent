@@ -43,8 +43,12 @@ def begin_attack_command(
 ) -> CombatState:
     from . import transitions as t
 
+    if combat.player.hp <= 0 or not t._alive_monsters(combat):
+        return combat
     commands = _commands(combat)
-    claim_queue = card.type == CardType.ATTACK and not any(c.get("queue") for c in commands)
+    claim_queue = (card.type == CardType.ATTACK and not any(c.get("queue") for c in commands)
+                   and any(t._queued_card_modifier_matches(item, card)
+                           for item in t._next_card_damage_multiplier_queue(combat.metadata)))
     vigor = 0 if dealer_is_pet or any(c.get("vigor") for c in commands) else t._status_amount(
         combat.player.statuses, "vigor")
     entry = {"card_id": card.instance_id, "queue": claim_queue, "vigor": vigor}

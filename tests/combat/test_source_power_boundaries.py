@@ -123,3 +123,29 @@ def test_entrench_is_unpowered_move_block_but_keeps_unmovable_and_relics(relics,
     assert gained.metadata["item_block_multipliers"] == (
         ("unmovable", "vambrace") if relics else ("unmovable",)
     )
+
+
+def test_surrounded_multiplier_applies_to_dealer_backed_unpowered_thorns():
+    sweep = _simple("sweep", effects={"all_damage": 1}, card_type="attack")
+    state = _state(sweep, statuses={"surrounded": 1})
+    prototype = state.combat.monsters[0]
+    monsters = tuple(prototype.model_copy(update={"monster_id": f"enemy:{i}", "statuses": status})
+                     for i, status in enumerate(({"back_attack_left": 1, "thorns": 4},
+                                                  {"back_attack_right": 1})))
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": monsters, "metadata": {"player_facing": "right"},
+    })})
+    result = _play(_reload(state), "sweep")
+    assert result.player.hp == 74
+    hit = next(e for e in result.replay_log[-1].events if e.kind == "player_damaged")
+    assert hit.amount == 6
+    assert hit.metadata["unpowered"]
+
+
+def test_knockdown_like_flanking_does_not_multiply_unpowered_other_actor_damage():
+    ally = _simple("ally_skill", effects={"damage": 3}, target="enemy",
+                   custom={"owner_id": "friend"})
+    state = _play(_state(_source("KNOCKDOWN"), ally), "knockdown")
+    hp = state.combat.monsters[0].hp
+    result = _play(_reload(state), "ally_skill")
+    assert hp - result.combat.monsters[0].hp == 3
