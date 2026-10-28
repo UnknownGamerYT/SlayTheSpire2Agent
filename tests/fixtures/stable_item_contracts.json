@@ -285,6 +285,26 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SeaGlass.cs",
       "sha256": "6833f9402cf40a44b2844589ef2b8391519c8181ad557ac8af2d9a1ebaa32665"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FairyInABottle.cs",
+      "sha256": "f1cf24bf8230d51b14d9d105ff39690e9ba85c2cc8ceaccb3dae000dbf13911b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PotionModel.cs",
+      "sha256": "78b161c2e578894935b57bc17a99349aeefd7509a094cc3534b406c40258b8a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BeltBuckle.cs",
+      "sha256": "1e72315fdaf11e92a555144fa8b255f3735bde2aaf590f92f6ece0288cab2831"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ReptileTrinket.cs",
+      "sha256": "73dfefc29119cc91bab25f406d8ab6b40611067b812b0629354106efd740c241"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/CreatureCmd.cs",
+      "sha256": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8"
     }
   ],
   "cached_source_rows": {

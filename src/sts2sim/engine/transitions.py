@@ -583,6 +583,11 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         raise IllegalActionError(action, legal)
 
     before_hash = state_digest(state)
+    if state.phase == RunPhase.COMBAT and state.combat is not None:
+        state = state.model_copy(update={"combat": state.combat.model_copy(update={"metadata": {
+            **state.combat.metadata, "replay_potions": state.potions,
+            "item_relic_ids": state.relics,
+        }})})
     if _pending_relic_deck_choices(state):
         next_state, events = _resolve_relic_deck_choice(state, action)
     elif action.type == ActionType.CHOOSE_ANCIENT:
@@ -5229,7 +5234,9 @@ def _use_potion(
         if index != slot_index
     )
     potion_source_id = f"{slot_id}:{potion_id}"
-    combat = state.combat
+    combat = state.combat.model_copy(update={"metadata": {
+        **state.combat.metadata, "replay_potions": potions,
+    }})
     rng_state = state.rng
     events: list[EffectEvent] = [
         EffectEvent(
@@ -5289,6 +5296,7 @@ def _use_potion(
             )
         )
 
+    potions = tuple(combat.metadata.get("replay_potions", potions))
     if _normalized_id(potion_id) == "entropic_brew":
         potions, rng_state, generated_events = _fill_empty_potion_slots(
             state.model_copy(update={"potions": potions}),
@@ -5335,7 +5343,9 @@ def _use_potion(
     events.extend(potion_relic_events)
 
     event_tuple = tuple(events)
-    combat = combat.model_copy(update={"last_events": event_tuple})
+    combat = combat.model_copy(update={"last_events": event_tuple, "metadata": {
+        **combat.metadata, "replay_potions": potions,
+    }})
     return _finalize_state_after_combat(
         state.model_copy(update={"potions": potions}),
         combat,
@@ -5469,16 +5479,8 @@ def _apply_direct_potion_effects(
             )
         )
     elif normalized == "foul_potion":
-        hp_before = player.hp
-        player, event = _damage_player(player, 12, source_id, relics=relics)
-        events.append(event)
-        combat = _record_player_hp_loss(
-            combat.model_copy(update={"player": player}), hp_before - player.hp,
-        )
-        combat, loss_events = _apply_player_turn_hp_loss_powers(
-            combat, hp_before - player.hp, relics=relics,
-        )
-        events.extend(loss_events)
+        combat, damage_events = _damage_combat_player(combat, 12, source_id, relics=relics)
+        events.extend(damage_events)
         player = combat.player
 
     return combat.model_copy(update={"player": player, "hand": hand}), tuple(events)
@@ -5868,18 +5870,21 @@ def _discard_potion(
         for index, potion in enumerate(state.potions)
         if index != slot_index
     )
+    combat = state.combat
+    events: tuple[EffectEvent, ...] = (EffectEvent(
+        kind="potion_discarded", target_id=potion_id,
+        metadata={"slot_id": action.target_id, "potion_slots": _potion_capacity(state)},
+    ),)
+    if state.phase == RunPhase.COMBAT and combat is not None:
+        combat = combat.model_copy(update={"metadata": {
+            **combat.metadata, "replay_potions": potions,
+        }})
+        combat, belt_events = _sync_belt_buckle(combat, potions, state.relics)
+        events += belt_events
+        state = state.model_copy(update={"combat": combat, "player": combat.player})
     return (
         state.model_copy(update={"potions": potions}),
-        (
-            EffectEvent(
-                kind="potion_discarded",
-                target_id=potion_id,
-                metadata={
-                    "slot_id": action.target_id,
-                    "potion_slots": _potion_capacity(state),
-                },
-            ),
-        ),
+        events,
     )
 
 
@@ -9560,8 +9565,16 @@ def _apply_damage_taken_relics_from_events(
             source_event.kind not in {"player_damaged", "player_hp_lost"}
             or _coerce_int(source_event.amount, default=0) <= 0
             or source_event.metadata.get("card_play_hooks_resolved")
+            or source_event.metadata.get("damage_taken_hooks_resolved")
         ):
             continue
+        event_relics = relics
+        if source_event.metadata.get("lethal"):
+            # Legacy Lizard Tail uses this adapter for death prevention. The
+            # stable AfterDamageReceived observers do not see lethal damage.
+            event_relics = tuple(r for r in relics if _normalized_id(r) == "lizard_tail")
+            if not event_relics:
+                continue
         hp_loss = max(0, _coerce_int(source_event.amount, default=0))
         hp_before = combat.player.hp + hp_loss
         metadata: dict[str, Any] = {
@@ -9574,7 +9587,7 @@ def _apply_damage_taken_relics_from_events(
             metadata["on_player_turn"] = _normalized_id(turn_owner) in {"player", "you"}
         relic_result = _resolve_combat_relic_trigger(
             GameTrigger.DAMAGE_TAKEN,
-            relics,
+            event_relics,
             player_hp=hp_before,
             player_max_hp=combat.player.max_hp,
             player_block=combat.player.block,
@@ -12185,6 +12198,8 @@ def _apply_end_turn_hand_card_effects(
                 combat, hp_before - player.hp, relics=relics,
             )
             events.extend(loss_events)
+            combat, fairy_events = _restore_fairy_after_damage(combat, relics=relics)
+            events.extend(fairy_events)
             player = combat.player
 
         for loss in re.finditer(r"\blose\s+(\d+)\s+hp\b(\s+for each card in your hand)?", text):
@@ -12208,6 +12223,8 @@ def _apply_end_turn_hand_card_effects(
                 combat, event.amount or 0, relics=relics,
             )
             events.extend(loss_events)
+            combat, fairy_events = _restore_fairy_after_damage(combat, relics=relics)
+            events.extend(fairy_events)
             player = combat.player
 
         for amount in _description_amounts(text, r"\blose\s+(\d+)\s+gold\b"):
@@ -13244,6 +13261,11 @@ def _execute_monster_turn(
                 is_attack=True,
                 attack_multiplier=_back_attack_multiplier(combat, combat.monsters[monster_index]),
             )
+            combat, hit_rng, item_events = _apply_damage_taken_relics_from_events(
+                state, combat, capture_random_state(rng), damage_events,
+                turn_owner="monster",
+            )
+            rng.setstate(random_from_state(hit_rng).getstate())
             for damage_event in damage_events:
                 events.append(
                     damage_event.model_copy(
@@ -13252,10 +13274,12 @@ def _execute_monster_turn(
                                 **damage_event.metadata,
                                 "hit_index": hit_index,
                                 "hit_count": move.hit_count,
+                                "damage_taken_hooks_resolved": True,
                             }
                         }
                     )
                 )
+            events.extend(item_events)
             combat, hit_power_events = _apply_monster_attack_power_triggers(
                 combat, monster_index, damage_events,
                 resolve_suck=False, resolve_imbalanced=False
@@ -13271,7 +13295,7 @@ def _execute_monster_turn(
             )
             combat = _combat_with_monster(combat, monster_index, monster)
             events.extend(thorns_events)
-            if monster.hp <= 0:
+            if monster.hp <= 0 or combat.player.hp <= 0:
                 break
         combat, painful_events = _apply_painful_stabs_from_damage_events(
             combat,
@@ -16449,6 +16473,8 @@ def _apply_effect_step(
             combat, hp_loss_event.amount or 0, relics=relics,
         )
         events.extend(loss_events)
+        combat, fairy_events = _restore_fairy_after_damage(combat, relics=relics)
+        events.extend(fairy_events)
         player = combat.player
         monsters = list(combat.monsters)
 
@@ -16801,6 +16827,8 @@ def _apply_effect_step(
         )
 
     if state is not None:
+        combat, fairy_events = _restore_fairy_after_damage(combat, relics=relics)
+        events.extend(fairy_events)
         combat, red_skull_events = _sync_red_skull(state, combat)
         events.extend(red_skull_events)
         runtime_source_events = tuple(events)
@@ -22680,7 +22708,8 @@ def _lose_player_hp(
             source_id=source_id,
             target_id=PLAYER_TARGET_ID,
             amount=hp_loss,
-            metadata={"buffer_prevented_hp_loss": buffer_prevented},
+            metadata={"buffer_prevented_hp_loss": buffer_prevented,
+                      "lethal": player.hp - hp_loss <= 0},
         ),
     )
 
@@ -22707,7 +22736,8 @@ def _apply_player_turn_hp_loss_powers(
     relics: Sequence[str] = (),
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     """React once to each actual HP loss during the player's turn."""
-    if amount <= 0 or combat.metadata.get("turn_owner", "player") != "player":
+    if (amount <= 0 or combat.player.hp <= 0
+        or combat.metadata.get("turn_owner", "player") != "player"):
         return combat, ()
     events: list[EffectEvent] = []
     rupture = _status_amount(combat.player.statuses, "rupture")
@@ -22783,6 +22813,8 @@ def _apply_stored_turn_powers(
             combat, event.amount or 0, relics=state.relics,
         )
         events.extend(loss_events)
+        combat, fairy_events = _restore_fairy_after_damage(combat, relics=state.relics)
+        events.extend(fairy_events)
         if power == "crimson_mantle" and combat.player.hp > 0:
             combat, rng_state, block_events = _gain_player_block(
                 state, combat, rng_state, amount,
@@ -23129,6 +23161,10 @@ def _tick_status_map(
         ("strength_down", "strength"),
         ("dexterity_down", "dexterity"),
     ):
+        # Player temporary powers expire at their own side end. A Fairy can
+        # grant Reptile Trinket's power during the enemy side, after that point.
+        if target_id == PLAYER_TARGET_ID:
+            continue
         amount = statuses.pop(down_status, 0)
         if amount:
             statuses[base_status] = statuses.get(base_status, 0) - amount
@@ -23362,11 +23398,14 @@ def _damage_combat_player(
                 "tungsten_rod_reduction": tungsten_rod_reduction,
                 "beating_remnant_prevented": beating_remnant_prevented,
                 "plated_armor_lost": plated_armor_lost,
+                "lethal": player.hp <= 0,
             },
         )
     )
     combat, loss_events = _apply_player_turn_hp_loss_powers(combat, hp_loss, relics=relics)
     events.extend(loss_events)
+    combat, fairy_events = _restore_fairy_after_damage(combat, relics=relics)
+    events.extend(fairy_events)
     return combat, tuple(events)
 
 
@@ -23418,6 +23457,7 @@ def _damage_player(
                 "tungsten_rod_reduction": tungsten_rod_reduction,
                 "plated_armor_lost": plated_armor_lost,
                 "buffer_prevented_hp_loss": buffer_prevented,
+                "lethal": player.hp - hp_loss <= 0,
             },
         ),
     )
@@ -24250,6 +24290,8 @@ def _apply_combat_relic_marker(
         )
         combat, loss_events = _apply_player_turn_hp_loss_powers(combat, event.amount or 0)
         events.extend(loss_events)
+        combat, fairy_events = _restore_fairy_after_damage(combat)
+        events.extend(fairy_events)
         player = combat.player
         monsters = list(combat.monsters)
         metadata = dict(combat.metadata)
@@ -25249,18 +25291,60 @@ def _apply_fairy_in_a_bottle_if_needed(
     if combat.player.hp > 0:
         return state, combat
 
+    metadata = {**combat.metadata, "replay_potions": state.potions,
+                "item_relic_ids": state.relics}
+    combat, events = _restore_fairy_after_damage(
+        combat.model_copy(update={"metadata": metadata}), relics=state.relics,
+    )
+    metadata = dict(combat.metadata)
+    potions = tuple(metadata.pop("replay_potions"))
+    return state.model_copy(update={"potions": potions}), combat.model_copy(update={
+        "metadata": metadata, "last_events": combat.last_events + events,
+    })
+
+
+def _sync_belt_buckle(
+    combat: CombatState, potions: Sequence[str], relics: Sequence[str],
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if not _has_relic_id(relics, "belt_buckle"):
+        return combat, ()
+    counters = _combat_relic_counters(combat)
+    active = counters.get("belt_buckle", 0) > 0
+    desired = not potions
+    if active == desired:
+        return combat, ()
+    statuses, event = _apply_status_value(
+        combat.player.statuses, "dexterity", 2 if desired else -2,
+        source_id="belt_buckle", target_id=PLAYER_TARGET_ID,
+    )
+    combat = combat.model_copy(update={
+        "player": combat.player.model_copy(update={"statuses": statuses}),
+        "metadata": {**combat.metadata, "relic_counters": {
+            **counters, "belt_buckle": int(desired),
+        }},
+    })
+    return combat, (event,) if event is not None else ()
+
+
+def _restore_fairy_after_damage(
+    combat: CombatState, *, relics: Sequence[str] = (),
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if combat.player.hp > 0:
+        return combat, ()
+    relics = relics or tuple(combat.metadata.get("item_relic_ids", ()))
+    potions = tuple(combat.metadata.get("replay_potions", ()))
     fairy_slot = next(
         (
             index
-            for index, potion_id in enumerate(state.potions)
+            for index, potion_id in enumerate(potions)
             if _normalized_id(str(potion_id)) == "fairy_in_a_bottle"
         ),
         None,
     )
     if fairy_slot is None:
-        return state, combat
+        return combat, ()
 
-    heal_to = min(combat.player.max_hp, max(1, int(combat.player.max_hp * 0.3)))
+    heal_to = min(combat.player.max_hp, max(1, combat.player.max_hp * 3 // 10))
     previous_hp = combat.player.hp
     player = combat.player.model_copy(update={"hp": heal_to})
     event = EffectEvent(
@@ -25274,15 +25358,34 @@ def _apply_fairy_in_a_bottle_if_needed(
             "heal_to": heal_to,
         },
     )
-    potions = tuple(
-        potion_id for index, potion_id in enumerate(state.potions) if index != fairy_slot
+    potions = tuple(potion_id for index, potion_id in enumerate(potions)
+                    if index != fairy_slot)
+    combat = combat.model_copy(update={"player": player, "metadata": {
+        **combat.metadata, "replay_potions": potions,
+    }})
+    events = [event, EffectEvent(
+        kind="potion_used", source_id="fairy_in_a_bottle", target_id=PLAYER_TARGET_ID,
+        metadata={"potion_slot": f"potion:{fairy_slot}", "automatic": True},
+    )]
+    result = resolve_potion_use_triggers(PotionUseTriggerContext(
+        potion="fairy_in_a_bottle", slot_index=fairy_slot,
+        slot_id=f"potion:{fairy_slot}", target_id=PLAYER_TARGET_ID,
+        use_mode="combat", consumes_potion=True, player_hp=player.hp,
+        player_max_hp=player.max_hp, player_block=player.block,
+        player_statuses=player.statuses, owned_relics=relics,
+    ))
+    combat, trigger_events = _apply_potion_use_trigger_result(combat, result)
+    events.extend(trigger_events)
+    resolution = _resolve_combat_relic_trigger(
+        GameTrigger.POTION_USED, relics, player_hp=combat.player.hp,
+        player_max_hp=combat.player.max_hp, player_statuses=combat.player.statuses,
+        relic_counters=_combat_relic_counters_for(relics, combat),
+        metadata={"potion_id": "fairy_in_a_bottle", "consumes_potion": True},
     )
-    return (
-        state.model_copy(update={"potions": potions}),
-        combat.model_copy(
-            update={"player": player, "last_events": combat.last_events + (event,)}
-        ),
-    )
+    combat, relic_events = _apply_combat_relic_resolution(combat, resolution)
+    events.extend(relic_events)
+    combat, belt_events = _sync_belt_buckle(combat, potions, relics)
+    return combat, tuple(events) + belt_events
 
 
 def _apply_combat_won_run_relics(
@@ -25842,6 +25945,11 @@ def _finalize_state_after_combat(
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     state, combat = source_class_hooks.persist_growth(state, combat)
+    potions = tuple(combat.metadata.get("replay_potions", state.potions))
+    combat, belt_events = _sync_belt_buckle(combat, potions, state.relics)
+    if belt_events:
+        events = tuple(events) + belt_events
+        combat = combat.model_copy(update={"last_events": combat.last_events + belt_events})
     combat, red_skull_events = _sync_red_skull(state, combat)
     if red_skull_events:
         combat, rng_state, strength_events = _apply_status_application_relics_from_events(

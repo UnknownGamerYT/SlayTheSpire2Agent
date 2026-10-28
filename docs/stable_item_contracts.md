@@ -110,3 +110,14 @@ The Beetle Juice hover tooltip on the wiki still says three turns; its printed
 description, history (v0.78.0: three to four), stable API, and pinned executable
 implementation agree on four. Liquid Memories' Free-to-Play wording change
 predates v0.103.2. Fur Coat's eight-room beta description is excluded.
+
+Fairy in a Bottle now consumes and heals at the death check between individual
+damage hits and HP-loss effect steps. Its automatic use runs the potion-use
+callbacks, including Reptile Trinket and Belt Buckle. Multiple Fairies may be
+consumed on separate hits, and later hits can still kill the player. Temporary
+Strength granted during the enemy side remains until the player's next side end.
+Belt Buckle tracks its actual applied state as potion inventory changes, including
+Artifact blocking its negative Dexterity removal. Lethal damage skips the source
+AfterDamageReceived callbacks before Fairy restores HP; surviving monster hits
+resolve Centennial Puzzle and other damage-received relics before the next hit,
+transferring any draw/shuffle RNG changes back to the combat RNG bank.

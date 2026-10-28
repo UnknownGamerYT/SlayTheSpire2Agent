@@ -466,3 +466,102 @@ def test_source_alchemize_excludes_combat_restricted_potions_and_uses_own_rng_st
     assert state.rng.draws == 0
     assert state.rng.streams["combat_potion_generation"].draws == 6
 
+
+
+def _fairy_attack_state(*, max_hp=80, potions=("fairy_in_a_bottle",), relics=()):
+    state = _enemies(_state(_simple("unused"), relics=relics), damage=10)
+    player = state.player.model_copy(update={"hp": 1, "max_hp": max_hp})
+    monster = state.combat.monsters[0].model_copy(update={"hit_count": 3,
+        "intent_damage": 30})
+    return state.model_copy(update={"player": player, "potions": potions,
+        "flags": {**state.flags, "monsters": ({"id": "TEST_ATTACKER", "min_hp": 100,
+            "max_hp": 100, "moves": ({"id": "ATTACK", "intent": "Attack",
+                "damage": {"normal": 10, "hit_count": 3}},)},)},
+        "combat": state.combat.model_copy(update={"player": player,
+            "monsters": (monster,)}),
+    })
+
+
+def test_fairy_revives_between_enemy_hits_and_dispatches_potion_used_with_reload():
+    state = _fairy_attack_state(relics=("reptile_trinket", "belt_buckle"))
+    assert not any(a.type == "use_potion" for a in legal_actions(state))
+    action = next(a for a in legal_actions(state) if a.type == "end_turn")
+    assert serialize(step(state, action)) == serialize(step(_reload(state), action))
+    state = step(_reload(state), action)
+    assert state.player.hp == 4  # 24 restored after hit one, then two more hits.
+    assert not state.potions
+    assert state.player.statuses["strength"] == 3
+    assert state.player.statuses["strength_down"] == 3
+    assert state.player.statuses["dexterity"] == 2
+    events = state.replay_log[-1].events
+    fairy = next(i for i, e in enumerate(events) if e.kind == "potion_passive_triggered")
+    assert sum(e.kind == "player_damaged" for e in events[:fairy]) == 1
+    assert sum(e.kind == "player_damaged" for e in events[fairy:]) == 2
+    assert any(e.kind == "potion_used" and e.source_id == "fairy_in_a_bottle"
+               for e in events)
+
+
+def test_multiple_fairies_are_consumed_per_hit_and_later_hit_can_kill():
+    state = _fairy_attack_state(max_hp=20,
+                               potions=("fairy_in_a_bottle", "fairy_in_a_bottle"))
+    state = _end_turn(_reload(state))
+    assert state.phase == RunPhase.FAILED
+    assert not state.potions
+    assert state.player.hp == 0
+    assert sum(e.kind == "potion_passive_triggered"
+               for e in state.replay_log[-1].events) == 2
+
+
+def test_fairy_resolves_between_card_hp_loss_steps_and_skips_lethal_received_power():
+    card = _simple("pay_twice", effects={"sequence": [{"hp_loss": 2}, {"hp_loss": 2}]})
+    state = _state(card, statuses={"rupture": 3})
+    player = state.player.model_copy(update={"hp": 1, "max_hp": 5})
+    state = state.model_copy(update={"player": player, "potions": ("fairy_in_a_bottle",),
+        "combat": state.combat.model_copy(update={"player": player})})
+    state = _play(_reload(state), "pay_twice")
+    assert state.phase == RunPhase.FAILED
+    assert not state.potions
+    assert state.player.statuses.get("strength", 0) == 0
+
+
+def test_belt_buckle_last_potion_discard_and_use_track_inventory_once():
+    state = _state(_simple("unused"), relics=("belt_buckle",))
+    state = state.model_copy(update={"potions": ("block_potion",),
+        "flags": {**state.flags, "allow_free_potion_discard": True}})
+    action = next(a for a in legal_actions(state) if a.type == "discard_potion")
+    state = step(_reload(state), action)
+    assert state.player.statuses["dexterity"] == 2
+    # Procuring a potion removes the actual power; Artifact may block the removal.
+    state = _potion(state, "entropic_brew")
+    assert state.potions
+    assert state.player.statuses.get("dexterity", 0) == 0
+    assert state.combat.metadata["relic_counters"]["belt_buckle"] == 0
+
+
+def test_fairy_lethal_hit_skips_damage_received_relic_then_next_hit_draws_once():
+    state = _fairy_attack_state(relics=("centennial_puzzle",))
+    draw = tuple(_simple(f"puzzle:{i}") for i in range(6))
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "draw_pile": draw,
+    })})
+    state = _end_turn(_reload(state))
+    assert [c.instance_id for c in state.combat.hand] == [f"puzzle:{i}" for i in range(3)]
+    assert state.combat.metadata["relic_counters"]["centennial_puzzle"] == 1
+    events = state.replay_log[-1].events
+    hits = [i for i, e in enumerate(events) if e.kind == "player_damaged"]
+    draw_index = next(i for i, e in enumerate(events) if e.kind == "cards_drawn")
+    assert hits[1] < draw_index < hits[2]
+
+
+def test_lethal_potion_damage_consumes_fairy_and_runs_both_potion_callbacks():
+    state = _state(_simple("unused"), relics=("reptile_trinket", "belt_buckle", "demon_tongue"))
+    player = state.player.model_copy(update={"hp": 1})
+    state = state.model_copy(update={"player": player, "potions": ("fairy_in_a_bottle",),
+        "combat": state.combat.model_copy(update={"player": player})})
+    state = _potion(state, "foul_potion")
+    assert state.player.hp == 24
+    assert not state.potions
+    assert state.player.statuses["strength"] == 6
+    assert state.player.statuses["strength_down"] == 6
+    assert state.player.statuses["dexterity"] == 2
+    assert not state.combat.metadata["relic_counters"].get("demon_tongue")

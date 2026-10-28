@@ -518,7 +518,7 @@ def _resolve_start_of_combat_dynamic(
                 hook=hook,
                 amount=2,
                 target_id="player",
-                metadata={"status": "dexterity", "condition": "no_potions"},
+                metadata={"status": "dexterity", "condition": "no_potions", "next_counter": 1},
             ),
         )
 
