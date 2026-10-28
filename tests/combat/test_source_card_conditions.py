@@ -251,6 +251,9 @@ def test_fetch_draws_only_on_first_play_of_the_physical_card_each_turn() -> None
         update={
             "combat": state.combat.model_copy(
                 update={
+                    "metadata": {**state.combat.metadata, "osty": {
+                        "hp": 1, "max_hp": 1, "alive": True,
+                    }},
                     "draw_pile": (filler.model_copy(update={"instance_id": "drawn"}),),
                 }
             )
@@ -368,6 +371,9 @@ def test_fetch_replay_does_not_repeat_first_physical_play_draw() -> None:
         update={
             "combat": state.combat.model_copy(
                 update={
+                    "metadata": {**state.combat.metadata, "osty": {
+                        "hp": 1, "max_hp": 1, "alive": True,
+                    }},
                     "draw_pile": tuple(
                         filler.model_copy(update={"instance_id": f"drawn:{i}"}) for i in range(2)
                     ),
@@ -377,4 +383,16 @@ def test_fetch_replay_does_not_repeat_first_physical_play_draw() -> None:
     )
     state = _play_first_card(state, "fetch")
     assert len(state.combat.draw_pile) == 1
+    _no_stubs(state)
+
+
+def test_fetch_with_missing_osty_neither_attacks_nor_draws() -> None:
+    state = _fight(_source("fetch", "Osty deals 3 damage. Draw 1 card.",
+                           damage=3, cards_draw=1))
+    before_hp = state.combat.monsters[0].hp
+    draw_ids = tuple(c.instance_id for c in state.combat.draw_pile)
+    state = _play_first_card(state, "fetch")
+    assert state.combat.monsters[0].hp == before_hp
+    assert tuple(c.instance_id for c in state.combat.draw_pile) == draw_ids
+    assert not any(e.kind == "cards_drawn" for e in state.combat.last_events)
     _no_stubs(state)
