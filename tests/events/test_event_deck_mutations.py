@@ -203,7 +203,7 @@ def test_tinker_time_creates_real_custom_card_in_master_deck() -> None:
     created = state.master_deck[-1]
     assert state.event is not None
     assert state.event.resolved_option_id == "WISDOM"
-    assert created.card_id == "mad_science_skill_wisdom"
+    assert created.card_id == "mad_science"
     assert created.name == "Mad Science (Wisdom)"
     assert created.type.value == "skill"
     assert created.effects == {"sequence": [{"block": 8}, {"draw": 3}]}

@@ -12,7 +12,7 @@ from typing import Any
 from sts2sim.mechanics.triggers import GameTrigger
 
 from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
-from .rng import capture_random_state, random_from_state
+from .rng import capture_random_state, random_from_state, random_stream
 from .source_cost_hooks import set_local_energy_cost
 
 
@@ -600,6 +600,45 @@ def preserve_changes(before: CardInstance, after: CardInstance) -> CardInstance:
         if amount:
             after = _increase(after, field, amount)
     return after
+
+
+def after_combat(
+    state: RunState,
+    combat: CombatState,
+    rng_state: RngState,
+) -> tuple[RunState, RngState, tuple[EffectEvent, ...]]:
+    """Improvement upgrades distinct mutable deck cards via CombatCardSelection."""
+    from . import transitions as t
+
+    amount = t._status_amount(combat.player.statuses, "improvement") + t._status_amount(
+        combat.player.statuses,
+        "end_of_combat_upgrade_random",
+    )
+    if not amount:
+        return state, rng_state, ()
+    candidates = [card for card in state.master_deck if t._card_is_upgradable(card)]
+    deck = list(state.master_deck)
+    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
+    events: list[EffectEvent] = []
+    for _ in range(amount):
+        if not candidates:
+            break
+        card = rng.choice(candidates)
+        candidates.remove(card)
+        deck[deck.index(card)] = t._upgrade_card_instance(card)
+        events.append(
+            EffectEvent(
+                kind="card_upgraded",
+                source_id="improvement",
+                target_id=card.instance_id,
+                metadata={"card_id": card.card_id, "trigger": "combat_end"},
+            )
+        )
+    return (
+        state.model_copy(update={"master_deck": tuple(deck)}),
+        capture_random_state(rng),
+        tuple(events),
+    )
 
 
 def prepare_blade(combat: CombatState, card: CardInstance) -> CardInstance:

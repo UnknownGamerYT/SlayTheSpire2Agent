@@ -1,0 +1,26 @@
+{
+  "game_version": "0.107.1",
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/MadScience.cs",
+      "sha256": "3e1c18888bfd2f21944de1eb77ade020c0b0bdf1dc7bbff0e1a5f735150e0b93"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ImprovementPower.cs",
+      "sha256": "2af9811d1c6336a1692d81d7f9644fbc85b2f27a68b98169d720d0fb9be01de5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/CuriousPower.cs",
+      "sha256": "f3df630baac3366c2e297a029df30eee1abd014d0e752fa4142c540ee545ec6c"
+    }
+  ],
+  "reviewed_scope": [
+    "nine saved Mad Science rider combinations, native type/target/cost/effect ordering",
+    "upgrade adds Innate without replacing saved rider/type; downgrade removes upgrade keyword",
+    "Improvement picks distinct upgradable deck cards using CombatCardSelection NextItem+Remove",
+    "Curious native Power-cost reduction consumed by shared cost hook"
+  ]
+}

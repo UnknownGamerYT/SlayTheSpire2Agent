@@ -5037,12 +5037,19 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
     rider_id = _normalized_id(str(metadata.get("rider_id", "unknown")))
     rider = _mapping_from(metadata.get("rider", {}))
     effect = str(rider.get("effect", metadata.get("rider_effect", "")))
+    if not effect:
+        effect = {
+            "sapping": "apply_debuffs", "choking": "choking", "energized": "gain_energy",
+            "wisdom": "draw_cards", "chaos": "add_random_free_card_to_hand",
+            "expertise": "gain_strength_and_dexterity", "curious": "power_cost_reduction",
+            "improvement": "end_of_combat_upgrade_random",
+        }.get(rider_id, "")
     sequence: list[dict[str, Any]] = []
     target = TargetType.SELF.value
 
     if card_type == "attack":
         target = TargetType.ENEMY.value
-        hit_count = 1 + int(rider.get("additional_hits", 0) or 0)
+        hit_count = 1 + int(rider.get("additional_hits", 2 if rider_id == "violence" else 0) or 0)
         sequence.extend({"damage": 12} for _ in range(max(1, hit_count)))
     elif card_type == "skill":
         target = TargetType.SELF.value
@@ -5063,9 +5070,10 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
     elif effect == "choking":
         sequence.append(
             {
-                "apply_status": {
-                    "target": "enemy",
-                    "choking": int(rider.get("hp_loss_per_card", 6)),
+                "combat_trigger": {
+                    "trigger": "card_played", "duration": "turn", "bind_target": True,
+                    "debuff": {"status": "strangle", "amount": 6},
+                    "effects": ({"enemy_hp_loss": {"target": "enemy", "amount": 6}},),
                 }
             }
         )
@@ -5094,7 +5102,7 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
             {
                 "apply_status": {
                     "target": "self",
-                    "power_cost_reduction": int(rider.get("power_cost_reduction", 1)),
+                    "curious": int(rider.get("power_cost_reduction", 1)),
                 }
             }
         )
@@ -5103,7 +5111,7 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
             {
                 "apply_status": {
                     "target": "self",
-                    "end_of_combat_upgrade_random": int(rider.get("upgrade_random_count", 1)),
+                    "improvement": int(rider.get("upgrade_random_count", 1)),
                 }
             }
         )
@@ -5114,12 +5122,13 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
     return _card_from_spec(
         {
             "instance_id": f"tinker_{instance_counter:03d}",
-            "card_id": f"mad_science_{card_type}_{rider_id}",
+            "card_id": "mad_science",
             "name": f"Mad Science ({title})",
             "type": card_type,
             "cost": 1,
             "target": target,
             "effects": effects,
+            "upgrade_description": "Innate.",
             "tags": ("custom", "event:tinker_time", f"rider:{rider_id}"),
             "custom": {
                 "source_event_id": "TINKER_TIME",
@@ -28105,6 +28114,13 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
     events_rng_state = rng_state
     flags = dict(state.flags)
     if phase == RunPhase.REWARD and state.phase == RunPhase.COMBAT:
+        state, events_rng_state, improvement_events = source_class_hooks.after_combat(
+            state, combat, events_rng_state,
+        )
+        if improvement_events:
+            combat = combat.model_copy(update={
+                "last_events": combat.last_events + improvement_events,
+            })
         combat, events_rng_state, combat_end_trigger_events = _apply_combat_triggers(
             state.model_copy(update={"combat": combat, "player": combat.player}),
             combat,
@@ -31014,6 +31030,11 @@ def _upgrade_card_instance(card: CardInstance) -> CardInstance:
         return card
     if card.upgraded:
         return card
+    if card.card_id == "mad_science" and card.custom.get("source_event_id"):
+        return card.model_copy(update={
+            "upgraded": True,
+            "custom": {**card.custom, "innate": True},
+        })
     source_spec = _mapping_from(card.custom.get("source_spec"))
     if source_spec:
         upgraded_spec = dict(source_spec)
@@ -31039,6 +31060,10 @@ def _upgrade_card_instance(card: CardInstance) -> CardInstance:
 def _downgrade_card_instance(card: CardInstance) -> CardInstance:
     if not card.upgraded:
         return card
+    if card.card_id == "mad_science" and card.custom.get("source_event_id"):
+        custom = dict(card.custom)
+        custom.pop("innate", None)
+        return card.model_copy(update={"upgraded": False, "custom": custom})
     source_spec = (_mapping_from(card.custom.get("base_source_spec"))
                    or _mapping_from(card.custom.get("source_spec")))
     if source_spec:
