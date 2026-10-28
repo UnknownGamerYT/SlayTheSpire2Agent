@@ -223,3 +223,12 @@ White Star adds an independent CardReward after Elite combat using the Boss
 factory profile. Its rare choices, upgrade rolls, card-count/pool/late hooks and
 pity updates follow that profile, and Driftwood rerolls retain the Boss context
 rather than inheriting the Elite profile of the other reward.
+
+Merchant callbacks now finish before Courier refills their entry. Lords Parasol
+visits the original stock in source order and pauses its saved continuation for
+each nested reward or deck choice, then requires the free card removal. Free
+purchases preserve Maw Bank's saved unused state; paid completion disables it
+once. Parasol applies in each normal merchant room and excludes the Fake
+Merchant event. These contracts and their source hashes are recorded in
+`tests/fixtures/source_parasol.json`; they do not certify all merchant
+combinations against the installed game.

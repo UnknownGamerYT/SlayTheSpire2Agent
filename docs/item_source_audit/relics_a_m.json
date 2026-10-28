@@ -4863,7 +4863,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -4871,15 +4871,26 @@
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_lords_parasol",
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/source_parasol.py:begin",
+        "src/sts2sim/engine/source_parasol.py:resume",
+        "src/sts2sim/engine/source_merchant_purchase.py:prepare",
+        "src/sts2sim/engine/source_merchant_purchase.py:resume"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_shop_and_campfire_relics_register_hook_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
-        "tests/rooms/test_shop_engine.py::test_shop_lords_parasol_claims_all_non_service_items_on_entry"
+        "tests/rooms/test_shop_engine.py::test_shop_lords_parasol_claims_all_non_service_items_on_entry",
+        "tests/rooms/test_source_parasol_continuation.py::test_parasol_waits_for_relic_choice_then_child_rewards_then_mandatory_removal",
+        "tests/rooms/test_source_parasol_continuation.py::test_parasol_visits_each_original_entry_once_when_courier_refills_it",
+        "tests/rooms/test_source_parasol_continuation.py::test_parasol_keeps_multiple_custom_pickups_separate_and_in_stock_order",
+        "tests/rooms/test_source_parasol_continuation.py::test_paid_orrery_purchase_awaits_reward_callbacks_before_courier_refill_rng",
+        "tests/rooms/test_source_parasol_continuation.py::test_parasol_applies_again_in_a_later_normal_merchant_room"
       ],
       "notes": [
-        "Free mandatory removal, actual card metadata, relic pickup callbacks and Sozu gate are corrected. Sequential custom reward/pickup-choice resume and original-stock purchase ordering still need the shared custom reward queue."
+        "Every actual MerchantRoom purchases its original character-card, colorless-card, relic and potion entries once in source order. Serialized continuation waits for nested pickup rewards and required deck choices before the next entry and mandatory free removal.",
+        "Shared normal/free purchase completion checks Courier after pickup callbacks; Orrery reward RNG precedes refill RNG. Cards already added are observed before later relic acquisition. Failed full-inventory/Sozu potion entries stay stocked.",
+        "LordsParasol has no once-use SavedProperty in this pin and applies again in later normal merchant rooms; fake Merchant EventRooms do not qualify."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"

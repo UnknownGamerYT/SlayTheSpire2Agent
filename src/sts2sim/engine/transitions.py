@@ -740,7 +740,15 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
     next_state, enchant_events = apply_card_reward_modifiers(next_state)
     events += enchant_events
     next_state, events = _apply_deck_add_relics(state, next_state, action, events)
+    from .source_merchant_purchase import resume as resume_merchant_purchase
+
+    next_state, completed_purchase = resume_merchant_purchase(next_state)
+    events += completed_purchase
     next_state, events = _apply_run_progression_relics(state, next_state, events)
+    from .source_parasol import resume as resume_parasol
+
+    next_state, parasol_events = resume_parasol(next_state)
+    events += parasol_events
     after_hash = state_digest(next_state)
     entry = ReplayEntry(
         step_index=len(state.replay_log),
@@ -759,8 +767,9 @@ def _apply_run_progression_relics(
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     """Adapt legacy gain events and preserve source gold notifications once."""
     result: list[EffectEvent] = []
-    if _has_relic(after, "maw_bank") and any(
-        event.kind in {"shop_item_bought", "shop_card_removed"}
+    if (_has_relic(after, "maw_bank") and not after.flags.get("maw_bank_disabled")) and any(
+        event.kind in {"shop_item_bought", "shop_card_removed", "merchant_purchase_completed"}
+        and not event.metadata.get("merchant_callback_pending")
         and _metadata_int(event.metadata, "price", 0) > 0 for event in events
     ):
         after = after.model_copy(update={"flags": {**after.flags, "maw_bank_disabled": True}})
@@ -5789,7 +5798,9 @@ def _enter_shop_room(
     )
     shop = _apply_shop_price_modifiers(state, shop)
     player, entry_events = _apply_shop_entry_relics(state.player, state)
-    state = state.model_copy(update={"player": player, "flags": flags})
+    state = state.model_copy(update={
+        "player": player, "flags": flags, "rng": capture_random_state(rng),
+    })
     parasol_state, parasol_events = _apply_lords_parasol(state, shop)
     if parasol_state is not None:
         state = parasol_state
@@ -5797,10 +5808,10 @@ def _enter_shop_room(
     return (
         state.model_copy(
             update={
-                "phase": RunPhase.SHOP,
+                "phase": state.phase if parasol_state is not None else RunPhase.SHOP,
                 "combat": None,
                 "shop": shop,
-                "rng": capture_random_state(rng),
+                "rng": state.rng if parasol_state is not None else capture_random_state(rng),
             }
         ),
         (
@@ -5847,7 +5858,7 @@ def _legal_shop_actions(state: RunState) -> tuple[Action, ...]:
 
 
 def _resolve_shop_action(
-    state: RunState, action: Action
+    state: RunState, action: Action,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if action.type == ActionType.SHOP_LEAVE:
         return _leave_shop(state)
@@ -5871,21 +5882,10 @@ def _resolve_shop_action(
         return state, ()
 
     player = state.player.model_copy(update={"gold": result.state.gold})
-    shop = _shop_after_purchase(state, item_index, item.item.kind)
+    shop = _shop_mark_purchased(state.shop, item_index)
     flags = dict(state.flags)
     flags["shop_card_removals_bought"] = result.state.card_removals_bought
     rng_state = state.rng
-    restocked_item_id: str | None = None
-    if (
-        _has_relic(state, "the_courier", "courier")
-        and item.item.kind is not ShopItemKind.CARD_REMOVAL
-    ):
-        rng = random_stream(random_from_state(state.rng), "shops")
-        shop, restocked_item_id, flags = _restock_shop_slot(
-            state.model_copy(update={"flags": flags}), shop, item_index, item.item.kind, rng,
-        )
-        rng_state = capture_random_state(rng)
-
     update: dict[str, Any] = {
         "player": player,
         "shop": shop,
@@ -5900,9 +5900,6 @@ def _resolve_shop_action(
         "base_price": item.base_price,
         "slot_id": _shop_slot_id(item_index),
     }
-    if restocked_item_id is not None:
-        metadata["restocked_item_id"] = restocked_item_id
-
     card_upgrade_event: EffectEvent | None = None
     if item.item.kind in {ShopItemKind.CARD, ShopItemKind.COLORLESS_CARD}:
         # Keep the original offer when Courier has already restocked this slot.
@@ -5967,7 +5964,10 @@ def _resolve_shop_action(
         next_state, pickup_events = _apply_relic_pickup_effects(next_state, item.item.item_id)
         events.extend(pickup_events)
 
-    return next_state, tuple(events)
+    from .source_merchant_purchase import prepare
+
+    return prepare(state, next_state, action, tuple(events), index=item_index,
+                   kind=item.item.kind.value)
 
 
 def _use_potion(
@@ -9149,57 +9149,11 @@ def _apply_shop_entry_relics(
 
 
 def _apply_lords_parasol(
-    state: RunState,
-    shop: ShopState,
+    state: RunState, shop: ShopState,
 ) -> tuple[RunState | None, tuple[EffectEvent, ...]]:
-    if not _has_relic(state, "lords_parasol", "lord's_parasol", "lord_parasol"):
-        return None, ()
+    from .source_parasol import begin
 
-    original_relics = state.relics
-    update, gained_ids = _shop_gain_all_non_service_items(state, shop)
-    update["shop"] = shop.model_copy(
-        update={
-            "items": tuple(
-                item.model_copy(update={"purchased": item.kind != ShopItemKind.CARD_REMOVAL.value})
-                for item in shop.items
-            )
-        }
-    )
-    state = state.model_copy(update=update)
-    pickup_events: tuple[EffectEvent, ...] = ()
-    if _normalized_id(state.character_id) != "test":
-        for relic_id in tuple(state.relics):
-            if relic_id not in original_relics:
-                state, relic_events = _apply_relic_pickup_effects(state, relic_id)
-                pickup_events += relic_events
-    choice_events: tuple[EffectEvent, ...] = ()
-    if _normalized_id(state.character_id) != "test" and state.shop is not None:
-        removal_index = next((i for i, item in enumerate(state.shop.items)
-                              if item.kind == ShopItemKind.CARD_REMOVAL.value), None)
-        marker = RelicEffectMarker(
-            kind="remove_deck_cards", relic_id="lords_parasol", amount=1,
-            metadata={"selection": "chosen"},
-        )
-        if removal_index is not None and _relic_marker_deck_candidates(state.master_deck, marker):
-            items = list(state.shop.items)
-            items[removal_index] = items[removal_index].model_copy(update={"purchased": True})
-            count = state.shop.card_removals_bought + 1
-            state = state.model_copy(update={
-                "shop": state.shop.model_copy(update={"items": tuple(items),
-                                                       "card_removals_bought": count}),
-                "flags": {**state.flags, "shop_card_removals_bought": count},
-            })
-            state, choice_events = _queue_relic_deck_choice(state, "lords_parasol", marker)
-    return (
-        state,
-        (
-            EffectEvent(
-                kind="lords_parasol_claimed_shop",
-                amount=len(gained_ids),
-                metadata={"item_ids": gained_ids},
-            ),
-        ) + pickup_events + choice_events,
-    )
+    return begin(state, shop)
 
 
 def _shop_gain_all_non_service_items(
@@ -31445,6 +31399,8 @@ def _apply_deck_add_relics(
     clone_kinds = {"relic_deck_card_duplicated", "event_card_duplicated", "card_cloned"}
     source_refs: list[tuple[int, str]] = []
     for event_index, event in enumerate(events):
+        if event.metadata.get("source_deck_observers_applied"):
+            continue
         if event.kind in addition_kinds and event.target_id:
             source_refs.append((event_index, event.target_id))
         elif event.kind == "shop_item_bought" and event.metadata.get("card_instance_id"):
