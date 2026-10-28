@@ -206,6 +206,7 @@ from sts2sim.mechanics.source_power_rules import (
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.source_rng import (
     draw_source_potion,
+    float32,
     is_source_rng,
     source_sample,
     source_take_random,
@@ -28686,21 +28687,18 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
         )
         returned_specs: dict[str, Any] = {}
         return_groups = list(reward.card_option_groups)
-        hopper_escaped = False
         for monster in combat.monsters:
             if _normalized_id(
                 monster.metadata.get("source_monster_id", monster.monster_id)
             ) != "thieving_hopper":
                 continue
             if _truthy(monster.metadata.get("escaped")):
-                hopper_escaped = True
                 continue
             stolen = _mapping_from(monster.metadata.get("stolen_card"))
             if stolen:
                 returned_specs[str(len(return_groups))] = dict(stolen)
                 return_groups.append((str(stolen["card_id"]),))
         reward = reward.model_copy(update={
-            "gold": 0 if hopper_escaped else reward.gold,
             "card_option_groups": tuple(return_groups),
             "metadata": {**reward.metadata, "returned_card_option_specs": returned_specs},
         })
@@ -28901,8 +28899,7 @@ def _combat_reward_state(
             floor=state.floor,
             ascension_level=state.ascension,
             owned_relics=state.relics,
-            gold_proportion=(_gold_reward_after_fat_gremlin_escape(state, 100)[0] / 100
-                             if is_source_rng(rng) else 1.0),
+            gold_proportion=(_combat_gold_proportion(state) if is_source_rng(rng) else 1.0),
         ),
         pity_state=RewardPityState(
             card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
@@ -28933,6 +28930,7 @@ def _combat_reward_state(
         # the base reward, before its RNG draw. Keep only the escape diagnostics.
         _, escape_gold_metadata = _gold_reward_after_fat_gremlin_escape(state, 100)
         escape_gold_metadata.pop("gold_before_fat_gremlin_escape", None)
+        escape_gold_metadata.pop("gold_before_encounter_escape", None)
         if escape_gold_metadata:
             escape_gold_metadata["gold_proportion_applied_to_range"] = True
     else:
@@ -29053,6 +29051,27 @@ def _source_final_act_boss_reward(state: RunState, encounter: EncounterType) -> 
     )
 
 
+def _combat_gold_proportion(state: RunState) -> float:
+    """EncounterModel canonical spawned-type denominator; Gremlin Merc overrides it."""
+    if state.combat is None:
+        return 1.0
+    identifiers = {_normalized_id(monster.metadata.get(
+        "source_monster_id", monster.monster_id)) for monster in state.combat.monsters}
+    escaped = tuple(monster for monster in state.combat.monsters
+                    if _truthy(monster.metadata.get("escaped")))
+    if not escaped or not identifiers:
+        return 1.0
+    # GremlinMercNormal does not use the generic escaped-creature fraction.
+    if "gremlin_merc" in identifiers or "fat_gremlin" in identifiers:
+        fat = tuple(monster for monster in escaped if _normalized_id(monster.metadata.get(
+            "source_monster_id", monster.monster_id)) == "fat_gremlin")
+        if not fat:
+            return 1.0
+        return 0.0 if any(_metadata_int(monster.metadata, "stolen_gold", 0) > 0
+                          for monster in fat) else 0.5
+    return float32(1.0 - float32(float32(float(len(escaped))) / float32(float(len(identifiers)))))
+
+
 def _gold_reward_after_fat_gremlin_escape(
     state: RunState,
     gold: int,
@@ -29066,6 +29085,16 @@ def _gold_reward_after_fat_gremlin_escape(
         == "fat_gremlin" and _truthy(monster.metadata.get("escaped"))
     ) if state.combat is not None else ()
     if not escaped:
+        monsters = state.combat.monsters if state.combat is not None else ()
+        any_escaped = any(_truthy(monster.metadata.get("escaped")) for monster in monsters)
+        hopper = any(_normalized_id(monster.metadata.get("source_monster_id", monster.monster_id))
+                     == "thieving_hopper" for monster in monsters)
+        if any_escaped and (is_source_rng(state.rng) or hopper):
+            proportion = _combat_gold_proportion(state)
+            return max(0, round(float32(float32(float(gold)) * proportion))), {
+                "encounter_gold_proportion": proportion,
+                "gold_before_encounter_escape": gold,
+            }
         return gold, {}
     stolen = sum(_metadata_int(monster.metadata, "stolen_gold", 0) for monster in escaped)
     percent = 0 if stolen > 0 else 50

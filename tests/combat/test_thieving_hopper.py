@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import pytest
 from combat.test_combat_engine_monsters import _end_turn_action, _play_first_card
 from combat.test_monster_innate_hooks import _card, _combat, _monster
 
 from sts2sim import legal_actions, load_state, serialize, step
+from sts2sim.engine.rng import RunRng, capture_random_state
 
 
 def _hopper() -> dict:
@@ -177,3 +179,67 @@ def test_hopper_steals_before_thorns_can_kill_him_during_theft_attack() -> None:
     death = next(i for i, e in enumerate(events) if e.kind == "monster_defeated")
     hit = next(i for i, e in enumerate(events) if e.kind == "player_damaged")
     assert theft < death < hit
+
+
+@pytest.mark.parametrize("escaped,base_amount", [(True, 0), (False, 30)])
+def test_source_hopper_escape_omits_only_base_gold_and_preserves_amethyst_callbacks(
+    escaped, base_amount,
+) -> None:
+    state = _combat(_hopper(), deck=_deck())
+    state = state.model_copy(update={
+        "relics": ("amethyst_aubergine", "bowler_hat", "dragon_fruit"),
+        "rng": capture_random_state(RunRng("HOPPER-GOLD")),
+        "flags": {**state.flags, "combat_reward_gold": 30, "combat_reward_gold_is_base": True},
+    })
+    gold_before, max_hp_before = state.player.gold, state.player.max_hp
+    state = step(load_state(serialize(state)), _end_turn_action(state))
+    if escaped:
+        for _ in range(4):
+            state = step(load_state(serialize(state)), _end_turn_action(state))
+    else:
+        state = _play_first_card(load_state(serialize(state)), "keeper")
+    assert state.phase.value == "reward"
+    components = state.reward.metadata["gold_reward_components"]
+    assert state.reward.gold == sum(component["amount"] for component in components)
+    assert state.reward.gold == base_amount + 15
+    assert state.player.gold == gold_before and state.player.max_hp == max_hp_before
+    gold_actions = [a for a in legal_actions(state) if a.type == "take_reward_gold"]
+    assert len(gold_actions) == (1 if escaped else 2)
+    assert [component["source_id"] for component in components] == (
+        ["amethyst_aubergine"] if escaped else [None, "amethyst_aubergine"])
+    bonus_target = "reward:gold" if escaped else "reward:gold:1"
+    bonus_action = next(a for a in gold_actions if a.target_id == bonus_target)
+    rng_before = state.rng
+    state = step(load_state(serialize(state)), bonus_action)
+    assert state.player.gold == gold_before + 18
+    assert state.player.max_hp == max_hp_before + 1
+    assert state.rng == rng_before
+    if escaped:
+        assert not any(a.type == "take_reward_gold" for a in legal_actions(state))
+        assert not any(card.card_id == "victim" for card in state.master_deck)
+    else:
+        state = step(load_state(serialize(state)), next(a for a in legal_actions(state)
+            if a.type == "take_reward_gold" and a.target_id == "reward:gold:0"))
+        assert state.player.gold == gold_before + 18 + 37
+        assert state.player.max_hp == max_hp_before + 2
+
+
+def test_source_escape_gold_fraction_counts_distinct_canonical_spawned_types() -> None:
+    from sts2sim.engine import transitions as t
+
+    state = _combat(_hopper(), deck=_deck())
+    hopper = state.combat.monsters[0]
+    escaped = hopper.model_copy(update={"hp": 0, "metadata": {
+        **hopper.metadata, "source_monster_id": "THIEVING_HOPPER", "escaped": True,
+    }})
+    defeated_same_type = hopper.model_copy(update={"monster_id": "hopper2", "hp": 0})
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (escaped, defeated_same_type),
+    })})
+    assert t._combat_gold_proportion(state) == 0.0
+    defeated_other_type = hopper.model_copy(update={"monster_id": "dummy", "hp": 0,
+        "metadata": {"source_monster_id": "DUMMY"}})
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (*state.combat.monsters, defeated_other_type),
+    })})
+    assert t._combat_gold_proportion(state) == .5
