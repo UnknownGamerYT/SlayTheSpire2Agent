@@ -1237,6 +1237,31 @@ def _action_selected_card_descriptors(state: Any, action: Action) -> list[dict[s
     if action.type == ActionType.CHOOSE_EVENT:
         option = _event_option_for_action(state, action)
         metadata = _mapping(getattr(option, "metadata", {}))
+        rule = _mapping(metadata.get("source_native_rule"))
+        if rule.get("selection") == "offered":
+            from sts2sim.engine.source_card_reward_modifiers import apply_generated_modifiers
+            from sts2sim.engine.transitions import (
+                _card_from_spec,
+                _reward_card_spec,
+                _upgrade_card_instance,
+            )
+
+            event = getattr(state, "event", None)
+            offered = _mapping(getattr(event, "metadata", {}))
+            ids = tuple(str(value) for value in _sequence(offered.get("generated_cards")))
+            upgrades = _sequence(offered.get("generated_card_upgraded"))
+            modifiers = _mapping(offered.get("generated_card_modifiers"))
+            descriptors = []
+            for identifier in _action_payload_card_instance_ids(action):
+                if identifier not in ids:
+                    continue
+                position = ids.index(identifier)
+                card = _card_from_spec(_reward_card_spec(state, identifier), position + 1)
+                if position < len(upgrades) and upgrades[position]:
+                    card = _upgrade_card_instance(card)
+                card = apply_generated_modifiers(card, _mapping(modifiers.get(str(position))))
+                descriptors.append(_card_descriptor(card, zone="reward", position=position))
+            return descriptors
         if str(metadata.get("source_relic_id", "")) == "scroll_boxes":
             from sts2sim.engine.transitions import _card_from_spec, _reward_card_spec
 

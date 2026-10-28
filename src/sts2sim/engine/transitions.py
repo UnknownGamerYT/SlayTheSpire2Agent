@@ -3426,6 +3426,7 @@ def _choose_source_native_event(
     generated_ids: tuple[str, ...] = ()
     generated_rarities: tuple[str, ...] = ()
     generated_upgrades: tuple[bool, ...] = ()
+    generated_modifiers: dict[str, Any] = {}
     if rule.get("colorful_groups"):
         marker = EventFlowMarker(kind=EventFlowMarkerKind.CARD_REWARD,
                                  qualifier=str(rule["generated_color"]))
@@ -3444,7 +3445,8 @@ def _choose_source_native_event(
                 "card_reroll_contexts": {
                     "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
                         pools=(str(rule["generated_color"]),), count=3, uniform=True,
-                        no_upgrade_roll=False, rarity=rarity)
+                        no_upgrade_roll=False, rarity=rarity, no_pool_modifications=True,
+                        is_card_reward=True)
                     for index, rarity in enumerate(("common", "uncommon", "rare"))},
                 "card_option_upgraded": upgrade_groups[0],
                 "card_option_group_upgraded": tuple(upgrade_groups[1:])})
@@ -3457,6 +3459,11 @@ def _choose_source_native_event(
         marker = EventFlowMarker(kind=EventFlowMarkerKind.RANDOM_CARD,
                                  qualifier=str(rule.get("generated_color") or "character"))
         pool = _event_flow_card_pool(next_state, marker)
+        pool = source_run_passives.modify_reward_pool(
+            next_state, pool, is_card_reward=bool(rule.get("generated_reward")),
+            no_pool_modifications=bool(rule.get("generated_no_pool_modifications")),
+            pool_ids=(str(rule.get("generated_color") or "character"),),
+        )
         if rule.get("generated_rarity"):
             pool = tuple(card for card in pool if card.rarity.value == rule["generated_rarity"])
         if rule.get("card_type"):
@@ -3471,6 +3478,16 @@ def _choose_source_native_event(
             rng, pool, generated_count, uniform=bool(rule.get("generated_uniform")),
             no_upgrade_roll=not bool(rule.get("generated_upgrade_roll")), act=state.act,
             ascension=state.ascension)
+        if not rule.get("generated_reward"):
+            from .source_card_reward_modifiers import modify_generated_cards
+
+            next_state, generated_upgrades, generated_modifiers, modified_events = (
+                modify_generated_cards(next_state, rng, generated_ids, generated_upgrades,
+                    is_card_reward=False, context={
+                        "group_key": f"event:{state.event.event_id}:{option.option_id}",
+                        "no_upgrade_roll": not bool(rule.get("generated_upgrade_roll")),
+                    }))
+            events.extend(modified_events)
         if rule.get("generated_choose") and generated_ids:
             followup = EventOptionState(option_id="choose_cards", title="Choose cards",
                 metadata={"source_native_rule": {"selection": "offered",
@@ -3478,7 +3495,8 @@ def _choose_source_native_event(
             event = state.event.model_copy(update={"page_id": "CHOOSE_CARDS",
                 "options": (followup,), "resolved_option_id": None,
                 "metadata": {**state.event.metadata, "generated_cards": generated_ids,
-                             "generated_card_upgraded": generated_upgrades}})
+                             "generated_card_upgraded": generated_upgrades,
+                             "generated_card_modifiers": generated_modifiers}})
             return next_state.model_copy(update={"event": event,
                 "rng": capture_random_state(rng)}), tuple(events)
     add_cards = list(_string_items(rule.get("add_cards")))
@@ -3494,6 +3512,20 @@ def _choose_source_native_event(
         spec = _reward_card_spec(next_state, card_id)
         spec["card_id"] = card_id
         card = _with_unique_deck_card_id(_card_from_spec(spec, len(deck) + 1), deck)
+        source_ids = (generated_ids if kind != "offered" else
+                      _string_items(state.event.metadata.get("generated_cards")))
+        if card_id in source_ids:
+            index = source_ids.index(card_id)
+            upgrades = (generated_upgrades if kind != "offered" else tuple(
+                bool(value) for value in _source_sequence(state.event.metadata.get(
+                    "generated_card_upgraded"))))
+            modifiers = (generated_modifiers if kind != "offered" else
+                         _mapping_from(state.event.metadata.get("generated_card_modifiers")))
+            if index < len(upgrades) and upgrades[index]:
+                card = _upgrade_card_instance(card)
+            from .source_card_reward_modifiers import apply_generated_modifiers
+
+            card = apply_generated_modifiers(card, _mapping_from(modifiers.get(str(index))))
         card, egg_event = _upgrade_card_for_add_relics(next_state, card)
         if egg_event is not None:
             events.append(egg_event)
@@ -3585,6 +3617,8 @@ def _choose_source_native_event(
                         no_upgrade_roll=not bool(rule.get("generated_upgrade_roll")),
                         rarity=rule.get("generated_rarity"), card_type=rule.get("card_type"),
                         card_cost=rule.get("card_cost"),
+                        no_pool_modifications=bool(rule.get("generated_no_pool_modifications")),
+                        is_card_reward=True,
                         force_upgrade=bool(rule.get("force_generated_upgrade")))
                     for index in range(len(card_groups))},
                 "card_option_upgraded": (tuple(True for _ in generated_ids)

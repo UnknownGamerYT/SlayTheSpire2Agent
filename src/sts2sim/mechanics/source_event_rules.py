@@ -47,6 +47,7 @@ class SourceEventRule:
     generated_uniform: bool = False
     generated_upgrade_roll: bool = False
     generated_reward: bool = False
+    generated_no_pool_modifications: bool = False
     remove_potion_index: int | None = None
     remove_relic: str = ""
     random_relic_count: int = 1
@@ -90,11 +91,11 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
     "BRAIN_LEECH": {
         "SHARE_KNOWLEDGE": R(generated_count=5, generated_choose=1),
         "RIP": R(N(hp_loss=5), generated_count=3, generated_color="colorless",
-                 generated_reward=True),
+                 generated_reward=True, generated_no_pool_modifications=True),
     },
     "INFESTED_AUTOMATON": {
         "STUDY": R(generated_count=1, card_type="power"),
-        "TOUCH_CORE": R(generated_count=1, card_cost=0),
+        "TOUCH_CORE": R(generated_count=1, card_cost=0, generated_no_pool_modifications=True),
     },
     "BUGSLAYER": {
         "EXTERMINATION": R(add_cards=("exterminate",)),

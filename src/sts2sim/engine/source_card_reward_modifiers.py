@@ -217,6 +217,15 @@ def apply_option_modifiers(
     by_group = t._mapping_from(reward.metadata.get('card_reward_option_modifiers'))
     by_index = t._mapping_from(by_group.get(key))
     modifiers = t._mapping_from(by_index.get(str(index)))
+    return apply_generated_modifiers(card, modifiers)
+
+
+def apply_generated_modifiers(
+    card: CardInstance, modifiers: Mapping[str, Any],
+) -> CardInstance:
+    """Apply persisted factory enchantments to an offered or selected instance."""
+    from . import transitions as t
+
     for raw in modifiers.get('enchantments', ()):
         if isinstance(raw, Mapping):
             card = t._enchant_card(card, str(raw.get('keyword', '')),

@@ -113,15 +113,20 @@ def _sphere_rewards(
             else:
                 relics.extend(e._draw_event_relic_ids(state, rng, 1))
         elif item.kind == 'card':
-            pool = tuple(card for card in e._event_flow_card_pool(state, EventFlowMarker(
-                kind=EventFlowMarkerKind.CARD_REWARD, qualifier='character'))
+            from .source_run_passives import modify_reward_pool
+
+            pool = tuple(card for card in modify_reward_pool(state,
+                e._event_flow_card_pool(state, EventFlowMarker(
+                    kind=EventFlowMarkerKind.CARD_REWARD, qualifier='character')),
+                pool_ids=('character',))
                          if card.rarity.value == item.rarity)
             cards, card_rarities, card_upgrades = source_noncombat_cards(
                 rng, pool, 3, uniform=True, no_upgrade_roll=False,
                 item_rng=rng, act=state.act, ascension=state.ascension)
             key = 'primary' if not card_groups else f'group:{len(card_groups) - 1}'
             contexts[key] = card_reroll_context(count=3, uniform=True, no_upgrade_roll=False,
-                rng_stream='CRYSTAL_SPHERE', rarity=item.rarity)
+                rng_stream='CRYSTAL_SPHERE', rarity=item.rarity, is_card_reward=True,
+                no_pool_modifications=False)
             card_groups.append(cards)
             rarities.append(card_rarities)
             upgrades.append(card_upgrades)

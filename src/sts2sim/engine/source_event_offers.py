@@ -160,6 +160,7 @@ def native_dynamic_offers(
             options.append(EventOptionState(option_id=f'potion_{index}', title=potion, metadata={
                 'source_native_rule': {'selection': '', 'remove_potion_index': index,
                     'generated_count': 3, 'generated_reward': True, 'generated_uniform': True,
+                    'generated_no_pool_modifications': True,
                     'generated_rarity': rarity, 'card_type': types[index],
                     'force_generated_upgrade': True}}))
     return event.model_copy(update={'options': tuple(options), 'metadata': metadata})
