@@ -58,6 +58,14 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
       "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationFlags.cs",
+      "sha256": "1e43d3793d138f8ede4db48e429d03ef515105f547ee8ced0dd3438cd613bc11"
     }
   ],
   "source_contracts": {
