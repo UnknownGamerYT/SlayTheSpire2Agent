@@ -14539,13 +14539,18 @@ def _add_generated_status_cards_to_draw_pile_shuffled(
     source_id: str,
     reason: str,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
-    rng = random_stream(rng, "combat_card_selection")
+    rng = random_stream(rng, "shuffle")
     cards = _generated_status_cards(combat, card_id, count)
     if not cards:
         return combat, ()
 
-    draw_pile = list(combat.draw_pile + cards)
-    rng.shuffle(draw_pile)
+    if is_source_rng(rng):
+        draw_pile = list(combat.draw_pile)
+        for card in cards:
+            draw_pile.insert(rng.randrange(len(draw_pile) + 1), card)
+    else:
+        draw_pile = list(combat.draw_pile + cards)
+        rng.shuffle(draw_pile)
     combat = combat.model_copy(update={"draw_pile": tuple(draw_pile)})
     return (
         combat,
@@ -19887,7 +19892,7 @@ def _add_biiig_hug_soot(
     rng: Random,
     relics: Sequence[str],
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
-    rng = random_stream(rng, "combat_card_selection")
+    rng = random_stream(rng, "shuffle")
     if not _has_relic_id(relics, "biiig_hug"):
         return combat, ()
     metadata = dict(combat.metadata)

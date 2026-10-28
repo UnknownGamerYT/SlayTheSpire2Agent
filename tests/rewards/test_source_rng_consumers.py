@@ -122,3 +122,18 @@ def test_first_run_unknowns_do_not_draw_rng() -> None:
         outcomes.append(resolved.kind.value)
         assert state.rng == original
     assert outcomes == ['event', 'event', 'monster']
+
+
+def test_source_generated_status_insertion_keeps_existing_order_and_uses_shuffle_stream() -> None:
+    from sts2sim.engine.models import CombatState
+    state = new_run('TEST', 'IRONCLAD', 0)
+    original = state.master_deck[:4]
+    combat = CombatState(player=state.player, draw_pile=original)
+    bank = RunRng('TEST')
+    updated, _ = e._add_generated_status_cards_to_draw_pile_shuffled(
+        combat, bank, 'dazed', 2, source_id='source_fixture', reason='source_fixture')
+    original_ids = {card.instance_id for card in original}
+    assert tuple(card for card in updated.draw_pile if card.instance_id in original_ids) == original
+    snapshot = capture_random_state(bank)
+    assert snapshot.streams['shuffle'].draws == 2
+    assert 'combat_card_selection' not in snapshot.streams
