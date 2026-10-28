@@ -317,7 +317,25 @@
     {
       "card_id": "HANG",
       "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Hang.cs",
-      "expected_behavior": "Use target Hang multiplier on damage then double it for subsequent Hang cards."
+      "expected_behavior": "Damage receives target Hang multiplier after Strength; install max(2,currentHang) capped so total does not exceed 999999999.",
+      "cases": [
+        {
+          "upgraded": false,
+          "strength": 2,
+          "initial_hang": 2,
+          "expected_damage": 24,
+          "expected_final_hang": 4,
+          "serialize_before_play": true
+        },
+        {
+          "upgraded": true,
+          "strength": 2,
+          "initial_hang": 2,
+          "expected_damage": 30,
+          "expected_final_hang": 4,
+          "serialize_before_play": true
+        }
+      ]
     },
     {
       "card_id": "BARRAGE",
@@ -512,7 +530,7 @@
     {
       "card_id": "FORGE_COMMAND",
       "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Commands/ForgeCmd.cs",
-      "expected_behavior": "Create a Blade when no non-exhausted Blade exists, then add Forge damage to every Blade including exhausted ones."
+      "expected_behavior": "Create a Blade when no non-exhausted Blade exists, then add Forge damage to every Blade including exhausted ones. Zero Forge still creates a missing Blade and fires AfterForge."
     },
     {
       "card_id": "PARRY",

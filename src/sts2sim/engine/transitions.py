@@ -159,7 +159,7 @@ from sts2sim.mechanics.shops import (
     ShopItem,
     ShopItemKind,
 )
-from sts2sim.mechanics.source_class_rules import source_class_card_updates
+from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.source_rng import is_source_rng, source_sample
@@ -28293,7 +28293,7 @@ def _card_from_spec(
     *,
     card_library: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> CardInstance:
-    source_spec = dict(spec)
+    source_spec = dict(source_class_spec(spec))
     base_source_spec = {**source_spec, "upgraded": False}
     if bool(source_spec.get("upgraded", False)):
         source_spec = _apply_card_upgrade_to_spec(source_spec)
@@ -29226,7 +29226,7 @@ def _enum_value(enum_type: type[CardType] | type[TargetType], value: Any) -> Any
             "attack": CardType.ATTACK.value,
             "curse": CardType.CURSE.value,
             "power": CardType.POWER.value,
-            "quest": CardType.STATUS.value,
+            "quest": CardType.QUEST.value,
             "skill": CardType.SKILL.value,
             "status": CardType.STATUS.value,
         }

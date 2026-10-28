@@ -76,6 +76,7 @@ class CardType(str, Enum):
     POWER = "power"
     STATUS = "status"
     CURSE = "curse"
+    QUEST = "quest"
     UNKNOWN = "unknown"
 
 

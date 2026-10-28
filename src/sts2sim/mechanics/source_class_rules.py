@@ -13,6 +13,19 @@ from collections.abc import Mapping
 from typing import Any
 
 
+def source_class_spec(source: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Tyranny's Exhaust hover tip describes its choice, not a card keyword."""
+    if str(source.get("id", source.get("card_id", ""))).lower() != "tyranny":
+        return source
+    result = dict(source)
+    for key in ("keywords", "keywords_key", "tags"):
+        values = source.get(key)
+        if isinstance(values, (list, tuple)):
+            result[key] = tuple(value for value in values if str(value).lower() != "exhaust")
+    result["exhausts"] = False
+    return result
+
+
 def source_class_steps(
     source: Mapping[str, Any],
     steps: tuple[Mapping[str, Any], ...],

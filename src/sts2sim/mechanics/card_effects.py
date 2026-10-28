@@ -16,7 +16,7 @@ from typing import Any
 from .card_specials import card_special_plan
 from .powers import normalize_power_id, power_application_effect
 from .source_card_rules import source_execution_steps, source_play_restrictions
-from .source_class_rules import source_class_card_updates, source_class_steps
+from .source_class_rules import source_class_card_updates, source_class_spec, source_class_steps
 from .source_core_rules import source_core_steps
 from .source_resource_rules import source_resource_steps
 
@@ -139,6 +139,7 @@ def card_effect_plan(
 ) -> CardEffectPlan:
     """Normalize one card source mapping into executable effect steps."""
 
+    card_spec = source_class_spec(card_spec)
     card_spec = _merge_known_card_spec(
         card_spec,
         _lookup_card(_card_id(card_spec), card_library),
@@ -1807,6 +1808,7 @@ def _normalized_id(value: object) -> str:
 _CARD_TYPE_ALIASES = {
     "attack": "attack",
     "curse": "curse",
+    "quest": "quest",
     "power": "power",
     "skill": "skill",
     "status": "status",

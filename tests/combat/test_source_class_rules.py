@@ -575,3 +575,21 @@ def test_zero_forge_creates_missing_blade_and_dispatches_after_forge():
     assert len(blades) == 1
     assert blades[0].effects["sequence"] == [{"damage": 10}]
     assert any(e.kind == "ally_forge_triggered" and e.amount == 0 for e in state.combat.last_events)
+
+
+def test_flak_cannon_and_compact_leave_quest_cards_untouched():
+    for card_id in ("flak_cannon", "compact"):
+        state = _fight(card_id, "byrdonis_egg", "wound")
+        state = _play(state, card_id)
+        egg = next(c for c in state.combat.hand if c.card_id == "byrdonis_egg")
+        assert egg.type.value == "quest"
+        assert not any(c.card_id == "byrdonis_egg" for c in state.combat.exhaust_pile)
+
+
+def test_crescent_spear_counts_canonical_star_cards_once_during_replay():
+    state = _fight("crescent_spear")
+    spear = state.combat.hand[0]
+    spear = spear.model_copy(update={"custom": {**spear.custom, "replay": 1}})
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={"hand": (spear,)})})
+    state = _play(state, "crescent_spear")
+    assert state.combat.monsters[0].hp == 980

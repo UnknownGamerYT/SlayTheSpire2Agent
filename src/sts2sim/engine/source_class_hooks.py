@@ -257,10 +257,13 @@ def execute(
             value = len(t._string_items(combat.metadata.get("created_card_hook_ids")))
         elif basis == "star_cards":
             # The currently played spear remains in AllCards in the source.
+            cards_by_id = {item.instance_id: item for item in all_cards}
+            cards_by_id.setdefault(card.instance_id, card)
             value = sum(
-                t._card_resource_costs(item, available_star=0).get("star", 0) > 0
+                "star_cost" in item.custom
+                or t._card_source_spec(item).get("star_cost") is not None
                 or t._card_is_x_star_cost(item)
-                for item in all_cards + (card,)
+                for item in cards_by_id.values()
             )
         else:
             value = t._metadata_int(combat.metadata, "source_class_draws_turn", 0)
@@ -321,13 +324,15 @@ def execute(
                         )
     elif operation in {"hang_damage", "hang_double"}:
         target = next((m for m in combat.monsters if m.monster_id == target_id), None)
-        amount = max(1, t._status_amount(target.statuses, "hang")) if target is not None else 1
+        amount = t._status_amount(target.statuses, "hang") if target is not None else 0
         if operation == "hang_damage":
             # HangPower's multiplier belongs in target damage math, after
             # additive Strength, together with Vulnerable and other factors.
             apply({"damage": int(payload["amount"])})
         else:
-            apply({"apply_status": {"target": "enemy", "hang": amount if amount > 1 else 2}})
+            hang_added = min(max(2, amount), max(0, 999999999 - amount))
+            if hang_added:
+                apply({"apply_status": {"target": "enemy", "hang": hang_added}})
     elif operation == "beat_forge":
         hits = t._mapping_from(combat.metadata.get("hits_by_target_this_turn"))
         count = int(hits.get(target_id or "", 0))
@@ -689,14 +694,19 @@ def energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> in
 
     if combat is None:
         return cost
+    in_hand_or_play = any(item.instance_id == card.instance_id for item in combat.hand) or not any(
+        item.instance_id == card.instance_id
+        for zone in (combat.draw_pile, combat.discard_pile, combat.exhaust_pile)
+        for item in zone
+    )
     powers = t._mapping_from(combat.metadata.get("source_class_cost_powers"))
     for power, stored in powers.items():
         value = t._mapping_from(stored)
         if value.get("turn", combat.turn) != combat.turn or not value.get("amount"):
             continue
-        if power == "free_power" and card.type.value == "power":
+        if power == "free_power" and card.type.value == "power" and in_hand_or_play:
             return 0
-        if power == "free_ethereal" and t._card_has_keyword(card, "ethereal"):
+        if power == "free_ethereal" and t._card_has_keyword(card, "ethereal") and in_hand_or_play:
             return 0
     if card.card_id.lower() == "banshees_cry":
         cost -= 2 * t._metadata_int(combat.metadata, "source_class_ethereal_plays", 0)
