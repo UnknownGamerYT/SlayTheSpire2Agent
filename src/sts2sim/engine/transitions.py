@@ -16346,9 +16346,9 @@ def _apply_effect_step(
     player = combat.player
     monsters = list(combat.monsters)
 
-    damage: int | Fraction = _effect_amount(effect, "damage", energy_spent)
+    damage = _effect_damage_amount(effect, "damage", energy_spent)
     if "damage" in effect:
-        source_base_damage = int(damage)
+        source_base_damage = source_core_hooks.damage_fraction(damage)
         damage = _modified_card_damage(combat, card, damage, relics=relics)
         damage = _sovereign_blade_damage_amount(combat, card, target_id, damage)
         targets = _effect_enemy_targets(combat, card, target_id, all_enemies=False)
@@ -16394,7 +16394,7 @@ def _apply_effect_step(
         raw_damage_formula, combat=combat, clamp_nonnegative=False,
     )
     if raw_damage_formula is not None:
-        source_base_damage = int(formula_damage)
+        source_base_damage = source_core_hooks.damage_fraction(formula_damage)
         formula_damage = _modified_card_damage(combat, card, formula_damage, relics=relics)
         formula_damage = _sovereign_blade_damage_amount(
             combat,
@@ -16440,9 +16440,9 @@ def _apply_effect_step(
         player = combat.player
         events.extend(kill_events)
 
-    all_damage: int | Fraction = _effect_amount(effect, "all_damage", energy_spent)
+    all_damage = _effect_damage_amount(effect, "all_damage", energy_spent)
     if "all_damage" in effect:
-        source_base_damage = int(all_damage)
+        source_base_damage = source_core_hooks.damage_fraction(all_damage)
         all_damage = _modified_card_damage(combat, card, all_damage, relics=relics)
         all_damage = _sovereign_blade_damage_amount(combat, card, target_id, all_damage)
         targets = tuple(monster.monster_id for monster in monsters if monster.hp > 0)
@@ -18494,10 +18494,13 @@ def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardIn
     cost_delta = _coerce_int(update.get("cost_delta"), default=0)
     if cost_delta and card.cost is not None:
         card_updates["cost"] = max(0, card.cost + cost_delta)
-    damage_bonus = _coerce_int(update.get("source_core_damage_bonus"), default=0)
+    damage_bonus = source_core_hooks.damage_fraction(update.get("source_core_damage_bonus", 0))
     if damage_bonus:
         card_updates["custom"] = {**card.custom, "source_core_damage_bonus": (
-            _coerce_int(card.custom.get("source_core_damage_bonus"), default=0) + damage_bonus
+            source_core_hooks.serializable_damage(
+                source_core_hooks.damage_fraction(card.custom.get("source_core_damage_bonus", 0))
+                + damage_bonus
+            )
         )}
     if not card_updates:
         return card
@@ -28473,6 +28476,16 @@ def _effect_steps(effects: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
     if isinstance(sequence, Sequence) and not isinstance(sequence, (str, bytes, bytearray)):
         return tuple(item for item in sequence if isinstance(item, Mapping))
     return (effects,)
+
+
+def _effect_damage_amount(
+    effect: Mapping[str, Any], key: str, energy_spent: int,
+) -> int | Fraction:
+    """Read exact damage operands without changing integer resource semantics."""
+    value = effect.get(key, 0)
+    if isinstance(value, Mapping) and ("numerator" in value or "denominator" in value):
+        return source_core_hooks.damage_fraction(value)
+    return _effect_amount(effect, key, energy_spent)
 
 
 def _effect_amount(effect: Mapping[str, Any], key: str, energy_spent: int) -> int:

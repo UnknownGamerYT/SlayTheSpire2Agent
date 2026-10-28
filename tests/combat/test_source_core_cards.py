@@ -661,3 +661,144 @@ def test_thorns_death_finishes_current_aoe_batch_and_skips_next_hit():
     state = _play(state, "dagger_spray")
     assert state.player.hp == 0
     assert [m.hp for m in state.combat.monsters] == [96, 96]
+
+
+def _return_thrash_to_hand(state):
+    grown = next(c for c in state.combat.discard_pile if c.card_id == "thrash")
+    return state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={
+                    "hand": state.combat.hand + (grown,),
+                    "discard_pile": tuple(
+                        c for c in state.combat.discard_pile if c.instance_id != grown.instance_id
+                    ),
+                }
+            )
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "up,strength,hits",
+    [
+        (False, 0, (3, 4, 6, 8)),
+        (False, 1, (3, 5, 7, 8)),
+        (True, 0, (4, 6, 7, 9)),
+        (True, 1, (5, 6, 8, 10)),
+    ],
+)
+def test_thrash_preserves_quarters_across_repeated_sacrifices_and_reload(up, strength, hits):
+    # Thrash.cs stores Hook.ModifyDamage's decimal, not rounded HP damage.
+    # Each sacrifice is (3-Strength + Strength)*0.75 = 9/4.
+    foods = tuple(attack(f"food{i}", 3 - strength) for i in range(3))
+    state = _state(source("thrash", up), *foods, statuses={"weak": 5, "strength": strength})
+    cumulative = 0
+    for index, damage in enumerate(hits):
+        if index:
+            state = _return_thrash_to_hand(state)
+        state = _play(_reload(state), "thrash")
+        cumulative += damage * 2
+        assert state.combat.monsters[0].hp == 100 - cumulative
+        grown = next(c for c in state.combat.discard_pile if c.card_id == "thrash")
+        expected = ((9, 4), (9, 2), (27, 4), (27, 4))[index]
+        assert grown.custom["source_core_damage_bonus"] == {
+            "numerator": expected[0],
+            "denominator": expected[1],
+        }
+        assert not state.combat.metadata.get("played_card_updates", {}).get(grown.instance_id)
+    assert len(state.combat.exhaust_pile) == 3
+
+
+def test_thrash_replay_uses_and_persists_the_same_fractional_mutable_damage():
+    from sts2sim.engine import CardEnchantment
+
+    card = source("thrash").model_copy(
+        update={
+            "enchantments": (CardEnchantment(keyword="replay", amount=1),),
+        }
+    )
+    state = _play(
+        _reload(_state(card, attack("food1", 3), attack("food2", 3), statuses={"weak": 3})),
+        "thrash",
+    )
+    assert state.combat.monsters[0].hp == 86  # (3*2) + (4*2).
+    grown = next(c for c in state.combat.discard_pile if c.card_id == "thrash")
+    assert grown.custom["source_core_damage_bonus"] == {"numerator": 9, "denominator": 2}
+    assert len(state.combat.exhaust_pile) == 2
+    state = _play(_reload(_return_thrash_to_hand(state)), "thrash")
+    assert state.combat.monsters[0].hp == 62  # Two replays of 6 damage twice.
+
+
+@pytest.mark.parametrize("key", ["damage", "all_damage"])
+def test_exact_damage_operands_keep_fraction_until_after_strength_weak_vulnerable(key):
+    card = _simple(
+        "rational",
+        card_type="attack",
+        target="enemy",
+        effects={key: {"numerator": 31, "denominator": 4}},
+    )
+    state = _state(card, statuses={"strength": 3, "weak": 1})
+    monster = state.combat.monsters[0].model_copy(update={"statuses": {"vulnerable": 1}})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (monster,)})}
+    )
+    state = _play(_reload(state), "rational")
+    assert state.combat.monsters[0].hp == 88  # floor((31/4 + 3)*3/4*3/2) = 12.
+
+
+def test_thrash_fraction_survives_public_armaments_upgrade():
+    state = _play(
+        _state(
+            source("thrash"), attack("food", 3), source("armaments", True), statuses={"weak": 3}
+        ),
+        "thrash",
+    )
+    state = _return_thrash_to_hand(state)
+    state = _play(_reload(state), "armaments")
+    grown = next(c for c in state.combat.hand if c.card_id == "thrash")
+    assert grown.upgraded
+    assert grown.custom["source_core_damage_bonus"] == {"numerator": 9, "denominator": 4}
+    state = _play(_reload(state), "thrash")
+    assert state.combat.monsters[0].hp == 82  # 3*2 before upgrade, then 6*2.
+
+
+def test_thrash_sacrificed_precise_cut_excludes_itself_in_hand_calculation():
+    state = _play(
+        _state(
+            source("thrash"),
+            source("precise_cut"),
+            _simple("held1"),
+            _simple("held2"),
+            statuses={"weak": 3},
+        ),
+        "thrash",
+    )
+    grown = next(c for c in state.combat.discard_pile if c.card_id == "thrash")
+    assert grown.custom["source_core_damage_bonus"] == {"numerator": 27, "denominator": 4}
+    # PreciseCut.Calculate(null) = 13 - 2*2; Weak modifies 9 into 27/4.
+
+
+def test_thrash_sacrificed_target_formula_has_no_receiver():
+    state = _state(source("thrash"), source("bully"), statuses={"weak": 3})
+    monster = state.combat.monsters[0].model_copy(update={"statuses": {"vulnerable": 3}})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (monster,)})}
+    )
+    state = _play(state, "thrash")
+    grown = next(c for c in state.combat.discard_pile if c.card_id == "thrash")
+    assert grown.custom["source_core_damage_bonus"] == 3  # (base4 + null-target0)*0.75.
+
+
+def test_rampage_replay_observes_mutation_of_same_physical_card():
+    from sts2sim.engine import CardEnchantment
+
+    card = source("rampage").model_copy(
+        update={
+            "enchantments": (CardEnchantment(keyword="replay", amount=1),),
+        }
+    )
+    state = _play(_reload(_state(card)), "rampage")
+    assert state.combat.monsters[0].hp == 77  # 9, then the already-increased 14.
+    grown = next(c for c in state.combat.discard_pile if c.card_id == "rampage")
+    assert grown.custom["source_core_damage_bonus"] == 10

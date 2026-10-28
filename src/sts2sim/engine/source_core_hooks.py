@@ -7,6 +7,7 @@ exhaust/discard/draw/child plays retain their normal hooks and serialization.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from fractions import Fraction
 from random import Random
 from typing import Any
 
@@ -81,12 +82,45 @@ def apply_source_core(
                 )
                 events.extend(triggered)
 
-    def add_damage_bonus(amount: int) -> None:
+    def add_damage_bonus(amount: int | Fraction) -> None:
         nonlocal combat
+        exact_amount = damage_fraction(amount)
         updates = dict(combat.metadata.get("played_card_updates", {}))
         update = dict(updates.get(card.instance_id, {}))
-        update["source_core_damage_bonus"] = int(update.get("source_core_damage_bonus", 0)) + amount
-        updates[card.instance_id] = update
+        pending = damage_fraction(update.get("source_core_damage_bonus", 0))
+        physical = next(
+            (
+                (zone, item)
+                for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
+                for item in getattr(combat, zone)
+                if item.instance_id == card.instance_id
+            ),
+            None,
+        )
+        if physical is None:
+            update["source_core_damage_bonus"] = serializable_damage(pending + exact_amount)
+        else:
+            # A replay sees the same mutable card, even after the physical card
+            # has moved to Discard. Persist the new value immediately there.
+            zone, item = physical
+            item = item.model_copy(
+                update={
+                    "custom": {
+                        **item.custom,
+                        "source_core_damage_bonus": serializable_damage(
+                            damage_fraction(item.custom.get("source_core_damage_bonus", 0))
+                            + pending
+                            + exact_amount
+                        ),
+                    }
+                }
+            )
+            combat = t._replace_card_in_combat_zone(combat, zone, item)
+            update.pop("source_core_damage_bonus", None)
+        if update:
+            updates[card.instance_id] = update
+        else:
+            updates.pop(card.instance_id, None)
         combat = combat.model_copy(
             update={"metadata": {**combat.metadata, "played_card_updates": updates}}
         )
@@ -95,12 +129,24 @@ def apply_source_core(
                 kind="card_damage_increased",
                 source_id=card.instance_id,
                 target_id=card.instance_id,
-                amount=amount,
+                amount=exact_amount.numerator if exact_amount.denominator == 1 else None,
+                metadata={"damage_increase": serializable_damage(exact_amount)},
             )
         )
 
-    def bonus() -> int:
-        return int(card.custom.get("source_core_damage_bonus", 0)) + int(
+    def bonus() -> Fraction:
+        physical = next(
+            (
+                item
+                for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
+                for item in getattr(combat, zone)
+                if item.instance_id == card.instance_id
+            ),
+            card,
+        )
+        return damage_fraction(
+            physical.custom.get("source_core_damage_bonus", 0)
+        ) + damage_fraction(
             combat.metadata.get("played_card_updates", {})
             .get(card.instance_id, {})
             .get("source_core_damage_bonus", 0)
@@ -358,11 +404,11 @@ def apply_source_core(
                 }
             )
     elif name == "rampage":
-        run({"damage": 9 + bonus()})
+        run({"damage": serializable_damage(9 + bonus())})
         add_damage_bonus(9 if up else 5)
     elif name == "thrash":
-        run({"damage": (6 if up else 4) + bonus()})
-        run({"damage": (6 if up else 4) + bonus()})
+        run({"damage": serializable_damage((6 if up else 4) + bonus())})
+        run({"damage": serializable_damage((6 if up else 4) + bonus())})
         thrash_cards = [c for c in combat.hand if c.type == CardType.ATTACK]
         if thrash_cards:
             rng = select_rng()
@@ -370,7 +416,7 @@ def apply_source_core(
             rng_state = capture_random_state(rng)
             value = next(
                 (
-                    int(s.get("damage", s.get("all_damage", 0)))
+                    t._effect_damage_amount(s, "damage" if "damage" in s else "all_damage", 0)
                     for s in t._effect_steps(chosen.effects)
                     if "damage" in s or "all_damage" in s
                 ),
@@ -378,7 +424,7 @@ def apply_source_core(
             )
             value = sacrificed_damage(chosen, combat, value)
             modified_value = t._modified_card_damage(combat, chosen, value, relics=relics)
-            add_damage_bonus(int(modified_value))
+            add_damage_bonus(modified_value)
             exhaust((chosen,))
     elif name == "pillage":
         run({"damage": 9 if up else 6})
@@ -664,14 +710,35 @@ def exhaust_play_count(card: CardInstance) -> int:
     return 1 + max(amount, enchantment)
 
 
-def sacrificed_damage(card: CardInstance, combat: CombatState, fallback: int) -> int:
+def sacrificed_damage(
+    card: CardInstance,
+    combat: CombatState,
+    fallback: int | Fraction,
+) -> int | Fraction:
     """Thrash evaluates the sacrificed card's DynamicVar before exhausting it."""
     from . import transitions as t
 
     for effect in t._effect_steps(card.effects):
-        if "damage_formula" in effect:
-            return t._formula_amount(effect["damage_formula"], combat=combat)
+        formula = effect.get("damage_formula")
+        if isinstance(formula, Mapping):
+            name = str(formula.get("formula", ""))
+            if name.startswith("target_") or name == "other_player_attacks_this_turn":
+                # CalculatedDamage.Calculate(null) has no selected receiver.
+                return damage_fraction(formula.get("base", 0)) + damage_fraction(
+                    formula.get("bonus", 0)
+                )
+            if name == "hand_count" and card.card_id == "precise_cut":
+                # PreciseCut excludes itself while it is still in Hand.
+                count = sum(c.instance_id != card.instance_id for c in combat.hand)
+                return (
+                    damage_fraction(formula.get("base", 0))
+                    + count * damage_fraction(formula.get("multiplier", 1))
+                    + damage_fraction(formula.get("bonus", 0))
+                )
+            return t._formula_amount(formula, combat=combat)
     name = card.card_id
+    if name == "gold_axe":
+        return int(combat.metadata.get("source_core_finished_cards", 0))
     if name == "murder":
         return 1 + int(combat.metadata.get("source_core_draws", 0))
     if name == "memento_mori":
@@ -689,7 +756,9 @@ def sacrificed_damage(card: CardInstance, combat: CombatState, fallback: int) ->
     source = t._card_source_spec(card)
     raw = source.get("damage")
     if isinstance(raw, (int, float)):
-        return int(raw) + int(card.custom.get("source_core_damage_bonus", 0))
+        return damage_fraction(raw) + damage_fraction(
+            card.custom.get("source_core_damage_bonus", 0)
+        )
     return fallback
 
 
@@ -747,7 +816,7 @@ def attack_damage_with_thorns(
     combat: CombatState,
     card: CardInstance,
     target_ids: Sequence[str],
-    base_damage: int,
+    base_damage: int | Fraction,
     *,
     selected_target: str | None,
     relics: Sequence[str] = (),
@@ -788,3 +857,22 @@ def attack_damage_with_thorns(
         combat = combat.model_copy(update={"monsters": tuple(monsters)})
         events.extend(resolved)
     return combat, tuple(events)
+
+
+def damage_fraction(value: Any) -> Fraction:
+    """Read a legacy integer or a JSON-safe exact damage value."""
+    if isinstance(value, Mapping):
+        return Fraction(int(value.get("numerator", 0)), int(value.get("denominator", 1)))
+    if isinstance(value, float):
+        return Fraction(str(value))
+    return Fraction(value)
+
+
+def serializable_damage(value: int | Fraction) -> int | dict[str, int]:
+    """Keep integers compact and serialize fractional mutable card damage exactly."""
+    exact = Fraction(value)
+    return (
+        exact.numerator
+        if exact.denominator == 1
+        else {"numerator": exact.numerator, "denominator": exact.denominator}
+    )

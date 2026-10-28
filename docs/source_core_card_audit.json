@@ -2893,5 +2893,13 @@
       ],
       "remaining_observed_gap": null
     }
-  ]
+  ],
+  "closed_findings": {
+    "thrash_fractional_damage": {
+      "source": "Thrash.OnPlay retains the decimal result of Hook.ModifyDamage in Damage.BaseValue and ExtraDamage.",
+      "storage": "JSON integer or exact numerator/denominator pair",
+      "regression": "tests/combat/test_source_core_cards.py::test_thrash_preserves_quarters_across_repeated_sacrifices_and_reload"
+    }
+  },
+  "public_action_cases": 101
 }

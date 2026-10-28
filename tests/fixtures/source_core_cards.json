@@ -4013,5 +4013,50 @@
     "vars": {
       "Damage": 4
     }
+  },
+  {
+    "beta_image_url": null,
+    "block": null,
+    "can_be_generated_in_combat": null,
+    "cards_draw": null,
+    "color": "ironclad",
+    "compendium_order": 26,
+    "cost": 0,
+    "damage": 4,
+    "description": "Deal 4 damage.\nDeals 2 additional damage for each [gold]Vulnerable[/gold] on the enemy.",
+    "description_raw": "Deal {CalculatedDamage:diff()} damage.\nDeals {ExtraDamage:diff()} additional damage for each [gold]Vulnerable[/gold] on the enemy.",
+    "energy_gain": null,
+    "hit_count": null,
+    "hp_loss": null,
+    "id": "BULLY",
+    "image_url": "/static/images/cards/bully.webp",
+    "image_url_card": "https://cdn.spire-codex.com/cards-full/stable/bully.webp",
+    "image_url_card_upg": "https://cdn.spire-codex.com/cards-full/stable/bully_upg.webp",
+    "is_x_cost": null,
+    "is_x_star_cost": null,
+    "keywords": null,
+    "keywords_key": null,
+    "multiplayer_only": null,
+    "name": "Bully",
+    "powers_applied": null,
+    "rarity": "Uncommon",
+    "rarity_key": "Uncommon",
+    "sources": null,
+    "spawns_cards": null,
+    "star_cost": null,
+    "tags": null,
+    "target": "AnyEnemy",
+    "type": "Attack",
+    "type_key": "Attack",
+    "type_variants": null,
+    "upgrade": {
+      "extradamage": "+1"
+    },
+    "upgrade_description": "Deal 4 damage.\nDeals 3 additional damage for each [gold]Vulnerable[/gold] on the enemy.",
+    "vars": {
+      "CalculatedDamage": 4,
+      "CalculationBase": 4,
+      "ExtraDamage": 2
+    }
   }
 ]
