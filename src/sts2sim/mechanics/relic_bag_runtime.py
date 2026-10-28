@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from sts2sim.engine.models import RunState
 
 from .relic_bags import RelicBagContext, pull_relic_from_bag, remove_bag_relics
+from .run_progress import source_total_floor
 
 
 def source_relic_rarity(rng: Random) -> str:
@@ -49,7 +50,7 @@ def draw_source_relic(
     """Offer a deque relic and persist removal even when the offer is skipped."""
     key = "shared_relic_bag" if shared else "player_relic_bag"
     context = RelicBagContext(
-        total_floor=int(flags.get("total_floor", len(state.room_history) + state.act + 1)),
+        total_floor=source_total_floor(state, flags),
         player_count=int(flags.get("player_count", 1)),
         first_run_ironclad_present=(
             int(flags.get("number_of_runs", -1)) == 0 and state.character_id.upper() == "IRONCLAD"

@@ -161,6 +161,7 @@ from sts2sim.mechanics.run_generation import (
     select_run_act_ids,
     selected_act_id,
 )
+from sts2sim.mechanics.run_progress import source_total_floor
 from sts2sim.mechanics.shop_rooms import (
     ShopRoomAction,
     ShopRoomChoice,
@@ -2583,12 +2584,7 @@ def _event_source_for_room(state: RunState, rng: Random) -> Mapping[str, Any]:
 
 
 def _source_total_floor(state: RunState) -> int:
-    if "total_floor" in state.flags:
-        return _flag_int(state, "total_floor", 0)
-    entered = bool(state.map is not None and state.map.current_node_id is not None
-                   and state.map.current_node_id not in state.map.completed_node_ids)
-    return (len(state.room_history) + state.act + int(entered)
-            - int(state.flags.get("generation_started_with_neow") is False))
+    return source_total_floor(state)
 
 
 def _event_tradeable_relic_count(state: RunState) -> int | None:
