@@ -37,6 +37,7 @@ from sts2sim.mechanics.ancients import (
     AncientResolution as MechanicsAncientResolution,
 )
 from sts2sim.mechanics.ancients import (
+    default_ancient_id_for_act,
     resolve_ancient_choice,
     with_generated_ancient_choices,
 )
@@ -170,6 +171,11 @@ from sts2sim.mechanics.shops import (
     ShopInventoryPlan,
     ShopItem,
     ShopItemKind,
+)
+from sts2sim.mechanics.source_ancients import (
+    CHARACTERS,
+    AncientFacts,
+    generate_source_ancient_offers,
 )
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
@@ -387,7 +393,10 @@ def new_run_state(
     )
     map_state, flags, _ = _mark_spoils_map_site(map_state, flags)
     player = _apply_ancient_heal(player, ascension)
-    ancient_state = _generate_ancient_state(act=map_state.act, rng=rng, source=flags)
+    ancient_state = _generate_ancient_state(
+        act=map_state.act, rng=rng, source=flags, player=player, deck=deck,
+        relics=_initial_relics(character_id, source), character_id=character_id, ascension=ascension,
+    )
     flags["generation_started_with_neow"] = (
         _mapping_from(flags["act_room_sets"]["1"]).get("ancient_id") is not None
     )
@@ -433,6 +442,7 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
                 Action(type=ActionType.CHOOSE_ANCIENT, target_id=option.option_id)
                 for option in state.ancient.options
                 if option.option_id not in state.ancient.chosen_option_ids
+                and not _truthy(option.metadata.get("source_locked"))
             ),
         )
 
@@ -1129,7 +1139,8 @@ def _apply_ancient_resolution(
         next_state, pickup_events = _apply_relic_pickup_effects(
             next_state,
             relic_id,
-            apply_table_effects=relic_id not in ancient_fixed_relic_ids,
+            apply_table_effects=(relic_id not in ancient_fixed_relic_ids
+                                 or _truthy(resolution.choice.metadata.get("source_relic_pickup"))),
             pickup_rng=rng,
         )
         rng.setstate(random_from_state(next_state.rng).getstate())
@@ -8574,7 +8585,9 @@ def _complete_current_room(
         flags = dict(state.flags)
         next_map, flags, map_events = _mark_spoils_map_site(next_map, flags)
         player = _apply_ancient_heal(state.player, state.ascension)
-        ancient_state = _generate_ancient_state(act=next_act, rng=rng, source=flags)
+        ancient_state = _generate_ancient_state(act=next_act, rng=rng, source=flags,
+            player=player, deck=state.master_deck, relics=state.relics,
+            character_id=state.character_id, ascension=state.ascension)
         return (
         state.model_copy(
             update={
@@ -28240,13 +28253,20 @@ def _apply_ancient_heal(player: PlayerState, ascension: int) -> PlayerState:
 
 
 def _generate_ancient_state(
-    act: int, rng: Random, source: Mapping[str, Any] | None = None,
+    act: int, rng: Random, source: Mapping[str, Any] | None = None, *,
+    player: PlayerState | None = None, deck: Sequence[CardInstance] = (),
+    relics: Sequence[str] = (), character_id: str = "IRONCLAD", ascension: int = 0,
 ) -> AncientState | None:
     source = source or {}
     room_set = _mapping_from(_mapping_from(source.get("act_room_sets")).get(str(act)))
     ancient_id = room_set.get("ancient_id")
     if room_set and ancient_id is None:
         return None
+    if is_source_rng(rng):
+        return _generate_source_ancient_state(
+            act, rng, source, player=player, deck=deck, relics=relics,
+            character_id=character_id, ascension=ascension,
+        )
     context = with_generated_ancient_choices(
         MechanicsAncientContext(act=act, ancient_id=str(ancient_id) if ancient_id else None),
         rng=model_random(rng, str(ancient_id or "NEOW").upper()),
@@ -28255,6 +28275,71 @@ def _generate_ancient_state(
         act=act, ancient_id=context.ancient_id or "neow",
         options=tuple(_ancient_option_from_choice(choice) for choice in context.choices),
     )
+
+
+def _generate_source_ancient_state(
+    act: int, rng: Random, source: Mapping[str, Any], *, player: PlayerState | None,
+    deck: Sequence[CardInstance], relics: Sequence[str], character_id: str, ascension: int,
+) -> AncientState | None:
+    flags = {**dict(source), **dict(_mapping_from(source.get("flags")))}
+    room_set = _mapping_from(_mapping_from(flags.get("act_room_sets")).get(str(act)))
+    if "ancient_id" in room_set and room_set["ancient_id"] is None:
+        return None
+    ancient_id = str(room_set.get("ancient_id") or flags.get("ancient_id")
+                     or default_ancient_id_for_act(act))
+    character = _normalized_id(character_id)
+    raw_cards = _source_items(flags.get("cards")) or _initial_cached_source_rows(source, "cards")
+    card_pool = build_combat_card_pool(raw_cards, character_id=character)
+    enchantable = tuple(card for card in deck if card.type in {
+        CardType.ATTACK, CardType.SKILL, CardType.POWER
+    } and not card.enchantments and not _card_has_keyword(card, "unplayable"))
+    def tagged(card: CardInstance, tag: str) -> bool:
+        return tag in {_normalized_id(value) for value in card.tags} or (
+            _normalized_id(card.card_id) == tag
+            or _normalized_id(card.card_id).startswith(tag + "_")
+        )
+    unlocked = _string_items(flags.get("unlocked_character_ids")) or CHARACTERS
+    count = _coerce_int(flags.get("unlocked_character_count"), default=len(unlocked))
+    unlocked = tuple(_normalized_id(value) for value in unlocked[:count])
+    ancient_cards = tuple(
+        card_id for card_id in STABLE_CARD_POOL_ORDER.get(character, ())
+        if card_id not in {"break", "suppress", "protector", "meteor_shower", "quadcast"}
+        and any(_normalized_id(str(_mapping_from(row).get("id", ""))) == card_id
+                and _normalized_id(str(_mapping_from(row).get("rarity_key",
+                    _mapping_from(row).get("rarity", "")))) == "ancient" for row in raw_cards)
+    )
+    facts = AncientFacts(ancient_id=ancient_id, act=act, character_id=character,
+        player_count=_coerce_int(flags.get("player_count"), default=1),
+        unlocked_characters=unlocked,
+        common_cards=sum(card.rarity is CardRarity.COMMON for card in card_pool),
+        uncommon_cards=sum(card.rarity is CardRarity.UNCOMMON for card in card_pool),
+        enchantable_cards=len(enchantable),
+        enchantable_attacks=sum(card.type is CardType.ATTACK for card in enchantable),
+        enchantable_defends=sum(tagged(card, "defend") for card in enchantable),
+        removable_cards=sum(not _deck_card_mutation_blocked(card) for card in deck),
+        has_basic_strike=any(tagged(card, "strike") and _normalized_id(str(
+            _card_source_spec(card).get("rarity", "basic"))) == "basic" for card in deck),
+        has_starter_relic=any(relic in ANCIENT_STARTER_RELICS for relic in relics),
+        has_transcendence_starter=any(card.card_id in {
+            "bash", "neutralize", "unleash", "falling_star", "dualcast"
+        } for card in deck),
+        has_event_pet=_truthy(flags.get("has_event_pet")),
+        clears_deck=_truthy(flags.get("clears_player_deck")), ancient_cards=ancient_cards,
+    )
+    offers = generate_source_ancient_offers(facts, model_random(rng, ancient_id.upper()),
+                                          random_stream(rng, "rewards"))
+    choices = tuple(MechanicsAncientChoice(
+        option_id=f"a{act}:ancient:{index}", name=offer.relic_id.replace("_", " ").title(),
+        kind="curse_relic" if offer.cursed else "positive_relic", ancient_id=ancient_id, act=act,
+        description=f"Gain {offer.relic_id.replace('_', ' ').title()}.",
+        relic_id=offer.relic_id or None, max_hp_delta=offer.max_hp_delta, set_flags=offer.flags,
+        metadata={"source_relic_pickup": True, "source_locked": offer.locked,
+            "source_url": "https://github.com/zhiyue/sts2-rl-agent/blob/"
+            "5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/"
+            "MegaCrit.Sts2.Core.Models.Events/" + ancient_id.title().replace("_", "") + ".cs"},
+    ) for index, offer in enumerate(offers, 1))
+    return AncientState(act=act, ancient_id=ancient_id,
+                        options=tuple(_ancient_option_from_choice(choice) for choice in choices))
 
 
 def _ancient_option_from_choice(choice: MechanicsAncientChoice) -> AncientOptionState:
