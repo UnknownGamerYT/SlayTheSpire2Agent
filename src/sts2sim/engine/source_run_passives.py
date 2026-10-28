@@ -95,7 +95,7 @@ def append_lasting_candy_power(
             elite = encounter == 'elite'
             rare = (0.05 if scarce else .1) if elite else (.0149 if scarce else .03)
             rarity = ('rare' if sample < float32(rare) else 'uncommon'
-                      if sample < float32(float32(rare) + float32(.4 if elite else .37))
+                      if sample < float32(.4 if elite else .37)
                       else 'common')
         for _ in range(3):
             if rarity in allowed:

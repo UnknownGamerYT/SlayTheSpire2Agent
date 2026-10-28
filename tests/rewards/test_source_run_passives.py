@@ -1,6 +1,8 @@
 """Finite stable source contracts; the fixture records each reviewed method/hash."""
 from __future__ import annotations
 
+from random import Random
+
 import pytest
 from combat.test_card_play_status_runtime import _reload, _simple, _state
 from combat.test_glam import _play
@@ -10,6 +12,8 @@ from sts2sim.engine import PlayerState, RewardState, RunPhase, RunState
 from sts2sim.engine import source_run_passives as hooks
 from sts2sim.engine import transitions as t
 from sts2sim.engine.rng import RunRng, capture_random_state, random_from_state
+from sts2sim.mechanics.combat_rewards import CombatRewardCard
+from sts2sim.mechanics.rewards import CardRarity
 
 
 def _act(state, kind, target=None):
@@ -142,3 +146,23 @@ def test_glitter_respects_existing_enchantment_and_noncardreward_factory_flags()
     _, ignored = hooks.apply_late_group_relic(state, 'glitter', ('anger',), (False,),
         group_key='primary', context={'no_modify_hooks': True})
     assert ignored == {}
+
+
+def test_lasting_candy_other_factory_uses_direct_uncommon_base_odds_boundary(monkeypatch):
+    class Tape(Random):
+        def __init__(self):
+            super().__init__(0)
+            self.samples = iter((.38, 0., .8))
+
+        def random(self):
+            return next(self.samples)
+
+    state = _reward('anger', ('lasting_candy',))
+    state = state.model_copy(update={'flags': {'relic_counters': {'lasting_candy': 2}}})
+    monkeypatch.setattr(t, '_reward_card_spec', lambda *_: {'type': 'power'})
+    pool = (CombatRewardCard('common_power', CardRarity.COMMON),
+            CombatRewardCard('uncommon_power', CardRarity.UNCOMMON))
+    cards, rarities, _ = hooks.append_lasting_candy_power(state, Tape(), (), (), (), pool=pool)
+    # RollWithBaseOdds compares .38 with .37 directly; Encounter's cumulative
+    # rare+uncommon .40 threshold would incorrectly choose the uncommon here.
+    assert cards == ('common_power',) and rarities == ('common',)

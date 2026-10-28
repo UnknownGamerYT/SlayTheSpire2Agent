@@ -50,7 +50,6 @@ from sts2sim.mechanics.campfire import (
     CampfireState,
     available_campfire_actions,
     resolve_campfire_action,
-    rest_heal_amount,
 )
 from sts2sim.mechanics.card_effects import normalize_card_spec
 from sts2sim.mechanics.character_starters import character_starter_defaults, starter_card_fallbacks
@@ -1865,8 +1864,10 @@ def _proceed(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if state.phase == RunPhase.TREASURE:
         return _complete_current_room(state, (EffectEvent(kind="treasure_opened"),))
     if state.phase == RunPhase.REWARD:
-        if state.reward is not None and state.reward.metadata.get("campfire_return_phase"):
-            return_phase = RunPhase(str(state.reward.metadata["campfire_return_phase"]))
+        if state.reward is not None and (state.reward.metadata.get("campfire_return_phase")
+                or state.reward.metadata.get("rest_heal_return_phase")):
+            return_phase = RunPhase(str(state.reward.metadata.get("rest_heal_return_phase")
+                or state.reward.metadata["campfire_return_phase"]))
             return state.model_copy(update={"phase": return_phase, "reward": None}), (
                 EffectEvent(kind="campfire_rewards_completed"),
             )
@@ -2049,56 +2050,19 @@ def _complete_campfire_action(
 
 
 def _rest_at_campfire(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    heal_amount = rest_heal_amount(state.player.max_hp, ascension_level=state.ascension)
-    if _has_relic(state, "regal_pillow"):
-        heal_amount += 15
-    healed = min(max(0, state.player.max_hp - state.player.hp), heal_amount)
-    player = state.player.model_copy(update={"hp": state.player.hp + healed})
-    extra_events: tuple[EffectEvent, ...] = ()
-    if _has_relic(state, "stone_humidifier"):
-        player = _change_player_max_hp(player, 5)
-        extra_events = (
-            EffectEvent(kind="relic_max_hp_changed", source_id="stone_humidifier", amount=5),
-        )
-    state, events = _complete_campfire_action(
-        state.model_copy(update={"player": player}),
-        (
-            EffectEvent(
-                kind="rest_healed",
-                amount=healed,
-                metadata={"heal_amount": heal_amount, "ascension": state.ascension},
-            ),
-        ) + extra_events,
-        action=ActionType.REST,
-    )
-    if not _has_relic(state, "dream_catcher", "tiny_mailbox"):
-        return state, events
+    from .source_rest_runtime import execute_rest_heal
 
-    return_phase = state.phase.value
-    rng = random_from_state(state.rng)
-    reward_events: tuple[EffectEvent, ...] = ()
-    state = state.model_copy(update={"reward": None})
-    if _has_relic(state, "dream_catcher"):
-        state, reward_events = _add_event_flow_card_rewards(
-            state, rng, EventFlowMarker(kind=EventFlowMarkerKind.CARD_REWARD, count=1)
-        )
+    state, events = execute_rest_heal(state, is_mimicked=False)
     reward = state.reward
-    if _has_relic(state, "tiny_mailbox"):
-        potion_ids = _draw_event_flow_potion_ids(
-            state, rng, EventFlowMarker(kind=EventFlowMarkerKind.RANDOM_POTION, count=2)
-        )
-        reward = reward or RewardState(
-            reward_id=f"campfire:{state.act}:{state.floor}", source="other"
-        )
-        reward = reward.model_copy(update={"potion_ids": reward.potion_ids + potion_ids})
-    if reward is None:
-        return state.model_copy(update={"rng": capture_random_state(rng)}), events + reward_events
-    reward = reward.model_copy(
-        update={"metadata": {**reward.metadata, "campfire_return_phase": return_phase}}
+    state, events = _complete_campfire_action(
+        state.model_copy(update={"reward": None}), events, action=ActionType.REST,
     )
-    return state.model_copy(
-        update={"phase": RunPhase.REWARD, "reward": reward, "rng": capture_random_state(rng)}
-    ), events + _reward_generated_events(reward)
+    if reward is None:
+        return state, events
+    reward = reward.model_copy(update={"metadata": {
+        **reward.metadata, "rest_heal_return_phase": state.phase.value,
+    }})
+    return state.model_copy(update={"phase": RunPhase.REWARD, "reward": reward}), events
 
 
 def _smith_at_campfire(
@@ -2461,6 +2425,11 @@ def _event_state_for_node(
         for option in result.options:
             effect = startup.effects.get(option.option_id.upper())
             if effect is not None:
+                if (result.event_id.upper() == "DENSE_VEGETATION"
+                        and option.option_id.upper() == "REST"):
+                    from .source_rest_runtime import rest_amount
+                    effect = replace(effect, heal=rest_amount(state))
+                    startup.values["heal"] = effect.heal
                 description = option.description
                 if effect.gold_delta:
                     verb = "Gain" if effect.gold_delta > 0 else "Pay"
@@ -3216,6 +3185,11 @@ def _choose_event(
     option = _event_option_for_id(state.event, action.target_id)
     if option is None or option.disabled:
         return state, ()
+
+    if (is_source_rng(state.rng) and state.event.event_id.upper() == "DENSE_VEGETATION"
+            and option.option_id.upper() == "REST"):
+        from .source_rest_runtime import mimic_dense_vegetation_rest
+        return mimic_dense_vegetation_rest(state)
 
     if state.flags.get("scroll_boxes_pending"):
         return _take_scroll_boxes_pack(state, option)
@@ -31634,6 +31608,7 @@ def _initial_flags(source: Mapping[str, Any]) -> dict[str, Any]:
     flags = dict(source.get("flags", {})) if isinstance(source.get("flags", {}), Mapping) else {}
     for key in (
         "max_acts",
+        "run_modifiers",
         "acts",
         "act_id",
         "act_ids",

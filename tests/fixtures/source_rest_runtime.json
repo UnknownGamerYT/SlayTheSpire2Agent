@@ -1,0 +1,101 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "certifies_game_parity": false,
+  "reviewed_methods": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.RestSite/HealRestSiteOption.cs",
+      "sha256": "167debfa61b18e90a2db5912eb07b04577610af95427c5800cc2ed7e3b8fcbef",
+      "methods": [
+        "GetHealAmount",
+        "ExecuteRestSiteHeal"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PlayerCmd.cs",
+      "sha256": "8630f180d829942738c860f96dc6621cae01e7c2402fd33cee871fe21f42f668",
+      "methods": [
+        "MimicRestSiteHeal"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/DenseVegetation.cs",
+      "sha256": "07bfcb3131b1f4cf006fd8d6e1ba2d76aa4cd4385ff60d55015ca59a0764d9f0",
+      "methods": [
+        "CalculateVars",
+        "Rest"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/NightTerrors.cs",
+      "sha256": "c35cda066fa9944dca424ea824dad52a36f4b90123b49993e3f35d34e4cbd77f",
+      "methods": [
+        "ModifyRestSiteHealAmount",
+        "AfterRestSiteHeal"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RegalPillow.cs",
+      "sha256": "1407da39984ffc83cfa10b0fbf34331aceee2e1f68ede5441f27c5bb7362a2ad",
+      "methods": [
+        "ModifyRestSiteHealAmount"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/StoneHumidifier.cs",
+      "sha256": "2960faaf16a913f39159315d9acfa29b5e399c69867015ab31d76c8940714d64",
+      "methods": [
+        "AfterRestSiteHeal"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DreamCatcher.cs",
+      "sha256": "8b0d1e60c9d2b41151cd2e523df3dccd7af610f56b15cac30bdc286aee645af9",
+      "methods": [
+        "TryModifyRestSiteHealRewards"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/TinyMailbox.cs",
+      "sha256": "1a182ac3e18b3eecb44a826274b4bfa83e3bef5fc49d3d1745546edcd281d285",
+      "methods": [
+        "TryModifyRestSiteHealRewards"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/PotionReward.cs",
+      "sha256": "0e10a1901cfac2046ac1750e593df89f5341e6a4fb76c17e4d847c8b36297819",
+      "methods": [
+        "Populate"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb",
+      "methods": [
+        "GenerateWithoutOffering"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/CardRarityOdds.cs",
+      "sha256": "49dccb9a3d3179b83768c3d7b6dcfbe1dfe34513058f9f0e4253386fc7e32417",
+      "methods": [
+        "RollWithBaseOdds"
+      ]
+    }
+  ],
+  "contracts": {
+    "mimic_ignores_coffee_dripper_option_gate": true,
+    "mimic_runs_relic_rest_callbacks": true,
+    "night_terrors_normal_max_hp_loss": 5,
+    "night_terrors_mimic_max_hp_loss": 0,
+    "night_terrors_minimum_max_hp": 1,
+    "dream_catcher_factory_source": "Encounter",
+    "dream_catcher_base_options": 3,
+    "dream_catcher_uses_rarity_pity_and_upgrade_rolls": true,
+    "tiny_mailbox_separate_potion_reward_instances": 2,
+    "custom_rewards_populate_in_relic_acquisition_order": true,
+    "candy_other_rarity_uncommon_threshold": "0.37 (normal), 0.4 (elite), without adding rare odds"
+  }
+}

@@ -2343,21 +2343,24 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Shared normal/mimicked rest factory uses Monster Encounter rarity pity, upgrades, Dingy pool, Candy extra Power and saved Driftwood creation context; Dense rewards resume its Fight page."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_rest_at_campfire",
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/source_rest_runtime.py"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_shop_and_campfire_relics_register_hook_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/rooms/test_hatch_mend_tea.py::test_mend_heals_selected_ally_thirty_percent_capped_and_does_not_rest",
         "tests/rooms/test_campfire_relics.py::test_rest_offers_dream_catcher_card_and_two_mailbox_potions_then_returns",
-        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics"
+        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics",
+        "tests/rooms/test_source_rest_runtime.py"
       ],
       "notes": [
         "Compared Rest heal custom three-choice Monster-odds card reward."
@@ -4499,30 +4502,31 @@
         "Rarity",
         "DisplayAmount"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
-        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count."
+        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count.",
+        "Dream Catcher outside-combat Encounter rewards and Source.Other direct uncommon odds threshold .37/.4 verified."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
         "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed",
-        "src/sts2sim/engine/source_run_passives.py"
+        "src/sts2sim/engine/source_run_passives.py",
+        "src/sts2sim/engine/source_rest_runtime.py"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
         "tests/rewards/test_relic_bags_stable.py::test_lasting_candy_first_run_ironclad_and_obtained_removal",
-        "tests/rewards/test_source_run_passives.py"
+        "tests/rewards/test_source_run_passives.py",
+        "tests/rooms/test_source_rest_runtime.py"
       ],
       "notes": [
-        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count.",
-        "Dream Catcher uses Encounter source outside combat; shared rest integration follows."
+        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Uncommon",
-      "remaining_known_gap": "Dream Catcher uses Encounter source outside combat; shared rest integration follows."
+      "source_rarity": "Uncommon"
     },
     {
       "id": "LAVA_LAMP",
