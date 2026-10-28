@@ -4638,16 +4638,15 @@ def _draw_transformed_card_id(
             color = "colorless"
         if color in {"shared", ""}:
             color = _normalized_id(state.character_id)
-        identifiers = source_transform_ids(state, color)
-        library = _card_library({"cards": (
-            *_cached_source_rows(state, "cards"), *_raw_card_pool_items(state)
-        )})
-        candidates = [card_id for card_id in identifiers if card_id not in excluded
-            and card_id in library and (rarity in {"status", "curse"} or
-                _normalized_id(str(library[card_id].get("rarity", "")))
-                in {"common", "uncommon", "rare"})]
-        if candidates:
-            return rng.choice(candidates)
+        raw_rows = _raw_card_pool_items(state)
+        identifiers = source_transform_ids(state, color, rows=raw_rows)
+        if identifiers is not None:
+            library = _card_library({"cards": raw_rows})
+            candidates = [card_id for card_id in identifiers if card_id not in excluded
+                and card_id in library and (rarity in {"status", "curse"} or
+                    _normalized_id(str(library[card_id].get("rarity", "")))
+                    in {"common", "uncommon", "rare"})]
+            return rng.choice(candidates) if candidates else None
     candidates = [
         str(card.card_id)
         for card in _transform_card_pool(state, marker)
@@ -7605,13 +7604,15 @@ def _apply_relic_transform_deck_cards_marker(
         return state, ()
 
     event_marker = _relic_event_flow_marker(marker, EventFlowMarkerKind.CARD_TRANSFORM, count)
-    if _normalized_id(relic_id) == "astrolabe" and _normalized_id(state.character_id) != "test":
+    if is_source_rng(rng) or (
+        _normalized_id(relic_id) == "astrolabe" and _normalized_id(state.character_id) != "test"
+    ):
         rng = random_stream(rng, "niche")
     else:
         rng = random_stream(rng, "transformations")
     next_state, transform_events, transformed_count = _transform_deck_cards(
         state,
-        random_stream(rng, "niche") if is_source_rng(rng) else rng,
+        rng,
         event_marker,
         selected_card_instance_ids=selected_ids,
         source_id=f"relic:{relic_id}",
@@ -20914,13 +20915,14 @@ def _generated_choice_cards(
         pool_name = "colorless" if payload.get("pool") == "colorless" else _normalized_id(
             state.character_id
         )
-        source_ids = source_transform_ids(state, pool_name, for_combat_generation=True)
-        if any(_normalized_id(str(spec.get("card_id", spec.get("id", "")))) in source_ids
-               for spec in candidates):
+        source_ids = source_transform_ids(
+            state, pool_name, for_combat_generation=True, rows=raw_items,
+        )
+        if source_ids is not None:
             candidates = [spec for spec in candidates if _normalized_id(str(
                 spec.get("card_id", spec.get("id", "")))) in source_ids]
-        candidates = list(order_source_pool(candidates, source_ids,
-            lambda spec: _normalized_id(str(spec.get("card_id", spec.get("id", ""))))))
+            candidates = list(order_source_pool(candidates, source_ids,
+                lambda spec: _normalized_id(str(spec.get("card_id", spec.get("id", ""))))))
         selected = source_take_random(rng, candidates, choices)
     else:
         rng.shuffle(candidates)

@@ -76,3 +76,35 @@ def test_dusty_tome_setup_uses_registered_source_pool_and_saved_selection(charac
     card = result.master_deck[-1]
     assert card.card_id.lower() == selected and card.upgraded
     assert selected not in {"break", "suppress", "protector", "meteor_shower", "quadcast"}
+
+
+
+def test_registered_transform_catalog_does_not_fill_from_cached_rows():
+    from sts2sim.engine.rng import random_from_state, random_stream
+    from sts2sim.mechanics.event_flows import EventFlowMarker, EventFlowMarkerKind
+    state = _pickup_state('astrolabe', 'ironclad', 1)
+    state = state.model_copy(update={'flags': {**state.flags, 'cards': (
+        {'id': 'ANGER', 'color': 'ironclad', 'rarity': 'Common'},
+        {'id': 'SHRUG_IT_OFF', 'color': 'ironclad', 'rarity': 'Common'},
+    )}})
+    rng = random_stream(random_from_state(state.rng), 'niche')
+    marker = EventFlowMarker(kind=EventFlowMarkerKind.CARD_TRANSFORM)
+    for _ in range(20):
+        selected = transitions._draw_transformed_card_id(
+            state, rng, marker, excluded_card_ids=('bash',))
+        assert selected in {'anger', 'shrug_it_off'}
+
+
+def test_locked_registered_transform_catalog_stays_empty_without_rng_or_fallback():
+    from sts2sim.engine.rng import capture_random_state, random_from_state, random_stream
+    from sts2sim.mechanics.event_flows import EventFlowMarker, EventFlowMarkerKind
+    state = _pickup_state('astrolabe', 'ironclad', 1)
+    state = state.model_copy(update={'flags': {**state.flags, 'cards': (
+        {'id': 'CRUELTY', 'color': 'ironclad', 'rarity': 'Rare'},
+    )}})
+    rng = random_stream(random_from_state(state.rng), 'niche')
+    before = capture_random_state(rng)
+    marker = EventFlowMarker(kind=EventFlowMarkerKind.CARD_TRANSFORM)
+    assert transitions._draw_transformed_card_id(
+        state, rng, marker, excluded_card_ids=('bash',)) is None
+    assert capture_random_state(rng) == before
