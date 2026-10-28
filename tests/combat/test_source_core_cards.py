@@ -469,3 +469,41 @@ def test_jackpot_generates_only_eligible_zero_cost_character_cards():
     state = state.model_copy(update={"character_id": "IRONCLAD", "flags": {"card_pool": pool}})
     state = _play(state, "jackpot")
     assert [c.card_id for c in state.combat.hand] == ["anger"] * 3
+
+
+def test_tracking_starts_at_two_and_additional_power_adds_one():
+    power = source("tracking")
+    second = power.model_copy(update={"instance_id": "second_tracking"})
+    state = _play(_state(power, second), "tracking")
+    assert state.player.statuses["tracking"] == 2
+    state = _play(_reload(state), "second_tracking")
+    assert state.player.statuses["tracking"] == 3
+
+
+def test_thrash_absorbs_calculated_damage_before_exhaust_and_preserves_growth():
+    state = _state(source("thrash"), source("murder"))
+    state = state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={
+                    "metadata": {**state.combat.metadata, "source_core_draws": 4},
+                }
+            )
+        }
+    )
+    state = _play(state, "thrash")
+    assert state.combat.monsters[0].hp == 92
+    grown = next(c for c in state.combat.discard_pile if c.card_id == "thrash")
+    assert grown.custom["source_core_damage_bonus"] == 5
+    state = state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={
+                    "hand": (grown,),
+                    "discard_pile": (),
+                }
+            )
+        }
+    )
+    state = _play(_reload(state), "thrash")
+    assert state.combat.monsters[0].hp == 74

@@ -15,7 +15,7 @@ from sts2sim.mechanics.source_core_rules import shiv_spec
 from sts2sim.mechanics.triggers import GameTrigger
 
 from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
-from .rng import capture_random_state, random_from_state, random_stream
+from .rng import capture_random_state, random_from_state, random_stream, stable_shuffle
 
 CoreResult = tuple[CombatState, RngState, tuple[EffectEvent, ...]]
 
@@ -181,6 +181,9 @@ def apply_source_core(
             chosen = rng.choice(combat.hand)
             rng_state = capture_random_state(rng)
             exhaust((chosen,))
+    elif name == "tracking":
+        current = t._status_amount(combat.player.statuses, "tracking")
+        run({"apply_status": {"target": "self", "tracking": 1 if current else 2}})
     elif name == "gold_axe":
         run({"damage": int(combat.metadata.get("source_core_finished_cards", 0))})
     elif name == "dodge_and_roll":
@@ -253,10 +256,7 @@ def apply_source_core(
             all_cards = (
                 combat.hand + combat.draw_pile + combat.discard_pile + combat.exhaust_pile + (card,)
             )
-            count = sum(
-                "strike" in {str(tag).lower() for tag in c.tags} or "strike" in c.card_id
-                for c in all_cards
-            )
+            count = sum("strike" in {str(tag).lower() for tag in c.tags} for c in all_cards)
             damage = 6 + count * (3 if up else 2)
         run({"damage": damage})
     elif name == "expertise":
@@ -372,6 +372,7 @@ def apply_source_core(
                 ),
                 0,
             )
+            value = sacrificed_damage(chosen, combat, value)
             value = t._modified_card_damage(combat, chosen, value, relics=relics)
             add_damage_bonus(int(value))
             exhaust((chosen,))
@@ -406,7 +407,9 @@ def apply_source_core(
             ]
             if name == "beat_down":
                 rng = select_rng("shuffle")
-                rng.shuffle(play_candidates)
+                play_candidates = stable_shuffle(
+                    play_candidates, rng, key=lambda c: (c.card_id.upper(), c.upgraded)
+                )
                 rng_state = capture_random_state(rng)
                 for chosen in play_candidates[:count]:
                     play(chosen, zone)
@@ -418,7 +421,9 @@ def apply_source_core(
                     if not play_candidates:
                         break
                     rng = select_rng("shuffle")
-                    rng.shuffle(play_candidates)
+                    play_candidates = stable_shuffle(
+                        play_candidates, rng, key=lambda c: (c.card_id.upper(), c.upgraded)
+                    )
                     rng_state = capture_random_state(rng)
                     play(play_candidates[0], zone)
     elif name == "armaments":
@@ -436,10 +441,9 @@ def apply_source_core(
             if str(t._card_source_spec(c).get("rarity", "")).lower() == "rare"
         ]
         space = t.MAX_HAND_SIZE - len(combat.hand)
-        if len(rare_cards) > space:
-            rng = select_rng()
-            rng.shuffle(rare_cards)
-            rng_state = capture_random_state(rng)
+        rng = select_rng()
+        rng.shuffle(rare_cards)
+        rng_state = capture_random_state(rng)
         chosen_rares = tuple(rare_cards[:space])
         selected_ids = {c.instance_id for c in chosen_rares}
         combat = combat.model_copy(
@@ -654,3 +658,32 @@ def exhaust_play_count(card: CardInstance) -> int:
     amount = max(0, int(card.custom.get("replay", 0)))
     enchantment = sum(max(1, e.amount) for e in card.enchantments if e.keyword.lower() == "replay")
     return 1 + max(amount, enchantment)
+
+
+def sacrificed_damage(card: CardInstance, combat: CombatState, fallback: int) -> int:
+    """Thrash evaluates the sacrificed card's DynamicVar before exhausting it."""
+    from . import transitions as t
+
+    for effect in t._effect_steps(card.effects):
+        if "damage_formula" in effect:
+            return t._formula_amount(effect["damage_formula"], combat=combat)
+    name = card.card_id
+    if name == "murder":
+        return 1 + int(combat.metadata.get("source_core_draws", 0))
+    if name == "memento_mori":
+        count = (
+            int(combat.metadata.get("source_core_discards", 0))
+            if combat.metadata.get("source_core_discard_turn") == combat.turn
+            else 0
+        )
+        return (11 if card.upgraded else 9) + count * (5 if card.upgraded else 4)
+    if name == "perfected_strike":
+        cards = combat.hand + combat.draw_pile + combat.discard_pile + combat.exhaust_pile
+        return 6 + sum("strike" in {str(tag).lower() for tag in c.tags} for c in cards) * (
+            3 if card.upgraded else 2
+        )
+    source = t._card_source_spec(card)
+    raw = source.get("damage")
+    if isinstance(raw, (int, float)):
+        return int(raw) + int(card.custom.get("source_core_damage_bonus", 0))
+    return fallback

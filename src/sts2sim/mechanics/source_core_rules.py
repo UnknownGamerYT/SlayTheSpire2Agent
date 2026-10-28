@@ -52,6 +52,7 @@ RUNTIME_CARDS = frozenset(
         "hidden_gem",
         "cinder",
         "true_grit",
+        "tracking",
     }
 )
 
