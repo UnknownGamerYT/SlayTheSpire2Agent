@@ -370,6 +370,15 @@ class RunRng(random.Random):
         view._active_stream = name
         return view
 
+    def reset_stream(self, stream: str) -> RunRng:
+        if self.run_seed is None:
+            raise ValueError("cannot reset a stream without the original run seed")
+        name = stream or "root"
+        self._streams[name] = GameRng(
+            self.run_seed, "" if name == "root" else name, derivation=self.derivation
+        )
+        return self.for_stream(name)
+
     def snapshot(self) -> RngState:
         root = self._streams["root"].getstate()
         return RngState(
@@ -445,6 +454,10 @@ class RunRng(random.Random):
 def random_stream(rng: random.Random, stream: str) -> random.Random:
     """Select a shared named stream, retaining single-stream legacy MT behavior."""
     return rng.for_stream(stream) if isinstance(rng, RunRng) else rng
+
+
+def reset_random_stream(rng: random.Random, stream: str) -> random.Random:
+    return rng.reset_stream(stream) if isinstance(rng, RunRng) else rng
 
 
 def model_random(

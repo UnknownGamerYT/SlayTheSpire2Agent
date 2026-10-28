@@ -179,6 +179,7 @@ from sts2sim.mechanics.source_ancients import (
 )
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
+from sts2sim.mechanics.source_events import source_event_startup
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.source_rng import (
     draw_source_potion,
@@ -245,6 +246,7 @@ from .rng import (
     model_random,
     random_from_state,
     random_stream,
+    reset_random_stream,
     run_random_from_seed,
 )
 from .serialization import SerializedState, load_state, state_digest
@@ -2356,6 +2358,36 @@ def _event_state_for_node(
 ) -> EventState:
     event = _event_source_for_room(state, rng)
     result = _event_state_from_room_source(state, node, event)
+    if is_source_rng(rng):
+        event_rng = reset_random_stream(rng, result.event_id.upper())
+        startup = source_event_startup(result.event_id, event_rng,
+                                      max_hp=state.player.max_hp, hp=state.player.hp)
+        options: list[EventOptionState] = []
+        for option in result.options:
+            effect = startup.effects.get(option.option_id.upper())
+            if effect is not None:
+                description = option.description
+                if effect.gold_delta:
+                    verb = "Gain" if effect.gold_delta > 0 else "Pay"
+                    description = re.sub(r"\b(?:Gain|Pay|Lose)\s+\d+(?:-\d+)?\s+Gold\b",
+                        f"{verb} {abs(effect.gold_delta)} Gold", description)
+                if effect.heal:
+                    description = re.sub(r"\bHeal\s+\d+(?:% Max)?\s+HP\b",
+                        f"Heal {effect.heal} HP", description)
+                option = option.model_copy(update={"description": description, "metadata": {
+                    **option.metadata, "source_numeric_effect": effect.payload(),
+                }})
+            if result.event_id.upper() == "LUMINOUS_CHOIR":
+                enough_gold = state.player.gold >= startup.values["gold"]
+                if option.option_id.upper() == "OFFER_TRIBUTE" and not enough_gold:
+                    continue
+                if option.option_id.upper() == "OFFER_TRIBUTE_LOCKED" and enough_gold:
+                    continue
+            options.append(option)
+        result = result.model_copy(update={"options": tuple(options), "metadata": {
+            **result.metadata, "source_numeric_values": startup.values,
+            "source_event_rng": result.event_id.upper(),
+        }})
     diagnostics = event.get("eligibility_diagnostics")
     if diagnostics:
         result = result.model_copy(update={
@@ -3059,6 +3091,8 @@ def _choose_event(
         return _choose_event_enchant_option(state, action, option)
 
     rng = random_from_state(state.rng)
+    if is_source_rng(rng):
+        rng = random_stream(rng, state.event.event_id.upper())
     event = state.event.model_copy(update={"resolved_option_id": option.option_id})
     chosen_event = EffectEvent(
         kind="event_option_chosen",
@@ -3068,6 +3102,19 @@ def _choose_event(
     )
 
     next_state, effect_events = _apply_event_option_immediate_effects(state, option, rng)
+    source_effect = _mapping_from(option.metadata.get("source_numeric_effect"))
+    if source_effect.get("next_page"):
+        next_page = str(source_effect["next_page"])
+        raw_event = next((row for row in _event_source_rows(state)
+                          if _normalized_id(str(row.get("id", "")))
+                          == _normalized_id(state.event.event_id)), {})
+        page = next((_mapping_from(value) for value in _source_items(raw_event.get("pages"))
+                     if str(_mapping_from(value).get("id", "")).upper() == next_page.upper()), {})
+        event = state.event.model_copy(update={"page_id": next_page,
+            "resolved_option_id": None, "options": _event_option_states(page)})
+        return next_state.model_copy(update={"event": event, "rng": capture_random_state(rng)}), (
+            chosen_event, *effect_events
+        )
     reward, reward_events = _event_reward_from_option(next_state, state.event, option, rng)
     next_state = next_state.model_copy(
         update={
@@ -3109,6 +3156,8 @@ def _choose_event_flow_option(
 
     flow_state = _flow_state_from_event_state(state, state.event)
     rng = random_from_state(state.rng)
+    if is_source_rng(rng):
+        rng = random_stream(rng, state.event.event_id.upper())
     resolution = resolve_event_flow_option(flow_state, action.target_id)
     player = state.player.model_copy(
         update={
@@ -4534,6 +4583,32 @@ def _apply_event_option_immediate_effects(
     option: EventOptionState,
     rng: Random,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    source_effect = _mapping_from(option.metadata.get("source_numeric_effect"))
+    if source_effect and is_source_rng(rng):
+        player = state.player
+        native_events: list[EffectEvent] = []
+        gold_delta = _coerce_int(source_effect.get("gold_delta"), default=0)
+        hp_loss = _coerce_int(source_effect.get("hp_loss"), default=0)
+        heal = _coerce_int(source_effect.get("heal"), default=0)
+        max_delta = _coerce_int(source_effect.get("max_hp_delta"), default=0)
+        if max_delta:
+            player = _change_player_max_hp(player, max_delta)
+            native_events.append(EffectEvent(kind="event_max_hp_gained" if max_delta > 0
+                                      else "event_max_hp_lost", amount=abs(max_delta)))
+        if hp_loss:
+            lost = min(player.hp, hp_loss)
+            player = player.model_copy(update={"hp": player.hp - lost})
+            native_events.append(EffectEvent(kind="event_hp_lost", amount=lost))
+        if heal and player.hp > 0:
+            gained = min(player.max_hp - player.hp, heal)
+            player = player.model_copy(update={"hp": player.hp + gained})
+            native_events.append(EffectEvent(kind="event_healed", amount=gained))
+        if gold_delta:
+            actual = max(-player.gold, gold_delta)
+            player = player.model_copy(update={"gold": player.gold + actual})
+            native_events.append(EffectEvent(kind="event_gold_gained" if actual >= 0
+                                      else "event_gold_lost", amount=abs(actual)))
+        return state.model_copy(update={"player": player}), tuple(native_events)
     text = option.description
     player = state.player
     deck = list(state.master_deck)
@@ -4612,7 +4687,8 @@ def _event_reward_from_option(
         return None, ()
 
     text = option.description
-    gold = _event_gold_reward_amount(text, rng)
+    gold = (0 if option.metadata.get("source_numeric_effect")
+            else _event_gold_reward_amount(text, rng))
     card_ids = _event_reward_card_ids(state, text)
     relic_ids = _event_reward_relic_ids(state, text, rng)
     relic_id = _event_reward_fixed_relic_id(state, text)
