@@ -72,7 +72,6 @@ def end_hand_effect(
         )
     if identity in {"doubt", "shame"}:
         power = "weak" if identity == "doubt" else "frail"
-        existing = t._status_amount(combat.player.statuses, power)
         statuses, event = t._apply_status_value(
             combat.player.statuses,
             power,

@@ -19,7 +19,8 @@ def _bags():
         rarity: (f"{rarity.upper()}_FRONT", f"{rarity.upper()}_MIDDLE", f"{rarity.upper()}_BACK")
         for rarity in ("Common", "Uncommon", "Rare", "Shop")
     }
-    return {"player_relic_bag": bag, "shared_relic_bag": dict(bag)}
+    return {"player_relic_bag": bag, "shared_relic_bag": dict(bag),
+            "source_relic_bag_mode": "source"}
 
 
 def _all_ids(bag):
