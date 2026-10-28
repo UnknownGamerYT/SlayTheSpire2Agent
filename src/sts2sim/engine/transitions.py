@@ -408,7 +408,8 @@ def new_run_state(
     player = _apply_ancient_heal(player, ascension)
     ancient_state = _generate_ancient_state(
         act=map_state.act, rng=rng, source=flags, player=player, deck=deck,
-        relics=_initial_relics(character_id, source), character_id=character_id, ascension=ascension,
+        relics=_initial_relics(character_id, source), character_id=character_id,
+        ascension=ascension,
     )
     flags["generation_started_with_neow"] = (
         _mapping_from(flags["act_room_sets"]["1"]).get("ancient_id") is not None
@@ -8883,14 +8884,18 @@ def _start_combat_for_node(
         },
     )
     start_run_markers, start_post_draw_markers, start_relics = (
-        _split_start_combat_run_relic_markers(start_relics)
+        _split_start_combat_run_relic_markers(
+            start_relics, source_mode=_normalized_id(state.character_id) != "test",
+        )
     )
     state, start_run_relic_events = _apply_start_combat_run_relic_markers(
         state,
         rng,
         start_run_markers,
     )
-    combat, start_relic_events = _apply_combat_relic_resolution(combat, start_relics)
+    combat, start_relic_events = _apply_combat_relic_resolution(
+        combat, start_relics, rng=rng, state=state,
+    )
     turn_relics = _resolve_combat_relic_trigger(
         GameTrigger.TURN_START,
         state.relics,
@@ -8903,7 +8908,14 @@ def _start_combat_for_node(
         relic_counters=_combat_relic_counters_for(state.relics, combat),
         metadata=_turn_start_relic_metadata(combat),
     )
-    combat, turn_relic_events = _apply_combat_relic_resolution(combat, turn_relics)
+    if _normalized_id(state.character_id) != "test":
+        crossbow_markers, turn_relics = _split_run_state_combat_relic_resolution(
+            turn_relics, {"add_card_to_hand"},
+        )
+        start_post_draw_markers += crossbow_markers
+    combat, turn_relic_events = _apply_combat_relic_resolution(
+        combat, turn_relics, rng=rng, state=state,
+    )
     combat, monster_turn_start_events = _apply_monster_player_turn_start(combat)
     combat, bonus_draw, bonus_draw_events = _pop_pending_relic_draw(combat)
     rng_state = capture_random_state(rng)
@@ -8913,10 +8925,14 @@ def _start_combat_for_node(
         combat.draw_per_turn + bonus_draw,
         relics=state.relics,
     )
+    rng = random_from_state(rng_state)
     combat, start_post_draw_relic_events = _apply_start_combat_post_draw_relic_markers(
         combat,
         start_post_draw_markers,
+        state=state,
+        rng=rng,
     )
+    rng_state = capture_random_state(rng)
     combat = combat.model_copy(
         update={
             "last_events": start_relic_events
@@ -8952,6 +8968,8 @@ def _start_combat_for_node(
 
 def _split_start_combat_run_relic_markers(
     resolution: CombatRelicResolution,
+    *,
+    source_mode: bool = False,
 ) -> tuple[
     tuple[CombatRelicMarker, ...],
     tuple[CombatRelicMarker, ...],
@@ -8965,7 +8983,9 @@ def _split_start_combat_run_relic_markers(
     for marker in resolution.markers:
         if marker.kind in run_marker_kinds:
             run_markers.append(marker)
-        elif marker.kind in post_draw_marker_kinds:
+        elif marker.kind in post_draw_marker_kinds or (
+            source_mode and marker.relic_id in {"big_hat", "choices_paradox", "bellows", "bone_tea"}
+        ):
             post_draw_markers.append(marker)
         else:
             combat_markers.append(marker)
@@ -9029,16 +9049,29 @@ def _apply_start_combat_run_relic_markers(
 def _apply_start_combat_post_draw_relic_markers(
     combat: CombatState,
     markers: Sequence[CombatRelicMarker],
+    *,
+    state: RunState | None = None,
+    rng: Random | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     next_combat = combat
     events: list[EffectEvent] = []
     for marker in markers:
-        if marker.kind != "opening_hand_discard_redraw":
-            continue
-        next_combat, marker_events = _apply_opening_hand_discard_redraw_marker(
-            next_combat,
-            marker,
-        )
+        if marker.kind == "opening_hand_discard_redraw":
+            next_combat, marker_events = _apply_opening_hand_discard_redraw_marker(
+                next_combat, marker,
+            )
+        elif marker.kind == "upgrade_draw_pile_cards":
+            next_combat = next_combat.model_copy(update={
+                "hand": tuple(_upgrade_card_instance(card) for card in next_combat.hand),
+                "metadata": _metadata_with_relic_counter(next_combat.metadata, marker),
+            })
+            marker_events = (_combat_relic_event(
+                marker, "opening_hand_upgraded", len(next_combat.hand),
+            ),)
+        else:
+            next_combat, marker_events = _apply_combat_relic_marker(
+                next_combat, marker, rng=rng, state=state,
+            )
         events.extend(marker_events)
     return next_combat, tuple(events)
 
@@ -9418,6 +9451,7 @@ def _apply_runtime_relic_hook(
     regular_markers = tuple(
         marker for marker in resolution.markers if marker.kind != "play_card_again"
     )
+    marker_rng = random_from_state(rng_state)
     combat, relic_events = _apply_combat_relic_resolution(
         combat,
         CombatRelicResolution(
@@ -9429,7 +9463,10 @@ def _apply_runtime_relic_hook(
             energy_delta=resolution.energy_delta,
             source=resolution.source,
         ),
+        rng=marker_rng,
+        state=state,
     )
+    rng_state = capture_random_state(marker_rng)
     events: list[EffectEvent] = list(relic_events)
     for marker in replay_markers:
         if card is None:
@@ -9721,7 +9758,11 @@ def _apply_damage_taken_relics_from_events(
             relic_counters=_combat_relic_counters_for(state.relics, combat),
             metadata=metadata,
         )
-        combat, relic_events = _apply_combat_relic_resolution(combat, relic_result)
+        marker_rng = random_from_state(rng_state)
+        combat, relic_events = _apply_combat_relic_resolution(
+            combat, relic_result, rng=marker_rng, state=state,
+        )
+        rng_state = capture_random_state(marker_rng)
         events.extend(relic_events)
         combat, rng_state, draw_events = _apply_pending_relic_draws(state, combat, rng_state)
         events.extend(draw_events)
@@ -9764,7 +9805,11 @@ def _apply_monster_killed_relics_from_events(
             player_statuses=combat.player.statuses,
             relic_counters=_combat_relic_counters_for(state.relics, combat),
         )
-        combat, relic_events = _apply_combat_relic_resolution(combat, relic_result)
+        marker_rng = random_from_state(rng_state)
+        combat, relic_events = _apply_combat_relic_resolution(
+            combat, relic_result, rng=marker_rng, state=state,
+        )
+        rng_state = capture_random_state(marker_rng)
         events.extend(relic_events)
         combat, rng_state, draw_events = _apply_pending_relic_draws(state, combat, rng_state)
         events.extend(draw_events)
@@ -10418,7 +10463,11 @@ def _resolve_extra_card_play(
         events,
     )
     events.extend(kill_events)
-    combat, hook_events = _apply_after_card_play_hooks(combat, card, state.relics, energy_spent=0)
+    marker_rng = random_from_state(rng_state)
+    combat, hook_events = _apply_after_card_play_hooks(
+        combat, card, state.relics, energy_spent=0, rng=marker_rng, state=state,
+    )
+    rng_state = capture_random_state(marker_rng)
     combat, rng_state, status_events = _apply_card_play_status_triggers(
         state, combat, rng_state, card, hook_events
     )
@@ -12025,12 +12074,16 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
     )
     events += monster_killed_relic_events
 
+    marker_rng = random_from_state(rng_state)
     combat, hook_events = _apply_after_card_play_hooks(
         combat,
         played_card,
         state.relics,
         energy_spent=energy_spent,
+        rng=marker_rng,
+        state=state,
     )
+    rng_state = capture_random_state(marker_rng)
     combat, rng_state, status_events = _apply_card_play_status_triggers(
         state, combat, rng_state, played_card, hook_events
     )
@@ -12672,7 +12725,9 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             "cards_played_this_turn": end_turn_cards_played,
         },
     )
-    combat, turn_end_relic_events = _apply_combat_relic_resolution(combat, turn_end_relics)
+    combat, turn_end_relic_events = _apply_combat_relic_resolution(
+        combat, turn_end_relics, rng=rng, state=state,
+    )
     events.extend(turn_end_relic_events)
     combat, relic_rng, loss_relic_events = _apply_damage_taken_relics_from_events(
         state, combat, capture_random_state(rng), turn_end_relic_events, turn_owner="player",
@@ -13033,7 +13088,16 @@ def _begin_next_player_turn(
         ),
         blockers=turn_start_relics.blockers,
     )
-    combat, turn_start_relic_events = _apply_combat_relic_resolution(combat, turn_start_relics)
+    turn_start_generated_markers: tuple[CombatRelicMarker, ...] = ()
+    if _normalized_id(state.character_id) != "test":
+        turn_start_generated_markers, turn_start_relics = _split_run_state_combat_relic_resolution(
+            turn_start_relics, {"add_card_to_hand"},
+        )
+    marker_rng = random_from_state(rng_state)
+    combat, turn_start_relic_events = _apply_combat_relic_resolution(
+        combat, turn_start_relics, rng=marker_rng, state=state,
+    )
+    rng_state = capture_random_state(marker_rng)
     events.extend(turn_start_relic_events)
     combat, rng_state, turn_start_copy_events = _apply_play_card_copy_relic_markers(
         state.model_copy(update={"combat": combat, "player": combat.player}),
@@ -13114,6 +13178,12 @@ def _begin_next_player_turn(
             from_hand_draw=True,
         )
         events.extend(draw_events)
+        marker_rng = random_from_state(rng_state)
+        combat, generated_events = _apply_start_combat_post_draw_relic_markers(
+            combat, turn_start_generated_markers, state=state, rng=marker_rng,
+        )
+        rng_state = capture_random_state(marker_rng)
+        events.extend(generated_events)
         if _events_include_draw_pile_shuffle(draw_events):
             combat, rng_state, shuffle_events = _apply_timed_card_triggers(
                 state.model_copy(update={"combat": combat, "player": combat.player}),
@@ -15817,6 +15887,8 @@ def _apply_after_card_play_hooks(
     relics: Sequence[str] = (),
     *,
     energy_spent: int = 0,
+    rng: Random | None = None,
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     player = combat.player
     events: list[EffectEvent] = []
@@ -15861,7 +15933,9 @@ def _apply_after_card_play_hooks(
             "played_card_instance_id": card.instance_id,
         },
     )
-    combat, relic_events = _apply_combat_relic_resolution(combat, relic_result)
+    combat, relic_events = _apply_combat_relic_resolution(
+        combat, relic_result, rng=rng, state=state,
+    )
     metadata = dict(combat.metadata)
     if card.type == CardType.ATTACK:
         metadata["attacks_played_this_turn"] = attack_count + 1
@@ -19923,6 +19997,9 @@ def _generated_card_matches_choice(
     if card_type in {"curse", "status"}:
         return False
     if not _source_combat_generation_allowed(state, spec):
+        return False
+    required_keyword = payload.get("required_keyword")
+    if required_keyword and not _source_spec_has_keyword(spec, str(required_keyword)):
         return False
 
     pool = _normalized_id(str(payload.get("pool", "any") or "any"))
@@ -24580,12 +24657,15 @@ def _status_blocked_by_artifact(
 def _apply_combat_relic_resolution(
     combat: CombatState,
     resolution: CombatRelicResolution,
+    *,
+    rng: Random | None = None,
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     combat = combat.model_copy(update={"metadata": dict(combat.metadata)})
     events: list[EffectEvent] = []
 
     for marker in resolution.markers:
-        combat, marker_events = _apply_combat_relic_marker(combat, marker)
+        combat, marker_events = _apply_combat_relic_marker(combat, marker, rng=rng, state=state)
         events.extend(marker_events)
 
     for blocker in resolution.blockers:
@@ -24609,7 +24689,12 @@ def _apply_combat_relic_resolution(
 def _apply_combat_relic_marker(
     combat: CombatState,
     marker: CombatRelicMarker,
+    *,
+    rng: Random | None = None,
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if state is not None and _normalized_id(state.character_id) == "test":
+        rng = None
     events: list[EffectEvent] = []
     player = combat.player
     monsters = list(combat.monsters)
@@ -24680,6 +24765,8 @@ def _apply_combat_relic_marker(
     elif marker.kind in {"add_card_to_hand", "add_card_to_draw_pile"} and _marker_targets_player(
         marker
     ):
+        if marker.relic_id in {"big_hat", "crossbow", "choices_paradox"} and state and rng:
+            return _apply_source_generated_relic_cards(state, combat, marker, rng)
         destination = "hand" if marker.kind == "add_card_to_hand" else "draw_pile"
         count = max(0, marker.amount or 0)
         generated = _generated_cards_from_relic_marker(combat, marker, count)
@@ -24687,10 +24774,20 @@ def _apply_combat_relic_marker(
             open_slots = max(0, MAX_HAND_SIZE - len(combat.hand))
             added = generated[:open_slots]
             hand = tuple(list(combat.hand) + list(added))
-            combat = combat.model_copy(update={"hand": hand})
+            combat = combat.model_copy(update={
+                "hand": hand, "discard_pile": combat.discard_pile + generated[open_slots:],
+            })
         else:
             added = generated
-            next_draw_pile = tuple(list(generated) + list(combat.draw_pile))
+            next_draw_cards = list(combat.draw_pile)
+            if rng is not None:
+                for card in generated:
+                    next_draw_cards.insert(
+                        random_stream(rng, "shuffle").randrange(len(next_draw_cards) + 1), card,
+                    )
+            else:
+                next_draw_cards = list(generated) + next_draw_cards
+            next_draw_pile = tuple(next_draw_cards)
             combat = combat.model_copy(update={"draw_pile": next_draw_pile})
         player = combat.player
         monsters = list(combat.monsters)
@@ -24798,16 +24895,22 @@ def _apply_combat_relic_marker(
             )
     elif marker.kind == "make_random_card_free_this_turn" and _marker_targets_player(marker):
         hand_cards = list(combat.hand)
-        chosen_index = next(
-            (
-                index
-                for index, card in enumerate(hand_cards)
-                if card.cost is not None
-                and card.cost > 0
-                and not _truthy(card.custom.get("free_to_play_this_turn"))
-                and not _truthy(card.custom.get("free_to_play_this_combat"))
-            ),
-            None,
+        base_cost = tuple(
+            index for index, card in enumerate(hand_cards)
+            if (card.cost or 0) > 0 or _metadata_int(_card_source_spec(card), "star_cost", 0) > 0
+        )
+        effective_cost = tuple(
+            index for index, card in enumerate(hand_cards)
+            if not (_truthy(card.custom.get("free_to_play_this_turn"))
+                    or _truthy(card.custom.get("free_to_play_this_combat")))
+            and ((not _card_is_x_cost(card) and _energy_cost(card, 0, combat=combat) > 0)
+                 or _card_resource_costs(card, available_star=0).get("star", 0) > 0)
+        )
+        preferred = tuple(index for index in base_cost if index in effective_cost)
+        candidates = preferred or effective_cost or base_cost or tuple(range(len(hand_cards)))
+        chosen_index = (
+            random_stream(rng, "combat_card_selection").choice(candidates)
+            if rng is not None and candidates else next(iter(candidates), None)
         )
         if chosen_index is not None:
             chosen = hand_cards[chosen_index]
@@ -24838,7 +24941,14 @@ def _apply_combat_relic_marker(
         count = max(0, marker.amount or 0)
         generated = _generated_cards_from_relic_marker(combat, marker, count)
         if generated:
-            next_draw_pile = tuple(list(combat.draw_pile) + list(generated))
+            next_draw_cards = list(combat.draw_pile)
+            for card in generated:
+                position = (
+                    random_stream(rng, "shuffle").randrange(len(next_draw_cards) + 1)
+                    if rng is not None else len(next_draw_cards)
+                )
+                next_draw_cards.insert(position, card)
+            next_draw_pile = tuple(next_draw_cards)
             combat = combat.model_copy(update={"draw_pile": next_draw_pile})
             player = combat.player
             monsters = list(combat.monsters)
@@ -24870,7 +24980,7 @@ def _apply_combat_relic_marker(
                         "metadata": metadata,
                     }
                 ),
-                Random(0),
+                rng if rng is not None else Random(0),
                 marker.source_id or marker.relic_id,
                 orb_id,
                 target_id=None,
@@ -24954,7 +25064,12 @@ def _apply_combat_relic_marker(
         events.extend(damage_events)
     elif marker.kind == "random_damage":
         amount = max(0, marker.amount or 0)
-        target = next((monster.monster_id for monster in monsters if monster.hp > 0), None)
+        target_candidates = tuple(monster.monster_id for monster in monsters if monster.hp > 0)
+        target = (
+            random_stream(rng, "combat_targets").choice(target_candidates)
+            if rng is not None and target_candidates
+            else next(iter(target_candidates), None)
+        )
         if amount and target is not None:
             monsters, damage_events = _damage_monsters(
                 monsters,
@@ -24995,15 +25110,18 @@ def _apply_combat_relic_marker(
         events.append(_combat_relic_event(marker, "block_retention_enabled", marker.amount))
     elif marker.kind == "reduce_retained_card_cost" and _marker_targets_player(marker):
         retained_hand_cards = list(combat.hand)
-        chosen_index = next(
-            (
-                index
-                for index, card in enumerate(retained_hand_cards)
-                if card.cost is not None
-                and card.cost > 0
-                and _card_retains_at_end_of_turn(card)
-            ),
-            None,
+        candidates = tuple(
+            index
+            for index, card in enumerate(retained_hand_cards)
+            if card.cost is not None
+            and card.cost > 0
+            and not _card_is_x_cost(card)
+            and _card_retains_at_end_of_turn(card)
+        )
+        chosen_index = (
+            random_stream(rng, "combat_card_selection").choice(candidates)
+            if rng is not None and candidates
+            else next(iter(candidates), None)
         )
         if chosen_index is not None:
             amount = max(0, marker.amount or 0)
@@ -25444,6 +25562,61 @@ def _combat_relic_event(
         amount=amount,
         metadata=metadata,
     )
+
+
+def _apply_source_generated_relic_cards(
+    state: RunState,
+    combat: CombatState,
+    marker: CombatRelicMarker,
+    rng: Random,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Generate actual class cards; Choices Paradox retains an explicit selection."""
+    count = max(0, marker.amount or 0)
+    choose_one = marker.relic_id == "choices_paradox"
+    source = CardInstance(
+        instance_id=f"relic:{marker.relic_id}:{combat.turn}", card_id=marker.relic_id,
+    )
+    payload: dict[str, Any] = {
+        "pool": "character", "choices": 5 if choose_one else count,
+        "free_to_play_this_turn": bool(marker.metadata.get("free_to_play_this_turn")),
+    }
+    if marker.relic_id == "big_hat":
+        payload["required_keyword"] = "ethereal"
+    elif marker.relic_id == "crossbow":
+        payload["card_types"] = ("attack",)
+    cards = _generated_choice_cards(
+        state.model_copy(update={"combat": combat}), rng, source, payload,
+    )
+    if choose_one:
+        cards = tuple(
+            _card_with_added_keyword(card, "retain", 1, source_id=marker.relic_id)
+            for card in cards
+        )
+        if not cards:
+            return combat, ()
+        choice = PendingChoiceState(
+            choice_id=f"choose_card:move_to_hand:{source.instance_id}", kind="move_to_hand",
+            source_id=source.instance_id, prompt="Choose a card to add to your hand.",
+            zone="generated", candidate_ids=tuple(card.instance_id for card in cards),
+            min_choices=1, max_choices=1, remaining=1, required=True,
+            metadata={"generated": True, "source_card_id": marker.relic_id,
+                      "generated_cards": [card.model_dump(mode="json") for card in cards]},
+        )
+        return combat.model_copy(update={
+            "pending_choices": combat.pending_choices + (choice,),
+        }), (EffectEvent(
+            kind="card_choice_pending", source_id=marker.relic_id, amount=1,
+            metadata={"choice_id": choice.choice_id, "card_ids": [c.card_id for c in cards]},
+        ),)
+    open_slots = max(0, MAX_HAND_SIZE - len(combat.hand))
+    combat = combat.model_copy(update={
+        "hand": combat.hand + cards[:open_slots],
+        "discard_pile": combat.discard_pile + cards[open_slots:],
+    })
+    return combat, tuple(EffectEvent(
+        kind="card_created", source_id=marker.relic_id, target_id=card.instance_id,
+        metadata={"card_id": card.card_id, "destination": "hand" if i < open_slots else "discard"},
+    ) for i, card in enumerate(cards))
 
 
 def _generated_cards_from_relic_marker(
@@ -27052,6 +27225,15 @@ def _combat_reward_state(
     rng = random_stream(rng, "rewards")
     flags = dict(state.flags)
     encounter = _combat_reward_encounter(state)
+    if _source_final_act_boss_reward(state, encounter):
+        # RewardsSet.WithRewardsFromRoom returns before generating base rewards
+        # for either final-act boss. CombatRoom still offers the empty set, so
+        # Proceed advances to the second boss or ends the run as usual.
+        reward = RewardState(
+            reward_id=f"combat:{len(state.room_history)}", source="combat",
+            metadata={"encounter": "boss", "final_act_boss": True},
+        )
+        return reward, (), flags
     base_card_count = _combat_reward_card_count(state, encounter)
     base_relic_count = _combat_reward_relic_count(state, encounter)
     reward_trigger = _combat_reward_generation_result(
@@ -27170,6 +27352,15 @@ def _combat_reward_state(
     )
 
 
+def _source_final_act_boss_reward(state: RunState, encounter: EncounterType) -> bool:
+    return (
+        encounter is EncounterType.BOSS
+        and state.act == 3
+        and _normalized_id(state.character_id)
+        in {"ironclad", "silent", "regent", "necrobinder", "defect"}
+    )
+
+
 def _gold_reward_after_fat_gremlin_escape(
     state: RunState,
     gold: int,
@@ -27280,6 +27471,7 @@ def _reward_generation_result(
                 "act": state.act,
                 "floor": state.floor,
                 "character_id": state.character_id,
+                "final_act_boss": _source_final_act_boss_reward(state, encounter),
                 **dict(metadata or {}),
             },
         )

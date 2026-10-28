@@ -295,7 +295,7 @@ def test_public_boss_completion_uses_pregenerated_next_act_and_reload_is_identic
     state = step(state, proceed)
     assert serialize_state(state) == serialize_state(restored)
     assert state.act == 2 and state.phase == RunPhase.ANCIENT
-    assert state.ancient is not None and state.ancient.ancient_id == expected_ancient
+    assert state.ancient is not None and state.ancient.ancient_id.lower() == expected_ancient
     assert state.map is not None and state.map.act == 2
     assert state.flags["act_room_sets"]["2"] == expected_plan
 

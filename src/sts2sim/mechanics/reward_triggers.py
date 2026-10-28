@@ -280,6 +280,8 @@ def _modifier_applies(
     modifier: RewardModifierSpec,
     context: RewardGenerationContext,
 ) -> bool:
+    if modifier.content_id == "amethyst_aubergine" and context.metadata.get("final_act_boss"):
+        return False
     if modifier.apply_to_sources and context.source not in modifier.apply_to_sources:
         return False
     encounter = context.normalized_encounter_type
