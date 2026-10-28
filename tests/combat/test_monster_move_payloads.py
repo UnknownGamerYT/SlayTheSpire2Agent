@@ -72,17 +72,17 @@ def test_myte_toxic_cards_damage_in_hand_and_can_be_exhausted_by_playing() -> No
     assert state.combat.player.hp == before - 5
 
 
-def test_forbidden_incantation_gains_ritual_and_strength_each_own_turn() -> None:
+def test_forbidden_incantation_delays_ritual_strength_until_next_side_end() -> None:
     state = _combat("DEVOTED_SCULPTOR", moves=(
         {"id": "FORBIDDEN_INCANTATION", "intent": "Buff"},
         {"id": "SAVAGE", "intent": "Attack", "damage": {"normal": 12}},
     ))
     state = _end(state)
-    assert state.combat.monsters[0].statuses == {"ritual": 9, "strength": 9}
+    assert state.combat.monsters[0].statuses == {"ritual": 9}
     before = state.combat.player.hp
     state = _end(state)
-    assert state.combat.player.hp == before - 21
-    assert state.combat.monsters[0].statuses["strength"] == 18
+    assert state.combat.player.hp == before - 12
+    assert state.combat.monsters[0].statuses["strength"] == 9
 
 
 def test_obscura_wail_buff_reaches_living_allies() -> None:

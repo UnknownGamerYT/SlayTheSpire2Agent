@@ -11,7 +11,11 @@ from random import Random
 from typing import Any
 
 from .encounter_spawns import EncounterSpawnSpec, encounter_spawn_specs
-from .monster_scripts import MONSTER_INITIAL_STATES, MONSTER_STATE_FOLLOWUPS
+from .monster_scripts import (
+    MONSTER_INITIAL_STATES,
+    MONSTER_RANDOM_BRANCHES,
+    MONSTER_STATE_FOLLOWUPS,
+)
 
 # AscensionLevel.cs in stable v0.107.1 defines ToughEnemies=8 and
 # DeadlyEnemies=9 for every enemy kind (there are no STS1 room thresholds).
@@ -69,6 +73,7 @@ class AttackPatternBranch:
     repeat: str | None = None
     condition: str | None = None
     max_times: int | None = None
+    cooldown: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +158,7 @@ _SUMMON_PLANS: tuple[MonsterSummonPlan, ...] = (
         source_monster_id="LIVING_FOG",
         move_id="BLOAT",
         summon_monster_ids=("GAS_BOMB",),
-        count_policy="move_count_plus_one",
+        count_policy="fixed",
         max_allies=6,
     ),
     MonsterSummonPlan(
@@ -174,7 +179,7 @@ _SUMMON_PLANS: tuple[MonsterSummonPlan, ...] = (
         source_monster_id="TWO_TAILED_RAT",
         move_id="CALL_FOR_BACKUP",
         summon_monster_ids=("TWO_TAILED_RAT",),
-        max_allies=5,
+        max_allies=4,
     ),
 )
 
@@ -238,6 +243,15 @@ def build_monster_definitions(raw_monsters: Sequence[Any]) -> Mapping[str, Monst
                 AttackPatternBranch(move_id=move_id, weight=1, repeat="CannotRepeat")
                 for move_id in ("WRITHE", "BULK", "CONSTRICT")
             )) if state.state_id == "RAND" else state for state in states)
+        if monster_id == "MYSTERIOUS_KNIGHT" and not states:
+            states = tuple(AttackPatternState(
+                f"{move.move_id}_MOVE", move.move_id, "RAND", "move",
+            ) for move in moves) + (AttackPatternState("RAND", None, None, "random"),)
+        states = tuple(replace(state, branches=tuple(
+            AttackPatternBranch(move_id, weight, repeat=repeat, max_times=times, cooldown=cooldown)
+            for move_id, repeat, times, weight, cooldown in rules
+        )) if (rules := MONSTER_RANDOM_BRANCHES.get((monster_id, state.state_id))) else state
+                       for state in states)
         state_ids = {state.state_id for state in states}
         states = tuple(
             replace(state, next_selector=followup)
@@ -252,6 +266,7 @@ def build_monster_definitions(raw_monsters: Sequence[Any]) -> Mapping[str, Monst
             "inklet": "JAB", "kin_follower": "QUICK_SLASH", "chomper": "CLAMP",
             "corpse_slug": "WHIP_SLAP", "scroll_of_biting": "CHOMP",
             "punch_construct": "READY", "wriggler": "INIT_MOVE",
+            "mysterious_knight": "RAM",
         }
         default = defaults.get(_normalized_id(monster_id))
         if default in state_ids or any(move.move_id == default for move in moves):
@@ -531,6 +546,8 @@ def monster_move_for_ascension(
         ("infested_prism", "pulsate"): (8, 22),
         ("lagavulin_matriarch", "slash2"): (8, 14),
         ("magi_knight", "power_shield"): (8, 9),
+        ("magi_knight", "prep"): (8, 9),
+        ("louse_progenitor", "curl_and_grow"): (8, 18),
         ("nibbit", "slice"): (8, 6),
         ("seapunk", "bubble_burp"): (8, 8),
         ("the_obscura", "hardening_strike"): (9, 7),
@@ -693,7 +710,11 @@ def resolve_monster_move(
         )
 
     branch = _choose_branch(
-        state.branches,
+        tuple(replace(branch, weight=(0.75 if branch.move_id == "CALL_FOR_BACKUP"
+                                      else 1 / 12) if can_spawn else
+                      (0 if branch.move_id == "CALL_FOR_BACKUP" else 1))
+              for branch in state.branches)
+        if _normalized_id(definition.monster_id) == "two_tailed_rat" else state.branches,
         rng,
         state_type=state.state_type,
         slot_index=slot_index,
@@ -735,6 +756,10 @@ def next_move_counts(
             if key.startswith("__consecutive__:") and key != consecutive:
                 counts.pop(key)
         counts[consecutive] = counts.get(consecutive, 0) + 1
+        for key in tuple(counts):
+            if key.startswith("__ago__:"):
+                counts[key] += 1
+        counts[f"__ago__:{move_id}"] = 0
     return counts
 
 
@@ -798,6 +823,10 @@ def _source_specific_moves(
         ("waterfall_giant", "pressurize", "steam_eruption"): 20,
     }
     for move in moves:
+        if normalized_monster_id == "guardbot" and _normalized_id(move.move_id) == "guard":
+            # Guardbot's Block payload targets Fabricators, not itself.
+            patched.append(replace(move, block=0))
+            continue
         if (
             normalized_monster_id == "entomancer"
             and _normalized_id(move.move_id) == "pheromone_spit"
@@ -865,6 +894,7 @@ def _attack_pattern_branch(raw_branch: Any) -> AttackPatternBranch:
         repeat=_optional_text(row.get("repeat")),
         condition=_optional_text(row.get("condition")),
         max_times=_optional_int(row.get("max_times")),
+        cooldown=_int(row.get("cooldown"), 0),
     )
 
 
@@ -902,23 +932,18 @@ def _choose_branch(
     )
     if conditional and _normalized_id(state_type) == "conditional":
         return conditional[0]
-    candidates = conditional or tuple(
-        branch
+    # Keep zero-weight entries in source order. The C# selector subtracts each
+    # weight and checks <= 0, including when every branch currently weighs zero.
+    candidates = tuple(
+        branch if branch in conditional else replace(branch, weight=0)
         for branch in branches
-        if _branch_available(branch, previous_move_id=previous_move_id, move_counts=move_counts)
     )
-    if not candidates:
-        candidates = tuple(branches)
 
     def float32(value: float) -> float:
         return float(struct.unpack("f", struct.pack("f", value))[0])
 
-    total_weight = 0.0
-    for branch in candidates:
-        total_weight = float32(total_weight + float32(max(0.0, branch.weight)))
-    if total_weight <= 0:
-        return candidates[0]
-
+    # Enumerable.Sum(IEnumerable<float>) accumulates in double then casts once.
+    total_weight = float32(sum(float32(max(0.0, branch.weight)) for branch in candidates))
     # RandomBranchState.GetNextState uses Rng.NextFloat and float subtraction.
     needle = float32(rng.random() * total_weight)
     for branch in candidates:
@@ -934,6 +959,11 @@ def _branch_available(
     previous_move_id: str | None,
     move_counts: Mapping[str, int],
 ) -> bool:
+    if (
+        branch.cooldown > 0 and branch.move_id is not None
+        and move_counts.get(f"__ago__:{branch.move_id}", branch.cooldown) < branch.cooldown
+    ):
+        return False
     if (
         _normalized_id(branch.repeat or "") == "useonlyonce"
         and branch.move_id is not None

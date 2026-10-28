@@ -12596,8 +12596,26 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             if key != "hardened_shell_hp_lost_this_turn"
         }}) for monster in combat.monsters
     )})
+    # CreatureCmd/LoseBlock runs for the side before any monster acts. Block
+    # subsequently granted by Guardbot must survive the recipient's action.
+    for index, monster in enumerate(combat.monsters):
+        if monster.hp <= 0:
+            continue
+        if monster.block and _status_amount(monster.statuses, "burrowed") <= 0:
+            events.append(EffectEvent(
+                kind="monster_block_expired", source_id=monster.monster_id,
+                target_id=monster.monster_id, amount=monster.block,
+            ))
+            monster = monster.model_copy(update={"block": 0})
+        monster, plating_events = _apply_monster_plating_start(monster)
+        events.extend(plating_events)
+        combat = _combat_with_monster(combat, index, monster)
     monsters = list(combat.monsters)
-    for monster_index, monster in enumerate(monsters):
+    for monster_index in range(len(monsters)):
+        # Earlier actors can change allies' powers and Block. The turn roster
+        # is fixed, but each participant's state must be read when it acts.
+        monsters = list(combat.monsters)
+        monster = monsters[monster_index]
         if monster.hp <= 0:
             combat, inactive_events = _tick_inactive_monster_turn(
                 state=state,
@@ -12642,10 +12660,10 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             monster_definitions=monster_definitions,
             rng=rng,
         )
-        monster, end_power_events = _apply_monster_end_turn_strength(combat.monsters[monster_index])
-        monster = _refresh_monster_intent_from_metadata(monster, combat.player, state.relics)
+        monster = _refresh_monster_intent_from_metadata(
+            combat.monsters[monster_index], combat.player, state.relics,
+        )
         combat = _combat_with_monster(combat, monster_index, monster)
-        monster_events += end_power_events
         player = combat.player
         monsters = list(combat.monsters)
         events.extend(monster_events)
@@ -12717,6 +12735,12 @@ def _begin_next_player_turn(
     combat, vital_turn_events = source_affliction_hooks.synchronize(combat)
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = list(vital_turn_events)
+    # Ritual, Territorial, High Voltage and Escape Artist all implement
+    # AfterSideTurnEnd; resolve after every enemy has finished acting.
+    for index in range(len(combat.monsters)):
+        monster, side_events = _apply_monster_end_turn_strength(combat.monsters[index])
+        combat = _combat_with_monster(combat, index, monster)
+        events.extend(side_events)
     # HatchPower.AfterSideTurnEnd sees the enemy-side roster after summons.
     # Eggs created during that side receive 2, then display 1 until they hatch.
     hatch_monsters = []
@@ -13053,23 +13077,6 @@ def _execute_monster_turn(
     player = combat.player
     monster = _reset_monster_hit_trigger_flags(monster)
     combat = _combat_with_monster(combat, monster_index, monster)
-    if monster.block and _status_amount(monster.statuses, "burrowed") <= 0:
-        events.append(
-            EffectEvent(
-                kind="monster_block_expired",
-                source_id=monster.monster_id,
-                target_id=monster.monster_id,
-                amount=monster.block,
-            )
-        )
-        monster = monster.model_copy(update={"block": 0})
-        combat = _combat_with_monster(combat, monster_index, monster)
-
-    monster, plating_start_events = _apply_monster_plating_start(monster)
-    if plating_start_events:
-        events.extend(plating_start_events)
-        combat = _combat_with_monster(combat, monster_index, monster)
-
     definition = _definition_for_monster(monster, monster_definitions)
     move = move_by_id(definition, monster.move_id) if definition is not None else None
     if definition is None or move is None:
@@ -13170,6 +13177,36 @@ def _execute_monster_turn(
                 metadata={"move_id": move.move_id, "move_name": move.name},
             )
         )
+
+    if _normalized_id(definition.monster_id) == "two_tailed_rat" and move.move_id in {
+        "SCRATCH", "DISEASE_BITE", "SCREECH",
+    }:
+        monster = monster.model_copy(update={"metadata": {
+            **monster.metadata,
+            "rat_turns_until_summonable": _metadata_int(
+                monster.metadata, "rat_turns_until_summonable", 2,
+            ) - 1,
+        }})
+        combat = _combat_with_monster(combat, monster_index, monster)
+
+    if _normalized_id(definition.monster_id) == "toadpole" and move.move_id == "SPIKE_SPIT":
+        statuses, event = _apply_status_value(
+            monster.statuses, "thorns", -min(2, _status_amount(monster.statuses, "thorns")),
+            source_id=monster.monster_id, target_id=monster.monster_id,
+        )
+        monster = monster.model_copy(update={"statuses": statuses})
+        combat = _combat_with_monster(combat, monster_index, monster)
+        if event is not None:
+            events.append(event)
+    pre_attack_summon = (
+        _normalized_id(definition.monster_id) == "living_fog" and move.move_id == "BLOAT"
+    )
+    if pre_attack_summon:
+        combat, spawn_events = _apply_monster_summon_move(
+            state=state, combat=combat, monster_index=monster_index,
+            definition=definition, move=move, rng=rng,
+        )
+        events.extend(spawn_events)
 
     per_hit_damage = _monster_attack_hit_damage(
         definition,
@@ -13346,14 +13383,17 @@ def _execute_monster_turn(
         return combat, tuple(events)
 
     monster = combat.monsters[monster_index]
-    combat, summon_events = _apply_monster_summon_move(
-        state=state,
-        combat=combat,
-        monster_index=monster_index,
-        definition=definition,
-        move=move,
-        rng=rng,
-    )
+    if pre_attack_summon:
+        summon_events: tuple[EffectEvent, ...] = ()
+    else:
+        combat, summon_events = _apply_monster_summon_move(
+            state=state,
+            combat=combat,
+            monster_index=monster_index,
+            definition=definition,
+            move=move,
+            rng=rng,
+        )
     events.extend(summon_events)
     monster = combat.monsters[monster_index]
     player = combat.player
@@ -13535,7 +13575,7 @@ def _expire_temporary_potion_stats(
 def _apply_monster_end_turn_strength(
     monster: MonsterState,
 ) -> tuple[MonsterState, tuple[EffectEvent, ...]]:
-    """Resolve printed Strength gains and visual timers at the own-turn end."""
+    """Resolve enemy AfterSideTurnEnd powers after all enemy actions."""
     if monster.hp <= 0:
         return monster, ()
     events: list[EffectEvent] = []
@@ -13552,6 +13592,14 @@ def _apply_monster_end_turn_strength(
     for power in ("territorial", "high_voltage", "ritual"):
         amount = _status_amount(monster.statuses, power)
         if amount <= 0:
+            continue
+        if power == "ritual" and monster.metadata.get("ritual_just_applied"):
+            metadata = dict(monster.metadata)
+            metadata.pop("ritual_just_applied", None)
+            monster = monster.model_copy(update={"metadata": metadata})
+            events.append(EffectEvent(
+                kind="ritual_first_turn_delayed", target_id=monster.monster_id,
+            ))
             continue
         statuses, event = _apply_status_value(
             monster.statuses, "strength", amount,
@@ -13982,6 +14030,28 @@ def _apply_monster_special_move_effects(
     monster_id = _normalized_id(definition.monster_id)
     move_id = _normalized_id(move.move_id)
     key = (monster_id, move_id)
+    if monster_id == "spiny_toad" and move_id == "spike_explosion":
+        statuses, event = _apply_status_value(
+            monster.statuses, "thorns", -min(5, _status_amount(monster.statuses, "thorns")),
+            source_id=monster.monster_id, target_id=monster.monster_id,
+        )
+        return _combat_with_monster(
+            combat, monster_index, monster.model_copy(update={"statuses": statuses}),
+        ), (event,) if event else ()
+    if monster_id == "guardbot" and move_id == "guard":
+        guard_events = []
+        monsters = []
+        for candidate in combat.monsters:
+            if candidate.hp > 0 and _normalized_id(candidate.metadata.get(
+                "source_monster_id", candidate.monster_id,
+            )) == "fabricator":
+                candidate = candidate.model_copy(update={"block": candidate.block + 15})
+                guard_events.append(EffectEvent(
+                    kind="monster_block", source_id=monster.monster_id,
+                    target_id=candidate.monster_id, amount=15,
+                ))
+            monsters.append(candidate)
+        return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(guard_events)
     if key in MONSTER_STATUS_CARD_MOVES:
         all_events: list[EffectEvent] = []
         for card_id, count, destination in status_card_move_effects(
@@ -14029,7 +14099,12 @@ def _apply_monster_special_move_effects(
                 candidate.statuses, status, amount,
                 source_id=monster.monster_id, target_id=candidate.monster_id,
             )
-            monsters.append(candidate.model_copy(update={"statuses": statuses}))
+            metadata = dict(candidate.metadata)
+            if status == "ritual" and _status_amount(candidate.statuses, "ritual") <= 0:
+                metadata["ritual_just_applied"] = True
+            monsters.append(candidate.model_copy(update={
+                "statuses": statuses, "metadata": metadata,
+            }))
             if event is not None:
                 power_events.append(event)
         return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(power_events)
@@ -14983,6 +15058,13 @@ def _apply_monster_summon_move(
             )
         )
 
+    if _normalized_id(definition.monster_id) == "two_tailed_rat":
+        call_count = max(_metadata_int(monster.metadata, "rat_backup_count", 0)
+                         for monster in monsters if monster.hp > 0) + 1
+        monsters = [monster.model_copy(update={"metadata": {
+            **monster.metadata, "rat_backup_count": call_count,
+        }}) if _normalized_id(monster.metadata.get("source_monster_id", monster.monster_id))
+        == "two_tailed_rat" and monster.hp > 0 else monster for monster in monsters]
     return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
 
 
@@ -15040,6 +15122,15 @@ def _monster_has_spawn_capacity(
 ) -> bool:
     if _normalized_id(definition.monster_id) == "ovicopter":
         return len(_alive_monsters(combat)) <= 3
+    if _normalized_id(definition.monster_id) == "two_tailed_rat":
+        monster = combat.monsters[monster_index]
+        return (
+            len(_alive_monsters(combat)) < 5
+            and _metadata_int(monster.metadata, "rat_turns_until_summonable", 2) <= 0
+            and _metadata_int(monster.metadata, "rat_backup_count", 0) < 3
+            and not any(other.hp > 0 and other.monster_id != monster.monster_id
+                        and other.move_id == "CALL_FOR_BACKUP" for other in combat.monsters)
+        )
     for plan in monster_summon_plans_for(definition.monster_id):
         if _monster_summon_ally_capacity(combat, monster_index, plan) > 0:
             return True
@@ -15712,7 +15803,10 @@ def _apply_monster_power(
         source_id=monster.monster_id,
         target_id=monster.monster_id,
     )
-    monster = monster.model_copy(update={"statuses": statuses})
+    metadata = dict(monster.metadata)
+    if status == "ritual" and _status_amount(monster.statuses, "ritual") <= 0:
+        metadata["ritual_just_applied"] = True
+    monster = monster.model_copy(update={"statuses": statuses, "metadata": metadata})
     return (
         monster,
         player,
@@ -30454,11 +30548,14 @@ def _monster_state_from_spawn(
         ],
         **move_metadata,
     }
+    if _status_amount(statuses, "ritual") > 0:
+        metadata["ritual_just_applied"] = True
     monster = MonsterState(
         monster_id=spawned_monster.instance_id,
         name=spawned_monster.name,
         hp=spawned_monster.hp,
         max_hp=spawned_monster.max_hp,
+        block=13 if _normalized_id(definition.monster_id) == "cubex_construct" else 0,
         intent=move.intent if move is not None else None,
         intent_damage=intent_damage,
         intent_block=intent_block,

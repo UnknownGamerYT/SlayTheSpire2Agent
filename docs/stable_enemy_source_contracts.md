@@ -77,6 +77,19 @@ Confirmed corrections:
   the source Hatch counter. Hatch does not add a creature and therefore does
   not reapply Fur Coat. Source slot names are retained; dynamic summons reuse
   available named slots and public combat state follows source slot order.
+- All 28 random selectors omitted from the content API now use the source's
+  73 ordered branches, weights, consecutive limits and cooldowns. Zero-weight
+  selections retain the source draw and subtraction behavior. Two-Tailed Rats
+  share the three-backup limit and wait two attacks before requesting backup.
+- Enemy Block expires for the whole side before its actions. Ally effects
+  survive later actors' turns. Ritual skips the side on which it was applied;
+  Ritual, Territorial and High Voltage resolve after all enemy actions. These
+  phase boundaries are preserved by save/reload.
+- Guardbot's Guard grants 15 Block only to Fabricators. Cubex starts with 13
+  Block. Source A8 Block values apply to Magi's Prepare and Louse Progenitor's
+  Curl and Grow. Toadpole spends two Thorns before Spike Spit; Spiny Toad spends
+  five after Spike Explosion. Living Fog creates one Gas Bomb before each
+  Bloat attack; the source does not increase that summon count.
 
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
