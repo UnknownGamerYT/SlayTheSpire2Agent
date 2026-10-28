@@ -9902,6 +9902,11 @@ def _start_combat_for_node(
         relic_counters=_combat_relic_counters_for(state.relics, combat),
         metadata=_turn_start_relic_metadata(combat),
     )
+    mittens_markers = tuple(marker for marker in turn_relics.markers
+                            if marker.relic_id == "toasty_mittens")
+    turn_relics = replace(turn_relics, markers=tuple(
+        marker for marker in turn_relics.markers if marker.relic_id != "toasty_mittens"
+    ))
     if _normalized_id(state.character_id) != "test":
         crossbow_markers, turn_relics = _split_run_state_combat_relic_resolution(
             turn_relics, {"add_card_to_hand"},
@@ -9912,6 +9917,10 @@ def _start_combat_for_node(
     )
     combat, monster_turn_start_events = _apply_monster_player_turn_start(combat)
     combat, bonus_draw, bonus_draw_events = _pop_pending_relic_draw(combat)
+    combat, mittens_events = _apply_combat_relic_resolution(
+        combat, CombatRelicResolution(hook=CombatRelicHook.TURN_START, markers=mittens_markers),
+        rng=rng, state=state,
+    )
     rng_state = capture_random_state(rng)
     combat, rng_state, draw_events = _draw_opening_hand(
         combat,
@@ -9945,6 +9954,7 @@ def _start_combat_for_node(
             + turn_relic_events
             + monster_turn_start_events
             + bonus_draw_events
+            + mittens_events
             + draw_events
             + start_post_draw_relic_events
             + imbued_events
@@ -9965,6 +9975,7 @@ def _start_combat_for_node(
         + turn_relic_events
         + monster_turn_start_events
         + bonus_draw_events
+        + mittens_events
         + draw_events
         + start_post_draw_relic_events
         + imbued_events
@@ -14182,6 +14193,11 @@ def _begin_next_player_turn(
         turn_start_relics,
         {"play_card_copy"},
     )
+    mittens_markers = tuple(marker for marker in turn_start_relics.markers
+                            if marker.relic_id == "toasty_mittens")
+    turn_start_relics = replace(turn_start_relics, markers=tuple(
+        marker for marker in turn_start_relics.markers if marker.relic_id != "toasty_mittens"
+    ))
     bound_markers = tuple(
         marker for marker in turn_start_relics.markers
         if _normalized_id(marker.relic_id) == "bound_phylactery"
@@ -14273,6 +14289,13 @@ def _begin_next_player_turn(
                     },
                 )
             )
+        marker_rng = random_from_state(rng_state)
+        combat, mittens_events = _apply_combat_relic_resolution(
+            combat, CombatRelicResolution(hook=CombatRelicHook.TURN_START, markers=mittens_markers),
+            rng=marker_rng, state=state,
+        )
+        rng_state = capture_random_state(marker_rng)
+        events.extend(mittens_events)
         combat, rng_state, draw_events = _draw_cards(
             combat,
             rng_state,
@@ -18789,7 +18812,7 @@ def _apply_osty_action_effect(
                 combat, source_card, dealer_is_pet=True,
             )
             raw_amount = _coerce_int(action_payload.get("amount"), default=0)
-            amount = source_osty_hooks.damage_amount(
+            damage_summary = source_osty_hooks.damage_amount(
                 combat, source_card, osty,
                 _osty_damage_amount(combat, source_card, osty, raw_amount), relics=relics,
             )
@@ -18858,7 +18881,7 @@ def _apply_osty_action_effect(
                         events.extend(spawn_events + death_power_events)
                 events.append(EffectEvent(
                     kind="osty_damaged_enemies", source_id=source_card.instance_id,
-                    amount=max(0, int(amount)), metadata={
+                    amount=max(0, int(damage_summary)), metadata={
                         "card_id": source_card.card_id, "target": target,
                         "target_ids": list(target_ids), "hit_index": hit_index + 1,
                         "hit_count": hits,
@@ -26420,11 +26443,13 @@ def _apply_combat_relic_marker(
             combat, soot_events = _add_biiig_hug_soot(combat, shuffle_rng,
                 tuple(combat.metadata.get("item_relic_ids", ())))
             events.extend(soot_events)
-        candidates = combat.draw_pile
+        mittens_candidates = combat.draw_pile
         if marker.relic_id == "toasty_mittens" and combat.turn == 1:
-            candidates = tuple(card for card in candidates if not _card_has_keyword(card, "innate"))
-            candidates = candidates or combat.draw_pile
-        exhausted = tuple(candidates[:amount])
+            mittens_candidates = tuple(
+                card for card in mittens_candidates if not _card_has_keyword(card, "innate")
+            )
+            mittens_candidates = mittens_candidates or combat.draw_pile
+        exhausted = tuple(mittens_candidates[:amount])
         exhausted_ids = {card.instance_id for card in exhausted}
         if exhausted:
             combat = combat.model_copy(

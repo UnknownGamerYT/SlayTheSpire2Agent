@@ -256,3 +256,14 @@ def test_top_resumes_potion_completion_check_after_skipping_modal_card_choice():
     action = next(a for a in legal_actions(state) if a.type == "proceed")
     state = step(_reload(state), action)
     assert [c.card_id for c in state.combat.hand] == ["replacement"]
+
+
+def test_mittens_before_hand_draw_follows_demon_form_and_helmet_receiver_hook():
+    from combat.test_card_play_status_runtime import _source
+
+    state = _play(_state(_source("DEMON_FORM"), relics=("toasty_mittens", "ruined_helmet")),
+                  "demon_form")
+    state = _end_turn(_reload(state))
+    assert state.player.statuses["strength"] == 5  # DemonForm2 doubles to4, then Mittens1.
+    state = _end_turn(_reload(state))
+    assert state.player.statuses["strength"] == 8

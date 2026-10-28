@@ -4,7 +4,7 @@
   "scope": "Source-reviewed single-player callback ordering and pre-application modifier outcomes. Independently implemented projections; no bundled game source and no live executable equivalence claim.",
   "facts": {
     "PaelsEye": "Completed manual card plays disqualify the extra turn; automatic/replayed cards do not. WhisperingEarring disqualifies only turn one. Exhaust a snapshot of the hand in Early before orb passives/hand effects.",
-    "ToastyMittens": "Shuffle an empty draw pile if possible, then choose first non-Innate on turn one (fallback first), exhaust with callbacks, apply one Strength.",
+    "ToastyMittens": "BeforeHandDraw follows turn-start powers, including DemonForm Strength and Helmet receipt modification. Shuffle an empty draw pile if possible, then choose first non-Innate on turn one (fallback first), exhaust with callbacks, apply one Strength.",
     "UnceasingTop": "Check after complete card or potion execution, outside parent effects. AutoPrePlay/Play/AutoPostPlay are valid phases; Start/End are invalid.",
     "UnsettlingLamp": "First attempted visible enemy debuff with owner giver and card source locks that card. Double that first play\u2019s remaining debuff applications on every target before Artifact. Flattened temporary stat representation applies its debuff once, avoiding internal quadrupling.",
     "RuinedHelmet": "Double first positive received Strength independent of giver, before storage cap; consume once per combat.",
@@ -129,6 +129,12 @@
       "sha256": "71b92124c304ea7e2ab779ae88dc4524d37634a7d5603d94f8bddb9fb0de1a09",
       "methods": [
         "BeforeSideTurnEnd"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/DemonFormPower.cs": {
+      "sha256": "0d13c5598b23a293d6d3e0c44a403ab596357b2a534ddc2c2d954e1af37a907e",
+      "methods": [
+        "AfterSideTurnStart"
       ]
     }
   }

@@ -14,6 +14,8 @@ and save/reload cases for:
   initial exhaustion snapshot.
 - Toasty Mittens: first-turn Innate exclusion, discard shuffle before selection,
   and shuffle/exhaust callbacks before the normal hand draw and Strength gain.
+  Its BeforeHandDraw hook follows turn-start powers; Demon Form receives the
+  first Helmet doubling before Mittens applies its own Strength.
 - Unceasing Top: completed potion and card actions, deferred modal choices and
   nested plays, and the source turn-phase filter.
 - Unsettling Lamp: first enemy debuff attempt locks one card through its first
