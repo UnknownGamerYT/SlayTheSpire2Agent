@@ -77,13 +77,24 @@ def preview_actions(
 def _preview_crosses_visibility_boundary(
     before: Mapping[str, Any], after: Mapping[str, Any]
 ) -> bool:
-    if before.get("rng") != after.get("rng"):
+    if _effective_rng_position(before.get("rng")) != _effective_rng_position(after.get("rng")):
         return True
     if draw_order_is_visible(before):
         return False
     before_combat = _mapping(before.get("combat"))
     after_combat = _mapping(after.get("combat"))
     return before_combat.get("draw_pile") != after_combat.get("draw_pile")
+
+
+def _effective_rng_position(value: Any) -> dict[str, Any]:
+    """Lazy source stream views at draw zero do not represent random outcomes."""
+    from sts2sim.engine.rng import STS2_STABLE_DERIVATION
+
+    position = dict(_mapping(value))
+    if position.get("derivation") == STS2_STABLE_DERIVATION:
+        position["streams"] = {name: state for name, state in _mapping(
+            position.get("streams")).items() if _int(_mapping(state).get("draws")) > 0}
+    return position
 
 
 def _transition_preview(

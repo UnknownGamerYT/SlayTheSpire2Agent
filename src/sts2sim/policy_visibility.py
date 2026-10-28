@@ -135,11 +135,22 @@ def policy_state(state: Any, *, oracle: bool = False) -> Any:
     if oracle:
         return state
     from sts2sim.api import load_state, serialize
-    from sts2sim.engine.rng import new_rng_state
+    from sts2sim.engine.rng import (
+        PYTHON_RANDOM_ALGORITHM,
+        STS2_STABLE_DERIVATION,
+        capture_random_state,
+        run_random_from_seed,
+    )
 
-    payload = policy_payload(serialize(state))
+    original = serialize(state)
+    source_mode = _mapping(original.get("rng")).get("derivation") == STS2_STABLE_DERIVATION
+    payload = policy_payload(original)
     payload["seed"] = 0
-    payload["rng"] = new_rng_state(0).model_dump(mode="json")
+    # Only the public source/legacy mode survives. No saved stream states,
+    # counters, seeds or arbitrary derivations are reused by planning.
+    rng = (run_random_from_seed(0) if source_mode else
+           run_random_from_seed(0, algorithm=PYTHON_RANDOM_ALGORITHM))
+    payload["rng"] = capture_random_state(rng).model_dump(mode="json")
     return load_state(payload)
 
 
