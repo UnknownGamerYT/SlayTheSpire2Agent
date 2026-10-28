@@ -526,7 +526,7 @@ def apply_source_core(
         }
         hand = []
         for chosen in combat.hand:
-            if chosen.type == CardType.ATTACK and not t._card_has_keyword(chosen, "eternal"):
+            if chosen.type == CardType.ATTACK:
                 replacement = t._card_from_spec({**rock, "instance_id": chosen.instance_id}, 0)
                 hand.append(replacement)
                 events.append(

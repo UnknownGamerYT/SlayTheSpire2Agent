@@ -153,10 +153,10 @@ def test_combat_start_afflicts_deck_before_opening_hand_draws():
     assert not any(affliction_id(c) for c in state.master_deck)
 
 
-def test_unplayable_skill_is_not_eligible_for_tainted():
+def test_unplayable_skill_receives_tainted_under_default_affliction_rule():
     state = state_with_sparks(_simple("first"), _simple("locked", custom={"unplayable": True}))
     state = _play(state, "first")
-    assert affliction_id(state.combat.hand[0]) == ""
+    assert affliction_id(state.combat.hand[0]) == "tainted"
 
 
 def test_chains_of_binding_cannot_add_second_affliction_over_tainted():

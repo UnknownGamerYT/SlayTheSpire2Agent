@@ -2901,5 +2901,5 @@
       "regression": "tests/combat/test_source_core_cards.py::test_thrash_preserves_quarters_across_repeated_sacrifices_and_reload"
     }
   },
-  "public_action_cases": 101
+  "public_action_cases": 102
 }

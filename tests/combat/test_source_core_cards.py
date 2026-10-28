@@ -802,3 +802,10 @@ def test_rampage_replay_observes_mutation_of_same_physical_card():
     assert state.combat.monsters[0].hp == 77  # 9, then the already-increased 14.
     grown = next(c for c in state.combat.discard_pile if c.card_id == "rampage")
     assert grown.custom["source_core_damage_bonus"] == 10
+
+
+def test_primal_force_transforms_eternal_attack_inside_combat():
+    eternal = _simple("eternal", card_type="attack", target="enemy", custom={"eternal": True})
+    state = _play(_reload(_state(source("primal_force"), eternal)), "primal_force")
+    assert state.combat.hand[0].card_id == "giant_rock"
+    assert not state.combat.hand[0].custom.get("eternal")

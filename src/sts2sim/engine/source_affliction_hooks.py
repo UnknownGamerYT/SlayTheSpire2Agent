@@ -89,7 +89,7 @@ def synchronize(combat: CombatState) -> tuple[CombatState, tuple[EffectEvent, ..
                     )
                 )
             entering = card.instance_id not in seen
-            eligible = card.type == CardType.SKILL and not t._card_has_keyword(card, "unplayable")
+            eligible = card.type == CardType.SKILL
             if initial and eligible and current in {"", "tainted"}:
                 # BeforeCombatStart calls Afflict for each source; Tainted is
                 # stackable. Its amount is display metadata, not the debuff.
@@ -226,8 +226,6 @@ def prepare_play(
     combat: CombatState,
     card: CardInstance,
 ) -> tuple[CombatState, CardInstance, tuple[EffectEvent, ...]]:
-    from . import transitions as t
-
     actual = next(
         (c for zone in _ZONES for c in getattr(combat, zone) if c.instance_id == card.instance_id),
         None,
@@ -240,7 +238,6 @@ def prepare_play(
         card.instance_id in seen
         or card.type != CardType.SKILL
         or affliction_id(card)
-        or t._card_has_keyword(card, "unplayable")
         or not isinstance(sources, Mapping)
         or not sources
     ):
