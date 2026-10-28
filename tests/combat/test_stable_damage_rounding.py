@@ -233,3 +233,48 @@ def test_player_damage_records_actual_hp_loss_and_overkill():
     assert event.metadata["overkill_damage"] == 4
     assert event.metadata["total_damage_including_overkill"] == 9
     assert result.metadata["hp_lost_this_turn"] == 3
+
+
+@pytest.mark.parametrize("strength,expected", [(-7, 1), (-6, 2), (0, 9)])
+def test_copied_tainted_on_enemy_adds_before_weak_and_clamping(strength, expected):
+    attack = _simple("attack", effects={"damage": 5}, card_type="attack", target="enemy")
+    state = _state(attack, statuses={"strength": strength, "weak": 2})
+    monster = state.combat.monsters[0].model_copy(update={
+        "statuses": {"tainted": 3, "vulnerable": 1},
+    })
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (monster,),
+    })})
+    result = _play(_reload(state), "attack")
+    assert result.combat.monsters[0].hp == 100 - expected
+
+
+@pytest.mark.parametrize("status", ["weak", "frail", "vulnerable"])
+def test_new_player_duration_debuff_skips_exactly_one_enemy_end_tick(status):
+    card = _simple("self_debuff", effects={"apply_status": {status: 2}})
+    state = _play(_state(card), "self_debuff")
+    assert state.player.statuses[status] == 2
+    state = _end_turn(_reload(state))
+    assert state.player.statuses[status] == 2
+    state = _end_turn(_reload(state))
+    assert state.player.statuses[status] == 1
+    state = _end_turn(_reload(state))
+    assert state.player.statuses.get(status, 0) == 0
+
+
+@pytest.mark.parametrize("status", ["weak", "frail", "vulnerable"])
+def test_existing_player_debuff_stacking_does_not_skip_duration(status):
+    card = _simple("self_debuff", effects={"apply_status": {status: 1}})
+    state = _play(_state(card, statuses={status: 2}), "self_debuff")
+    state = _end_turn(_reload(state))
+    assert state.player.statuses[status] == 2
+
+
+@pytest.mark.parametrize("status", ["weak", "frail", "vulnerable"])
+def test_enemy_applied_player_debuff_survives_next_playable_turn(status):
+    from combat.test_move_player_statuses import _state as enemy_state
+
+    state = _end_turn(_reload(enemy_state(status)))
+    assert state.player.statuses[status] == 1
+    state = _end_turn(_reload(state))
+    assert state.player.statuses.get(status, 0) == 0

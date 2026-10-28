@@ -13589,6 +13589,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         combat, rng_state, item_end_events,
     )
     events.extend(item_kill_events)
+    combat, registered_events = _register_player_duration_skips(combat, events)
+    events = list(registered_events)
     combat, rng_state, next_turn_events = _begin_next_player_turn(
         state,
         combat,
@@ -13652,6 +13654,8 @@ def _begin_next_player_turn(
             ))
         hatch_monsters.append(monster)
     combat = combat.model_copy(update={"monsters": tuple(hatch_monsters)})
+    combat, tick_events = _tick_end_turn_statuses(combat)
+    events.extend(tick_events)
     statuses = dict(combat.player.statuses)
     if statuses.pop("no_energy_gain_this_turn", 0):
         events.append(EffectEvent(
@@ -13787,8 +13791,6 @@ def _begin_next_player_turn(
     )
     rng = random_from_state(block_rng_state)
     events = list(_resolved_block_events(events)) + list(block_power_events)
-    combat, tick_events = _tick_end_turn_statuses(combat)
-    events.extend(tick_events)
     combat, rng_state, stored_power_events = _apply_stored_turn_powers(
         state, combat, rng_state, trigger="turn_start",
     )
@@ -24201,16 +24203,52 @@ def _apply_player_end_turn_status_block(
     return player, tuple(events)
 
 
+def _register_player_duration_skips(
+    combat: CombatState, events: Sequence[EffectEvent],
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    skipped = set(_string_items(combat.metadata.get("source_skip_debuff_duration_ticks")))
+    registered: list[EffectEvent] = []
+    for event in events:
+        if (event.kind == "status_applied" and event.target_id == PLAYER_TARGET_ID
+            and event.metadata.get("skip_first_duration_tick")
+            and not event.metadata.get("duration_skip_registered")):
+            skipped.add(_normalized_status_id(str(event.metadata["status"])))
+            event = event.model_copy(update={"metadata": {
+                **event.metadata, "duration_skip_registered": True,
+            }})
+        registered.append(event)
+    metadata = dict(combat.metadata)
+    if skipped:
+        metadata["source_skip_debuff_duration_ticks"] = sorted(skipped)
+    return combat.model_copy(update={"metadata": metadata}), tuple(registered)
+
+
 def _tick_end_turn_statuses(combat: CombatState) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     events: list[EffectEvent] = []
+    metadata = dict(combat.metadata)
+    skipped = set(_string_items(metadata.pop("source_skip_debuff_duration_ticks", ())))
     player, player_events = _tick_player_statuses(combat.player)
-    events.extend(player_events)
+    statuses = dict(player.statuses)
+    for status in skipped:
+        if status in combat.player.statuses:
+            statuses[status] = combat.player.statuses[status]
+            events.append(EffectEvent(
+                kind="status_duration_tick_skipped", target_id=PLAYER_TARGET_ID,
+                metadata={"status": status},
+            ))
+    player = player.model_copy(update={"statuses": statuses})
+    events.extend(
+        event for event in player_events
+        if not (event.kind == "status_ticked" and event.metadata.get("status") in skipped)
+    )
     monsters: list[MonsterState] = []
     for monster in combat.monsters:
         ticked, monster_events = _tick_monster_statuses(monster)
         monsters.append(ticked)
         events.extend(monster_events)
-    return combat.model_copy(update={"player": player, "monsters": tuple(monsters)}), tuple(events)
+    return combat.model_copy(update={
+        "player": player, "monsters": tuple(monsters), "metadata": metadata,
+    }), tuple(events)
 
 
 def _apply_monster_nemesis_player_turn_start(
@@ -25172,7 +25210,7 @@ def _incoming_monster_damage(
     source_card_id: str | None = None,
 ) -> int:
     if amount <= 0:
-        return int(amount)
+        return 0
     if _waterfall_giant_is_about_to_blow(monster):
         return 0
     multiplier = Fraction(1)
@@ -25391,7 +25429,14 @@ def _apply_status_value(
                 source_id=source_id,
                 target_id=target_id,
                 amount=value,
-                metadata={"status": status},
+                metadata={
+                "status": status,
+                "skip_first_duration_tick": (
+                    target_id == PLAYER_TARGET_ID and value > 0
+                    and status not in statuses
+                    and _normalized_status_id(status) in {"weak", "frail", "vulnerable"}
+                ),
+            },
             ),
         )
 
@@ -25409,7 +25454,14 @@ def _apply_status_value(
             source_id=source_id,
             target_id=target_id,
             amount=value,
-            metadata={"status": status},
+            metadata={
+                "status": status,
+                "skip_first_duration_tick": (
+                    target_id == PLAYER_TARGET_ID and value > 0
+                    and status not in statuses
+                    and _normalized_status_id(status) in {"weak", "frail", "vulnerable"}
+                ),
+            },
         ),
     )
 
@@ -27266,6 +27318,7 @@ def _finalize_state_after_combat(
     rng_state: RngState,
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    combat, events = _register_player_duration_skips(combat, events)
     combat, modifier_events = source_modifier_hooks.synchronize(combat)
     events = tuple(events) + modifier_events
     state, combat = source_class_hooks.persist_growth(state, combat)
@@ -29610,9 +29663,11 @@ def _modified_card_damage(
     amount: int | Fraction,
     *,
     relics: Sequence[str] = (),
+    target_statuses: Mapping[str, int] | None = None,
 ) -> Fraction:
     modified = source_enchantment_hooks.damage_base(combat, card, amount)
     if card.type == CardType.ATTACK:
+        modified += _status_amount(target_statuses or {}, "tainted")
         modified += _signed_status_amount(combat.player.statuses, "strength")
         modified += _signed_status_amount(combat.player.statuses, "temporary_strength")
         modified += _status_amount(combat.player.statuses, "vigor")

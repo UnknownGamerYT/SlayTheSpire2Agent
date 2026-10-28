@@ -834,7 +834,9 @@ def attack_damage_with_thorns(
         target = next((m for m in combat.monsters if m.monster_id == original.monster_id), None)
         if target is None or target.hp <= 0:
             continue
-        damage: Any = t._modified_card_damage(combat, card, base_damage, relics=relics)
+        damage: Any = t._modified_card_damage(
+            combat, card, base_damage, relics=relics, target_statuses=target.statuses,
+        )
         damage = t._sovereign_blade_damage_amount(combat, card, selected_target, damage)
         damage = t._tracking_modified_attack_damage(combat, card, (target.monster_id,), damage)
         attacker_statuses = dict(card_status_hooks.card_actor_statuses(combat, card))
