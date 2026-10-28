@@ -168,3 +168,23 @@ def test_chains_of_binding_cannot_add_second_affliction_over_tainted():
     state = _play(state, "draw")
     assert affliction_id(state.combat.hand[0]) == "tainted"
     assert not state.combat.hand[0].custom.get("bound")
+
+
+def test_potion_kill_clears_afflictions_before_returning_public_state():
+    state = state_with_sparks(_simple("first"), _simple("held"), amounts=(2, 3))
+    state = _play(state, "first")
+    monsters = (state.combat.monsters[0].model_copy(update={"hp": 1}),) + state.combat.monsters[1:]
+    state = state.model_copy(
+        update={
+            "potions": ("fire_potion",),
+            "combat": state.combat.model_copy(update={"monsters": monsters}),
+        }
+    )
+    action = next(
+        a for a in legal_actions(state) if a.type == "use_potion" and a.target_id == "prism0"
+    )
+    state = step(_reload(state), action)
+    assert affliction_id(state.combat.hand[0]) == ""
+    assert (
+        state.player.statuses["tainted"] == 5
+    )  # Removing card affliction does not remove existing debuff.

@@ -25780,6 +25780,10 @@ def _finalize_state_after_combat(
     if spawn_events:
         events = tuple(events) + spawn_events
         combat = combat.model_copy(update={"last_events": combat.last_events + spawn_events})
+    combat, vital_events = source_affliction_hooks.synchronize(combat)
+    if vital_events:
+        events = tuple(events) + vital_events
+        combat = combat.model_copy(update={"last_events": combat.last_events + vital_events})
     combat, shrink_events = _expire_source_linked_shrink(combat)
     if shrink_events:
         events = tuple(events) + shrink_events
