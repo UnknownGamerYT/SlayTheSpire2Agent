@@ -155,6 +155,6 @@ def test_regret_loses_hp_per_hand_card_for_each_copy_after_reload(regrets, fille
     state = _end(load_state(serialize(state)))
     assert state.player.hp == 200 - loss
     losses = [event.amount for event in state.combat.last_events
-              if event.kind == "player_hp_lost" and event.metadata.get("card_id") == "regret"]
+              if event.kind == "player_damaged" and event.metadata.get("card_id") == "regret"]
     assert sum(losses) == loss
     assert len(losses) == regrets

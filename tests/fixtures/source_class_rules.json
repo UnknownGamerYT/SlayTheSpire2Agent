@@ -576,6 +576,11 @@
       "card_id": "STACK",
       "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Stack.cs",
       "expected_behavior": "Powered Block equals discard count, plus three when upgraded."
+    },
+    {
+      "card_id": "CONSUMING_SHADOW",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/ConsumingShadowPower.cs",
+      "expected_behavior": "Channel 2 Dark (3 upgraded) before applying the Power. At owner-side end, evoke the rightmost orb for each stack, after all orb passives; each Dark therefore charges before the evoke."
     }
   ]
 }

@@ -92,6 +92,10 @@ def source_class_steps(
     def resource(name: str, amount: Any) -> Mapping[str, Any]:
         return {"player_resource": {"resource": name, "amount": amount}}
 
+    if card_id == "consuming_shadow":
+        return ({"channel_orb": {"orb": "dark", "amount": 3 if upgraded else 2}},
+                status("consuming_shadow", 1))
+
     def generated(
         card: str, destination: str, count: Any = 1, *, upgrade: bool = False
     ) -> Mapping[str, Any]:

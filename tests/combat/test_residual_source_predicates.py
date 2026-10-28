@@ -114,13 +114,13 @@ def test_source_dark_embrace_draws_after_another_card_exhausts():
     assert [card.instance_id for card in state.combat.hand] == ["drawn"]
 
 
-def test_source_consuming_shadow_channels_then_evokes_leftmost_at_end_turn():
+def test_source_consuming_shadow_channels_then_evokes_rightmost_after_orb_passives():
     state = _play(_slots(_state(_source("CONSUMING_SHADOW"))), "consuming_shadow")
     assert len(state.combat.orbs) == 2
     assert all(orb.orb_id == "dark" for orb in state.combat.orbs)
     state = _end_turn(_reload(state))
     assert len(state.combat.orbs) == 1
-    assert state.combat.monsters[0].hp == 94
+    assert state.combat.monsters[0].hp == 88
 
 
 def test_source_lightning_rod_channels_at_exactly_next_two_turn_starts():

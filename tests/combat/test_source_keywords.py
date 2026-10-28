@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from combat.test_combat_engine_cards import _enter_combat
 from combat.test_source_modifiers import _card, _end, _fight, _play
+from combat.test_stored_turn_powers import _fight as _source_fight
 from combat.test_stored_turn_powers import _source_card
 
 from sts2sim import load_state, serialize
@@ -200,6 +201,13 @@ def test_sly_autoplay_finds_card_drawn_from_the_just_shuffled_discard_pile():
     assert result.player.block == 3
     assert not result.combat.hand
     assert result.combat.metadata["skills_played_this_turn"] == 2
+
+
+def test_consuming_shadow_evokes_rightmost_dark_after_every_orb_passive():
+    state = _play(_source_fight("consuming_shadow", orbs=("lightning",)), "consuming_shadow")
+    result = _end(state)
+    assert result.combat.monsters[0].hp == 985
+    assert [orb.orb_id for orb in result.combat.orbs] == ["lightning", "dark"]
 
 
 def test_source_modifier_audit_enumerates_all_afflictions_and_keyword_values():

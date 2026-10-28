@@ -24031,7 +24031,25 @@ def _apply_stored_turn_powers(
     """Execute stored powers at their printed boundary, never when installed."""
     if combat.player.hp <= 0 or not _alive_monsters(combat):
         return combat, rng_state, ()
+    events: list[EffectEvent] = []
     if trigger == "turn_end":
+        consuming_shadow = _status_amount(combat.player.statuses, "consuming_shadow")
+        if consuming_shadow:
+            rng = random_from_state(rng_state)
+            for _ in range(consuming_shadow):
+                if not combat.orbs or not _alive_monsters(combat):
+                    break
+                combat, evoke_events = _evoke_orbs(
+                    combat, rng, "consuming_shadow", {"selector": "rightmost", "amount": 1},
+                    target_id=None, relics=state.relics,
+                )
+                events.extend(evoke_events)
+                combat, rng_state, kill_events = _apply_monster_killed_relics_from_events(
+                    state, combat, capture_random_state(rng), evoke_events,
+                )
+                events.extend(kill_events)
+                rng = random_from_state(rng_state)
+            rng_state = capture_random_state(rng)
         hailstorm = _status_amount(combat.player.statuses, "hailstorm")
         if hailstorm and any(orb.orb_id == "frost" for orb in combat.orbs):
             combat, hailstorm_events = _damage_all_monsters(
@@ -24041,10 +24059,9 @@ def _apply_stored_turn_powers(
             combat, rng_state, kill_events = _apply_monster_killed_relics_from_events(
                 state, combat, rng_state, hailstorm_events,
             )
-            return combat, rng_state, hailstorm_events + kill_events
-        return combat, rng_state, ()
+            return combat, rng_state, tuple(events) + hailstorm_events + kill_events
+        return combat, rng_state, tuple(events)
 
-    events: list[EffectEvent] = []
     for power, stat in (("biased_cognition", "focus"), ("wraith_form", "dexterity")):
         amount = _status_amount(combat.player.statuses, power)
         if amount:
@@ -24731,6 +24748,7 @@ def _damage_combat_player(
                 "intangible": intangible_applied,
                 "tungsten_rod_reduction": tungsten_rod_reduction,
                 "beating_remnant_prevented": beating_remnant_prevented,
+                "buffer_prevented_hp_loss": buffer_prevented,
                 "plated_armor_lost": plated_armor_lost,
                 "lethal": player.hp <= 0,
             },
