@@ -3381,10 +3381,10 @@ def _choose_source_native_event(
     if rule.get("upgrade_random"):
         amount = _coerce_int(rule["upgrade_random"], default=0)
         if rule.get("stable_upgrade_shuffle"):
-            cards = sorted((card for card in next_state.master_deck if not card.upgraded
-                            and card.type in {CardType.ATTACK, CardType.SKILL, CardType.POWER}),
-                           key=lambda card: (card.card_id, card.upgraded))
-            rng.shuffle(cards)
+            cards = stable_shuffle(tuple(card for card in next_state.master_deck
+                if not card.upgraded and card.type in {
+                    CardType.ATTACK, CardType.SKILL, CardType.POWER}), rng,
+                key=lambda card: (card.card_id, card.upgraded))
             upgrade_ids = {card.instance_id for card in cards[:amount]}
             next_state = next_state.model_copy(update={"master_deck": tuple(
                 _upgrade_card_instance(card) if card.instance_id in upgrade_ids else card

@@ -8,7 +8,8 @@ from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar, overload
 
-from sts2sim.mechanics.source_rng import source_float, source_sample
+from sts2sim.mechanics.source_rng import is_source_rng, source_float, source_sample
+from sts2sim.mechanics.source_sort import dotnet_sorted
 
 from .models import RngState, RngStreamState
 
@@ -508,7 +509,7 @@ def stable_gaussian_int(
 
 def stable_shuffle(items: Sequence[T], rng: random.Random, *, key: Any = None) -> list[T]:
     """Sort before Fisher-Yates, mirroring ListExtensions.StableShuffle."""
-    result = sorted(items, key=key)
+    result = dotnet_sorted(items, key=key) if is_source_rng(rng) else sorted(items, key=key)
     rng.shuffle(result)
     return result
 

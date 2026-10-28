@@ -33,6 +33,12 @@ The implementation follows that snapshot's:
 - [Rng](https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Random/Rng.cs): named seed is `uint32(base + hash(name))`; player/model seed is `uint32(base + player_slot + hash(ModelId.Entry) + mixin)`; Gaussian integer sampling uses two fresh doubles, sine Box–Muller, ties-to-even rounding and bounded rejection.
 - [RunRngSet](https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Runs/RunRngSet.cs), [PlayerRngSet](https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Random/PlayerRngSet.cs) and [Player.InitializeSeed](https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Players/Player.cs): run names use snake case; per-player streams add the player slot index before name mixing. The normal simulator currently uses slot zero.
 - [ListExtensions](https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Extensions/ListExtensions.cs): descending Fisher–Yates; stable shuffle sorts first. Singleton bounded draws consume one core step, while singleton shuffles consume none.
+- The decompiled project targets .NET 9. `StableShuffle` therefore reproduces
+  [.NET 9 List.Sort introsort](https://github.com/dotnet/runtime/blob/v9.0.0/src/libraries/System.Private.CoreLib/src/System/Collections/Generic/ArraySortHelper.cs),
+  including its 16-element insertion threshold and permutation of equal keys.
+  Card comparisons use ModelId then upgrade level; Python's stable sorting would
+  select different duplicate instances once a candidate pool exceeds 16 cards.
+  Independent C vectors retain the duplicate-instance order before and after shuffle.
 
 The independent [v0.107.1 C source port](https://github.com/tckmn/sts2-seed-search/blob/cedcb540eca0c5393b883cd847d975df5e97bf64/cleaned-v0.107.1.c)
 agrees for its ASCII input domain. `tests/run/test_runtime_rng.py` retains hash,
