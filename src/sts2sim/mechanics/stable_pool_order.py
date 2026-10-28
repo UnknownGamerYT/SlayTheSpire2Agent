@@ -607,6 +607,46 @@ STABLE_POTION_POOL_ORDER: dict[str, tuple[str, ...]] = {
 }
 
 
+STABLE_CARD_POOL_ORDER.update(
+    {
+        "curse": (
+            "ascenders_bane",
+            "bad_luck",
+            "clumsy",
+            "curse_of_the_bell",
+            "debt",
+            "decay",
+            "doubt",
+            "enthralled",
+            "folly",
+            "greed",
+            "guilty",
+            "injury",
+            "normality",
+            "poor_sleep",
+            "regret",
+            "shame",
+            "spore_mind",
+            "writhe",
+        ),
+        "status": (
+            "beckon",
+            "burn",
+            "dazed",
+            "debris",
+            "frantic_escape",
+            "infection",
+            "wither",
+            "slimed",
+            "soot",
+            "toxic",
+            "void",
+            "wound",
+        ),
+    }
+)
+
+
 def order_source_pool(
     items: Sequence[T], identifiers: Sequence[str], id_of: Callable[[T], str]
 ) -> tuple[T, ...]:

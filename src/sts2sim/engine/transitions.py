@@ -119,6 +119,7 @@ from sts2sim.mechanics.relic_bag_runtime import (
     draw_source_relic,
     has_source_relic_bag,
     remove_obtained_source_relic,
+    source_relic_rarity,
 )
 from sts2sim.mechanics.relic_bags import RelicBagContext, relic_is_allowed
 from sts2sim.mechanics.relic_combat import (
@@ -181,6 +182,7 @@ from sts2sim.mechanics.source_ancients import (
 )
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
+from sts2sim.mechanics.source_event_rules import source_event_rule
 from sts2sim.mechanics.source_events import source_event_startup
 from sts2sim.mechanics.source_power_rules import (
     power_allows_negative,
@@ -2401,6 +2403,9 @@ def _event_state_for_node(
                 if option.option_id.upper() == "OFFER_TRIBUTE_LOCKED" and enough_gold:
                     continue
             options.append(option)
+        options = list(_source_event_rule_options(
+            result.event_id, tuple(options), state.player.gold
+        ))
         result = result.model_copy(update={"options": tuple(options), "metadata": {
             **result.metadata, "source_numeric_values": startup.values,
             "source_event_rng": result.event_id.upper(),
@@ -2465,6 +2470,24 @@ def _event_state_from_room_source(
         options=options,
         metadata={"node_id": node.node_id, "act": node.act, "floor": node.floor},
     )
+
+
+def _source_event_rule_options(
+    event_id: str, options: tuple[EventOptionState, ...], gold: int
+) -> tuple[EventOptionState, ...]:
+    result = []
+    for option in options:
+        rule = source_event_rule(event_id, option.option_id)
+        if rule is not None:
+            numeric = rule.numeric.payload()
+            numeric.update(_mapping_from(option.metadata.get("source_numeric_effect")))
+            option = option.model_copy(update={
+                "disabled": option.disabled or gold < rule.required_gold,
+                "metadata": {**option.metadata, "source_native_rule": rule.payload(),
+                             "source_numeric_effect": numeric},
+            })
+        result.append(option)
+    return tuple(result)
 
 
 def _event_source_for_room(state: RunState, rng: Random) -> Mapping[str, Any]:
@@ -2953,6 +2976,17 @@ def _legal_event_actions(state: RunState) -> tuple[Action, ...]:
     for option in state.event.options:
         if option.disabled or option.metadata.get("summary_marker"):
             continue
+        native_rule = _mapping_from(option.metadata.get("source_native_rule"))
+        if is_source_rng(state.rng) and native_rule.get("selection"):
+            candidates = _source_event_selection_candidates(state, native_rule)
+            count = min(len(candidates), _coerce_int(native_rule.get("count"), default=1))
+            if count == 0:
+                actions.append(Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id))
+            else:
+                for group in combinations(candidates, count):
+                    actions.append(Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id,
+                        payload={"card_instance_ids": tuple(card.instance_id for card in group)}))
+            continue
         if _event_option_is_enchant_choice(option):
             actions.extend(_legal_event_enchant_actions(state, option))
             continue
@@ -3101,6 +3135,9 @@ def _choose_event(
     if state.flags.get("scroll_boxes_pending"):
         return _take_scroll_boxes_pack(state, option)
 
+    if is_source_rng(state.rng) and option.metadata.get("source_native_rule"):
+        return _choose_source_native_event(state, action, option)
+
     if _event_uses_flow(state.event.event_id):
         return _choose_event_flow_option(state, action, option)
 
@@ -3151,6 +3188,184 @@ def _choose_event(
 
     return next_state, (chosen_event,) + effect_events + reward_events
 
+
+
+def _source_event_selection_candidates(
+    state: RunState, rule: Mapping[str, Any]
+) -> tuple[CardInstance, ...]:
+    kind = str(rule.get("selection", ""))
+    tag = str(rule.get("tag", ""))
+    result = []
+    for card in state.master_deck:
+        if kind in {"remove", "transform"} and _deck_card_mutation_blocked(card):
+            continue
+        if kind == "upgrade" and (card.upgraded or card.type not in {
+            CardType.ATTACK, CardType.SKILL, CardType.POWER
+        }):
+            continue
+        source = _card_source_spec(card)
+        if rule.get("basic_only") and _normalized_id(str(source.get("rarity", "basic"))) != "basic":
+            continue
+        tags = {_normalized_id(value) for value in card.tags}
+        if tag and tag not in tags and not (
+            card.card_id == tag or card.card_id.startswith(tag + "_")
+        ):
+            continue
+        result.append(card)
+    return tuple(result)
+
+
+def _source_event_next_page(state: RunState, event: EventState, page_id: str) -> EventState:
+    row = next((row for row in _event_source_rows(state)
+                if _normalized_id(str(row.get("id", ""))) == _normalized_id(event.event_id)), {})
+    page = next((_mapping_from(value) for value in _source_items(row.get("pages"))
+                 if str(_mapping_from(value).get("id", "")).upper() == page_id.upper()), {})
+    options = _source_event_rule_options(
+        event.event_id, _event_option_states(page), state.player.gold
+    )
+    return event.model_copy(update={
+        "page_id": page_id, "resolved_option_id": None, "options": options
+    })
+
+
+def _choose_source_native_event(
+    state: RunState, action: Action, option: EventOptionState
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    if state.event is None:
+        return state, ()
+    rule = _mapping_from(option.metadata.get("source_native_rule"))
+    selected = _event_action_card_instance_ids(action)
+    candidates = _source_event_selection_candidates(state, rule)
+    count = min(len(candidates), _coerce_int(rule.get("count"), default=1))
+    if rule.get("selection") and (len(selected) != count or len(set(selected)) != len(selected)
+            or not set(selected) <= {card.instance_id for card in candidates}):
+        return state, ()
+    rng = random_stream(random_from_state(state.rng), state.event.event_id.upper())
+    next_state = state
+    events: list[EffectEvent] = [EffectEvent(kind="event_option_chosen",
+        source_id=state.event.event_id, target_id=option.option_id,
+        metadata={"title": option.title, "card_instance_ids": selected, "native_source": True})]
+    if rule.get("lose_all_gold"):
+        lost = next_state.player.gold
+        next_state = next_state.model_copy(update={"player": next_state.player.model_copy(
+            update={"gold": 0})})
+        events.append(EffectEvent(kind="event_gold_lost", amount=lost))
+    if not rule.get("selection_first"):
+        next_state, numeric_events = _apply_event_option_immediate_effects(next_state, option, rng)
+        events.extend(numeric_events)
+    kind = str(rule.get("selection", ""))
+    if kind == "remove":
+        removed = tuple(card for card in next_state.master_deck if card.instance_id in selected)
+        next_state = next_state.model_copy(update={"master_deck": tuple(
+            card for card in next_state.master_deck if card.instance_id not in selected)})
+        events.extend(EffectEvent(kind="event_card_removed", target_id=card.instance_id,
+            metadata={"card_id": card.card_id}) for card in removed)
+    elif kind == "upgrade":
+        upgraded_deck = tuple(_upgrade_card_instance(card) if card.instance_id in selected else card
+                     for card in next_state.master_deck)
+        next_state = next_state.model_copy(update={"master_deck": upgraded_deck})
+        events.extend(EffectEvent(kind="card_upgraded", target_id=card_id) for card_id in selected)
+    elif kind == "transform":
+        target = rule.get("target_card")
+        marker = EventFlowMarker(kind=EventFlowMarkerKind.CARD_TRANSFORM, count=count,
+            metadata={"apply_upgrade_eggs": True, **({"target_card_id": target} if target else {})})
+        next_state, transformed, _ = _transform_deck_cards(next_state, rng, marker,
+            selected_card_instance_ids=selected, source_id=state.event.event_id)
+        events.extend(transformed)
+    if rule.get("selection_first"):
+        next_state, numeric_events = _apply_event_option_immediate_effects(next_state, option, rng)
+        events.extend(numeric_events)
+    if rule.get("downgrade_random"):
+        next_state, downgraded = _downgrade_random_deck_cards(next_state, rng,
+            _coerce_int(rule["downgrade_random"], default=0), source_id=state.event.event_id)
+        events.extend(downgraded)
+    if rule.get("upgrade_random"):
+        amount = _coerce_int(rule["upgrade_random"], default=0)
+        if rule.get("stable_upgrade_shuffle"):
+            cards = sorted((card for card in next_state.master_deck if not card.upgraded
+                            and card.type in {CardType.ATTACK, CardType.SKILL, CardType.POWER}),
+                           key=lambda card: (card.card_id, card.upgraded))
+            rng.shuffle(cards)
+            upgrade_ids = {card.instance_id for card in cards[:amount]}
+            next_state = next_state.model_copy(update={"master_deck": tuple(
+                _upgrade_card_instance(card) if card.instance_id in upgrade_ids else card
+                for card in next_state.master_deck)})
+            events.extend(EffectEvent(kind="card_upgraded", target_id=card_id)
+                          for card_id in upgrade_ids)
+        else:
+            next_state, upgraded = _upgrade_random_deck_cards(next_state, rng, amount,
+                                                             source_id=state.event.event_id)
+            events.extend(upgraded)
+    deck = list(next_state.master_deck)
+    if rule.get("duplicate_deck"):
+        for original in tuple(deck):
+            duplicate = _with_unique_deck_card_id(original.model_copy(update={
+                "instance_id": f"copy_{original.instance_id}"}), deck)
+            deck.append(duplicate)
+            events.append(EffectEvent(kind="event_card_duplicated", target_id=duplicate.instance_id,
+                                      metadata={"card_id": duplicate.card_id}))
+    add_cards = list(_string_items(rule.get("add_cards")))
+    card_pool = _string_items(rule.get("card_pool"))
+    if card_pool:
+        add_cards.append(rng.choice(card_pool))
+    for card_id in add_cards:
+        spec = _reward_card_spec(next_state, card_id)
+        spec["card_id"] = card_id
+        card = _with_unique_deck_card_id(_card_from_spec(spec, len(deck) + 1), deck)
+        deck.append(card)
+        events.append(EffectEvent(kind="event_card_added", target_id=card.instance_id,
+                                  metadata={"card_id": card_id}))
+        if card_id == SPOILS_MAP_CARD_ID and state.act < _max_acts(state):
+            next_state = next_state.model_copy(update={"flags": {**next_state.flags,
+                "spoils_map_pending_act": state.act + 1, "spoils_map_source_act": state.act}})
+    next_state = next_state.model_copy(update={"master_deck": tuple(deck)})
+    relic_ids = list(_string_items(rule.get("add_relics")))
+    relic_pool = _string_items(rule.get("relic_pool"))
+    if relic_pool:
+        relic_ids.append(rng.choice(relic_pool))
+    if rule.get("random_relic"):
+        if has_source_relic_bag(next_state):
+            flags = dict(next_state.flags)
+            rarity = source_relic_rarity(random_stream(rng, "rewards"))
+            relic_ids.append(draw_source_relic(next_state, flags, rarity))
+            next_state = next_state.model_copy(update={"flags": flags})
+        else:
+            relic_ids.extend(_draw_event_relic_ids(next_state, rng, 1))
+    for relic_id in relic_ids:
+        next_state = next_state.model_copy(update={"rng": capture_random_state(rng)})
+        next_state, obtained = _add_event_relic(next_state, relic_id)
+        rng = random_stream(random_from_state(next_state.rng), state.event.event_id.upper())
+        events.extend(obtained)
+    if rule.get("heal_to_full") and next_state.player.hp > 0:
+        healed = next_state.player.max_hp - next_state.player.hp
+        next_state = next_state.model_copy(update={"player": next_state.player.model_copy(
+            update={"hp": next_state.player.max_hp})})
+        if healed:
+            events.append(EffectEvent(kind="event_healed", amount=healed))
+    potion_ids = list(_string_items(rule.get("fixed_potion_rewards")))
+    if rule.get("uniform_potion_reward"):
+        pool = _combat_potion_pool(next_state)
+        rarity = str(rule.get("potion_rarity", ""))
+        if rarity:
+            rarities = _combat_potion_rarities(next_state)
+            pool = tuple(value for value in pool if rarities.get(value) == rarity)
+        if pool:
+            potion_ids.append(random_stream(rng, "rewards").choice(pool))
+    reward = None
+    if potion_ids:
+        reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
+                             source="event", forced=True, potion_ids=tuple(potion_ids))
+        events.extend(_reward_generated_events(reward))
+    for _ in range(_coerce_int(rule.get("extra_rng_draws"), default=0)):
+        rng.randrange(100)
+    event = state.event.model_copy(update={"resolved_option_id": option.option_id})
+    numeric = _mapping_from(option.metadata.get("source_numeric_effect"))
+    if numeric.get("next_page"):
+        event = _source_event_next_page(next_state, event, str(numeric["next_page"]))
+    next_state = next_state.model_copy(update={"event": event, "reward": reward,
+        "rng": capture_random_state(rng),
+        "phase": RunPhase.FAILED if next_state.player.hp <= 0 else next_state.phase})
+    return next_state, tuple(events)
 
 def _event_option_for_id(
     event: EventState,
@@ -3629,7 +3844,10 @@ def _downgrade_random_deck_cards(
         for index, card in enumerate(deck)
         if card.upgraded and not _deck_card_mutation_blocked(card)
     ]
-    rng.shuffle(candidates)
+    if is_source_rng(rng):
+        candidates = source_sample(rng, candidates, min(max(0, count), len(candidates)))
+    else:
+        rng.shuffle(candidates)
     events: list[EffectEvent] = []
     for index in candidates[: max(0, count)]:
         card = deck[index]
@@ -3715,8 +3933,10 @@ def _transform_deck_cards(
         new_spec = _reward_card_spec(state, new_card_id)
         new_spec["card_id"] = new_card_id
         new_spec["instance_id"] = old_card.instance_id
-        if old_card.upgraded:
+        if old_card.upgraded and not is_source_rng(rng):
             new_spec["upgraded"] = True
+        elif is_source_rng(rng):
+            new_spec["upgraded"] = False
         new_card = _card_from_spec(new_spec, index + 1)
         if _truthy(marker.metadata.get("apply_upgrade_eggs")):
             new_card, egg_event = _upgrade_card_for_add_relics(state, new_card)
@@ -4060,7 +4280,6 @@ def _draw_transformed_card_id(
     *,
     excluded_card_ids: Sequence[str] = (),
 ) -> str | None:
-    rng = random_stream(rng, "transformations")
     fixed = marker.metadata.get("target_card_id")
     if fixed:
         return _normalized_id(str(fixed))
@@ -4070,6 +4289,26 @@ def _draw_transformed_card_id(
         result = target_map.get(old_id)
         return _normalized_id(str(result)) if result else None
     excluded = {_normalized_id(card_id) for card_id in excluded_card_ids}
+    if is_source_rng(rng) and not marker.qualifier and excluded_card_ids:
+        original_id = str(excluded_card_ids[0])
+        original_spec = _reward_card_spec(state, original_id)
+        rarity = _normalized_id(str(original_spec.get("rarity", "")))
+        color = _normalized_id(str(original_spec.get("color", state.character_id)))
+        card_type = _normalized_id(str(original_spec.get("type", "")))
+        if rarity in {"ancient", "event", "token"} or card_type == "quest":
+            color = "colorless"
+        if color in {"shared", ""}:
+            color = _normalized_id(state.character_id)
+        identifiers = STABLE_CARD_POOL_ORDER.get(color, ())
+        library = _card_library({"cards": (
+            *_cached_source_rows(state, "cards"), *_raw_card_pool_items(state)
+        )})
+        candidates = [card_id for card_id in identifiers if card_id not in excluded
+            and card_id in library and (rarity in {"status", "curse"} or
+                _normalized_id(str(library[card_id].get("rarity", "")))
+                in {"common", "uncommon", "rare"})]
+        if candidates:
+            return rng.choice(candidates)
     candidates = [
         str(card.card_id)
         for card in _transform_card_pool(state, marker)
@@ -4580,7 +4819,10 @@ def _upgrade_random_deck_cards(
         for index, card in enumerate(deck)
         if not card.upgraded and not _deck_card_mutation_blocked(card)
     ]
-    rng.shuffle(candidates)
+    if is_source_rng(rng):
+        candidates = source_sample(rng, candidates, min(max(0, count), len(candidates)))
+    else:
+        rng.shuffle(candidates)
     events: list[EffectEvent] = []
     for index in candidates[: max(0, count)]:
         card = deck[index]
