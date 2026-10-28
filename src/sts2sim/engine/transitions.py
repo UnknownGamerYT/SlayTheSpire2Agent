@@ -530,7 +530,8 @@ def _legacy_test_setup(
 def legal_actions(state: RunState) -> tuple[Action, ...]:
     if _pending_relic_deck_choices(state):
         return _legal_relic_deck_choice_actions(state)
-    if state.flags.get("scroll_boxes_pending") and state.event is not None:
+    if (state.flags.get("scroll_boxes_pending")
+        or state.flags.get("source_direct_card_factory_choice")) and state.event is not None:
         return _with_potion_discard_actions(state, _legal_event_actions(state))
     if state.phase == RunPhase.ANCIENT:
         if state.ancient is None:
@@ -3204,6 +3205,9 @@ def _choose_event(
         from .source_rest_runtime import mimic_dense_vegetation_rest
         return mimic_dense_vegetation_rest(state)
 
+    if state.flags.get("source_direct_card_factory_choice"):
+        from .source_creation_consumers import choose
+        return choose(state, option)
     if state.flags.get("scroll_boxes_pending"):
         return _take_scroll_boxes_pack(state, option)
 
@@ -4351,6 +4355,11 @@ def _add_event_flow_random_cards(
     rng: Random,
     marker: EventFlowMarker,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    if (is_source_rng(rng) and state.event is not None
+            and state.event.event_id.upper() == "ENDLESS_CONVEYOR"
+            and marker.qualifier == "colorless"):
+        from .source_creation_consumers import fried_eel
+        return fried_eel(state, rng)
     card_ids = _draw_event_flow_card_ids(state, rng, marker, count=marker.count)
     deck = list(state.master_deck)
     events: list[EffectEvent] = []
@@ -7121,6 +7130,11 @@ def _apply_relic_pickup_effects(
 
     if normalized in PICKUP_REWARDS and _normalized_id(state.character_id) != "test":
         return obtain_pickup_reward(state, normalized)
+    if (apply_table_effects and is_source_rng(state.rng)
+        and _normalized_id(state.character_id) != "test"
+        and normalized in {"hefty_tablet", "lead_paperweight"}):
+        from .source_creation_consumers import pickup as pickup_direct_cards
+        return pickup_direct_cards(state, normalized, pickup_rng)
     if normalized == "paels_tooth":
         flags = {**state.flags, "paels_tooth_serialized_cards": ()}
         state = state.model_copy(update={"flags": flags})

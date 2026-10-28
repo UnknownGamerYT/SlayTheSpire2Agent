@@ -1267,6 +1267,12 @@ def _action_selected_card_descriptors(state: Any, action: Action) -> list[dict[s
                 card = apply_generated_modifiers(card, _mapping(modifiers.get(str(position))))
                 descriptors.append(_card_descriptor(card, zone="reward", position=position))
             return descriptors
+        factory_card = metadata.get("source_factory_card")
+        if isinstance(factory_card, Mapping):
+            from sts2sim.engine.models import CardInstance
+
+            return [_card_descriptor(CardInstance.model_validate(factory_card),
+                                     zone="reward", position=0)]
         if str(metadata.get("source_relic_id", "")) == "scroll_boxes":
             from sts2sim.engine.transitions import _card_from_spec, _reward_card_spec
 
