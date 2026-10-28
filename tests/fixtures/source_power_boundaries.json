@@ -8,7 +8,8 @@
     "ParryingShield and Tingsha actual CombatTargets consumer paths; singleton and per-discard draws",
     "Hang applies one receiver multiplier after additive Strength",
     "Entrench Unpowered|Move bypasses Dexterity/Frail/NoBlock and retains Move multipliers",
-    "AttackCommand first-command locks and AfterAttack consumption for Gigantification/Vigor; static hit batches, AoE, dynamic hit counts, zero-hit command, Uproar child play, missing pet"
+    "AttackCommand first-command locks and AfterAttack consumption for Gigantification/Vigor; static hit batches, AoE, dynamic hit counts, zero-hit command, Uproar child play, missing pet",
+    "Integrated AutoPost damage before Early Plating, power-before-relic PaelsEye exhaust, then orb passives; public action with source Howl/Burn, thorns and exhaust relic callbacks"
   ],
   "independent_rng_vector": {
     "displayed_seed": "TEST",
@@ -116,6 +117,26 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Thrash.cs",
       "sha256": "87ecdaf33740eb5791b9e7401ac19b0f6daf2ceeb6a6f8dd009f6da376f244cc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/HowlFromBeyond.cs",
+      "sha256": "93d4409c2c5faaace478e4697e003f1f1740f0e6f74b73e56015d3653d565314"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat/CombatManager.cs",
+      "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat/CombatState.cs",
+      "sha256": "b3150c69fae0c33b48b7957c3a67bc4e5867d1641e05062cd3f5edd0a9d9f2e2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Hooks/Hook.cs",
+      "sha256": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588"
     }
   ]
 }

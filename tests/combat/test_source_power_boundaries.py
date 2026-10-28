@@ -149,3 +149,28 @@ def test_knockdown_like_flanking_does_not_multiply_unpowered_other_actor_damage(
     hp = state.combat.monsters[0].hp
     result = _play(_reload(state), "ally_skill")
     assert hp - result.combat.monsters[0].hp == 3
+
+
+def test_auto_post_damage_precedes_plating_then_eye_exhaust_then_orb_passives():
+    from sts2sim.engine import OrbState
+
+    state = _state(_source("BURN"), _simple("held"), statuses={"plated_armor": 3},
+                   relics=("paels_eye", "charons_ashes"))
+    monster = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 4}})
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (monster,), "exhaust_pile": (_source("HOWL_FROM_BEYOND"),),
+        "orbs": (OrbState(orb_id="frost"),), "orb_slots": 1,
+    })})
+    result = _end_turn(_reload(state))
+    assert result.player.hp == 76  # Early Plating must not block AutoPost thorns.
+    assert {"burn", "held"} <= {card.card_id for card in result.combat.exhaust_pile}
+    events = result.replay_log[-1].events
+    auto = next(i for i, event in enumerate(events) if event.kind == "monster_damaged"
+                and event.source_id == "howl_from_beyond")
+    plating = next(i for i, event in enumerate(events) if event.kind == "player_block"
+                   and event.metadata.get("status") == "plated_armor")
+    eye = next(i for i, event in enumerate(events) if event.kind == "card_exhausted"
+               and event.metadata.get("reason") == "paels_eye_before_side_turn_end_early")
+    orb = next(i for i, event in enumerate(events) if event.source_id == "orb:frost")
+    assert auto < plating < eye < orb
+    assert not any(event.kind == "player_damaged" and event.source_id == "burn" for event in events)
