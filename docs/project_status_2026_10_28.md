@@ -92,8 +92,12 @@ certification or installed-game parity.
 
 ## Validation and limits
 
-The latest integrated test, lint, type, build, training and rollout results belong
-in the pull request and delivered validation reports, with the revision tested.
+The frozen source revision passed 6,071 tests, with one expected skip and two
+Gymnasium checker warnings. Ruff, strict mypy (175 source files), source/wheel
+builds, exact CPU continuation, repeated evaluation and legal inference passed.
+The [bounded validation report](validation/stable_source_training_2026_10_28.json)
+records the runtime revisions and normal/synthetic rollout settings. Hosted CI
+and complete delivered logs are linked from draft PR #2.
 Earlier 1901/2060-test baselines predate the source follow-up and must not be used
 as validation of the new runtime. Checkpoint smoke and random-policy consistency
 checks do not establish a useful agent or normal-game win rate.

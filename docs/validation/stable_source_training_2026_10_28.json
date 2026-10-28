@@ -289,7 +289,18 @@
       "phase_after_followup": "map"
     }
   },
-  "full_suite_results": "See draft PR #2 and delivered test-results.txt for the full frozen suite and hosted CI. This file records the completed bounded checks above.",
+  "full_suite_results": {
+    "runtime_revision": "b3893e050dd9e3944a686c490c988f80d85d5914",
+    "passed": 6071,
+    "skipped": 1,
+    "warnings": 2,
+    "elapsed_seconds": 563.46,
+    "skip_reason": "Missing-PyTorch-path test skipped because PyTorch is installed",
+    "warnings_scope": "Gymnasium checker unbounded Box minimum/maximum",
+    "log_sha256": "da8fc175ae245682aea343b02e2c46ec2832d8845953fda0335e3fe3d2db83dd",
+    "command": "PYTHONPATH=src OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 pytest -o addopts= -q -ra",
+    "installed_game_parity": false
+  },
   "remaining_external_validation": [
     "Fingerprint the user Windows Steam installation",
     "Compile/load bridge against the selected installed assembly",
