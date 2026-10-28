@@ -13,6 +13,8 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from random import Random
 
+from .source_rng import float32, source_float
+
 PoolItem = str | Mapping[str, object]
 
 
@@ -711,7 +713,8 @@ def _resolution_markers(
         markers += (_tinker_custom_card_marker(state, option),)
     if state.event_id == "TRIAL" and option.option_id == "ACCEPT":
         markers += _trial_accept_markers(state)
-    if state.event_id == "ABYSSAL_BATHS" and state.page_id == "DEATH_WARNING":
+    if (state.event_id == "ABYSSAL_BATHS" and state.page_id == "DEATH_WARNING"
+            and not state.data.get("source_runtime")):
         markers += (
             EventFlowMarker(
                 kind=EventFlowMarkerKind.RUN_DEATH,
@@ -732,6 +735,12 @@ def _abyssal_linger_next_page(
     state: EventFlowState,
     option: EventFlowOption,
 ) -> str:
+    if state.data.get("source_runtime"):
+        if option.option_id == "IMMERSE":
+            return "IMMERSE"
+        soaks = state.counters.get("abyssal_baths_soaks", 0) + 1
+        next_hp = state.hp + option.max_hp_delta + option.hp_delta
+        return "DEATH_WARNING" if next_hp <= 3 + soaks - 2 else f"LINGER{min(9, soaks - 1)}"
     if state.page_id == "DEATH_WARNING":
         return "DEATH_WARNING"
 
@@ -769,6 +778,13 @@ def _trial_accept_markers(state: EventFlowState) -> tuple[EventFlowMarker, ...]:
 
 
 def _abyssal_baths_page(state: EventFlowState) -> EventFlowPage:
+    if (state.data.get("source_runtime") and state.page_id not in {
+            "INITIAL", "ABSTAIN", "EXIT_BATHS"}):
+        source_damage = 3 + state.counters.get("abyssal_baths_soaks", 0)
+        return EventFlowPage(state.page_id, "The bath grows more dangerous.", (
+            EventFlowOption(option_id="LINGER", label="Linger",
+                            description=f"Gain 2 Max HP. Take {source_damage} damage.",
+                            max_hp_delta=2, hp_delta=-source_damage), _exit_baths_option()))
     if state.page_id == "INITIAL":
         return EventFlowPage(
             "INITIAL",
@@ -919,6 +935,22 @@ def _colossal_flower_page(state: EventFlowState) -> EventFlowPage:
 
 
 def _endless_conveyor_page(state: EventFlowState) -> EventFlowPage:
+    if state.data.get("source_runtime"):
+        if state.page_id in {"LEAVE", "OBSERVE_CHEF"}:
+            return _terminal_page(state.page_id, "Endless Conveyor terminal page.")
+        dish_id = str(state.data.get("conveyor_dish", "CAVIAR"))
+        dish = next(option for option in _CONVEYOR_DISH_OPTIONS if option.option_id == dish_id)
+        dish = replace(dish, next_page_id="GRAB_SOMETHING_OFF_THE_BELT",
+                       required_gold=40, locked=state.gold < 40,
+                       markers=tuple(marker for marker in dish.markers
+                                     if marker.kind is not EventFlowMarkerKind.UNKNOWN))
+        if state.page_id == "INITIAL":
+            other = EventFlowOption(option_id="OBSERVE_CHEF", label="Observe the Chef",
+                                    terminal=True, next_page_id="OBSERVE_CHEF",
+                                    markers=(_upgrade_random_marker(),))
+        else:
+            other = _leave_conveyor_option()
+        return EventFlowPage(state.page_id, "The belt offers a dish.", (dish, other))
     if state.page_id == "INITIAL":
         return EventFlowPage(
             "INITIAL",
@@ -968,6 +1000,34 @@ def _endless_conveyor_page(state: EventFlowState) -> EventFlowPage:
         "Dishes continue passing by on the belt.",
         _CONVEYOR_DISH_OPTIONS + (_leave_conveyor_option(),),
     )
+
+
+def roll_source_conveyor_dish(
+    state: EventFlowState, rng: Random, *, has_open_potion_slot: bool
+) -> EventFlowState:
+    number = state.counters.get("endless_conveyor_dishes", 0) + 1
+    previous = str(state.data.get("conveyor_dish", ""))
+    if number % 5 == 0:
+        dish = "SEAPUNK_SALAD"
+    else:
+        weighted = [("CAVIAR", 6), ("SPICY_SNAPPY", 3), ("JELLY_LIVER", 3), ("FRIED_EEL", 3)]
+        if has_open_potion_slot:
+            weighted.append(("SUSPICIOUS_CONDIMENT", 3))
+        if state.hp != state.max_hp:
+            weighted.append(("CLAM_ROLL", 6))
+        if number > 1:
+            weighted.append(("GOLDEN_FYSH", 1))
+        weighted = [(name, weight) for name, weight in weighted if name != previous]
+        total = float32(sum(weight for _, weight in weighted))
+        value = float32(source_float(rng) * total)
+        cumulative = 0.0
+        dish = weighted[-1][0]
+        for name, weight in weighted:
+            cumulative = float32(cumulative + weight)
+            if value < cumulative:
+                dish = name
+                break
+    return replace(state, data={**state.data, "conveyor_dish": dish})
 
 
 def _leave_conveyor_option() -> EventFlowOption:

@@ -78,6 +78,7 @@ from sts2sim.mechanics.event_flows import (
     current_event_flow_page,
     event_flow_state,
     resolve_event_flow_option,
+    roll_source_conveyor_dish,
 )
 from sts2sim.mechanics.event_specials import self_help_book_options
 from sts2sim.mechanics.map_generation import generate_standard_map
@@ -181,6 +182,7 @@ from sts2sim.mechanics.source_ancients import (
     generate_source_ancient_offers,
 )
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
+from sts2sim.mechanics.source_card_factory import source_noncombat_cards
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_event_rules import source_event_rule
 from sts2sim.mechanics.source_events import source_event_startup
@@ -2379,6 +2381,13 @@ def _event_state_for_node(
     result = _event_state_from_room_source(state, node, event)
     if is_source_rng(rng):
         event_rng = reset_random_stream(rng, result.event_id.upper())
+        if _event_uses_flow(result.event_id):
+            flow = _flow_state_from_event_state(state, result)
+            if result.event_id.upper() == "ENDLESS_CONVEYOR":
+                flow = roll_source_conveyor_dish(flow, event_rng,
+                    has_open_potion_slot=len(state.potions) < _potion_capacity(state))
+            result = _event_state_from_flow(state, event_id=result.event_id, name=result.name,
+                                           node=node, flow_state=flow)
         startup = source_event_startup(result.event_id, event_rng,
                                       max_hp=state.player.max_hp, hp=state.player.hp)
         options: list[EventOptionState] = []
@@ -2436,7 +2445,8 @@ def _event_state_from_room_source(
             gold=state.player.gold,
             page_id=str(state.flags.get("event_flow_page_id", "INITIAL")),
             counters=_mapping_from(state.flags.get("event_flow_counters", {})),
-            data=_mapping_from(state.flags.get("event_flow_data", {})),
+            data={**_mapping_from(state.flags.get("event_flow_data", {})),
+                  "source_runtime": is_source_rng(state.rng)},
         )
         return _event_state_from_flow(
             state,
@@ -3413,12 +3423,18 @@ def _choose_event_flow_option(
         rng,
         selected_card_instance_ids=_event_action_card_instance_ids(action),
     )
+    next_flow = replace(resolution.state, hp=next_state.player.hp,
+                        max_hp=next_state.player.max_hp, gold=next_state.player.gold)
+    if (is_source_rng(rng) and state.event.event_id.upper() == "ENDLESS_CONVEYOR"
+            and resolution.option.repeatable):
+        next_flow = roll_source_conveyor_dish(next_flow, rng,
+            has_open_potion_slot=len(next_state.potions) < _potion_capacity(next_state))
     event = _event_state_from_flow(
         next_state,
         event_id=state.event.event_id,
         name=state.event.name,
         node=_current_map_node(state),
-        flow_state=resolution.state,
+        flow_state=next_flow,
         resolved_option_id=option.option_id if resolution.terminal else None,
     )
     next_phase = RunPhase.FAILED if next_state.player.hp <= 0 else RunPhase.EVENT
@@ -3595,8 +3611,15 @@ def _apply_event_flow_markers(
                 events.extend(relic_events)
         elif marker.kind is EventFlowMarkerKind.RANDOM_POTION:
             potion_ids = _draw_event_flow_potion_ids(next_state, rng, marker)
-            next_state, potion_events = _add_event_potions(next_state, potion_ids)
-            events.extend(potion_events)
+            if (is_source_rng(rng) and state.event is not None
+                    and state.event.event_id.upper() == "ENDLESS_CONVEYOR"):
+                reward = RewardState(reward_id="event:endless_conveyor:potion", source="event",
+                                     forced=True, potion_ids=potion_ids)
+                next_state = next_state.model_copy(update={"reward": reward})
+                events.extend(_reward_generated_events(reward))
+            else:
+                next_state, potion_events = _add_event_potions(next_state, potion_ids)
+                events.extend(potion_events)
         elif marker.kind is EventFlowMarkerKind.FIXED_POTION and marker.item_id:
             next_state, potion_events = _add_event_potions(next_state, (marker.item_id,))
             events.extend(potion_events)
@@ -4179,6 +4202,14 @@ def _draw_event_flow_card_reward_group(
     card_count: int,
     pity_state: RewardPityState,
 ) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
+    if is_source_rng(rng):
+        pool = _event_flow_card_pool(state, marker)
+        rarity_filter = _event_flow_card_rarity_qualifier(marker)
+        if rarity_filter is not None:
+            pool = tuple(card for card in pool if card.rarity is rarity_filter)
+        cards, rarities, _ = source_noncombat_cards(rng, pool, card_count,
+            uniform=rarity_filter is not None, ascension=state.ascension, act=state.act)
+        return cards, rarities, pity_state
     rarity = _event_flow_card_rarity_qualifier(marker)
     if rarity is not None:
         cards = _draw_event_flow_card_ids(state, rng, marker, count=card_count)
@@ -4213,6 +4244,9 @@ def _draw_event_flow_card_ids(
     rarity = _event_flow_card_rarity_qualifier(marker)
     if rarity is not None:
         pool = tuple(card for card in pool if card.rarity is rarity)
+    if is_source_rng(rng):
+        return source_noncombat_cards(rng, pool, count, uniform=rarity is not None,
+            ascension=state.ascension, act=state.act)[0]
     candidates = list(pool)
     rng.shuffle(candidates)
     return tuple(card.card_id for card in candidates[: max(0, count)])
@@ -4227,9 +4261,14 @@ def _event_flow_card_pool(
         return _other_character_card_reward_pool(state)
     raw_cards = _raw_card_pool_items(state)
     if qualifier == "colorless":
-        return build_colorless_card_pool(raw_cards)
+        pool = build_colorless_card_pool(raw_cards)
+        if is_source_rng(state.rng):
+            order = {value: index for index, value in
+                     enumerate(STABLE_CARD_POOL_ORDER["colorless"])}
+            pool = tuple(sorted(pool, key=lambda card: order.get(card.card_id, len(order))))
+        return pool
     if qualifier in {"character", "class"}:
-        return build_character_card_pool(raw_cards, character_id=state.character_id)
+        return _combat_card_pool(state)
     return _combat_card_pool(state)
 
 
@@ -4400,7 +4439,8 @@ def _draw_event_flow_potion_ids(
     marker: EventFlowMarker,
 ) -> tuple[str, ...]:
     rng = random_stream(rng, "rewards")
-    pool = _reward_potion_pool(state, "event_reward_potion_pool") or (
+    pool = (_combat_potion_pool(state) if is_source_rng(rng) else
+            _reward_potion_pool(state, "event_reward_potion_pool")) or (
         "fire_potion",
         "skill_potion",
         "essence_of_steel",
@@ -5127,7 +5167,8 @@ def _event_reward_potion_ids(
     )
     if count <= 0:
         return ()
-    pool = _reward_potion_pool(state, "event_reward_potion_pool") or (
+    pool = (_combat_potion_pool(state) if is_source_rng(rng) else
+            _reward_potion_pool(state, "event_reward_potion_pool")) or (
         "fire_potion",
         "skill_potion",
         "essence_of_steel",
