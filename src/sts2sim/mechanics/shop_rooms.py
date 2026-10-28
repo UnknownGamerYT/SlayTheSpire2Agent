@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import Enum
 from random import Random
@@ -134,9 +134,20 @@ def _draw_shop_relics(
     rng: Random,
     relic_pool: Sequence[ShopItem],
     count: int,
+    selector: Callable[[str], ShopItem] | None = None,
+    rarity_rng: Random | None = None,
 ) -> tuple[ShopItem, ...]:
     if count <= 0:
         return ()
+    if selector is not None:
+        from .relic_bag_runtime import source_relic_rarity
+
+        source_rng = rarity_rng or rng
+        normal_count = count - 1 if count >= 3 else count
+        rarities = [source_relic_rarity(source_rng) for _ in range(normal_count)]
+        if count >= 3:
+            rarities.append("shop")
+        return tuple(selector(rarity) for rarity in rarities)
 
     filtered_pool = [
         item
@@ -268,6 +279,8 @@ def build_basic_shop_inventory(
     card_pool: Sequence[ShopItem] = (),
     colorless_card_pool: Sequence[ShopItem] = (),
     relic_pool: Sequence[ShopItem] = (),
+    relic_selector: Callable[[str], ShopItem] | None = None,
+    relic_rarity_rng: Random | None = None,
     potion_pool: Sequence[ShopItem] = (),
     plan: ShopInventoryPlan = ShopInventoryPlan(),
     ascension_level: int = 0,
@@ -294,7 +307,9 @@ def build_basic_shop_inventory(
             colorless_card_pool,
             plan.colorless_cards,
         ),
-        relics=_draw_shop_relics(rng, relic_pool, plan.relics),
+        relics=_draw_shop_relics(
+            rng, relic_pool, plan.relics, relic_selector, relic_rarity_rng,
+        ),
         potions=_draw_weighted_without_replacement(
             rng,
             potion_pool,

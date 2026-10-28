@@ -98,6 +98,11 @@ from sts2sim.mechanics.potion_triggers import (
     PotionUseTriggerResult,
     resolve_potion_use_triggers,
 )
+from sts2sim.mechanics.relic_bag_runtime import (
+    draw_source_relic,
+    has_source_relic_bag,
+    remove_obtained_source_relic,
+)
 from sts2sim.mechanics.relic_combat import (
     CombatRelicHook,
     CombatRelicMarker,
@@ -1514,8 +1519,7 @@ def _enter_room(
         ), tuple(rest_events)
     if node.kind == RoomKind.TREASURE:
         rng = random_from_state(state.rng)
-        reward, reward_events = _treasure_reward_state(state, node, rng)
-        flags = dict(state.flags)
+        reward, reward_events, flags = _treasure_reward_state(state, node, rng)
         flags["treasure_chests_opened"] = _flag_int(state, "treasure_chests_opened", 0) + 1
         return state.model_copy(
             update={
@@ -4681,6 +4685,7 @@ def _enter_shop_room(
     state: RunState, node: MapNodeState
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     rng = random_stream(random_from_state(state.rng), "shops")
+    flags = dict(state.flags)
     inventory = build_basic_shop_inventory(
         rng,
         card_pool=_shop_item_pool(state, "shop_card_pool", _default_shop_card_pool()),
@@ -4696,6 +4701,8 @@ def _enter_shop_room(
             _default_shop_relic_pool(),
             default_kind=ShopItemKind.RELIC,
         ),
+        relic_selector=_source_shop_relic_selector(state, flags),
+        relic_rarity_rng=random_stream(rng, "rewards"),
         potion_pool=_shop_item_pool(
             state,
             "shop_potion_pool",
@@ -4714,7 +4721,7 @@ def _enter_shop_room(
     )
     shop = _apply_shop_price_modifiers(state, shop)
     player, entry_events = _apply_shop_entry_relics(state.player, state)
-    state = state.model_copy(update={"player": player})
+    state = state.model_copy(update={"player": player, "flags": flags})
     parasol_state, parasol_events = _apply_lords_parasol(state, shop)
     if parasol_state is not None:
         state = parasol_state
@@ -4804,7 +4811,9 @@ def _resolve_shop_action(
         and item.item.kind is not ShopItemKind.CARD_REMOVAL
     ):
         rng = random_stream(random_from_state(state.rng), "shops")
-        shop, restocked_item_id = _restock_shop_slot(state, shop, item_index, item.item.kind, rng)
+        shop, restocked_item_id, flags = _restock_shop_slot(
+            state.model_copy(update={"flags": flags}), shop, item_index, item.item.kind, rng,
+        )
         rng_state = capture_random_state(rng)
 
     update: dict[str, Any] = {
@@ -5986,6 +5995,7 @@ def _apply_relic_pickup_effects(
     pickup_rng: Random | None = None,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     normalized = _normalized_id(relic_id)
+    state = remove_obtained_source_relic(state, normalized)
     if normalized in {"scroll_boxes", "touch_of_orobas", "toy_box", "wongos_mystery_ticket"}:
         return _apply_lifecycle_relic_pickup(state, normalized)
     pickup = resolve_relic_pickup(normalized, hp=state.player.hp, max_hp=state.player.max_hp)
@@ -7831,9 +7841,10 @@ def _restock_shop_slot(
     item_index: int,
     kind: ShopItemKind,
     rng: Random,
-) -> tuple[ShopState | None, str | None]:
+) -> tuple[ShopState | None, str | None, dict[str, Any]]:
+    flags = dict(state.flags)
     if shop is None:
-        return None, None
+        return None, None, flags
     existing_item_ids = {
         item.item_id
         for index, item in enumerate(shop.items)
@@ -7841,6 +7852,8 @@ def _restock_shop_slot(
     }
     inventory = build_basic_shop_inventory(
         rng,
+        relic_selector=_source_shop_relic_selector(state, flags, excluded_ids=existing_item_ids),
+        relic_rarity_rng=random_stream(rng, "rewards"),
         card_pool=_shop_restock_pool(
             _shop_item_pool(state, "shop_card_pool", _default_shop_card_pool()),
             existing_item_ids,
@@ -7884,7 +7897,7 @@ def _restock_shop_slot(
         card_removals_bought=_flag_int(state, "shop_card_removals_bought", 0),
     )
     if not inventory.items:
-        return _shop_mark_purchased(shop, item_index), None
+        return _shop_mark_purchased(shop, item_index), None, flags
     restocked = _shop_item_state_from_priced(item_index, inventory.items[0])
     restocked = restocked.model_copy(update={"price": _modified_shop_price(state, restocked)})
     return (
@@ -7897,7 +7910,34 @@ def _restock_shop_slot(
             }
         ),
         restocked.item_id,
+        flags,
     )
+
+
+def _source_shop_relic_selector(
+    state: RunState, flags: dict[str, Any], *, excluded_ids: Iterable[str] = (),
+) -> Callable[[str], ShopItem] | None:
+    if not has_source_relic_bag(state):
+        return None
+    rows = {
+        _normalized_id(str(row.get("id", ""))): row
+        for row in _cached_relic_source_rows(state)
+        if isinstance(row, Mapping)
+    }
+
+    def select(rarity: str) -> ShopItem:
+        relic_id = draw_source_relic(
+            state, flags, rarity, from_back=True, for_shop=True,
+            excluded_ids=tuple(excluded_ids),
+        )
+        actual_rarity = _normalized_id(str(rows.get(relic_id, {}).get("rarity", rarity)))
+        if relic_id == "circlet":
+            actual_rarity = "shop"  # Source default MerchantCost200.
+        return ShopItem(
+            relic_id, ShopItemKind.RELIC, _shop_rarity(ShopItemKind.RELIC, actual_rarity),
+        )
+
+    return select
 
 
 def _shop_restock_pool(
@@ -25646,6 +25686,7 @@ def _combat_reward_state(
     rng: Random,
 ) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
     rng = random_stream(rng, "rewards")
+    flags = dict(state.flags)
     encounter = _combat_reward_encounter(state)
     base_card_count = _combat_reward_card_count(state, encounter)
     base_relic_count = _combat_reward_relic_count(state, encounter)
@@ -25655,6 +25696,8 @@ def _combat_reward_state(
         card_count=base_card_count,
         relic_count=base_relic_count,
     )
+    if any(effect.content_id == "lava_rock" for effect in reward_trigger.effects):
+        flags["lava_rock_triggered"] = True
     bundle = draw_combat_reward(
         rng,
         card_pool=_combat_card_pool(state),
@@ -25675,8 +25718,10 @@ def _combat_reward_state(
         ),
         card_count=reward_trigger.card_choice_count,
         relic_count=reward_trigger.relic_count,
+        relic_selector=(
+            lambda rarity: draw_source_relic(state, flags, rarity)
+        ) if has_source_relic_bag(state) else None,
     )
-    flags = dict(state.flags)
     flags["card_non_rare_count"] = bundle.pity_state.card_non_rare_count
     flags["potion_chance_bonus"] = bundle.pity_state.potion_chance_bonus
 
@@ -25849,7 +25894,11 @@ def _reward_generation_result(
             relic_count=relic_count,
             potion_count=potion_count,
             gold=gold,
-            owned_relics=state.relics,
+            owned_relics=tuple(
+                relic for relic in state.relics
+                if not (_normalized_id(relic) == "lava_rock"
+                        and state.flags.get("lava_rock_triggered"))
+            ),
             metadata={
                 "act": state.act,
                 "floor": state.floor,
@@ -25861,7 +25910,7 @@ def _reward_generation_result(
 
 
 def _default_combat_reward_relic_count(encounter: EncounterType) -> int:
-    return 1 if encounter in {EncounterType.ELITE, EncounterType.BOSS} else 0
+    return 1 if encounter is EncounterType.ELITE else 0
 
 
 def _combat_extra_card_option_groups(
@@ -26307,9 +26356,10 @@ def _treasure_reward_state(
     state: RunState,
     node: MapNodeState,
     rng: Random,
-) -> tuple[RewardState, tuple[EffectEvent, ...]]:
+) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
+    flags = dict(state.flags)
     treasure_reward = draw_treasure_reward(
-        rng,
+        random_stream(rng, "rewards"),
         _treasure_relic_pool(state),
         TreasureContext(
             character_id=state.character_id,
@@ -26319,6 +26369,10 @@ def _treasure_reward_state(
             owned_relics=state.relics,
             opened_chests=_flag_int(state, "treasure_chests_opened", 0),
         ),
+        relic_selector=(
+            lambda rarity: draw_source_relic(state, flags, rarity, shared=True)
+        ) if has_source_relic_bag(state, shared=True) else None,
+        relic_rarity_rng=random_stream(rng, "treasure_room_relics"),
     )
     relic_id = treasure_reward.relic_id
     explicit_relic_id = _explicit_reward_id(state, "treasure_reward_relic_id")
@@ -26364,7 +26418,7 @@ def _treasure_reward_state(
                 metadata={"reason": treasure_reward.empty_reason},
             ),
         )
-    return reward, events
+    return reward, events, flags
 
 
 def _event_reward_state(

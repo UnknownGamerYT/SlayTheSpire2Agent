@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from random import Random
 from typing import Any
@@ -92,6 +92,8 @@ def draw_treasure_reward(
     context: TreasureContext,
     *,
     rules: TreasureRules = DEFAULT_TREASURE_RULES,
+    relic_selector: Callable[[str], str] | None = None,
+    relic_rarity_rng: Random | None = None,
 ) -> TreasureReward:
     """Generate the visible reward bundle for one treasure chest."""
 
@@ -108,11 +110,24 @@ def draw_treasure_reward(
             source=rules.source,
         )
 
+    selected_relic: str | None = None
+    selected_rarity: RelicRarity | None = None
+    if relic_selector is not None:
+        from .relic_bag_runtime import source_relic_rarity
+
+        selected_rarity = RelicRarity(source_relic_rarity(relic_rarity_rng or rng))
+        selected_relic = relic_selector(selected_rarity.value)
     low, high = rules.gold_range
     if low > high:
         raise ValueError(f"Invalid treasure gold range: {rules.gold_range}")
     base_gold = rng.randint(low, high)
     gold = _apply_poverty_gold(base_gold, context, rules)
+
+    if selected_relic is not None:
+        return TreasureReward(
+            relic_id=selected_relic, relic_rarity=selected_rarity,
+            gold=gold, base_gold=base_gold, source=rules.source,
+        )
 
     rarity_roll = roll_relic_rarity(
         rng,

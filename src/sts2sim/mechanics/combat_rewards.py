@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from random import Random
 from typing import Any
 
 from sts2sim.content.sources import PROVISIONAL_STS2_SOURCE, SourceRef
 
+from .relic_bag_runtime import source_relic_rarity
 from .rewards import (
     CardRarity,
     EncounterType,
@@ -251,6 +252,7 @@ def draw_combat_reward(
     pity_state: RewardPityState = RewardPityState(),
     card_count: int | None = None,
     relic_count: int | None = None,
+    relic_selector: Callable[[str], str] | None = None,
     rules: CombatRewardRules = DEFAULT_COMBAT_REWARD_RULES,
 ) -> CombatRewardBundle:
     """Generate the default reward bundle for a completed combat."""
@@ -274,6 +276,7 @@ def draw_combat_reward(
         boss_relic_pool,
         context,
         relic_count=relic_count,
+        relic_selector=relic_selector,
     )
     return CombatRewardBundle(
         gold=gold,
@@ -430,24 +433,21 @@ def _draw_relics(
     context: CombatRewardContext,
     *,
     relic_count: int | None,
+    relic_selector: Callable[[str], str] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     if relic_count is None:
-        relic_count = 1 if context.encounter in {EncounterType.ELITE, EncounterType.BOSS} else 0
+        relic_count = 1 if context.encounter is EncounterType.ELITE else 0
 
     relic_ids: list[str] = []
     relic_rarities: list[str] = []
     excluded = {_normalized_id(relic_id) for relic_id in context.owned_relics}
 
     for _ in range(max(0, relic_count)):
-        if context.encounter is EncounterType.BOSS:
-            boss_relic = _choose_boss_relic(rng, boss_relic_pool, excluded=excluded)
-            if boss_relic is None:
-                break
-            relic_ids.append(boss_relic.relic_id)
-            relic_rarities.append(boss_relic.rarity)
-            excluded.add(boss_relic.relic_id)
+        if relic_selector is not None:
+            rarity_id = source_relic_rarity(rng)
+            relic_ids.append(relic_selector(rarity_id))
+            relic_rarities.append(rarity_id)
             continue
-
         rarity = weighted_choice(rng, COMBAT_RELIC_RARITY_WEIGHTS)
         random_relic = _choose_relic_by_rarity(
             rng,

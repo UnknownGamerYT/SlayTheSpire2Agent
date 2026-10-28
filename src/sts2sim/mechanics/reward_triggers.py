@@ -395,8 +395,8 @@ DEFAULT_REWARD_MODIFIERS: tuple[RewardModifierSpec, ...] = (
     RewardModifierSpec(
         content_id="lava_rock",
         kind="reward_extra_relic",
-        amount=1,
-        relic_count_delta=1,
+        amount=2,
+        relic_count_delta=2,
         apply_to_sources=frozenset({"combat"}),
         apply_to_encounters=frozenset({"boss"}),
         metadata_equals={"act": 1},
