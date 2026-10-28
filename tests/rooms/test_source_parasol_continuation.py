@@ -181,3 +181,17 @@ def test_maw_bank_saved_used_state_notifies_once_across_later_purchases():
     assert sum(e.kind == 'maw_bank_disabled' for e in state.replay_log[-1].events) == 1
     state = _act(state, 'shop_buy', target='shop:1')
     assert not any(e.kind == 'maw_bank_disabled' for e in state.replay_log[-1].events)
+
+
+def test_callback_completion_refreshes_stock_after_a_nested_egg_reward_without_courier():
+    state = _enter(shop_relics=('calling_bell',))
+    state = _act(state, 'shop_buy', target='shop:2')
+    # Isolate the allowed late merchant creation hook after a nested relic claim.
+    state = state.model_copy(update={'reward': state.reward.model_copy(update={
+        'relic_ids': ('molten_egg',), 'claimed_relic_indices': (),
+        'claimed_relic_ids': (), 'skipped_relic_indices': (),
+    })})
+    state = _act(state, 'take_reward_relic', target='reward:relic:0')
+    state = _act(state, 'proceed')
+    assert state.shop.items[0].metadata['card']['upgraded'] is True
+    assert not state.shop.items[0].purchased

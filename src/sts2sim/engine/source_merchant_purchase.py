@@ -34,6 +34,10 @@ def _complete(state: RunState, purchase: dict[str, Any]) -> tuple[RunState, str 
         state = state.model_copy(update={
             'shop': shop, 'flags': flags, 'rng': capture_random_state(rng),
         })
+    # Inventory updates also rerun merchant creation/price hooks when no
+    # refill occurs, including relics obtained inside a custom pickup screen.
+    if state.shop is not None:
+        state = state.model_copy(update={'shop': t._apply_shop_price_modifiers(state, state.shop)})
     flags = dict(state.flags)
     flags.pop(PENDING, None)
     return state.model_copy(update={'flags': flags}), identifier
