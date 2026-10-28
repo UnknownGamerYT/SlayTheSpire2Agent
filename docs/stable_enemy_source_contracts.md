@@ -106,6 +106,13 @@ Confirmed corrections:
   and pet HP before each target's damage; a pet death finishes that AoE batch
   and stops later hits. Necro Mastery stacks, bypasses enemy Block, and echoes
   actual pet HP loss. These outcomes include missing pets and save/reload.
+- Powered Osty attacks use the pet’s Strength, Weak, Shrink and Vigor, while
+  owner Double Damage, Tracking, first-physical-play Lethality, local enchantments
+  and card-owner relic modifiers apply through their source predicates. Tracking
+  is receiver-specific; fractions survive until final damage rounding. Monarch’s
+  Gaze and Envenom require the owner as dealer and exclude pets. Reaper Form
+  permits pets and uses blocked damage plus actual HP loss, excluding overkill.
+  Hash and method scopes are in `tests/fixtures/stable_osty_modifiers.json`.
 - `PlatingPower` grants opening Block, skips its first enemy-round decrement,
   then decrements on later enemy-side starts. It grants Block for the whole
   side before side-end damage. Slumber's side-end wake removes Plating after

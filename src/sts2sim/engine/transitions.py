@@ -238,6 +238,7 @@ from . import (
     source_keyword_hooks,
     source_modifier_hooks,
     source_run_passives,
+    source_osty_hooks,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -18477,10 +18478,11 @@ def _apply_osty_action_effect(
             continue
 
         if action == "damage":
-            amount = _coerce_positive_int(action_payload.get("amount"), default=0)
-            amount = _osty_damage_amount(combat, source_card, osty, amount)
-            if amount <= 0:
-                continue
+            raw_amount = _coerce_int(action_payload.get("amount"), default=0)
+            amount = source_osty_hooks.damage_amount(
+                combat, source_card, osty,
+                _osty_damage_amount(combat, source_card, osty, raw_amount), relics=relics,
+            )
             target = _normalized_id(str(action_payload.get("target", "enemy")))
             hits = _osty_hit_count(combat, source_card, action_payload)
             fixed_target_id = target_id or next(
@@ -18500,6 +18502,15 @@ def _apply_osty_action_effect(
                                   if m.monster_id == current_target_id and m.hp > 0), None)
                     if enemy is None:
                         continue
+                    current_osty = _osty_state(combat)
+                    hit_amount = source_osty_hooks.damage_amount(
+                        combat, source_card, current_osty,
+                        _osty_damage_amount(combat, source_card, current_osty, raw_amount),
+                        relics=relics, target_statuses=enemy.statuses,
+                    )
+                    attacker_statuses = source_osty_hooks.receiver_attacker_statuses(
+                        combat, current_osty,
+                    )
                     thorns = _status_amount(enemy.statuses, "thorns")
                     thorns_events: tuple[EffectEvent, ...] = ()
                     if thorns > 0:
@@ -18508,12 +18519,13 @@ def _apply_osty_action_effect(
                         )
                         events.extend(thorns_events)
                     monsters, damage_events = _damage_monsters(
-                        combat.monsters, (current_target_id,), amount, source_card.instance_id,
+                        combat.monsters, (current_target_id,), hit_amount, source_card.instance_id,
                         relics=relics, source_card_type=source_card.type.value,
+                        source_card_id=source_card.card_id, attacker_statuses=attacker_statuses,
                         source_player_id="osty",
                     )
                     monsters, rider_events = _apply_attack_damage_riders(
-                        combat.player, monsters, damage_events, source_card,
+                        combat.player, monsters, damage_events, source_card, dealer_is_pet=True,
                     )
                     combat = combat.model_copy(update={"monsters": tuple(monsters)})
                     events.extend(damage_events)
@@ -18531,7 +18543,7 @@ def _apply_osty_action_effect(
                         events.extend(spawn_events + death_power_events)
                 events.append(EffectEvent(
                     kind="osty_damaged_enemies", source_id=source_card.instance_id,
-                    amount=amount, metadata={
+                    amount=max(0, int(amount)), metadata={
                         "card_id": source_card.card_id, "target": target,
                         "target_ids": list(target_ids), "hit_index": hit_index + 1,
                         "hit_count": hits,
@@ -18560,7 +18572,10 @@ def _apply_osty_action_effect(
             amount = _osty_state_amount(action_payload.get("amount"), osty)
             if amount <= 0:
                 continue
-            player = combat.player.model_copy(update={"block": combat.player.block + amount})
+            amount = _unpowered_player_block_gain(combat.player, amount)
+            player = combat.player.model_copy(update={
+                "block": min(999_999_999, combat.player.block + amount),
+            })
             combat = combat.model_copy(update={"player": player})
             events.append(
                 EffectEvent(
@@ -25409,13 +25424,15 @@ def _apply_attack_damage_riders(
     monsters: Sequence[MonsterState],
     damage_events: Sequence[EffectEvent],
     card: CardInstance,
+    *,
+    dealer_is_pet: bool = False,
 ) -> tuple[list[MonsterState], tuple[EffectEvent, ...]]:
     if card.type != CardType.ATTACK:
         return list(monsters), ()
 
-    monarch_amount = _status_amount(player.statuses, "monarchs_gaze")
+    monarch_amount = 0 if dealer_is_pet else _status_amount(player.statuses, "monarchs_gaze")
     reaper_amount = _status_amount(player.statuses, "reaper_form")
-    envenom_amount = _status_amount(player.statuses, "envenom")
+    envenom_amount = 0 if dealer_is_pet else _status_amount(player.statuses, "envenom")
     if monarch_amount <= 0 and reaper_amount <= 0 and envenom_amount <= 0:
         return list(monsters), ()
 
@@ -25427,7 +25444,9 @@ def _apply_attack_damage_riders(
         attacks_by_target[damage_event.target_id] = (
             attacks_by_target.get(damage_event.target_id, 0) + 1
         )
-        amount = max(0, int(damage_event.amount or 0))
+        amount = max(0, int(damage_event.amount or 0)) + _metadata_int(
+            damage_event.metadata, "blocked", 0,
+        )
         if amount <= 0:
             continue
         damage_by_target[damage_event.target_id] = (
@@ -25441,7 +25460,7 @@ def _apply_attack_damage_riders(
     for monster in monsters:
         damage = damage_by_target.get(monster.monster_id, 0)
         attacks = attacks_by_target.get(monster.monster_id, 0)
-        if attacks <= 0:
+        if attacks <= 0 or monster.hp <= 0:
             updated.append(monster)
             continue
         statuses = dict(monster.statuses)

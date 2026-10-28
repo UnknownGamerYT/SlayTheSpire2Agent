@@ -123,7 +123,7 @@ def test_monarchs_gaze_applies_once_per_attack_hit_and_artifact_blocks_one_hit()
 
 
 @pytest.mark.parametrize("upgraded", [False, True])
-def test_reaper_form_uses_attack_hp_damage_and_ignores_blocked_hits_and_nonattacks(upgraded):
+def test_reaper_form_uses_total_attack_damage_including_block_and_ignores_nonattacks(upgraded):
     state = _fight("reaper_form", upgraded=upgraded)
     assert bool(state.combat.hand[0].custom.get("retain")) is upgraded
     state = _play(state, "reaper_form")
@@ -139,10 +139,10 @@ def test_reaper_form_uses_attack_hp_damage_and_ignores_blocked_hits_and_nonattac
     })}), attack, skill)
     state = _play(load_state(serialize(state)), "attack")
     assert state.combat.monsters[0].hp == 996
-    assert state.combat.monsters[0].statuses["doom"] == 4
+    assert state.combat.monsters[0].statuses["doom"] == 12
     state = _play(state, "skill")
     assert state.combat.monsters[0].hp == 991
-    assert state.combat.monsters[0].statuses["doom"] == 4
+    assert state.combat.monsters[0].statuses["doom"] == 12
 
 
 @pytest.mark.parametrize("regrets,fillers,buffer,loss", [(1, 2, 0, 3), (2, 3, 0, 10), (2, 3, 1, 5)])

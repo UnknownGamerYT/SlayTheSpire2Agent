@@ -9,7 +9,7 @@ from sts2sim import load_state, serialize
 @pytest.mark.parametrize("power", ["monarchs_gaze", "reaper_form"])
 @pytest.mark.parametrize("upgraded,damage", [(False, 10), (True, 15)])
 @pytest.mark.parametrize("block,artifact", [(0, 0), (100, 0), (0, 1), (100, 1)])
-def test_source_osty_attack_applies_installed_riders_to_the_actual_hit(
+def test_source_osty_attack_respects_each_installed_riders_dealer_predicate(
     power, upgraded, damage, block, artifact,
 ) -> None:
     state = _play(_fight(power, "sweeping_gaze", upgraded=upgraded), power)
@@ -24,10 +24,10 @@ def test_source_osty_attack_applies_installed_riders_to_the_actual_hit(
     monster = state.combat.monsters[0]
     hp_loss = max(0, damage - block)
     assert monster.hp == 1000 - hp_loss
-    expected = (-1 if power == "monarchs_gaze" else hp_loss) if not artifact else 0
+    expected = damage if power == "reaper_form" and not artifact else 0
     status = "temporary_strength" if power == "monarchs_gaze" else "doom"
     assert monster.statuses.get(status, 0) == expected
-    attempts_application = power == "monarchs_gaze" or hp_loss > 0
+    attempts_application = power == "reaper_form"
     assert monster.statuses.get("artifact", 0) == (artifact if not attempts_application else 0)
     hits = [event for event in state.combat.last_events if event.kind == "osty_damaged_enemies"]
     assert len(hits) == 1
