@@ -1935,7 +1935,7 @@ def _add_runtime_potion_summary(summary: dict[str, Any], potion_id: str) -> None
         summary["card_recovery"] += 1
         summary["free_card_play"] += 1
         summary["hand_control"] += 1
-        summary["persistent_setup"] += 1
+        summary["temporary_setup"] += 1
     elif potion_id == "distilled_chaos":
         summary["random_card_play"] += 3
         summary["temporary_setup"] += 1

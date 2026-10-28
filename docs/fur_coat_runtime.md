@@ -1,38 +1,33 @@
-# Fur Coat runtime behavior
+# Fur Coat stable runtime contract
 
-The stable cached source describes seven random marked combats. Pickup now
-samples uncompleted normal monster nodes ahead of the current floor in the
-current act. Selected node IDs are stored by act in `fur_coat_marked_nodes` and
-recorded as `fur_coat_room_marked` replay events. Additional pickups select only
-previously unmarked nodes. The actual Ancient pickup route shares the Ancient
-choice RNG, so sampling advances the persisted stream instead of being skipped
-or overwritten.
+The stable source marks **seven Monster or Elite map points** in the pickup act.
+It includes all grid points of those types, with no completed-point or future-floor
+filter. Boss and Unknown points are excluded. It excludes points already marked
+by another Fur Coat. Selection enumerates the grid column first, then row, runs
+an unstable shuffle using independent `Rng(owner, FUR_COAT)`, and takes seven.
+The model RNG consumes no persistent run-bank draws. Legacy imported MT19937 saves
+retain their existing RNG adapter; they do not claim game-seed parity.
 
-Entering a marked normal room sets initial enemies' current and maximum HP to
-one. The shared monster creation path applies the same limit to modeled summons
-and reinforcements. Scripted Test Subject replacement phases are also limited in
-marked rooms; Decimillipede reattachment already respects the resulting maximum
-HP. Combat metadata and replay events identify the affected room and enemies.
-Save/reload tests cover both selection and later summons.
+Selected points are stored by act in `fur_coat_marked_nodes`. Entering a marked
+Monster/Elite room sets enemies' **current HP** to one and preserves maximum HP.
+The shared monster-creation path applies this to later summons and restocks.
+Healing can restore HP above one. Test Subject's same-creature revive sets maximum
+HP and heals; it does not emit the creature-added hook, so Fur Coat does not repeat.
 
-The existing marker's `room_kind: combat` contract is interpreted as normal
-monster nodes. Elites, bosses, and unknown event rooms are excluded, including
-when an imported flag incorrectly marks one. The public sources below do not
-establish the game's precise room eligibility predicate or RNG stream, so this
-implementation does not claim exact game-seed parity for room selection.
+The stable source is the publicly available decompilation at
+[zhiyue/sts2-rl-agent, 5d874e8](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7).
+Its `GAME_VERSIONS.md` identifies public v0.107.1, Steam build 23811903,
+release commit `59260271`, assembly hash `-1555940892`. This is repository-author
+version evidence; this workspace has not checked an installed DLL.
 
-The wiki records a beta increase from seven to eight in v0.110.0 on July 30,
-2026. This implementation retains the stable cached count of seven. Its
-v0.102.0 entry specifically confirms that enemies entering a fight are affected,
-including restocked Axebots. The simulator has no source-backed Axebot encounter
-restock script; all monster creation paths currently modeled receive the Fur
-Coat effect, without inventing an encounter wave schedule.
+Reviewed files: `Models.Relics/FurCoat.cs`, `Map/ActMap.cs`, `Map/MapPointType.cs`,
+and `Models.Monsters/TestSubject.cs`, under `decompiled/MegaCrit.Sts2.Core.*`.
+File SHA-256 values and compact source projections are retained in
+`tests/fixtures/stable_item_contracts.json`; decompiled code is not redistributed.
+Public-action tests cover eligibility, save/reload, independent RNG, maximum HP,
+later summons, and same-creature revival.
 
-Sources checked October 28, 2026:
-
-- Stable local `data/cache/eng/relics.json`, `FUR_COAT`.
-- <https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Fur_Coat>
-
-The wiki identifies Nonupeipe at the beginning of Act 3 as the pickup source.
-Single-player runtime behavior is covered here; multiplayer selection and
-synchronization are outside the simulator's current scope.
+The [wiki's update history](https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Fur_Coat)
+independently records that v0.102.0 added later-enemy support, included in stable
+v0.103.2. The v0.110.0 beta increase from seven to eight is not applied.
+Full multiplayer synchronization and an installed-game action trace remain unverified.

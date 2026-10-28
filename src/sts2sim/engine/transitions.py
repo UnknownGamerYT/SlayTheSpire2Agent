@@ -192,6 +192,7 @@ from .rng import (
     PYTHON_RANDOM_ALGORITHM,
     XOSHIRO256STARSTAR_ALGORITHM,
     capture_random_state,
+    model_random,
     random_from_state,
     random_stream,
     run_random_from_seed,
@@ -5180,7 +5181,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
     if normalized == "ghost_in_a_jar":
         return {"apply_status": {"target": "self", "intangible": 1}}
     if normalized == "glowwater_potion":
-        return {"sequence": [{"draw": 10}, {"exhaust_hand": {"mode": "all"}}]}
+        return {"sequence": [{"exhaust_hand": {"mode": "all"}}, {"draw": 10}]}
     if normalized == "kings_courage":
         return {"player_resource": {"resource": "forge", "amount": 15}}
     if normalized == "lucky_tonic":
@@ -5266,7 +5267,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
             "next_card_damage_multiplier": {
                 "card_type": "attack",
                 "multiplier": 3,
-                "duration": "turn",
+                "duration": "combat",
             }
         }
     if normalized == "liquid_memories":
@@ -5276,7 +5277,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
                 "zone": "discard_pile",
                 "count": 1,
                 "destination": "hand",
-                "free_to_play_this_combat": True,
+                "free_to_play_this_turn": True,
                 "text": "Put a card from your Discard Pile into your Hand.",
             }
         }
@@ -5377,16 +5378,9 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
     if normalized == "snecko_oil":
         return {"draw": 7, "randomize_hand_costs": {"duration": "turn"}}
     if normalized == "beetle_juice":
-        return {"apply_status": {"target": "enemy", "temporary_attack_damage_percent": -30}}
+        return {"apply_status": {"target": "enemy", "shrink": 4}}
     if normalized == "powdered_demise":
-        return {
-            "combat_trigger": {
-                "trigger": "turn_end",
-                "duration": "combat",
-                "effects": ({"enemy_hp_loss": {"target": "all_enemies", "amount": 9}},),
-                "text": "Enemy loses 9 HP at the end of each of its turns.",
-            }
-        }
+        return {"apply_status": {"target": "enemy", "demise": 9}}
     inferred = _inferred_potion_effects_from_source(state, normalized, combat)
     if inferred:
         return inferred
@@ -5462,6 +5456,7 @@ def _potion_target_type(potion_id: str) -> TargetType:
         "poison_potion",
         "potion_of_doom",
         "potion_shaped_rock",
+        "powdered_demise",
         "weak_potion",
         "vulnerable_potion",
     }:
@@ -6215,12 +6210,7 @@ def _apply_fur_coat_map_marker(
     rng: Random,
     marker: RelicEffectMarker,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    """Mark uncompleted normal combats in the current act, once on pickup.
-
-    The stable source specifies seven combats. Its existing ``combat`` marker
-    maps to normal monster nodes; elite, boss and unknown event nodes are not
-    eligible. Marks are stored by act and node ID, so saves preserve the draw.
-    """
+    """Mark seven Monster/Elite map points in the pickup act (FurCoat.cs)."""
 
     game_map = state.map
     if game_map is None:
@@ -6228,17 +6218,15 @@ def _apply_fur_coat_map_marker(
     marks_by_act = dict(_mapping_from(state.flags.get("fur_coat_marked_nodes")))
     act_key = str(game_map.act)
     existing = set(_string_tuple(marks_by_act.get(act_key)))
-    completed = set(game_map.completed_node_ids)
-    current = game_map.node_by_id.get(game_map.current_node_id or "")
-    eligible = sorted(
+    eligible = [
         node.node_id
-        for node in game_map.nodes
-        if node.kind == RoomKind.MONSTER
-        and node.node_id not in existing | completed
-        and (current is None or node.floor > current.floor)
-    )
+        for node in sorted(game_map.nodes, key=lambda node: (node.lane, node.floor))
+        if node.kind in {RoomKind.MONSTER, RoomKind.ELITE}
+        and node.node_id not in existing
+    ]
     count = min(max(0, marker.amount or 0), len(eligible))
-    selected = sorted(rng.sample(eligible, count))
+    model_random(rng, "FUR_COAT").shuffle(eligible)
+    selected = eligible[:count]
     marks_by_act[act_key] = tuple(sorted(existing | set(selected)))
     flags = {**state.flags, "fur_coat_marked_nodes": marks_by_act}
     return state.model_copy(update={"flags": flags}), tuple(
@@ -6247,7 +6235,8 @@ def _apply_fur_coat_map_marker(
             source_id="fur_coat",
             target_id=node_id,
             amount=1,
-            metadata={"act": game_map.act, "room_kind": "monster", "enemy_hp": 1},
+            metadata={"act": game_map.act,
+                      "room_kind": game_map.node_by_id[node_id].kind.value, "enemy_hp": 1},
         )
         for node_id in selected
     )
@@ -6257,7 +6246,7 @@ def _fur_coat_room_is_marked(state: RunState, node: MapNodeState | None = None) 
     if state.map is None:
         return False
     node = node or state.map.node_by_id.get(state.map.current_node_id or "")
-    if node is None or node.kind != RoomKind.MONSTER:
+    if node is None or node.kind not in {RoomKind.MONSTER, RoomKind.ELITE}:
         return False
     marks = _mapping_from(state.flags.get("fur_coat_marked_nodes"))
     return node.node_id in _string_tuple(marks.get(str(node.act)))
@@ -6273,7 +6262,7 @@ def _fur_coat_monster(monster: MonsterState) -> MonsterState:
             "fur_coat_original_max_hp", monster.max_hp
         ),
     }
-    return monster.model_copy(update={"hp": 1, "max_hp": 1, "metadata": metadata})
+    return monster.model_copy(update={"hp": 1, "metadata": metadata})
 
 
 def _apply_relic_add_deck_cards_marker(
@@ -12141,6 +12130,16 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         player = combat.player
         monsters = list(combat.monsters)
 
+    # These powers observe the end of the enemy side, after every participant
+    # has acted. Demise is unpowered, unblockable damage, not a player trigger.
+    combat, item_end_events = _apply_item_enemy_side_end(combat)
+    events.extend(item_end_events)
+    rng_state = capture_random_state(rng)
+    combat, rng_state, item_kill_events = _apply_monster_killed_relics_from_events(
+        state.model_copy(update={"combat": combat, "player": combat.player}),
+        combat, rng_state, item_end_events,
+    )
+    events.extend(item_kill_events)
     combat, rng_state, next_turn_events = _begin_next_player_turn(
         state,
         combat,
@@ -12854,6 +12853,40 @@ def _execute_monster_turn(
     )
 
     return _combat_with_monster(combat, monster_index, monster), tuple(events)
+
+
+def _apply_item_enemy_side_end(
+    combat: CombatState,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Stable DemisePower/ShrinkPower AfterSideTurnEnd contracts."""
+    events: list[EffectEvent] = []
+    monsters = list(combat.monsters)
+    for index, monster in enumerate(monsters):
+        if monster.hp <= 0:
+            continue
+        demise = _status_amount(monster.statuses, "demise")
+        if demise > 0:
+            damaged, damage_events = _damage_monsters(
+                (monster,), (monster.monster_id,), demise, "demise", unblockable=True,
+            )
+            monster = damaged[0]
+            events.extend(event.model_copy(update={"metadata": {
+                **event.metadata, "status": "demise", "unpowered": True, "unblockable": True,
+            }}) for event in damage_events)
+        shrink = _status_amount(monster.statuses, "shrink")
+        if monster.hp > 0 and shrink > 0:
+            statuses = dict(monster.statuses)
+            if shrink > 1:
+                statuses["shrink"] = shrink - 1
+            else:
+                statuses.pop("shrink", None)
+            monster = monster.model_copy(update={"statuses": statuses})
+            events.append(EffectEvent(
+                kind="status_ticked", target_id=monster.monster_id, amount=-1,
+                metadata={"status": "shrink", "remaining": shrink - 1},
+            ))
+        monsters[index] = monster
+    return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
 
 
 def _apply_monster_end_turn_strength(
@@ -22536,6 +22569,7 @@ def _damage_monsters(
     source_card_type: str | None = None,
     attacker_statuses: Mapping[str, int] | None = None,
     source_player_id: str = "player",
+    unblockable: bool = False,
 ) -> tuple[list[MonsterState], tuple[EffectEvent, ...]]:
     targets = set(target_ids)
     updated: list[MonsterState] = []
@@ -22548,7 +22582,7 @@ def _damage_monsters(
             monster, amount, relics=relics, source_card_type=source_card_type,
             attacker_statuses=attacker_statuses, source_player_id=source_player_id,
         )
-        blocked = min(monster.block, incoming)
+        blocked = 0 if unblockable else min(monster.block, incoming)
         hp_loss = max(0, incoming - blocked)
         intangible_applied = _status_amount(monster.statuses, "intangible") > 0 and amount > 1
         slippery_applied = False
@@ -24757,9 +24791,6 @@ def _apply_test_subject_respawn_from_events(
                 "metadata": metadata,
             }
         )
-        if _fur_coat_room_is_marked(state):
-            revived = _fur_coat_monster(revived)
-            phase_hp = revived.hp
         selector_counts = _monster_selector_counts(
             combat.model_copy(update={"monsters": tuple(monsters + [revived])}),
             definition,
@@ -29863,6 +29894,7 @@ _ARTIFACT_BLOCKED_STATUSES = frozenset(
         "constrict",
         "ringing",
         "doom",
+        "demise",
         "oblivion",
         "strangle",
         "frail",

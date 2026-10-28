@@ -1,0 +1,174 @@
+{
+  "repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "steam_build_id": 23811903,
+  "release_info_commit": "59260271",
+  "main_assembly_hash": -1555940892,
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BeetleJuice.cs",
+      "sha256": "53c71ca25af8eb3d5cf71410eebd8f70d2b1b39a4fe43bed10d028352d880254"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PowderedDemise.cs",
+      "sha256": "e778c3da95db369db6683ed8e1d06ef1a092578dbdbf7d11f07035da2f231f65"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GlowwaterPotion.cs",
+      "sha256": "201605ea46f20f58afd2edb51a76218ae39411f8d4646021fdd06f0433210c56"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GigantificationPotion.cs",
+      "sha256": "8bdc58a35c79edf462f4723a953a7c31a7d57c2d250c3a899255ffba038ebf00"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/LiquidMemories.cs",
+      "sha256": "415d8c7878c4b631b02c0d857fd9ae44590196a2786a8ed7dbc49f894b084a90"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ShrinkPower.cs",
+      "sha256": "e007fb069c7e9364e165d7ba74d29b582adaa8fb00d12c8940a928fb9eb5acfb"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/DemisePower.cs",
+      "sha256": "be71652f4440d981f36b1bb0509cea5693ce8810cbe3e972293e42e9f1289348"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/GigantificationPower.cs",
+      "sha256": "644db8e55cc75924a5a703539cb88cccc82a0a5d6a5b94d8c34410f23de0a0a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FurCoat.cs",
+      "sha256": "254d18b35af9316f668623f656aa08f136b91dc4606a71c2e56db874d1bbd803"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Map/ActMap.cs",
+      "sha256": "9cc0453e2e464dc24508fc87d35b5d01f1b2bc9106788fba687b864defa0bb27"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Map/MapPointType.cs",
+      "sha256": "d344987983962509629398e99a4089bbfcd8f4c50228ead11e1ee8b07de1b6fe"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Monsters/TestSubject.cs",
+      "sha256": "b7e6e24a3633e53c5e272001d4ea0f973122e7d69e20370e76da872301c8b675"
+    }
+  ],
+  "cached_source_rows": {
+    "potions": [
+      {
+        "compendium_order": 40,
+        "description": "Enemy's attacks deal [blue]30%[/blue] less damage for the next [blue]4[/blue] turns.",
+        "description_raw": "Enemy's attacks deal [blue]{DamageDecrease}%[/blue] less damage {Repeat:plural:next turn|for the next [blue]{}[/blue] turns}.",
+        "id": "BEETLE_JUICE",
+        "image_url": "/static/images/potions/beetle_juice.webp",
+        "name": "Beetle Juice",
+        "pool": "shared",
+        "rarity": "Rare",
+        "rarity_key": "Rare"
+      },
+      {
+        "compendium_order": 50,
+        "description": "The next Attack you play deals triple damage.",
+        "description_raw": "The next Attack you play deals triple damage.",
+        "id": "GIGANTIFICATION_POTION",
+        "image_url": "/static/images/potions/gigantification_potion.webp",
+        "name": "Gigantification Potion",
+        "pool": "shared",
+        "rarity": "Rare",
+        "rarity_key": "Rare"
+      },
+      {
+        "compendium_order": 61,
+        "description": "[gold]Exhaust[/gold] your [gold]Hand[/gold]. Draw [blue]10[/blue] cards.",
+        "description_raw": "[gold]Exhaust[/gold] your [gold]Hand[/gold]. Draw [blue]{Cards}[/blue] cards.",
+        "id": "GLOWWATER_POTION",
+        "image_url": "/static/images/potions/glowwater_potion.webp",
+        "name": "Glowwater Potion",
+        "pool": "event",
+        "rarity": "Event",
+        "rarity_key": "Event"
+      },
+      {
+        "compendium_order": 51,
+        "description": "Put a card from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold]. It's free to play this turn.",
+        "description_raw": "Put a card from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold]. It's free to play this turn.",
+        "id": "LIQUID_MEMORIES",
+        "image_url": "/static/images/potions/liquid_memories.webp",
+        "name": "Liquid Memories",
+        "pool": "shared",
+        "rarity": "Rare",
+        "rarity_key": "Rare"
+      },
+      {
+        "compendium_order": 35,
+        "description": "Enemy loses [blue]9[/blue] HP at the end of each of its turns.",
+        "description_raw": "Enemy loses [blue]{Demise}[/blue] HP at the end of each of its turns.",
+        "id": "POWDERED_DEMISE",
+        "image_url": "/static/images/potions/powdered_demise.webp",
+        "name": "Powdered Demise",
+        "pool": "shared",
+        "rarity": "Uncommon",
+        "rarity_key": "Uncommon"
+      }
+    ],
+    "relics": [
+      {
+        "compendium_order": 186,
+        "description": "Upon pickup, mark [blue]7[/blue] random combats. Enemies in those rooms have [blue]1[/blue] HP.",
+        "description_raw": "Upon pickup, mark [blue]{Combats}[/blue] random combats. Enemies in those rooms have [blue]1[/blue] HP.",
+        "flavor": "[red]Details for this relic will be revealed in the future...[/red]",
+        "id": "FUR_COAT",
+        "image_url": "/static/images/relics/fur_coat.webp",
+        "image_variants": null,
+        "merchant_price": null,
+        "name": "Fur Coat",
+        "name_variants": null,
+        "notes": null,
+        "pool": "shared",
+        "rarity": "Ancient Relic",
+        "rarity_key": "Ancient"
+      }
+    ],
+    "powers": [
+      {
+        "allow_negative": null,
+        "description": "At the end of [gold]this creature[/gold]'s turn, it loses [blue][Amount][/blue] HP.",
+        "description_raw": "At the end of [gold]{OwnerName}[/gold]'s turn, it loses [blue]{Amount}[/blue] HP.",
+        "id": "DEMISE",
+        "image_url": "/static/images/powers/demise_power.webp",
+        "name": "Demise",
+        "stack_type": "Counter",
+        "type": "Debuff"
+      },
+      {
+        "allow_negative": null,
+        "description": "The next [blue]2[/blue] Attacks you play deal triple damage.",
+        "description_raw": "The next {Amount:plural:Attack you play deals|[blue]{}[/blue] Attacks you play deal} triple damage.",
+        "id": "GIGANTIFICATION",
+        "image_url": "/static/images/powers/gigantification_power.webp",
+        "name": "Gigantification",
+        "stack_type": "Counter",
+        "type": "Buff"
+      },
+      {
+        "allow_negative": true,
+        "description": "[gold]This creature's[/gold] Attacks deal [blue]30%[/blue] less damage.",
+        "description_raw": "{ApplierName.StringValue:cond:While {} is alive, your|[gold]{OwnerName}'s[/gold]} Attacks deal [blue]{DamageDecrease}%[/blue] less damage{Amount:cond:==1? next turn|>1? for the next [blue]{}[/blue] turns|}.",
+        "id": "SHRINK",
+        "image_url": "/static/images/powers/shrink_power.webp",
+        "name": "Shrink",
+        "stack_type": "None",
+        "type": "Debuff"
+      }
+    ]
+  },
+  "qualifications": [
+    "Version/build identification is repository author evidence, not a local installed DLL check.",
+    "Only selected source contracts are verified; item registration is not full item parity.",
+    "Source DEMISE is unpowered, unblockable Damage; Intangible/Slippery and HP-loss caps still apply.",
+    "Fur Coat samples all Monster/Elite grid points column-major, without completed/future filtering, uses independent relic RNG, and only sets current HP.",
+    "Fur Coat does not retrigger on Test Subject same-creature Revive."
+  ]
+}

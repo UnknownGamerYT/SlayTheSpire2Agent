@@ -16,6 +16,7 @@ from sts2sim.engine import (
     RoomKind,
     RunPhase,
 )
+from sts2sim.engine.rng import RunRng, capture_random_state
 
 
 def _map(*, normal_count: int = 12, act: int = 3) -> MapState:
@@ -61,14 +62,15 @@ def _enter(state, node_id: str):
     )
 
 
-def test_fur_coat_pickup_marks_seven_unique_normal_nodes_with_replayable_rng() -> None:
+def test_fur_coat_pickup_marks_seven_unique_normal_or_elite_nodes_with_replayable_rng() -> None:
     before = _reward_state()
     first = _pickup(before)
     second = _pickup(load_state(json.loads(json.dumps(serialize(before)))))
 
     marks = first.flags["fur_coat_marked_nodes"]["3"]
     assert len(marks) == len(set(marks)) == 7
-    assert all(first.map.node_by_id[node_id].kind == RoomKind.MONSTER for node_id in marks)
+    assert all(first.map.node_by_id[node_id].kind in {RoomKind.MONSTER, RoomKind.ELITE}
+               for node_id in marks)
     assert serialize(first) == serialize(second)
     assert first.rng != before.rng
     assert len([e for e in first.replay_log[-1].events if e.kind == "fur_coat_room_marked"]) == 7
@@ -102,7 +104,18 @@ def test_fur_coat_ancient_pickup_uses_the_shared_rng_and_does_not_skip_marking()
     assert serialize(after) == serialize(step(load_state(serialize(state)), action))
 
 
-def test_fur_coat_excludes_completed_and_past_nodes_and_handles_small_maps() -> None:
+def test_stable_fur_coat_uses_independent_relic_rng_and_includes_elites() -> None:
+    state = _reward_state(normal_count=1).model_copy(update={
+        "rng": capture_random_state(RunRng("FURCOAT")),
+    })
+    after = _pickup(state)
+    assert set(after.flags["fur_coat_marked_nodes"]["3"]) == {"fight:0", "elite"}
+    assert after.rng == state.rng
+    elite = _enter(load_state(serialize(after)), "elite")
+    assert all(monster.hp == 1 < monster.max_hp for monster in elite.combat.monsters)
+
+
+def test_fur_coat_includes_elite_completed_and_past_points_and_handles_small_maps() -> None:
     state = _reward_state(normal_count=3)
     nodes = state.map.nodes + (
         MapNodeState(node_id="past", act=3, floor=0, lane=1, kind=RoomKind.MONSTER),
@@ -115,7 +128,9 @@ def test_fur_coat_excludes_completed_and_past_nodes_and_handles_small_maps() -> 
         }
     )
     state = _pickup(state)
-    assert set(state.flags["fur_coat_marked_nodes"]["3"]) == {"fight:1", "fight:2"}
+    assert set(state.flags["fur_coat_marked_nodes"]["3"]) == {
+        "fight:0", "fight:1", "fight:2", "elite", "past",
+    }
 
 
 def test_fur_coat_subsequent_pickup_only_adds_unmarked_rooms() -> None:
@@ -126,12 +141,12 @@ def test_fur_coat_subsequent_pickup_only_adds_unmarked_rooms() -> None:
     )
     state = _pickup(state)
     marks = set(state.flags["fur_coat_marked_nodes"]["3"])
-    assert len(marks) == 12
+    assert len(marks) == 13
     assert first < marks
     new_marks = {
         e.target_id for e in state.replay_log[-1].events if e.kind == "fur_coat_room_marked"
     }
-    assert len(new_marks) == 5
+    assert len(new_marks) == 6
     assert not first & new_marks
 
 
@@ -140,7 +155,7 @@ def test_fur_coat_marks_survive_reload_and_apply_to_placeholder_and_source_enemi
     state = load_state(json.loads(json.dumps(serialize(state))))
     node_id = state.flags["fur_coat_marked_nodes"]["3"][0]
     first = _enter(state, node_id)
-    assert all(monster.hp == monster.max_hp == 1 for monster in first.combat.monsters)
+    assert all(monster.hp == 1 < monster.max_hp for monster in first.combat.monsters)
     assert first.combat.metadata["fur_coat_marked_room"] == node_id
     assert any(e.kind == "fur_coat_monster_hp_set" for e in first.replay_log[-1].events)
 
@@ -163,17 +178,19 @@ def test_fur_coat_marks_survive_reload_and_apply_to_placeholder_and_source_enemi
         }
     )
     source_fight = _enter(state, node_id)
-    assert source_fight.combat.monsters[0].hp == source_fight.combat.monsters[0].max_hp == 1
+    assert source_fight.combat.monsters[0].hp == 1
+    assert source_fight.combat.monsters[0].max_hp == 30
     assert source_fight.combat.monsters[0].metadata["fur_coat_original_max_hp"] == 30
 
 
-@pytest.mark.parametrize("node_id", ["elite", "boss"])
-def test_fur_coat_does_not_make_elites_or_bosses_one_hp(node_id: str) -> None:
+@pytest.mark.parametrize("node_id", ["boss", "event"])
+def test_fur_coat_excludes_boss_and_unknown_points(node_id: str) -> None:
     state = _pickup(_reward_state())
     # Even an invalid imported mark cannot override the node eligibility guard.
     state.flags["fur_coat_marked_nodes"]["3"] += (node_id,)
     state = _enter(state, node_id)
-    assert all(monster.hp > 1 for monster in state.combat.monsters)
+    if state.combat is not None:
+        assert all(monster.hp > 1 for monster in state.combat.monsters)
 
 
 def test_fur_coat_unmarked_rooms_and_same_node_id_in_other_acts_are_unaffected() -> None:
@@ -229,11 +246,12 @@ def test_fur_coat_applies_to_enemies_summoned_during_the_marked_fight(
     action = next(a for a in legal_actions(state) if a.type == "end_turn")
     after = step(state, action)
     summoned = next(m for m in after.combat.monsters if m.metadata.get("summoned"))
-    assert summoned.hp == summoned.max_hp == expected_hp
+    assert summoned.hp == expected_hp
+    assert summoned.max_hp == 16
     assert serialize(after) == serialize(step(load_state(serialize(state)), action))
 
 
-def test_fur_coat_caps_replacement_hp_after_scripted_respawn_in_a_marked_room() -> None:
+def test_fur_coat_does_not_reapply_to_same_creature_reviving_in_a_marked_room() -> None:
     state = _pickup(_reward_state(normal_count=1))
     state = state.model_copy(
         update={
@@ -265,4 +283,4 @@ def test_fur_coat_caps_replacement_hp_after_scripted_respawn_in_a_marked_room() 
     monster = state.combat.monsters[0]
     assert state.phase == RunPhase.COMBAT
     assert monster.metadata["test_subject_respawns"] == 1
-    assert monster.hp == monster.max_hp == 1
+    assert monster.hp == monster.max_hp > 1
