@@ -114,3 +114,21 @@ def test_tablet_offers_give_up_after_each_decipher_and_kills_when_cost_consumes_
     result = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='DECIPHER'))
     assert result.player.max_hp == 1 and result.player.hp == 0
     assert result.rng.streams['TABLET_OF_TRUTH'].draws == 1
+
+
+def test_tinker_types_and_riders_are_two_distinct_model_rng_choices_once_each():
+    state = _event('TINKER_TIME')
+    state = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='CHOOSE_CARD_TYPE'))
+    assert len(legal_actions(state)) == 2
+    assert state.rng.streams['TINKER_TIME'].draws == 2
+    card_type = state.event.options[0].option_id
+    state = step(load_state(serialize(state)), Action(type=ActionType.CHOOSE_EVENT,
+                                                    target_id=card_type))
+    assert len(legal_actions(state)) == 2
+    assert state.rng.streams['TINKER_TIME'].draws == 4
+    rider = state.event.options[0].option_id
+    result = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id=rider))
+    assert result.master_deck[-1].custom['base_card_id'] == 'MAD_SCIENCE'
+    assert result.master_deck[-1].custom['card_type'] == card_type.lower()
+    assert result.master_deck[-1].custom['rider_id'] == rider.lower()
+    assert result.rng.streams['TINKER_TIME'].draws == 4

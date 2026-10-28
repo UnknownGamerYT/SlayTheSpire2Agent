@@ -277,6 +277,7 @@ from .rng import (
 )
 from .serialization import SerializedState, load_state, state_digest
 from .source_enchantment_hooks import can_enchant as can_enchant_source
+from .source_crystal_sphere import choose_sphere
 from .source_enchantment_hooks import can_enchant as source_can_enchant
 from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 from .source_event_offers import native_dynamic_offers
@@ -3176,6 +3177,9 @@ def _choose_event(
     if state.flags.get("scroll_boxes_pending"):
         return _take_scroll_boxes_pack(state, option)
 
+    if is_source_rng(state.rng) and state.event.event_id.upper() == "CRYSTAL_SPHERE":
+        return choose_sphere(state, option)
+
     if is_source_rng(state.rng) and option.metadata.get("source_native_rule"):
         return _choose_source_native_event(state, action, option)
 
@@ -3554,6 +3558,16 @@ def _choose_source_native_event(
     for _ in range(_coerce_int(rule.get("extra_rng_draws"), default=0)):
         rng.randrange(100)
     event = state.event.model_copy(update={"resolved_option_id": option.option_id})
+    if rule.get("repeat_shop"):
+        purchased = set(_string_items(rule.get("add_relics")))
+        remaining = tuple(option_state.model_copy(update={"disabled":
+            next_state.player.gold < _coerce_int(_mapping_from(option_state.metadata.get(
+                "source_native_rule")).get("required_gold"), default=0)})
+            for option_state in state.event.options if option_state.option_id != option.option_id)
+        event = state.event.model_copy(update={"resolved_option_id": None, "options": remaining,
+            "metadata": {**state.event.metadata, "fake_merchant_unsold_relic_ids": tuple(
+                relic for relic in _string_items(state.event.metadata.get(
+                    "fake_merchant_unsold_relic_ids")) if relic not in purchased)}})
     numeric = _mapping_from(option.metadata.get("source_numeric_effect"))
     if numeric.get("next_page"):
         event = _source_event_next_page(next_state, event, str(numeric["next_page"]))
@@ -3618,13 +3632,25 @@ def _choose_event_flow_option(
             and resolution.option.repeatable):
         next_flow = roll_source_conveyor_dish(next_flow, rng,
             has_open_potion_slot=len(next_state.potions) < _potion_capacity(next_state))
+    if is_source_rng(rng) and state.event.event_id.upper() == "TINKER_TIME":
+        if action.target_id.upper() == "CHOOSE_CARD_TYPE":
+            choices = tuple(source_sample(rng, ("ATTACK", "SKILL", "POWER"), 2))
+            next_flow = replace(next_flow, data={**next_flow.data, "tinker_type_choices": choices})
+        elif flow_state.page_id == "CHOOSE_CARD_TYPE":
+            choices = {"ATTACK": ("SAPPING", "VIOLENCE", "CHOKING"),
+                       "SKILL": ("ENERGIZED", "WISDOM", "CHAOS"),
+                       "POWER": ("EXPERTISE", "CURIOUS", "IMPROVEMENT")}[action.target_id.upper()]
+            selected_riders = tuple(source_sample(rng, choices, 2))
+            next_flow = replace(next_flow, data={**next_flow.data,
+                "tinker_rider_choices": selected_riders})
     event = _event_state_from_flow(
         next_state,
         event_id=state.event.event_id,
         name=state.event.name,
         node=_current_map_node(state),
         flow_state=next_flow,
-        resolved_option_id=option.option_id if resolution.terminal else None,
+        resolved_option_id=(option.option_id if next_flow.terminal
+                            or not current_event_flow_page(next_flow).options else None),
     )
     next_phase = RunPhase.FAILED if next_state.player.hp <= 0 else RunPhase.EVENT
     next_state = next_state.model_copy(

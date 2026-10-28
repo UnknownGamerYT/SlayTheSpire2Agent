@@ -1435,27 +1435,33 @@ def _tinker_time_page(state: EventFlowState) -> EventFlowPage:
             ),
         )
     if state.page_id == "CHOOSE_CARD_TYPE":
-        return EventFlowPage(
-            "CHOOSE_CARD_TYPE",
-            "Choose the base type for the custom card.",
-            (
-                _tinker_card_type_option("ATTACK", "Weapon", "attack"),
-                _tinker_card_type_option("SKILL", "Protector", "skill"),
-                _tinker_card_type_option("POWER", "Gadget", "power"),
-            ),
-        )
+        specs = {"ATTACK": ("Weapon", "attack"), "SKILL": ("Protector", "skill"),
+                 "POWER": ("Gadget", "power")}
+        ids = (_source_choice_ids(state, "tinker_type_choices")
+               if state.data.get("source_runtime") else tuple(specs))
+        return EventFlowPage("CHOOSE_CARD_TYPE", "Choose the base type for the custom card.",
+            tuple(_tinker_card_type_option(option_id, *specs[option_id]) for option_id in ids))
     if state.page_id == "CHOOSE_RIDER":
         card_type = str(state.data.get("custom_card_type", "attack")).lower()
         rider_ids = _TINKER_RIDER_IDS_BY_CARD_TYPE.get(
             card_type,
             tuple(_TINKER_RIDER_SPECS),
         )
+        if state.data.get("source_runtime"):
+            rider_ids = _source_choice_ids(state, "tinker_rider_choices")
         return EventFlowPage(
             "CHOOSE_RIDER",
             "Choose the rider text for the custom card.",
             tuple(_tinker_rider_option(option_id) for option_id in rider_ids),
         )
     return _terminal_page(state.page_id, "Tinker Time terminal page.")
+
+
+def _source_choice_ids(state: EventFlowState, key: str) -> tuple[str, ...]:
+    raw = state.data.get(key, ())
+    if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+        return tuple(str(value) for value in raw)
+    return ()
 
 
 def _tinker_card_type_option(

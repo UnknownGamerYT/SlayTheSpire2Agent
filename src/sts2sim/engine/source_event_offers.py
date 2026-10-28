@@ -11,6 +11,7 @@ from sts2sim.mechanics.relic_bag_runtime import (
     has_source_relic_bag,
     source_relic_rarity,
 )
+from sts2sim.mechanics.source_rng import float32, source_float
 
 from .models import EventOptionState, EventState, RunState
 from .rng import random_stream
@@ -34,7 +35,24 @@ def native_dynamic_offers(
     event_id = event.event_id.upper()
     options = list(event.options)
     metadata = dict(event.metadata)
-    if event_id == 'SLIPPERY_BRIDGE':
+    if event_id == 'FAKE_MERCHANT':
+        relics = ['fake_anchor', 'fake_blood_vial', 'fake_happy_flower', 'fake_lees_waffle',
+                  'fake_mango', 'fake_orichalcum', 'fake_snecko_eye', 'fake_strike_dummy',
+                  'fake_venerable_tea_set']
+        rng.shuffle(relics)
+        relics = relics[:6]
+        options = []
+        for relic in relics:
+            price = round(float32(50 * source_float(random_stream(rng, 'shops'), .85, 1.15)))
+            options.append(EventOptionState(option_id=f'buy_{relic}', title=relic,
+                description=f'Pay {price} Gold.', disabled=state.player.gold < price,
+                metadata={'source_native_rule': {'selection': '', 'add_relics': (relic,),
+                    'repeat_shop': True, 'required_gold': price},
+                    'source_numeric_effect': {'gold_delta': -price}}))
+        options.append(EventOptionState(option_id='leave', title='Leave', metadata={
+            'source_native_rule': {'selection': ''}}))
+        metadata['fake_merchant_unsold_relic_ids'] = tuple(relics)
+    elif event_id == 'SLIPPERY_BRIDGE':
         previous = str(metadata.get('bridge_card_instance_id', ''))
         skipped = set(metadata.get('bridge_skipped_instance_ids', ()))
         removable = [card for card in state.master_deck

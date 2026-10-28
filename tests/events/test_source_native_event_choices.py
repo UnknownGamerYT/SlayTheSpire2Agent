@@ -296,3 +296,19 @@ def test_jungle_solo_consumes_cosmetic_stable_shuffle_of_three_effects():
     assert state.rng.streams['JUNGLE_MAZE_ADVENTURE'].draws == 2
     result = _choose(state, 'solo_quest')
     assert result.rng.streams['JUNGLE_MAZE_ADVENTURE'].draws == 4
+
+
+def test_fake_merchant_shuffles_six_and_prices_them_before_multiple_purchases():
+    state = _event('FAKE_MERCHANT')
+    assert len(state.event.options) == 7
+    assert state.rng.streams['FAKE_MERCHANT'].draws == 8
+    assert state.rng.streams['shops'].draws == 6
+    first = state.event.options[0]
+    cost = first.metadata['source_native_rule']['required_gold']
+    relic = first.metadata['source_native_rule']['add_relics'][0]
+    result = _choose(load_state(serialize(state)), first.option_id)
+    assert result.player.gold == 300 - cost and relic in result.relics
+    assert result.event.resolved_option_id is None
+    assert len(result.event.options) == 6
+    assert relic not in result.event.metadata['fake_merchant_unsold_relic_ids']
+    assert result.rng.streams['shops'].draws == 6
