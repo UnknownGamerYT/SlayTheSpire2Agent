@@ -274,7 +274,7 @@ def test_sic_em_applies_after_osty_hit_and_is_playable_without_osty():
     )
     state = _play(state, "sic_em")
     assert state.combat.metadata["osty"]["max_hp"] == 10
-    assert state.combat.monsters[0].statuses.get("sic_em", 0) == 3
+    assert state.combat.monsters[0].statuses.get("sicem", 0) == 3
     missing = _fight("sic_em")
     missing = missing.model_copy(
         update={
@@ -287,7 +287,7 @@ def test_sic_em_applies_after_osty_hit_and_is_playable_without_osty():
     )
     missing = _play(missing, "sic_em")
     assert missing.combat.monsters[0].hp == 1000
-    assert missing.combat.monsters[0].statuses.get("sic_em", 0) == 3
+    assert missing.combat.monsters[0].statuses.get("sicem", 0) == 3
 
 
 def test_snap_retains_a_card_even_without_osty_and_excludes_already_retained_cards():
@@ -368,3 +368,210 @@ def test_source_fixture_pin_and_rules_are_available():
     assert fixture["game_version"] == "0.107.1"
     assert fixture["source_commit"] == "5d874e855ae1d0550d5c30416fadd7dbb0d133b7"
     assert len(fixture["rules"]) >= 60
+
+
+@pytest.mark.parametrize("upgraded", [False, True])
+def test_dirge_summons_separately_and_generates_one_soul_for_each_x(upgraded):
+    state = _fight("dirge", upgraded=upgraded)
+    player = state.player.model_copy(update={"energy": 3})
+    state = state.model_copy(
+        update={
+            "player": player,
+            "combat": state.combat.model_copy(
+                update={
+                    "player": player,
+                    "metadata": {"osty": {"alive": True, "hp": 10, "max_hp": 10}},
+                }
+            ),
+        }
+    )
+    state = _play(state, "dirge")
+    souls = [c for c in state.combat.draw_pile if c.card_id == "soul"]
+    assert len(souls) == 3 and all(c.upgraded == upgraded for c in souls)
+    assert state.combat.metadata["osty"]["hp"] == 10 + 3 * (4 if upgraded else 3)
+    assert len([e for e in state.combat.last_events if e.kind == "osty_summoned"]) == 3
+
+
+@pytest.mark.parametrize("card_id,expected", [("genetic_algorithm", 4), ("the_scythe", 17)])
+def test_permanent_growth_updates_deck_version_and_combat_physical_card(card_id, expected):
+    state = _play(_fight(card_id), card_id)
+    key = "block" if card_id == "genetic_algorithm" else "damage"
+    physical = next(c for c in state.combat.exhaust_pile if c.card_id == card_id)
+    deck_card = next(c for c in state.master_deck if c.card_id == card_id)
+    assert physical.effects["sequence"][0][key] == expected
+    assert deck_card.effects["sequence"][0][key] == expected
+    state = _reload(state)
+    assert (
+        next(c for c in state.master_deck if c.card_id == card_id).effects["sequence"][0][key]
+        == expected
+    )
+
+
+def test_flak_cannon_exhausts_statuses_from_all_non_exhaust_piles():
+    state = _fight("flak_cannon", "wound")
+    state = _with_discard(state, "dazed")
+    burn = _source_card("burn")
+    state = state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={"draw_pile": (burn,) + state.combat.draw_pile}
+            )
+        }
+    )
+    state = _play(state, "flak_cannon")
+    assert {c.card_id for c in state.combat.exhaust_pile} == {"wound", "dazed", "burn"}
+    assert state.combat.monsters[0].hp == 976
+
+
+@pytest.mark.parametrize("upgraded", [False, True])
+def test_shatter_evokes_each_original_orb_twice(upgraded):
+    state = _fight("shatter", upgraded=upgraded, orbs=("lightning", "frost"))
+    state = _play(state, "shatter")
+    assert not state.combat.orbs
+    assert state.player.block == 10
+    assert state.combat.monsters[0].hp == 1000 - (11 if upgraded else 7) - 16
+
+
+def test_first_forge_creates_a_real_blade_and_later_forge_buffs_without_duplicates():
+    state = _fight("bulwark", "refine_blade")
+    state = _play(state, "bulwark")
+    blades = [c for c in _zones(state) if c.card_id == "sovereign_blade"]
+    assert len(blades) == 1 and blades[0].cost == 2
+    assert blades[0].effects["sequence"] == [{"damage": 20}]
+    state = _play(_reload(state), "refine_blade")
+    blades = [c for c in _zones(state) if c.card_id == "sovereign_blade"]
+    assert len(blades) == 1 and blades[0].effects["sequence"] == [{"damage": 29}]
+    state = _play(state, "sovereign_blade")
+    assert state.combat.monsters[0].hp == 971
+
+
+def test_forge_with_only_exhausted_blade_creates_another_and_buffs_both():
+    state = _fight("bulwark")
+    blade = _source_card("sovereign_blade")
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"exhaust_pile": (blade,)})}
+    )
+    state = _play(state, "bulwark")
+    blades = [c for c in _zones(state) if c.card_id == "sovereign_blade"]
+    assert len(blades) == 2
+    assert all(c.effects["sequence"] == [{"damage": 20}] for c in blades)
+
+
+def test_blade_powers_apply_to_blades_created_later_and_stack_replay():
+    state = _fight("parry", "sword_sage", "seeking_edge", monster_count=2)
+    state = _play(_play(_play(state, "parry"), "sword_sage"), "seeking_edge")
+    blade = next(c for c in state.combat.hand if c.card_id == "sovereign_blade")
+    assert blade.target.value == "all_enemies"
+    assert blade.custom["replay"] == 1
+    assert blade.effects["sequence"] == [{"all_damage": 17}, {"block": 10}]
+    state = _play(_reload(state), "sovereign_blade")
+    assert all(m.hp == 966 for m in state.combat.monsters)
+    assert state.player.block == 20
+
+
+def test_sculpting_strike_and_transfigure_use_public_card_choice():
+    state = _fight("sculpting_strike", "transfigure", "leap")
+    state = _play(state, "sculpting_strike")
+    state = step(
+        state,
+        next(
+            a
+            for a in legal_actions(state)
+            if a.type == "choose_card" and a.card_instance_id == "leap"
+        ),
+    )
+    assert next(c for c in state.combat.hand if c.card_id == "leap").custom["ethereal"]
+    state = _play(state, "transfigure")
+    state = _choose_all(state)
+    leap = next(c for c in state.combat.hand if c.card_id == "leap")
+    assert leap.cost == 2 and leap.custom["replay"] == 1
+    state = _play(state, "leap")
+    assert state.player.block == 18
+
+
+@pytest.mark.parametrize("upgraded", [False, True])
+def test_tesla_coil_targets_its_lightning_passives_at_selected_enemy(upgraded):
+    state = _fight(
+        "tesla_coil", upgraded=upgraded, monster_count=2, orbs=("lightning", "lightning", "frost")
+    )
+    state = _play(state, "tesla_coil")
+    assert state.combat.monsters[0].hp == 1000 - (4 + 12 if upgraded else 3 + 6)
+    assert state.combat.monsters[1].hp == 1000
+    assert len(state.combat.orbs) == 3
+
+
+@pytest.mark.parametrize("artifact", [0, 1])
+def test_borrowed_time_cost_debuff_is_blocked_by_artifact(artifact):
+    state = _fight("borrowed_time", "leap", statuses={"artifact": artifact})
+    state = _play(state, "borrowed_time")
+    energy = state.player.energy
+    state = _play(_reload(state), "leap")
+    assert state.player.energy == energy - (1 if artifact else 2)
+
+
+def test_energy_surge_includes_self_and_living_player_teammates():
+    state = _fight("energy_surge")
+    state = state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={
+                    "metadata": {
+                        "allies": (
+                            {"id": "ally", "energy": 1},
+                            {"id": "dead", "energy": 1, "alive": False},
+                        ),
+                    }
+                }
+            )
+        }
+    )
+    state = _play(state, "energy_surge")
+    assert state.player.energy == 21
+    assert state.combat.metadata["allies"][0]["energy"] == 3
+    assert state.combat.metadata["allies"][1]["energy"] == 1
+
+
+def test_orbit_refunds_actual_energy_spent_once_when_card_replays():
+    state = _fight("orbit", "meteor_strike")
+    meteor = state.combat.hand[1]
+    meteor = meteor.model_copy(update={"custom": {**meteor.custom, "replay": 1}})
+    state = state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={"hand": (state.combat.hand[0], meteor), "orb_slots": 0}
+            )
+        }
+    )
+    state = _play(_play(state, "orbit"), "meteor_strike")
+    assert state.player.energy == 14  # 20 - Orbit 2 - Meteor 5 + one refund.
+
+
+def test_random_generation_stops_when_distinct_pool_is_exhausted():
+    state = _fight("bundle_of_joy")
+    token = {"id": "ONLY_OPTION", "type": "Skill", "cost": 0, "color": "colorless"}
+    state = state.model_copy(update={"flags": {**state.flags, "card_pool": (token,)}})
+    state = _play(state, "bundle_of_joy")
+    assert len(state.combat.hand) == 1
+    assert state.combat.hand[0].card_id == "only_option"
+
+
+def test_zero_forge_creates_missing_blade_and_dispatches_after_forge():
+    state = _fight("bulwark", "hammer_time")
+    zero_forge = state.combat.hand[0].model_copy(
+        update={"effects": {"player_resource": {"resource": "forge", "amount": 0}}}
+    )
+    state = state.model_copy(
+        update={
+            "combat": state.combat.model_copy(
+                update={
+                    "hand": (zero_forge, state.combat.hand[1]),
+                    "metadata": {"allies": ({"id": "ally"},)},
+                }
+            )
+        }
+    )
+    state = _play(_play(state, "hammer_time"), "bulwark")
+    blades = [c for c in state.combat.hand if c.card_id == "sovereign_blade"]
+    assert len(blades) == 1
+    assert blades[0].effects["sequence"] == [{"damage": 10}]
+    assert any(e.kind == "ally_forge_triggered" and e.amount == 0 for e in state.combat.last_events)

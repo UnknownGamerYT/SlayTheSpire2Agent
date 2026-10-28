@@ -389,14 +389,15 @@ def test_random_source_pool_creation_overflow_preserves_count_and_unique_ids() -
         update={
             "flags": {
                 **state.flags,
-                "card_pool": (
+                "card_pool": tuple(
                     {
-                        "id": "TOKEN",
-                        "name": "Token",
+                        "id": f"TOKEN_{index}",
+                        "name": f"Token {index}",
                         "type": "Skill",
                         "color": "test",
                         "cost": 0,
-                    },
+                    }
+                    for index in range(3)
                 ),
             }
         }
@@ -404,7 +405,9 @@ def test_random_source_pool_creation_overflow_preserves_count_and_unique_ids() -
     state = _play(state, "generator")
     assert len(state.combat.hand) == 10
     tokens = [
-        card for card in state.combat.hand + state.combat.discard_pile if card.card_id == "token"
+        card
+        for card in state.combat.hand + state.combat.discard_pile
+        if card.card_id.startswith("token_")
     ]
     assert len(tokens) == len({card.instance_id for card in tokens}) == 3
     assert state.player.statuses["strength"] == 3

@@ -308,9 +308,7 @@ def test_howl_from_beyond_exhaust_pile_timing_is_preserved() -> None:
                         }
                     },
                 ),
-                "text": (
-                    "at the end of your turn, if this is in your exhaust pile, play it"
-                ),
+                "text": ("at the end of your turn, if this is in your exhaust pile, play it"),
             }
         },
     )
@@ -396,25 +394,21 @@ def test_direct_sovereign_blade_cards_ignore_stale_power_and_spawn_fields() -> N
             "type": "Power",
             "target": "Self",
             "cost": 2,
-            "powers_applied": [
-                {"amount": 1, "power": "Sword Sage", "power_key": "SwordSage"}
-            ],
+            "powers_applied": [{"amount": 1, "power": "Sword Sage", "power_key": "SwordSage"}],
             "spawns_cards": ["SOVEREIGN_BLADE"],
             "description": "[gold]Sovereign Blade[/gold] gains [gold]Replay[/gold] 1.",
         }
     )
 
-    assert parry.steps == ({"sovereign_blade": {"action": "gain_block", "amount": 10}},)
+    assert parry.steps == (
+        {"source_class": {"operation": "blade_power", "power": "parry", "amount": 10}},
+    )
     assert sage.steps == (
         {
-            "add_keyword_to_matching_cards": {
-                "keyword": "replay",
+            "source_class": {
+                "operation": "blade_power",
+                "power": "sword_sage",
                 "amount": 1,
-                "filter": {
-                    "card_id_contains": "sovereign_blade",
-                    "exclude_keyword": "replay",
-                },
-                "zones": ("hand", "draw_pile", "discard_pile", "exhaust_pile"),
             }
         },
     )
@@ -440,9 +434,7 @@ def test_upgraded_description_drives_tesla_coil_and_parry_plus_markers() -> None
         "powers_applied": [{"amount": 10, "power": "Parry", "power_key": "Parry"}],
         "spawns_cards": ["SOVEREIGN_BLADE"],
         "description": "[gold]Sovereign Blade[/gold] now gains 10 [gold]Block[/gold].",
-        "upgrade_description": (
-            "[gold]Sovereign Blade[/gold] now gains 14 [gold]Block[/gold]."
-        ),
+        "upgrade_description": ("[gold]Sovereign Blade[/gold] now gains 14 [gold]Block[/gold]."),
     }
 
     tesla = card_effect_plan({**tesla_base, "upgraded": True, "damage": 4})
@@ -450,9 +442,11 @@ def test_upgraded_description_drives_tesla_coil_and_parry_plus_markers() -> None
 
     assert tesla.steps == (
         {"damage": 4},
-        {"trigger_orb_passive": {"selector": "all", "amount": 2, "orb_filter": "lightning"}},
+        {"source_class": {"operation": "target_lightning", "repeats": 2}},
     )
-    assert parry.steps == ({"sovereign_blade": {"action": "gain_block", "amount": 14}},)
+    assert parry.steps == (
+        {"source_class": {"operation": "blade_power", "power": "parry", "amount": 14}},
+    )
 
 
 def test_next_card_extra_play_duration_follows_this_turn_text() -> None:
@@ -530,8 +524,7 @@ def test_more_dynamic_and_generated_text_becomes_engine_steps() -> None:
             "type": "Skill",
             "target": "Self",
             "description": (
-                "Add a random Attack into your [gold]Hand[/gold]. "
-                "It's free to play this turn."
+                "Add a random Attack into your [gold]Hand[/gold]. It's free to play this turn."
             ),
         }
     )
@@ -658,9 +651,7 @@ def test_status_loss_and_enemy_defense_text_becomes_engine_steps() -> None:
             "id": "MALAISE",
             "type": "Skill",
             "target": "AnyEnemy",
-            "description": (
-                "Enemy loses X [gold]Strength[/gold]. Apply X [gold]Weak[/gold]."
-            ),
+            "description": ("Enemy loses X [gold]Strength[/gold]. Apply X [gold]Weak[/gold]."),
         }
     )
     times_up = normalize_card_effect_steps(
@@ -672,12 +663,8 @@ def test_status_loss_and_enemy_defense_text_becomes_engine_steps() -> None:
         }
     )
 
-    assert dark_shackles == (
-        {"apply_status": {"target": "enemy", "temporary_strength": -9}},
-    )
-    assert shockwave == (
-        {"apply_status": {"target": "all_enemies", "weak": 3, "vulnerable": 3}},
-    )
+    assert dark_shackles == ({"apply_status": {"target": "enemy", "temporary_strength": -9}},)
+    assert shockwave == ({"apply_status": {"target": "all_enemies", "weak": 3, "vulnerable": 3}},)
     assert expose == (
         {"remove_status": {"target": "enemy", "statuses": ("artifact",)}},
         {"remove_block": {"target": "enemy"}},

@@ -386,7 +386,8 @@ def test_dynamic_forge_uses_previous_hits_on_target_this_turn() -> None:
     state = _play_card(state, "beat_into_shape")
 
     assert state.combat is not None
-    assert state.combat.player.resources["forge"] == 6
+    # Stable BeatIntoShape: base 5 Forge plus 5 per previous powered hit.
+    assert state.combat.player.resources["forge"] == 10
 
 
 def test_temporary_focus_scales_orb_passive_triggers_until_turn_end() -> None:
@@ -1977,13 +1978,21 @@ def test_sic_em_grants_summon_when_osty_hits_marked_enemy() -> None:
                 "powers_applied": [{"power": "SicEm", "amount": 2}],
                 "tags": ("OstyAttack",),
             },
+            {
+                "id": "POKE", "name": "Poke", "type": "Attack", "target": "Enemy",
+                "cost": 0, "description": "Osty deals 6 damage.",
+                "damage": 6, "tags": ("OstyAttack",),
+            },
         ),
-        flags={"draw_per_turn": 1},
+        flags={"draw_per_turn": 2},
     )
 
     state = _play_card(state, "sic_em")
 
     assert state.combat is not None
+    # SicEm.OnPlay installs the debuff after its own damage command.
+    assert state.combat.player.resources.get("summon", 0) == 0
+    state = _play_card(state, "poke")
     assert state.combat.player.resources["summon"] == 2
     assert state.combat.metadata["osty"]["hp"] == 22
     assert state.combat.metadata["osty"]["max_hp"] == 22

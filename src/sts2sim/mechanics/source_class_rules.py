@@ -91,6 +91,25 @@ def source_class_steps(
         )
     if card_id == "reflect":
         return ({"block": block}, status("reflect", 1))
+    if card_id == "parry":
+        return (marker("blade_power", power="parry", amount=number(r"gains (\d+) block", 10)),)
+    if card_id == "seeking_edge" and "forge" in text:
+        return (
+            marker("blade_power", power="seeking_edge", amount=1),
+            resource("forge", number(r"forge (\d+)", 7)),
+        )
+    if card_id == "sword_sage" and "replay" in text:
+        return (marker("blade_power", power="sword_sage", amount=number(r"replay (\d+)", 1)),)
+    if card_id == "shatter":
+        return ({"all_damage": damage}, marker("shatter"))
+    if card_id == "tesla_coil":
+        return ({"damage": damage}, marker("target_lightning", repeats=2 if upgraded else 1))
+    if card_id == "whistle":
+        return ({"damage": damage}, marker("stun"))
+    if card_id == "stack":
+        return ({"block_formula": {"formula": "discard_pile_count", "base": 3 if upgraded else 0}},)
+    if card_id == "conqueror" and "forge" in text:
+        return (resource("forge", number(r"forge (\d+)", 3)), status("conqueror", 1, "enemy"))
 
     if card_id in {"charge_battery", "delay", "hegemony", "refine_blade", "outmaneuver"}:
         first = tuple(
@@ -265,7 +284,7 @@ def source_class_steps(
             generated(token, "hand" if token == "debris" else "discard_pile", generated_count),
         )
     if card_id == "energy_surge":
-        return ({"energy": number(r"gain \[energy:(\d+)\]", 2)},)
+        return (marker("all_players_energy", amount=number(r"gain \[energy:(\d+)\]", 2)),)
 
     if card_id == "sic_em":
         return (
@@ -276,7 +295,7 @@ def source_class_steps(
                     "amount": number(r"deals (\d+) damage"),
                 }
             },
-            status("sic_em", number(r"summon (\d+)"), "enemy"),
+            status("sicem", number(r"summon (\d+)"), "enemy"),
         )
     if card_id == "fetch":
         return ({"conditional": {"condition": {"osty_alive": True}, "effects": steps}},)

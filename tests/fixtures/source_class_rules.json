@@ -508,6 +508,56 @@
       "card_id": "SHINING_STRIKE",
       "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/ShiningStrike.cs",
       "expected_behavior": "Damage, gain Stars, then put physical card atop draw unless exhausted."
+    },
+    {
+      "card_id": "FORGE_COMMAND",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Commands/ForgeCmd.cs",
+      "expected_behavior": "Create a Blade when no non-exhausted Blade exists, then add Forge damage to every Blade including exhausted ones."
+    },
+    {
+      "card_id": "PARRY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Parry.cs",
+      "expected_behavior": "Install persistent Parry power; all current and later Sovereign Blades gain its powered Block after damage."
+    },
+    {
+      "card_id": "SEEKING_EDGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SeekingEdge.cs",
+      "expected_behavior": "Install persistent all-enemy Blade targeting before Forge."
+    },
+    {
+      "card_id": "SWORD_SAGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/SwordSagePower.cs",
+      "expected_behavior": "Each application adds Replay to existing and newly entered non-clone Blades."
+    },
+    {
+      "card_id": "SHATTER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Shatter.cs",
+      "expected_behavior": "All-enemy damage then each original rightmost Orb evokes twice and is removed."
+    },
+    {
+      "card_id": "TESLA_COIL",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/TeslaCoil.cs",
+      "expected_behavior": "Attack target, then trigger every Lightning against that target once or twice when upgraded."
+    },
+    {
+      "card_id": "REFLECT",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/ReflectPower.cs",
+      "expected_behavior": "Reflect actual blocked powered attack damage as unpowered damage to dealer; decrement on next owner side-turn start."
+    },
+    {
+      "card_id": "FURNACE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Furnace.cs",
+      "expected_behavior": "Install 5 Forge per turn or 7 upgraded, without immediate Forge."
+    },
+    {
+      "card_id": "WHISTLE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Whistle.cs",
+      "expected_behavior": "Deal damage then stun the surviving selected enemy."
+    },
+    {
+      "card_id": "STACK",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Stack.cs",
+      "expected_behavior": "Powered Block equals discard count, plus three when upgraded."
     }
   ]
 }

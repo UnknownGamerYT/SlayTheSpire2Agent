@@ -15593,6 +15593,7 @@ def _apply_card_effects(
         events.extend(facing_events)
     if is_card_play:
         combat = source_class_hooks.before_play(combat, card, energy_spent)
+        card = source_class_hooks.prepare_blade(combat, card)
         combat, card = _reserve_card_status_play(
             combat, card, energy_spent=energy_spent, move_physical=allow_extra_plays
         )
@@ -20872,7 +20873,7 @@ def _forge_allies_events(
     amount: int,
     effect: Mapping[str, Any],
 ) -> tuple[EffectEvent, ...]:
-    if amount <= 0:
+    if amount < 0:
         return ()
     return (
         EffectEvent(
@@ -21728,15 +21729,16 @@ def _add_random_pool_cards_to_hand(
     _sort_source_generation_specs(state, candidates, pool)
     generation_rng = random_stream(rng, "combat_card_generation")
     distinct = isinstance(payload, Mapping) and _truthy(payload.get("distinct"))
-    if distinct:
-        generation_rng.shuffle(candidates)
     hand = list(combat.hand)
     discard_pile = list(combat.discard_pile)
     events: list[EffectEvent] = []
     for index in range(count):
         if not candidates:
             break
-        spec = dict(candidates.pop(0) if distinct else generation_rng.choice(candidates))
+        selected_spec = generation_rng.choice(candidates)
+        if distinct:
+            candidates.remove(selected_spec)
+        spec = dict(selected_spec)
         card_id = _normalized_id(str(spec.get("card_id", spec.get("id", f"random_{index}"))))
         spec["card_id"] = card_id
         if upgraded:
@@ -21954,6 +21956,11 @@ def _apply_player_resource_changed_triggers(
         resource = _normalized_resource_id(str(event.metadata.get("resource", "")))
         if not resource:
             continue
+        if resource == "forge":
+            combat, rng_state, forge_events = source_class_hooks.forge_resource(
+                state, combat, rng_state, event,
+            )
+            events.extend(forge_events)
         if resource == "star" and (event.amount or 0) < 0:
             combat, rng_state, block_events = _apply_child_of_the_stars(
                 state, combat, rng_state, -(event.amount or 0),
@@ -22066,7 +22073,7 @@ def _apply_player_resource_effect(
         combat=combat,
         target_id=target_id,
     )
-    if amount == 0:
+    if amount == 0 and resource != "forge":
         return player, ()
     before = _player_resource(player, resource)
     player = _set_player_resource(player, resource, before + amount)
@@ -22732,7 +22739,7 @@ def _tick_status_map(
     statuses = dict(combatant.statuses)
     events: list[EffectEvent] = []
     for status in ("weak", "vulnerable", "frail", "intangible", "retain_hand", "debilitate",
-                   "no_card_block_gain", "reflect"):
+                   "no_card_block_gain", "reflect", "conqueror"):
         amount = statuses.get(status, 0)
         if amount <= 0:
             continue
@@ -22757,6 +22764,8 @@ def _tick_status_map(
         "source_core_colossus",
         "flame_barrier",
         "sicem",
+        "sic_em",
+        "borrowed_time",
         "no_draw_this_turn",
         "double_block_gain_this_turn",
         "temporary_attack_damage_percent",
@@ -30525,6 +30534,11 @@ _ARTIFACT_BLOCKED_STATUSES = frozenset(
         "choking",
         "chains_of_binding",
         "constrict",
+        "borrowed_time",
+        "conqueror",
+        "sicem",
+        "sic_em",
+        "hang",
         "ringing",
         "doom",
         "demise",

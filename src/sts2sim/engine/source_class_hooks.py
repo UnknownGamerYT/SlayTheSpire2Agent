@@ -11,7 +11,7 @@ from typing import Any
 
 from sts2sim.mechanics.triggers import GameTrigger
 
-from .models import CardInstance, CombatState, EffectEvent, RngState, RunState
+from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
 from .rng import capture_random_state, random_from_state
 
 
@@ -135,6 +135,55 @@ def execute(
             amount = int(osty.get("max_hp", 0)) * 2
             apply({"osty_action": {"action": "die"}})
             apply({"block": amount})
+    elif operation == "shatter":
+        # Each original rightmost orb evokes twice and is then removed. This
+        # differs from invoking the generic all-orbs selector once.
+        for _ in range(len(combat.orbs)):
+            apply({"evoke_orb": {"selector": "rightmost", "amount": 2}})
+    elif operation == "target_lightning":
+        count = sum(orb.orb_id == "lightning" for orb in combat.orbs)
+        amount = t._orb_amount(3, t._player_focus(combat.player))
+        for _ in range(count * int(payload["repeats"])):
+            monsters, damage_events = t._damage_monsters(
+                combat.monsters,
+                (target_id,) if target_id else (),
+                amount,
+                "orb:lightning",
+                relics=relics,
+            )
+            combat = combat.model_copy(update={"monsters": tuple(monsters)})
+            events.extend(damage_events)
+    elif operation == "stun":
+        combat = combat.model_copy(
+            update={
+                "monsters": tuple(
+                    item.model_copy(
+                        update={
+                            "statuses": {**item.statuses, "stunned": 1},
+                            "intent": "Stun",
+                            "intent_damage": 0,
+                        }
+                    )
+                    if item.monster_id == target_id and item.hp > 0
+                    else item
+                    for item in combat.monsters
+                )
+            }
+        )
+        event("monster_stunned", 1, target_id=target_id)
+    elif operation == "all_players_energy":
+        amount = int(payload["amount"])
+        apply({"energy": amount})
+        allies = tuple(
+            {**ally, "energy": int(ally.get("energy", 0)) + amount}
+            if ally.get("alive", True) and ally.get("is_player", True)
+            else ally
+            for ally in t._ally_states(combat)
+        )
+        combat = combat.model_copy(update={"metadata": {**combat.metadata, "allies": allies}})
+    elif operation == "blade_power":
+        apply({"apply_status": {"target": "self", str(payload["power"]): int(payload["amount"])}})
+        combat = refresh_blades(combat)
     elif operation == "retrieve":
         zones = (
             ("draw_pile", "discard_pile", "exhaust_pile")
@@ -249,7 +298,7 @@ def execute(
                 )
                 events.append(
                     EffectEvent(
-                        kind="monster_died",
+                        kind="monster_defeated",
                         source_id=card.instance_id,
                         target_id=monster.monster_id,
                         amount=monster.hp,
@@ -274,7 +323,9 @@ def execute(
         target = next((m for m in combat.monsters if m.monster_id == target_id), None)
         amount = max(1, t._status_amount(target.statuses, "hang")) if target is not None else 1
         if operation == "hang_damage":
-            apply({"damage": int(payload["amount"]) * amount})
+            # HangPower's multiplier belongs in target damage math, after
+            # additive Strength, together with Vulnerable and other factors.
+            apply({"damage": int(payload["amount"])})
         else:
             apply({"apply_status": {"target": "enemy", "hang": amount if amount > 1 else 2}})
     elif operation == "beat_forge":
@@ -442,8 +493,21 @@ def execute(
     elif operation == "install_cost":
         powers = dict(t._mapping_from(combat.metadata.get("source_class_cost_powers")))
         power = str(payload["power"])
+        if power == "borrowed_time":
+            apply({"apply_status": {"target": "self", "borrowed_time": int(payload["amount"])}})
+            return combat, rng_state, tuple(events)
         stored = dict(t._mapping_from(powers.get(power)))
         stored["amount"] = int(stored.get("amount", 0)) + int(payload["amount"])
+        if power == "orbit":
+            instances = list(t._source_sequence(stored.get("instances")))
+            instances.append(
+                {
+                    "spent": 0,
+                    "seen": t._metadata_int(combat.metadata, "energy_spent_this_turn", 0),
+                    "turn": combat.turn,
+                }
+            )
+            stored["instances"] = instances
         if payload.get("duration") == "turn":
             stored["turn"] = combat.turn
         powers[power] = stored
@@ -535,6 +599,91 @@ def preserve_changes(before: CardInstance, after: CardInstance) -> CardInstance:
     return after
 
 
+def prepare_blade(combat: CombatState, card: CardInstance) -> CardInstance:
+    from . import transitions as t
+
+    if not t._is_sovereign_blade_card(card):
+        return card
+    amount = t._sovereign_blade_base_damage(card)
+    hits = t._sovereign_blade_hit_count(card)
+    custom = dict(card.custom)
+    seeking = t._status_amount(combat.player.statuses, "seeking_edge") > 0
+    target = TargetType.ALL_ENEMIES if seeking else card.target
+    steps = [
+        {"all_damage" if target == TargetType.ALL_ENEMIES else "damage": amount}
+        for _ in range(hits)
+    ]
+    parry = t._status_amount(combat.player.statuses, "parry")
+    if parry:
+        steps.append({"block": parry})
+    sage = t._status_amount(combat.player.statuses, "sword_sage")
+    applied = int(custom.get("source_class_sage_applied", 0))
+    if sage > applied:
+        custom["replay"] = int(custom.get("replay", 0)) + sage - applied
+        custom["source_class_sage_applied"] = sage
+    return card.model_copy(
+        update={"target": target, "effects": {"sequence": steps}, "custom": custom}
+    )
+
+
+def refresh_blades(combat: CombatState) -> CombatState:
+    from . import transitions as t
+
+    for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile"):
+        items = tuple(prepare_blade(combat, item) for item in t._cards_in_combat_zone(combat, zone))
+        combat = t._set_combat_zone_cards(combat, zone, items)
+    return combat
+
+
+def forge_resource(
+    state: RunState,
+    combat: CombatState,
+    rng_state: RngState,
+    event: EffectEvent,
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    from . import transitions as t
+
+    if event.kind != "player_resource_changed" or event.metadata.get("resource") != "forge":
+        return combat, rng_state, ()
+    amount = int(event.amount or 0)
+    if amount < 0:
+        return combat, rng_state, ()
+    events: tuple[EffectEvent, ...] = ()
+    blades = tuple(
+        item
+        for zone in (combat.hand, combat.draw_pile, combat.discard_pile)
+        for item in zone
+        if t._is_sovereign_blade_card(item)
+    )
+    if not blades:
+        source = CardInstance(
+            instance_id=event.source_id or "forge", card_id="forge", type=CardType.SKILL
+        )
+        spec = t._reward_card_spec(state, "sovereign_blade")
+        combat, rng_state, events = t._apply_effect_step(
+            state=state,
+            combat=combat,
+            rng_state=rng_state,
+            card=source,
+            target_id=None,
+            energy_spent=0,
+            effect={"add_card_to_hand": {"card": spec}},
+            relics=state.relics,
+        )
+    for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile"):
+        cards = []
+        for item in t._cards_in_combat_zone(combat, zone):
+            if t._is_sovereign_blade_card(item):
+                damage = t._sovereign_blade_base_damage(item) + amount
+                item = item.model_copy(
+                    update={"custom": {**item.custom, "sovereign_blade_base_damage": damage}}
+                )
+                item = prepare_blade(combat, item)
+            cards.append(item)
+        combat = t._set_combat_zone_cards(combat, zone, cards)
+    return combat, rng_state, events
+
+
 def energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> int:
     from . import transitions as t
 
@@ -551,9 +700,7 @@ def energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> in
             return 0
     if card.card_id.lower() == "banshees_cry":
         cost -= 2 * t._metadata_int(combat.metadata, "source_class_ethereal_plays", 0)
-    borrowed = t._mapping_from(powers.get("borrowed_time"))
-    if borrowed.get("turn") == combat.turn:
-        cost += int(borrowed.get("amount", 0))
+    cost += t._status_amount(combat.player.statuses, "borrowed_time")
     return cost
 
 
@@ -573,14 +720,25 @@ def before_play(combat: CombatState, card: CardInstance, energy_spent: int) -> C
     orbit = dict(t._mapping_from(powers.get("orbit")))
     refund = 0
     if orbit:
-        spent = int(orbit.get("spent", 0)) + energy_spent
-        refund = (spent // 4 - int(orbit.get("spent", 0)) // 4) * int(orbit.get("amount", 1))
-        orbit["spent"] = spent
+        instances = []
+        total = t._metadata_int(combat.metadata, "energy_spent_this_turn", 0)
+        for raw in t._source_sequence(orbit.get("instances")):
+            instance = dict(t._mapping_from(raw))
+            seen = int(instance.get("seen", 0)) if instance.get("turn") == combat.turn else 0
+            old_spent = int(instance.get("spent", 0))
+            spent = old_spent + max(0, total - seen)
+            refund += spent // 4 - old_spent // 4
+            instances.append({"seen": total, "spent": spent, "turn": combat.turn})
+        orbit["instances"] = instances
         powers["orbit"] = orbit
     metadata["source_class_cost_powers"] = powers
     player = combat.player
     if refund:
-        player = player.model_copy(update={"energy": player.energy + refund})
+        from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
+
+        player = player.model_copy(
+            update={"energy": player.energy + permitted_energy_delta(player.statuses, refund)}
+        )
     return combat.model_copy(update={"metadata": metadata, "player": player})
 
 
