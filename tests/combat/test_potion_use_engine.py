@@ -642,10 +642,9 @@ def test_soldiers_stew_adds_replay_to_strikes_across_combat_piles() -> None:
     state = _enter_monster_combat(state)
     assert state.combat is not None
     cards_by_zone = {
-        "hand": (_card("strike_hand", card_type="attack", target="enemy", damage=1),),
-        "draw_pile": (_card("strike_draw", card_type="attack", target="enemy", damage=1),),
-        "discard_pile": (_card("strike_discard", card_type="attack", target="enemy", damage=1),),
-        "exhaust_pile": (_card("strike_exhaust", card_type="attack", target="enemy", damage=1),),
+        zone: (_card(f"strike_{zone}", card_type="attack", target="enemy", damage=1)
+               .model_copy(update={"tags": ("strike",)}),)
+        for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
     }
     state = state.model_copy(
         update={"combat": state.combat.model_copy(update={**cards_by_zone})}
@@ -661,7 +660,7 @@ def test_soldiers_stew_adds_replay_to_strikes_across_combat_piles() -> None:
         + state.combat.exhaust_pile
     )
     assert all(
-        any(enchantment.keyword == "replay" for enchantment in card.enchantments)
+        card.custom.get("base_replay_bonus") == 1
         for card in all_cards
     )
 

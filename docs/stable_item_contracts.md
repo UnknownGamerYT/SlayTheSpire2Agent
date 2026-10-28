@@ -121,3 +121,23 @@ Artifact blocking its negative Dexterity removal. Lethal damage skips the source
 AfterDamageReceived callbacks before Fairy restores HP; surviving monster hits
 resolve Centennial Puzzle and other damage-received relics before the next hit,
 transferring any draw/shuffle RNG changes back to the combat RNG bank.
+
+Gold gains use one source modifier pass before the gain: Bowler Hat multiplies
+by 1.25 and truncates once; Ectoplasm reduces the gain to zero. Dragon Fruit
+observes one notification per successful gain, including separate Lucky Fysh
+gains for separate added cards, and receives none when Ectoplasm prevents a gain.
+Direct room/reward/pickup/card/deck/merchant/heist gain paths share the helper;
+the legacy event adapter rewrites its gain event to the actual resulting amount.
+New Leaf's chosen transformation uses the run Niche RNG stream. Tests retain
+source RNG stream changes and reloads alongside positive and prevented gains.
+
+Clarity and Radiant Tincture stack three turns of duration per use, applying one
+extra normal hand draw or one extra Energy per future turn. Clarity's draw belongs
+to the hand draw and works with Fiddle. Snecko Oil uses CombatEnergyCosts and its
+absolute Energy override expires when the physical card is played or the turn
+ends. Soldiers' Stew checks CanonicalTags/actual Strike tags and increases base
+replay count, without adding an enchantment. The compact CanonicalTags registry
+also covers Defend, OstyAttack, Shiv and Minion tags for other consumers.
+Regen Potion heals and decays at the owner's side end before enemy attacks. Heart
+of Iron's Plating decays at the next owner side start, rather than on damage hits.
+Blood Potion truncates one fifth of maximum HP with no minimum heal of one.

@@ -565,3 +565,108 @@ def test_lethal_potion_damage_consumes_fairy_and_runs_both_potion_callbacks():
     assert state.player.statuses["strength_down"] == 6
     assert state.player.statuses["dexterity"] == 2
     assert not state.combat.metadata["relic_counters"].get("demon_tongue")
+
+
+def test_clarity_stacks_duration_and_modifies_fiddle_normal_hand_draw():
+    draw = tuple(_simple(f"draw:{i}") for i in range(20))
+    state = _state(_simple("unused"), draw=draw, relics=("fiddle",))
+    state = _potion(_potion(state, "clarity"), "clarity")
+    assert state.player.statuses["clarity"] == 6
+    assert len(state.combat.hand) == 1  # Direct draws blocked; duration still gained.
+    for remaining in range(5, -1, -1):
+        state = _end_turn(_reload(state))
+        assert len(state.combat.hand) == 3  # Fiddle adds two normal hand draws.
+        assert state.player.statuses.get("clarity", 0) == remaining
+    state = _end_turn(_reload(state))
+    assert len(state.combat.hand) == 2
+
+
+def test_radiance_stacks_six_turns_of_one_energy_instead_of_three_turns_of_two():
+    state = _potion(_potion(_state(_simple("unused")), "radiant_tincture"), "radiant_tincture")
+    assert state.player.statuses["radiance"] == 6
+    for remaining in range(5, -1, -1):
+        state = _end_turn(_reload(state))
+        assert state.player.energy == 21
+        assert state.player.statuses.get("radiance", 0) == remaining
+    state = _end_turn(_reload(state))
+    assert state.player.energy == 20
+
+
+def test_soldiers_stew_uses_source_strike_tag_and_adds_base_replay_without_enchanting():
+    tagged = _simple("not_named_strike", effects={"damage": 2}, card_type="attack",
+                     target="enemy", tags=("strike",))
+    false_match = _simple("strike_in_description", name="Counterstrike", effects={"damage": 2},
+                         card_type="attack", target="enemy")
+    registered = _simple("localized", card_type="attack", target="enemy", effects={"damage": 2})
+    registered = registered.model_copy(update={"card_id": "SOLAR_STRIKE"})
+    state = _state(tagged, false_match, registered)
+    state = _potion(_potion(state, "soldiers_stew"), "soldiers_stew")
+    assert [c.custom.get("base_replay_bonus", 0) for c in state.combat.hand] == [2, 0, 2]
+    assert not any(c.enchantments for c in state.combat.hand)
+    state = _play(_reload(state), "not_named_strike")
+    assert state.combat.monsters[0].hp == 94
+
+
+def test_snecko_oil_uses_energy_cost_rng_and_restores_cost_after_physical_play():
+    card = _simple("reusable", effects={"draw": 0}, cost=2)
+    state = _state(card)
+    state = state.model_copy(update={"rng": capture_random_state(RunRng(
+        "SNECKO", derivation="sts2.v0.107.1.utf16-djb2-splitmix64"))})
+    state = _potion(state, "snecko_oil")
+    assert set(state.rng.streams) == {"combat_energy_costs"}
+    assert state.rng.streams["combat_energy_costs"].draws == 1
+    state = _play(_reload(state), "reusable")
+    card = next(c for c in state.combat.discard_pile if c.instance_id == "reusable")
+    assert card.cost == 2
+    assert "cost_before_randomize" not in card.custom
+
+
+def test_regen_potion_heals_and_decrements_at_owner_side_end_before_enemy_attack():
+    state = _enemies(_state(_simple("unused")), damage=5)
+    player = state.player.model_copy(update={"hp": 1})
+    state = state.model_copy(update={"player": player,
+        "combat": state.combat.model_copy(update={"player": player,
+            "monsters": state.combat.monsters[:1]})})
+    state = _potion(state, "regen_potion")
+    state = _end_turn(_reload(state))
+    assert state.phase == RunPhase.COMBAT
+    assert state.player.hp == 1
+    assert state.player.statuses["regen"] == 4
+    events = state.replay_log[-1].events
+    assert next(i for i, e in enumerate(events) if e.source_id == "regen") < next(
+        i for i, e in enumerate(events) if e.kind == "player_damaged")
+
+
+def test_heart_of_iron_plating_decays_once_at_owner_turn_start_and_not_per_hit():
+    state = _fairy_attack_state(potions=())
+    player = state.player.model_copy(update={"hp": 80})
+    state = state.model_copy(update={"player": player,
+        "combat": state.combat.model_copy(update={"player": player})})
+    state = _potion(state, "heart_of_iron")
+    state = _end_turn(_reload(state))
+    assert state.player.hp == 57  # Seven Block, then three ten-damage hits.
+    assert state.player.statuses["plated_armor"] == 6
+
+
+@pytest.mark.parametrize("free_flag", ["free_to_play_this_turn", "free_to_play_this_combat"])
+def test_snecko_latest_energy_override_takes_precedence_over_prior_free_override(free_flag):
+    card = _simple("reusable", cost=2, custom={free_flag: True, "star_cost": 2})
+    state = _state(card)
+    state = state.model_copy(update={"rng": capture_random_state(RunRng(
+        "SNECKO", derivation="sts2.v0.107.1.utf16-djb2-splitmix64"))})
+    state = _potion(state, "snecko_oil")
+    rolled_cost = state.combat.hand[0].cost
+    assert rolled_cost > 0
+    state = _play(_reload(state), "reusable")
+    assert state.player.energy == 20 - rolled_cost
+    assert state.player.resources["star"] == 20  # Energy override leaves free Stars intact.
+
+
+def test_blood_potion_small_max_hp_has_no_minimum_heal_in_or_out_of_combat():
+    state = _state(_simple("unused"))
+    player = state.player.model_copy(update={"hp": 1, "max_hp": 4})
+    state = state.model_copy(update={"player": player,
+        "combat": state.combat.model_copy(update={"player": player})})
+    assert _potion(state, "blood_potion").player.hp == 1
+    state = state.model_copy(update={"phase": RunPhase.MAP, "combat": None})
+    assert _potion(state, "blood_potion").player.hp == 1

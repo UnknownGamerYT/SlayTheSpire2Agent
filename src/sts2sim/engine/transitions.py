@@ -18,6 +18,7 @@ from sts2sim.content.source_card_pools import (
     SOURCE_CARD_POOLS,
     source_pool_cards,
 )
+from sts2sim.content.source_card_tags import SOURCE_CARD_TAGS
 from sts2sim.content.source_potion_pools import (
     COMBAT_POTION_EXCLUSIONS,
     SOURCE_POTION_RARITIES,
@@ -5583,7 +5584,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
     if normalized == "block_potion":
         return {"block": 12}
     if normalized == "blood_potion":
-        return {"heal": max(1, int(combat.player.max_hp * 0.2))}
+        return {"heal": combat.player.max_hp // 5}
     if normalized == "cure_all":
         return {"energy": 1, "draw": 2}
     if normalized == "energy_potion":
@@ -5782,9 +5783,10 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
         return {
             "add_keyword_to_matching_cards": {
                 "zones": ("hand", "draw_pile", "discard_pile", "exhaust_pile"),
-                "name_contains": "strike",
+                "source_tag": "strike",
                 "keyword": "replay",
                 "amount": 1,
+                "base_replay_bonus": True,
             }
         }
     if normalized == "touch_of_insanity":
@@ -5804,30 +5806,14 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
         return {
             "sequence": [
                 {"draw": 1},
-                {
-                    "combat_trigger": {
-                        "trigger": "turn_start",
-                        "duration": "once",
-                        "remaining_uses": 3,
-                        "effects": ({"draw": 1},),
-                        "text": "Draw 1 additional card at the start of your next 3 turns.",
-                    }
-                },
+                {"apply_status": {"target": "self", "clarity": 3}},
             ]
         }
     if normalized == "radiant_tincture":
         return {
             "sequence": [
                 {"energy": 1},
-                {
-                    "combat_trigger": {
-                        "trigger": "turn_start",
-                        "duration": "once",
-                        "remaining_uses": 3,
-                        "effects": ({"energy": 1},),
-                        "text": "Gain 1 energy at the start of your next 3 turns.",
-                    }
-                },
+                {"apply_status": {"target": "self", "radiance": 3}},
             ]
         }
     if normalized == "shackling_potion":
@@ -12703,6 +12689,26 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     events.extend(tangled_events)
     combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
     events.extend(spawn_events)
+    regen = _status_amount(combat.player.statuses, "regen")
+    if regen > 0 and combat.player.hp > 0:
+        statuses = dict(combat.player.statuses)
+        if regen > 1:
+            statuses["regen"] = regen - 1
+        else:
+            statuses.pop("regen", None)
+        healed = min(regen, combat.player.max_hp - combat.player.hp)
+        if _has_relic(state, "mark_of_the_bloom"):
+            healed = 0
+        combat = combat.model_copy(update={"player": combat.player.model_copy(update={
+            "statuses": statuses, "hp": combat.player.hp + healed,
+        })})
+        events.extend((EffectEvent(
+            kind="player_healed", source_id="regen", target_id=PLAYER_TARGET_ID,
+            amount=healed,
+        ), EffectEvent(
+            kind="status_ticked", source_id="regen", target_id=PLAYER_TARGET_ID,
+            amount=-1, metadata={"status": "regen", "remaining": regen - 1},
+        )))
     combat, potion_expiry_events = _expire_temporary_potion_stats(combat)
     events.extend(potion_expiry_events)
     player = combat.player
@@ -12909,6 +12915,21 @@ def _begin_next_player_turn(
             "metadata": {**_reset_turn_combat_metadata(combat.metadata), "turn_owner": "player"},
         }
     )
+    radiance = _status_amount(combat.player.statuses, "radiance")
+    if radiance > 0:
+        statuses = dict(combat.player.statuses)
+        if radiance > 1:
+            statuses["radiance"] = radiance - 1
+        else:
+            statuses.pop("radiance", None)
+        gained = permitted_energy_delta(statuses, 1)
+        combat = combat.model_copy(update={"player": combat.player.model_copy(update={
+            "statuses": statuses, "energy": combat.player.energy + gained,
+        })})
+        events.append(EffectEvent(
+            kind="energy_changed", source_id="radiance", target_id=PLAYER_TARGET_ID,
+            amount=gained, metadata={"remaining": radiance - 1},
+        ))
     statuses = dict(combat.player.statuses)
     blur = _status_amount(statuses, "blur")
     if blur > 1:
@@ -16174,6 +16195,7 @@ def _apply_card_effects(
         replay_count = max(replay_count, enchantment_replays)
         if not replay_count and _card_has_keyword(card, "replay"):
             replay_count = 1
+        replay_count += max(0, _custom_int(card.custom, "base_replay_bonus", 0))
         for _ in range(replay_count):
             combat = _queue_card_replay(
                 combat,
@@ -18480,6 +18502,11 @@ def _move_played_card_to_destination(
 def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardInstance:
     if card.custom.get("free_to_play_this_turn"):
         card = card.model_copy(update={"custom": {**card.custom, "free_energy_consumed": True}})
+    if "cost_before_randomize" in card.custom:
+        custom = dict(card.custom)
+        cost = custom.pop("cost_before_randomize")
+        custom.pop("randomized_cost_this_turn", None)
+        card = card.model_copy(update={"cost": cost, "custom": custom})
     if "rocket_punch_cost_before_discount" in card.custom:
         custom = dict(card.custom)
         cost = custom.pop("rocket_punch_cost_before_discount")
@@ -20332,7 +20359,7 @@ def _apply_randomize_hand_costs_effect(
         if card.cost is None or card.cost < 0:
             hand.append(card)
             continue
-        new_cost = rng.randrange(4)
+        new_cost = random_stream(rng, "combat_energy_costs").randrange(4)
         custom = dict(card.custom)
         custom.setdefault("cost_before_randomize", card.cost)
         custom["randomized_cost_this_turn"] = new_cost
@@ -20388,12 +20415,15 @@ def _apply_matching_card_keyword_effect(
         for index, card in enumerate(cards):
             if not _trigger_card_matches_filter(card, filter_payload):
                 continue
-            updated = _card_with_added_keyword(
-                card,
-                keyword,
-                amount,
-                source_id=source_card.instance_id,
-            )
+            if _truthy(payload.get("base_replay_bonus")):
+                updated = card.model_copy(update={"custom": {
+                    **card.custom,
+                    "base_replay_bonus": _custom_int(card.custom, "base_replay_bonus", 0) + amount,
+                }})
+            else:
+                updated = _card_with_added_keyword(
+                    card, keyword, amount, source_id=source_card.instance_id,
+                )
             cards[index] = updated
             changed_ids.append(updated.instance_id)
             changed_cards.append(updated.card_id)
@@ -21874,6 +21904,12 @@ def _trigger_card_matches_filter(
     exclude_keyword = _normalized_tag(str(payload.get("exclude_keyword", "")))
     if exclude_keyword and _card_has_keyword(card, exclude_keyword):
         return False
+    source_tag = _normalized_tag(str(payload.get("source_tag", "")))
+    if source_tag and source_tag not in {
+        *(_normalized_tag(tag) for tag in card.tags),
+        *SOURCE_CARD_TAGS.get(_normalized_id(card.card_id), ()),
+    }:
+        return False
     name_contains = _normalized_id(str(payload.get("name_contains", "")))
     if name_contains and name_contains not in _trigger_card_search_text(card):
         return False
@@ -23103,6 +23139,27 @@ def _apply_player_turn_start_effects(
     metadata = dict(combat.metadata)
     events: list[EffectEvent] = []
     extra_draw = max(0, int(statuses.pop("next_turn_draw", 0)))
+    clarity = _status_amount(statuses, "clarity")
+    if clarity > 0:
+        extra_draw += 1
+        if clarity > 1:
+            statuses["clarity"] = clarity - 1
+        else:
+            statuses.pop("clarity", None)
+        events.append(EffectEvent(
+            kind="status_ticked", source_id="clarity", target_id=PLAYER_TARGET_ID,
+            amount=-1, metadata={"status": "clarity", "remaining": clarity - 1},
+        ))
+    plating = _status_amount(statuses, "plated_armor")
+    if plating > 0:
+        if plating > 1:
+            statuses["plated_armor"] = plating - 1
+        else:
+            statuses.pop("plated_armor", None)
+        events.append(EffectEvent(
+            kind="status_ticked", source_id="plating", target_id=PLAYER_TARGET_ID,
+            amount=-1, metadata={"status": "plated_armor", "remaining": plating - 1},
+        ))
 
     energy = max(0, int(statuses.pop("next_turn_energy", 0)))
     if energy:
@@ -23563,13 +23620,6 @@ def _damage_combat_player(
             target_id=PLAYER_TARGET_ID, amount=buffer_prevented,
         ))
     plated_armor_lost = 0
-    if hp_loss > 0 and _status_amount(statuses, "plated_armor") > 0:
-        plated_armor = _status_amount(statuses, "plated_armor")
-        plated_armor_lost = 1
-        if plated_armor > 1:
-            statuses["plated_armor"] = plated_armor - 1
-        else:
-            statuses.pop("plated_armor", None)
     if hp_loss > 0 and _has_relic_id(relics, "self_forming_clay"):
         statuses, clay_event = _apply_status_value(
             statuses,
@@ -23652,13 +23702,6 @@ def _damage_player(
         hp_loss -= tungsten_rod_reduction
     hp_loss, statuses, buffer_prevented = _player_hp_loss_after_buffer(player, hp_loss)
     plated_armor_lost = 0
-    if hp_loss > 0 and _status_amount(statuses, "plated_armor") > 0:
-        plated_armor = _status_amount(statuses, "plated_armor")
-        plated_armor_lost = 1
-        if plated_armor > 1:
-            statuses["plated_armor"] = plated_armor - 1
-        else:
-            statuses.pop("plated_armor", None)
     return (
         player.model_copy(
             update={
@@ -28205,11 +28248,12 @@ def _energy_cost(
         return max(0, available_energy)
     if combat is not None and _void_form_applies(combat):
         return 0
-    if _truthy(card.custom.get("free_to_play_this_turn")) and not _truthy(
-        card.custom.get("free_energy_consumed")
-    ):
+    if (_truthy(card.custom.get("free_to_play_this_turn"))
+        and not _truthy(card.custom.get("free_energy_consumed"))
+        and "randomized_cost_this_turn" not in card.custom):
         return 0
-    if _truthy(card.custom.get("free_to_play_this_combat")):
+    if (_truthy(card.custom.get("free_to_play_this_combat"))
+        and "randomized_cost_this_turn" not in card.custom):
         return 0
     if combat is not None:
         card = _card_after_dynamic_monster_modifiers(combat, card)

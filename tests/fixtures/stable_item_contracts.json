@@ -305,6 +305,66 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Commands/CreatureCmd.cs",
       "sha256": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PlayerCmd.cs",
+      "sha256": "8630f180d829942738c860f96dc6621cae01e7c2402fd33cee871fe21f42f668"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Ectoplasm.cs",
+      "sha256": "064fca6868e0ff78c19ed523f448fd0307df40625f431b1bed43c74025635815"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BowlerHat.cs",
+      "sha256": "87159fa44b87c32f66fa4b6c49989d6d8245a08e48d0465d24c3a0505f6729c0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DragonFruit.cs",
+      "sha256": "582419724356f96b29ebe7e2f17e61a84495890137df14892f77580916a48941"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NewLeaf.cs",
+      "sha256": "2f7b9b9549120353bcf6b219eeafd3ec821e76da0e41b4bfec3687b209bb6ec4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Clarity.cs",
+      "sha256": "1b0dfabd142d9fd5d73a008e1cdfe22a1986f6911930019c80b33219a1f68d9b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/RadiantTincture.cs",
+      "sha256": "45e36e3668f5b54a6d7a4195bdeac8981ed5cc49ea055599e29d33035dd6911a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SoldiersStew.cs",
+      "sha256": "d4d1d958e7477aadbf281610092c3b0fdedc32fd8f9a02cd75be8e23d08884ee"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SneckoOil.cs",
+      "sha256": "1cf94d78db62d8973208535c690fb680ec36a68ac7f8082076fb01c472431f98"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/RegenPotion.cs",
+      "sha256": "0adeee5f2055e46ed5a38b3be6ff5b8bfbe91e7a902505a00ebbe31aaa8529c6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/HeartOfIron.cs",
+      "sha256": "12c271642fcf66b45431263962d631c92893af9ebd4a446708c3d662840d404b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ClarityPower.cs",
+      "sha256": "5bdcc464468e318c2e4f196e093b44318a3a7b3a001a5febb4a0d9d336b34034"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/RadiancePower.cs",
+      "sha256": "c62191ff61c078fe096901da2a272b884468c12aea287c65bf5ed6037e30a364"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/RegenPower.cs",
+      "sha256": "3d95e7b15142a38ac8c32500b7656dc123570cd6a573b4545bd07b7ada3c3d95"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/PlatingPower.cs",
+      "sha256": "d3cd1402c704dcc379caf0981595356d449ccd81da10ff043836e0c1644cc2f1"
     }
   ],
   "cached_source_rows": {
