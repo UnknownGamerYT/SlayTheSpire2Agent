@@ -123,7 +123,7 @@ def test_smoggy_limits_skills_only_and_resets_each_turn_after_real_monster_appli
     assert state.player.statuses["smoggy"] == 1
 
 
-def test_smoggy_reserves_current_skill_before_a_nested_automatic_skill_play() -> None:
+def test_smoggy_afflicts_existing_skills_only_after_a_nested_skill_finishes() -> None:
     state = _end(_state("smoggy"))
     assert state.combat is not None
     first = next(card for card in state.combat.hand if card.instance_id == "skill:1")
@@ -142,17 +142,14 @@ def test_smoggy_reserves_current_skill_before_a_nested_automatic_skill_play() ->
 
     result = _play(state, "skill:1")
 
-    assert result.player.block == 5
+    assert result.player.block == 10
     assert result.combat is not None
-    assert result.combat.metadata["skills_played_this_turn"] == 1
+    assert result.combat.metadata["skills_played_this_turn"] == 2
     assert any(card.instance_id == "skill:2" for card in result.combat.discard_pile)
-    assert any(
-        event.kind == "card_play_blocked" and event.source_id == "smoggy"
-        for event in result.replay_log[-1].events
-    )
+    assert not any(event.kind == "card_play_blocked" for event in result.replay_log[-1].events)
 
 
-def test_tangled_adds_attack_energy_for_two_complete_player_turns_and_replays() -> None:
+def test_tangled_adds_attack_energy_for_one_complete_player_turn_and_replays() -> None:
     state = _state("tangled")
     assert state.combat is not None
     player = state.player.model_copy(update={"energy": 1, "max_energy": 1})
@@ -162,7 +159,7 @@ def test_tangled_adds_attack_energy_for_two_complete_player_turns_and_replays() 
     state = _end(state)
     assert state.combat is not None
     assert state.player.statuses["tangled"] == 1
-    assert state.combat.metadata["tangled_turns_remaining"] == 2
+    assert "tangled_turns_remaining" not in state.combat.metadata
     assert not any(action.card_instance_id == "attack:1" for action in legal_actions(state))
     assert any(action.card_instance_id == "skill:1" for action in legal_actions(state))
     restored = load_state(serialize(state))
@@ -172,11 +169,8 @@ def test_tangled_adds_attack_energy_for_two_complete_player_turns_and_replays() 
 
     assert serialize(first) == serialize(replayed)
     assert first.combat is not None
-    assert first.combat.metadata["tangled_turns_remaining"] == 1
-    assert not any(action.card_instance_id == "attack:1" for action in legal_actions(first))
-    final = _end(first)
-    assert "tangled" not in final.player.statuses
-    assert any(action.card_instance_id == "attack:1" for action in legal_actions(final))
+    assert "tangled" not in first.player.statuses
+    assert any(action.card_instance_id == "attack:1" for action in legal_actions(first))
 
 
 def test_tangled_does_not_override_explicit_free_to_play_cards() -> None:
@@ -189,7 +183,7 @@ def test_tangled_does_not_override_explicit_free_to_play_cards() -> None:
     assert _energy_cost(state.combat.hand[0], 20, combat=state.combat) == 2
 
 
-def test_artifact_blocked_tangled_reapplication_does_not_refresh_its_existing_duration() -> None:
+def test_artifact_blocks_new_tangled_after_prior_tangled_expires_at_owner_end() -> None:
     state = _state("tangled", artifact=True)
     assert state.combat is not None
     player = state.player.model_copy(update={"statuses": {"artifact": 1, "tangled": 1}})
@@ -208,8 +202,8 @@ def test_artifact_blocked_tangled_reapplication_does_not_refresh_its_existing_du
     state = _end(state)
 
     assert state.combat is not None
-    assert state.combat.metadata["tangled_turns_remaining"] == 1
-    assert state.player.statuses["tangled"] == 1
+    assert "tangled_turns_remaining" not in state.combat.metadata
+    assert "tangled" not in state.player.statuses
     assert "artifact" not in state.player.statuses
 
 

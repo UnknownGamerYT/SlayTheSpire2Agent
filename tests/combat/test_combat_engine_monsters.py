@@ -3132,9 +3132,9 @@ def test_ceremonial_beast_ringing_limits_player_to_one_card_next_turn() -> None:
     state = step(state, _end_turn_action(state))
 
     assert state.combat is not None
-    assert state.combat.metadata["turn_card_play_limit"] == 1
+    assert "turn_card_play_limit" not in state.combat.metadata
     assert any(
-        event.kind == "turn_card_play_limit_added" for event in state.combat.last_events
+        card.custom.get("ringing") for card in state.combat.hand
     )
 
     state = _play_first_card(state, "free_hit_a")
@@ -3367,11 +3367,15 @@ def test_spectral_knight_hex_exhausts_hand_cards_at_end_turn() -> None:
                 "type": "Normal",
                 "min_hp": 40,
                 "max_hp": 40,
-                "innate_powers": ({"power_id": "HEX", "amount": 1},),
-                "moves": ({"id": "WAIT", "name": "Wait", "intent": "Unknown"},),
+                "moves": ({"id": "HEX", "name": "Hex", "intent": "Debuff",
+                           "powers": ({"power_id": "HEX", "amount": 2,
+                                       "target": "player"},)},
+                          {"id": "WAIT", "name": "Wait", "intent": "Unknown"}),
                 "attack_pattern": {
-                    "initial_move": "WAIT_MOVE",
+                    "initial_move": "HEX_MOVE",
                     "states": (
+                        {"id": "HEX_MOVE", "type": "move", "move_id": "HEX",
+                         "next": "WAIT_MOVE"},
                         {"id": "WAIT_MOVE", "type": "move", "move_id": "WAIT"},
                     ),
                 },
@@ -3403,6 +3407,9 @@ def test_spectral_knight_hex_exhausts_hand_cards_at_end_turn() -> None:
     state = step(state, _end_turn_action(state))
 
     assert state.combat is not None
+    assert state.combat.player.statuses["hex"] == 2
+    assert not state.combat.exhaust_pile
+    state = step(state, _end_turn_action(state))
     assert [card.card_id for card in state.combat.exhaust_pile] == ["plain_strike"]
     assert not state.combat.discard_pile
     assert any(event.kind == "hex_ethereal_cards_exhausted" for event in state.combat.last_events)

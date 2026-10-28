@@ -1,0 +1,237 @@
+{
+  "game_version": "0.107.1",
+  "build_id": "23811903",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "provenance": "Independent behavioral audit and SHA-256 references to public source; no game source is vendored. AfflictionModel defines seven concrete afflictions in this pin.",
+  "scope": "All seven affliction classes. Keyword rows are added with the keyword boundary follow-up.",
+  "rows": [
+    {
+      "id": "bound",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Bound.cs",
+          "sha256": "c62c0481a83e0c92d4cc59806f5086b77ec564ad01e97c18e0e04cf7090a5da8",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Bound.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/ChainsOfBindingPower.cs",
+          "sha256": "24b13c2fd3f33f6ad639b4f3bf40b001a3a8253eb5162243fe1f0159331bf9a2",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/ChainsOfBindingPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": false,
+      "allowed_card_type": "all",
+      "behavior": "Successful eligible draws consume the per-turn budget; the first physical Bound play blocks later Bound cards until owner turn end.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_modifier_hooks.before_play"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_bound_draw_budget_counts_successful_afflictions_and_respects_occupied_slots"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "entangled",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Entangled.cs",
+          "sha256": "7221aef9c6b6cd695310dbf2744788efde89b370708141a7004a81492ec3a7ac",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Entangled.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/TangledPower.cs",
+          "sha256": "f52ae733202234b2cf4dfe54c05d3657e24a996e867d6142048b2d106650d022",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/TangledPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": false,
+      "allowed_card_type": "all",
+      "behavior": "Only Entangled owner cards pay the Tangled surcharge. New Attacks are claimed only when vacant; owner turn end removes Tangled and its afflictions.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_modifier_hooks.synchronize"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_tangled_only_changes_entangled_attacks_and_expires_at_next_owner_end"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "galvanized",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Galvanized.cs",
+          "sha256": "1f2a2d352c0f4296afb40f141e7bdb8962ec7e8c35e26b1e72d81b3191717c94",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Galvanized.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/GalvanicPower.cs",
+          "sha256": "a5ab939011e8a3d9e9c54da251db9fb3a066a762a063df6d868267396b10c11e",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/GalvanicPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": true,
+      "allowed_card_type": "all",
+      "behavior": "Combat-start Power cards stack all Galvanic sources; later entering Power cards receive the first source only. Actual Galvanized plays take blockable unpowered damage from each active source.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_modifier_hooks.synchronize"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_galvanic_only_damages_a_galvanized_power_after_its_block"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "hexed",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Hexed.cs",
+          "sha256": "8e5285643e5b594aa10eafebfbba15d02b46d8baf99226fda8b0a33a0710f824",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Hexed.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/HexPower.cs",
+          "sha256": "feaef7aa442f007a8be314e0f02dcfb9bf2aa4ee2c9a313d0d87bc39fa55f574",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/HexPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": false,
+      "allowed_card_type": "all",
+      "behavior": "Hex claims vacant owner cards and grants Ethereal only to Hexed cards; removal or actual applier death clears Hexed while preserving independent Ethereal.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_modifier_hooks.ethereal"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_hex_only_makes_hexed_cards_ethereal_and_retained_hexed_cards_exhaust"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "ringing",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Ringing.cs",
+          "sha256": "4be06937d6969ba919d562902d5c65c9f5ae9f198522636f921cb58f58b00e39",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Ringing.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/RingingPower.cs",
+          "sha256": "7f07b0aa6988e5a3b0ef12dc7412c5c2fb41399b3a2ad4492baf3cac4c7e299f",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/RingingPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": false,
+      "allowed_card_type": "all",
+      "behavior": "Only Ringing cards are restricted after the first owner card play begins; cards with another affliction remain eligible. Ringing expires at owner turn end.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_modifier_hooks.blocks_play"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_ringing_only_blocks_its_own_affliction_after_any_first_card"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "smog",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Smog.cs",
+          "sha256": "cfc211fbbbd5b5b224379997c590cf2cd9a0e587d71bc0091c4111660cfbdd9a",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Smog.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/SmoggyPower.cs",
+          "sha256": "9acf25cc93cf64462fd19c51a80ee7366fca655f5891f9ba8d8db30b28ff6c4b",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/SmoggyPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": false,
+      "allowed_card_type": "all",
+      "behavior": "After a Skill completes, vacant Skills become Smog. Newly entering Skills are afflicted after any Skill play has begun. Existing nested Skills can complete before the first AfterCardPlayed hook.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_modifier_hooks.after_play"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_first_skill_does_not_afflict_existing_nested_skill_before_it_finishes"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "tainted",
+      "category": "affliction",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Afflictions/Tainted.cs",
+          "sha256": "5174e931345568425ba072f474868281ba624aef7fe4a951f85805fdf83bf534",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Afflictions/Tainted.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models.Powers/VitalSparkPower.cs",
+          "sha256": "a38f842d4de1fa70c3f268f1df8c168290b3b66b87cfbb11736999a5821db1fe",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/VitalSparkPower.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+          "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs"
+        }
+      ],
+      "can_afflict_unplayable": true,
+      "stackable": true,
+      "allowed_card_type": "skill",
+      "behavior": "Vital Spark claims Skills, including Unplayable Skills, respecting one affliction slot; generation and source removal update physical cards and captured replay identities.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_affliction_hooks.synchronize"
+      ],
+      "regressions": [
+        "tests/combat/test_source_vital_spark.py"
+      ],
+      "known_single_player_gaps": []
+    }
+  ],
+  "limitations": [
+    "Legacy snapshots with powers but without per-card affliction identities cannot reconstruct the historical order in which competing powers first claimed a card. Normal runtime applications record identities as each power is applied.",
+    "Single-player behavior only. Multiplayer ownership and concurrent-player turn ordering are outside this simulator."
+  ]
+}

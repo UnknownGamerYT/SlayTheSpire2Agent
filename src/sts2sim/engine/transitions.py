@@ -220,7 +220,10 @@ from sts2sim.mechanics.triggers import (
 )
 from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
-from . import card_status_hooks, source_affliction_hooks, source_class_hooks, source_core_hooks
+from . import (
+    card_status_hooks, source_affliction_hooks, source_class_hooks, source_core_hooks,
+    source_modifier_hooks,
+)
 from .errors import EngineError, IllegalActionError
 from .models import (
     PLAYER_TARGET_ID,
@@ -537,7 +540,7 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
     if state.phase != RunPhase.COMBAT or state.combat is None:
         return _with_potion_discard_actions(state, ())
 
-    combat = state.combat
+    combat, _ = source_modifier_hooks.synchronize(state.combat)
     if combat.player.hp <= 0 or not _alive_monsters(combat):
         return _with_potion_discard_actions(
             state,
@@ -555,10 +558,6 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
             if forced_priority_ids and card.instance_id not in forced_priority_ids:
                 continue
             if _card_is_unplayable(card):
-                continue
-            if _card_has_keyword(card, "bound") and _metadata_int(
-                combat.metadata, "bound_cards_played_this_turn", 0
-            ) >= 1:
                 continue
             if _smoggy_blocks_card(combat, card):
                 continue
@@ -595,6 +594,9 @@ def _card_play_restrictions_match(combat: CombatState, card: CardInstance) -> bo
 
 def step_state(state: RunState | SerializedState, action: ActionInput) -> RunState:
     state = load_state(state)
+    if state.phase == RunPhase.COMBAT and state.combat is not None:
+        combat, _ = source_modifier_hooks.synchronize(state.combat)
+        state = state.model_copy(update={"combat": combat, "player": combat.player})
     action = _coerce_action(action)
     legal = legal_actions(state)
     action = _normalize_action(state, action)
@@ -12359,7 +12361,6 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         return state, ()
     played_card = _card_after_dynamic_monster_modifiers(combat, card)
     played_card = _card_with_resolved_x_value(played_card, combat.player)
-    combat = _reserve_smoggy_skill_play(combat, played_card)
 
     hand = tuple(item for item in combat.hand if item.instance_id != card.instance_id)
     energy_spent = _energy_cost(card, combat.player.energy, combat=combat)
@@ -12949,9 +12950,10 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if state.combat is None:
         return state, ()
 
-    combat = state.combat
+    combat, modifier_events = source_modifier_hooks.synchronize(state.combat)
+    combat = source_modifier_hooks.before_turn_end(combat)
     rng = random_from_state(state.rng)
-    events: list[EffectEvent] = []
+    events: list[EffectEvent] = list(modifier_events)
     player = combat.player
     combat, hand_effect_events = _apply_end_turn_hand_card_effects(
         combat,
@@ -13049,13 +13051,14 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
                     },
                 )
             )
-    spectral_hex_active = _combat_has_alive_monster_status(combat, "hex")
+    spectral_hex_active = _status_amount(combat.player.statuses, "hex") > 0
     exhaust_hand = tuple(
         card
-        for card in discarded_hand
-        if bool(card.custom.get("ethereal")) or spectral_hex_active
+        for card in combat.hand
+        if source_modifier_hooks.ethereal(combat, card)
     )
     exhausted_ids = {card.instance_id for card in exhaust_hand}
+    retained_hand = tuple(card for card in retained_hand if card.instance_id not in exhausted_ids)
     discard_hand = tuple(card for card in discarded_hand if card.instance_id not in exhausted_ids)
     discard_movement_events: tuple[EffectEvent, ...] = ()
     exhaust_movement_events: tuple[EffectEvent, ...] = ()
@@ -13637,16 +13640,6 @@ def _apply_player_end_turn_debuff_damage(
     relics: Sequence[str],
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     events: list[EffectEvent] = []
-    statuses = dict(combat.player.statuses)
-    ringing = statuses.pop("ringing", 0)
-    if ringing:
-        combat = combat.model_copy(update={"player": combat.player.model_copy(
-            update={"statuses": statuses}
-        )})
-        events.append(EffectEvent(
-            kind="temporary_status_expired", target_id=PLAYER_TARGET_ID,
-            amount=-ringing, metadata={"status": "ringing"},
-        ))
     for status in ("disintegration", "constrict"):
         amount = _status_amount(combat.player.statuses, status)
         if amount <= 0:
@@ -14076,14 +14069,16 @@ def _execute_monster_turn(
         if power_event is not None:
             events.append(power_event)
             if (
-                _normalized_id(power.power_id) == "tangled"
+                _normalized_id(power.power_id) == "hex"
                 and power_event.target_id == PLAYER_TARGET_ID
                 and power_event.kind == "status_applied"
-                and _status_amount(player.statuses, "tangled") > 0
+                and _status_amount(player.statuses, "hex") > 0
             ):
                 combat = combat.model_copy(update={"metadata": {
-                    **combat.metadata, "tangled_turns_remaining": 2,
+                    **combat.metadata, "source_hex_applier": monster.monster_id,
                 }})
+            combat, affliction_events = source_modifier_hooks.synchronize(combat)
+            events.extend(affliction_events)
 
     if not pre_attack_theft:
         combat, special_move_events = _apply_monster_special_move_effects(
@@ -16359,6 +16354,7 @@ def _apply_after_card_play_hooks(
         )
     combat = combat.model_copy(update={"metadata": metadata})
     combat, return_events = _return_right_hand_hand_from_discard(combat, card, energy_spent)
+    combat, modifier_events = source_modifier_hooks.after_play(combat, card)
     combat, affliction_events = _apply_monster_skill_afflictions(combat, card, relics)
     combat, wither_events = _apply_withering_presence(combat, card)
     tender = _status_amount(combat.player.statuses, "tender")
@@ -16376,7 +16372,7 @@ def _apply_after_card_play_hooks(
             update={"statuses": statuses}
         )})
     return combat, (
-        tuple(events) + relic_events + return_events + affliction_events + wither_events
+        tuple(events) + relic_events + return_events + modifier_events + affliction_events + wither_events
         + tuple(tender_events)
     )
 
@@ -16386,7 +16382,9 @@ def _apply_monster_skill_afflictions(
     card: CardInstance,
     relics: Sequence[str] = (),
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
-    if card.type == CardType.POWER:
+    if source_modifier_hooks.affliction_id(
+        source_modifier_hooks.current_card(combat, card)
+    ) == "galvanized":
         amount = sum(
             _status_amount(monster.statuses, "galvanic")
             for monster in combat.monsters if monster.hp > 0
@@ -16659,7 +16657,9 @@ def _apply_card_effects(
     allow_glam: bool = True,
     allow_extra_plays: bool = True,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
-    events: list[EffectEvent] = []
+    combat, modifier_events = source_modifier_hooks.synchronize(combat)
+    card = source_modifier_hooks.current_card(combat, card)
+    events: list[EffectEvent] = list(modifier_events)
     random_target = any(
         "random_damage" in effect or "random_attack" in effect
         for effect in _effect_steps(card.effects)
@@ -16668,6 +16668,7 @@ def _apply_card_effects(
         combat, facing_events = _face_targeted_claw(combat, target_id)
         events.extend(facing_events)
     if is_card_play:
+        combat = source_modifier_hooks.before_play(combat, card)
         combat = source_class_hooks.before_play(combat, card, energy_spent)
         card = source_class_hooks.prepare_blade(combat, card)
         combat, card = _reserve_card_status_play(
@@ -19240,15 +19241,15 @@ def _draw_cards(
             ),
         )
 
+    combat, modifier_events = source_modifier_hooks.synchronize(combat)
     rng = random_stream(random_from_state(rng_state), "shuffle")
     draw_pile = list(combat.draw_pile)
     discard_pile = list(combat.discard_pile)
     hand = list(combat.hand)
-    events: list[EffectEvent] = []
+    events: list[EffectEvent] = list(modifier_events)
     drawn_cards: list[CardInstance] = []
     metadata = dict(combat.metadata)
     drawn_this_turn = _metadata_int(metadata, "chains_cards_drawn_this_turn", 0)
-    bound_draw_limit = _status_amount(combat.player.statuses, "chains_of_binding")
 
     for _ in range(amount):
         if len(hand) >= MAX_HAND_SIZE:
@@ -19282,17 +19283,16 @@ def _draw_cards(
         drawn_card = draw_pile.pop(0)
         drawn_card, mutation_events = _card_after_source_draw_mutation(drawn_card)
         events.extend(mutation_events)
-        if (drawn_this_turn < bound_draw_limit
-                and not source_affliction_hooks.affliction_id(drawn_card)):
-            drawn_card = drawn_card.model_copy(update={
-                "custom": {**drawn_card.custom, "bound": True},
-            })
+        bound_card = source_modifier_hooks.after_draw(drawn_card, combat, drawn_this_turn)
+        if bound_card != drawn_card:
+            drawn_card = bound_card
+            drawn_this_turn += 1
             events.append(EffectEvent(
                 kind="card_afflicted", source_id="chains_of_binding",
-                target_id=drawn_card.instance_id, amount=1,
+                target_id=drawn_card.instance_id,
+                amount=_status_amount(combat.player.statuses, "chains_of_binding"),
                 metadata={"affliction": "bound"},
             ))
-        drawn_this_turn += 1
         hand.append(drawn_card)
         drawn_cards.append(drawn_card)
 
@@ -22350,6 +22350,8 @@ def _play_combat_card_from_zone_by_trigger(
     additional_plays: int = 0,
     source_metadata: Mapping[str, Any] | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    combat, modifier_events = source_modifier_hooks.synchronize(combat)
+    card = source_modifier_hooks.current_card(combat, card)
     zone_cards = _cards_in_combat_zone(combat, from_zone)
     physical = _find_card(zone_cards, card.instance_id)
     if physical is None:
@@ -22373,11 +22375,12 @@ def _play_combat_card_from_zone_by_trigger(
         combat = _remove_card_from_combat_zone(combat, from_zone, card.instance_id)
         combat = _append_cards_to_pile(combat, "discard_pile", (physical,))
         return combat, rng_state, (EffectEvent(
-            kind="card_play_blocked", source_id="smoggy", target_id=card.instance_id,
-            metadata={"status": "smoggy", "card_id": card.card_id, "zone": from_zone,
+            kind="card_play_blocked", source_id=source_modifier_hooks.affliction_id(card),
+            target_id=card.instance_id,
+            metadata={"status": source_modifier_hooks.affliction_id(card),
+                      "card_id": card.card_id, "zone": from_zone,
                       "destination": "discard_pile"},
         ),)
-    combat = _reserve_smoggy_skill_play(combat, card)
     combat = _remove_card_from_combat_zone(combat, from_zone, card.instance_id)
     if (
         _turn_card_play_limit_reached(combat) or _card_is_unplayable(physical)
@@ -22457,7 +22460,7 @@ def _play_combat_card_from_zone_by_trigger(
                 }
             }
         )
-    return combat, rng_state, events + replay_events
+    return combat, rng_state, modifier_events + events + replay_events
 
 
 def _trigger_card_matches_filter(
@@ -23786,20 +23789,6 @@ def _apply_player_turn_start_effects(
                 target_id=PLAYER_TARGET_ID,
                 amount=limit,
                 metadata={"status": "sloth"},
-            )
-        )
-
-    if _status_amount(statuses, "ringing") > 0:
-        previous_limit = _metadata_int(metadata, "turn_card_play_limit", 0)
-        limit = min(previous_limit, 1) if previous_limit > 0 else 1
-        metadata["turn_card_play_limit"] = limit
-        events.append(
-            EffectEvent(
-                kind="turn_card_play_limit_added",
-                source_id="ringing",
-                target_id=PLAYER_TARGET_ID,
-                amount=limit,
-                metadata={"status": "ringing"},
             )
         )
 
@@ -26904,6 +26893,8 @@ def _finalize_state_after_combat(
     rng_state: RngState,
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    combat, modifier_events = source_modifier_hooks.synchronize(combat)
+    events = tuple(events) + modifier_events
     state, combat = source_class_hooks.persist_growth(state, combat)
     potions = tuple(combat.metadata.get("replay_potions", state.potions))
     combat, belt_events = _sync_belt_buckle(combat, potions, state.relics)
@@ -28927,22 +28918,7 @@ def _effect_enemy_targets(
 
 
 def _smoggy_blocks_card(combat: CombatState, card: CardInstance) -> bool:
-    played = _metadata_int(combat.metadata, "skills_played_this_turn", 0)
-    if _metadata_int(combat.metadata, "smoggy_skill_play_turn", 0) == combat.turn:
-        played = max(played, _metadata_int(combat.metadata, "smoggy_skill_plays", 0))
-    return (
-        card.type == CardType.SKILL
-        and _status_amount(combat.player.statuses, "smoggy") > 0
-        and played >= 1
-    )
-
-
-def _reserve_smoggy_skill_play(combat: CombatState, card: CardInstance) -> CombatState:
-    if card.type != CardType.SKILL or _status_amount(combat.player.statuses, "smoggy") <= 0:
-        return combat
-    return combat.model_copy(update={"metadata": {
-        **combat.metadata, "smoggy_skill_play_turn": combat.turn, "smoggy_skill_plays": 1,
-    }})
+    return source_modifier_hooks.blocks_play(combat, card)
 
 
 def _energy_cost(
@@ -28979,7 +28955,9 @@ def _energy_cost(
     if combat is not None and _card_costs_zero_after_osty_attack(card, combat):
         return 0
     cost = card.cost or 0
-    if combat is not None and card.type == CardType.ATTACK:
+    if combat is not None and source_modifier_hooks.affliction_id(
+        source_modifier_hooks.current_card(combat, card)
+    ) == "entangled":
         cost += _status_amount(combat.player.statuses, "tangled")
     if combat is not None:
         cost = source_core_hooks.energy_cost(card, combat, cost)
@@ -29200,23 +29178,7 @@ def _consume_monster_vigor(monster: MonsterState) -> tuple[MonsterState, tuple[E
 
 
 def _tick_player_tangled(combat: CombatState) -> tuple[CombatState, tuple[EffectEvent, ...]]:
-    if _status_amount(combat.player.statuses, "tangled") <= 0:
-        return combat, ()
-    remaining = _metadata_int(combat.metadata, "tangled_turns_remaining", 2) - 1
-    metadata = dict(combat.metadata)
-    statuses = dict(combat.player.statuses)
-    if remaining > 0:
-        metadata["tangled_turns_remaining"] = remaining
-    else:
-        metadata.pop("tangled_turns_remaining", None)
-        statuses = {key: value for key, value in statuses.items()
-                    if _normalized_id(key).replace("_", "") != "tangled"}
-    return combat.model_copy(update={
-        "player": combat.player.model_copy(update={"statuses": statuses}), "metadata": metadata,
-    }), (EffectEvent(
-        kind="status_duration_ticked", source_id="tangled", target_id=PLAYER_TARGET_ID,
-        amount=-1, metadata={"status": "tangled", "remaining_turns": max(0, remaining)},
-    ),)
+    return source_modifier_hooks.after_turn_end(combat)
 
 
 def _find_card(cards: Sequence[CardInstance], instance_id: str | None) -> CardInstance | None:
