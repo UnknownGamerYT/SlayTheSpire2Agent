@@ -23135,7 +23135,7 @@ def _play_top_draw_card_from_trigger(
 
 
 def _unpowered_player_block_gain(player: PlayerState, amount: int) -> int:
-    return max(0, amount) * 2 ** _status_amount(player.statuses, "shadowmeld")
+    return max(0, amount) * (1 << _status_amount(player.statuses, "shadowmeld"))
 
 
 def _gain_player_block(
@@ -24463,7 +24463,7 @@ def _apply_player_end_turn_status_block(
         player = player.model_copy(update={"statuses": statuses})
         if event is not None:
             events.append(event)
-    block_sources = (
+    block_sources: Sequence[tuple[str, int]] = (
         ("metallicize", _status_amount(player.statuses, "metallicize")),
         ("plated_armor", _status_amount(player.statuses, "plated_armor")),
     )
