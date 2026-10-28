@@ -4,9 +4,11 @@ import hashlib
 import math
 import operator
 import random
-from collections.abc import Mapping, MutableSequence, Sequence
+from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar, overload
+
+from sts2sim.mechanics.source_rng import source_float, source_sample
 
 from .models import RngState, RngStreamState
 
@@ -398,6 +400,21 @@ class RunRng(random.Random):
 
     def getrandbits(self, k: int) -> int:
         return self._streams[self._active_stream].getrandbits(k)
+
+    def next_float(self, minimum_or_maximum: float = 1.0, maximum: float | None = None) -> float:
+        if maximum is None:
+            return source_float(self, 0.0, minimum_or_maximum)
+        return source_float(self, minimum_or_maximum, maximum)
+
+    def next_bool(self) -> bool:
+        return self.randrange(2) == 0
+
+    def sample(
+        self, population: Sequence[T], k: int, *, counts: Iterable[int] | None = None
+    ) -> list[T]:
+        if counts is not None:
+            raise ValueError("game source sampling does not support repeated population counts")
+        return source_sample(self, population, k)
 
     def _randbelow(self, n: int) -> int:
         return self._streams[self._active_stream].randbelow(n)
