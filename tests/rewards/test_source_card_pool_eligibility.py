@@ -151,3 +151,17 @@ def test_public_normal_generation_uses_unlocked_singleplayer_pool_and_reloads(ki
         offered = tuple(item.item_id for item in entered.shop.items if item.kind == "card")
     assert offered
     assert set(offered) <= set(_expected("silent", [], False))
+
+
+@pytest.mark.parametrize("key", ["cards", "card_library"])
+def test_full_source_catalog_in_flags_still_respects_player_mode_and_epochs(key):
+    state = new_run("LIBRARY-POOL", "IRONCLAD", 0)
+    rows = transitions._cached_source_rows(state, "cards")
+    state = state.model_copy(update={"flags": {
+        **state.flags, key: rows, "revealed_epochs": [],
+    }})
+    pool = {card.card_id for card in transitions._combat_card_pool(state)}
+    assert "strike_ironclad" not in pool
+    assert {"demonic_shield", "tank", "cruelty", "dominate", "molten_fist"}.isdisjoint(pool)
+    assert "bash" not in pool  # Basic cards never become ordinary rewards.
+    assert "anger" in pool

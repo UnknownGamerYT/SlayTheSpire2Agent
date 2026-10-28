@@ -31,6 +31,7 @@ def _before_pickup(*, cards: tuple[dict[str, Any], ...] = CARD_POOL) -> RunState
     return state.model_copy(
         update={
             "phase": RunPhase.REWARD,
+            "flags": {**state.flags, "sea_glass_character_id": "silent"},
             "reward": RewardState(
                 reward_id="sea-glass-pickup",
                 source="treasure",

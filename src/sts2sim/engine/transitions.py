@@ -181,8 +181,8 @@ from sts2sim.mechanics.source_ancients import (
     AncientFacts,
     generate_source_ancient_offers,
 )
-from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_card_factory import source_noncombat_cards
+from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_event_rules import source_event_rule
 from sts2sim.mechanics.source_events import source_event_startup
@@ -221,8 +221,12 @@ from sts2sim.mechanics.triggers import (
 from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
 from . import (
-    card_status_hooks, source_affliction_hooks, source_class_hooks, source_core_hooks,
-    source_enchantment_hooks, source_modifier_hooks,
+    card_status_hooks,
+    source_affliction_hooks,
+    source_class_hooks,
+    source_core_hooks,
+    source_enchantment_hooks,
+    source_modifier_hooks,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -267,8 +271,8 @@ from .rng import (
 )
 from .serialization import SerializedState, load_state, state_digest
 from .source_enchantment_hooks import can_enchant as can_enchant_source
-from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 from .source_enchantment_hooks import can_enchant as source_can_enchant
+from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 from .source_event_offers import native_dynamic_offers
 
 ActionInput = Action | Mapping[str, Any]
@@ -12853,7 +12857,7 @@ def _apply_end_turn_hand_card_effects(
 
         for loss in re.finditer(r"\blose\s+(\d+)\s+hp\b(\s+for each card in your hand)?", text):
             amount = int(loss[1]) * (len(cards) if loss[2] else 1)
-            player, event = _lose_player_hp(player, amount, card.instance_id)
+            player, event = _lose_player_hp(player, amount, card.instance_id, relics=relics)
             events.append(
                 event.model_copy(
                     update={
@@ -13009,6 +13013,19 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     combat = source_modifier_hooks.before_turn_end(combat)
     rng = random_from_state(state.rng)
     events: list[EffectEvent] = list(modifier_events)
+    if (_has_relic_id(state.relics, "diamond_diadem")
+        and len(combat.cards_played_this_turn) <= 2
+        and combat.metadata.get("diamond_diadem_applied_turn") != combat.turn):
+        statuses, diadem_event = _apply_status_value(
+            combat.player.statuses, "diamond_diadem", 1,
+            source_id="diamond_diadem", target_id=PLAYER_TARGET_ID,
+        )
+        combat = combat.model_copy(update={
+            "player": combat.player.model_copy(update={"statuses": statuses}),
+            "metadata": {**combat.metadata, "diamond_diadem_applied_turn": combat.turn},
+        })
+        if diadem_event is not None:
+            events.append(diadem_event)
     player = combat.player
     combat, hand_effect_events = _apply_end_turn_hand_card_effects(
         combat,
@@ -13429,6 +13446,16 @@ def _begin_next_player_turn(
     combat, vital_turn_events = source_affliction_hooks.synchronize(combat)
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = list(vital_turn_events)
+    if _status_amount(combat.player.statuses, "diamond_diadem") > 0:
+        statuses = dict(combat.player.statuses)
+        amount = statuses.pop("diamond_diadem")
+        combat = combat.model_copy(update={"player": combat.player.model_copy(
+            update={"statuses": statuses},
+        )})
+        events.append(EffectEvent(
+            kind="temporary_status_expired", target_id=PLAYER_TARGET_ID,
+            amount=-amount, metadata={"status": "diamond_diadem"},
+        ))
     combat, early_end_events = _apply_enemy_side_end_early(combat)
     events.extend(early_end_events)
     # Ritual, Territorial, High Voltage and Escape Artist all implement
@@ -14379,6 +14406,9 @@ def _refresh_monster_intent_from_metadata(
         or _status_amount(monster.statuses, "stunned")
     ):
         return monster.model_copy(update={"intent": "Stun", "intent_damage": 0})
+    if (_metadata_int(monster.metadata, "damage_per_hit", 0) <= 0
+        and "attack" not in str(monster.intent or "").lower()):
+        return monster.model_copy(update={"intent_damage": 0})
     damage = _modified_monster_attack_damage(
         _metadata_int(monster.metadata, "damage_per_hit", 0)
         + (_signed_status_amount(monster.statuses, "dexterity")
@@ -14386,8 +14416,7 @@ def _refresh_monster_intent_from_metadata(
            == "the_forgotten" and _normalized_id(monster.move_id or "") == "dread" else 0),
         statuses=monster.statuses, relics=relics,
     )
-    if damage > 0:
-        damage += _status_amount(player.statuses, "tainted") * _monster_attack_multiplier(
+    damage += _status_amount(player.statuses, "tainted") * _monster_attack_multiplier(
             monster.statuses, relics,
         )
     damage = Fraction(_incoming_player_damage(player, damage, relics=relics))
@@ -16428,7 +16457,8 @@ def _apply_after_card_play_hooks(
             update={"statuses": statuses}
         )})
     return combat, (
-        tuple(events) + relic_events + return_events + modifier_events + affliction_events + wither_events
+        tuple(events) + relic_events + return_events + modifier_events
+        + affliction_events + wither_events
         + tuple(tender_events)
     )
 
@@ -17243,18 +17273,12 @@ def _apply_effect_step(
 
     hp_loss = _effect_amount(effect, "hp_loss", energy_spent)
     if hp_loss:
-        player, hp_loss_event = _lose_player_hp(player, hp_loss, card.instance_id)
-        events.append(hp_loss_event)
-        combat = _record_player_hp_loss(
+        combat, hp_events = _damage_combat_player(
             combat.model_copy(update={"player": player, "monsters": tuple(monsters)}),
-            hp_loss_event.amount or 0,
+            hp_loss, card.instance_id, relics=relics, unblockable=True,
         )
-        combat, loss_events = _apply_player_turn_hp_loss_powers(
-            combat, hp_loss_event.amount or 0, relics=relics,
-        )
-        events.extend(loss_events)
-        combat, fairy_events = _restore_fairy_after_damage(combat, relics=relics)
-        events.extend(fairy_events)
+        events.extend(event.model_copy(update={"kind": "player_hp_lost"})
+                      if event.kind == "player_damaged" else event for event in hp_events)
         player = combat.player
         monsters = list(combat.monsters)
 
@@ -23566,20 +23590,13 @@ def _lose_player_hp(
     player: PlayerState,
     amount: int,
     source_id: str,
+    *,
+    relics: Sequence[str] = (),
 ) -> tuple[PlayerState, EffectEvent]:
-    hp_loss = min(player.hp, max(0, amount))
-    hp_loss, statuses, buffer_prevented = _player_hp_loss_after_buffer(player, hp_loss)
-    return (
-        player.model_copy(update={"hp": player.hp - hp_loss, "statuses": statuses}),
-        EffectEvent(
-            kind="player_hp_lost",
-            source_id=source_id,
-            target_id=PLAYER_TARGET_ID,
-            amount=hp_loss,
-            metadata={"buffer_prevented_hp_loss": buffer_prevented,
-                      "lethal": player.hp - hp_loss <= 0},
-        ),
+    player, event = _damage_player(
+        player, amount, source_id, relics=relics, unblockable=True,
     )
+    return player, event.model_copy(update={"kind": "player_hp_lost"})
 
 
 def _change_player_max_hp(player: PlayerState, amount: int) -> PlayerState:
@@ -23672,7 +23689,7 @@ def _apply_stored_turn_powers(
             continue
         key = f"{power.replace('_', '')}_self_damage"
         loss = _metadata_int(combat.metadata, key, 1)
-        player, event = _lose_player_hp(combat.player, loss, power)
+        player, event = _lose_player_hp(combat.player, loss, power, relics=state.relics)
         combat = _record_player_hp_loss(
             combat.model_copy(update={"player": player}), event.amount or 0,
         )
@@ -24140,9 +24157,12 @@ def _damage_combat_player(
     relics: Sequence[str] = (),
     is_attack: bool = False,
     attack_multiplier: float = 1.0,
+    unblockable: bool = False,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     player = combat.player
-    tainted = _status_amount(player.statuses, "tainted") if is_attack and amount > 0 else 0
+    if player.hp <= 0:
+        return combat, ()
+    tainted = _status_amount(player.statuses, "tainted") if is_attack else 0
     source_monster = next((m for m in combat.monsters if m.monster_id == source_id), None)
     tainted_multiplier = (
         _monster_attack_multiplier(source_monster.statuses, relics)
@@ -24158,12 +24178,7 @@ def _damage_combat_player(
         multiplier *= Fraction(1, 2)
     diamond_diadem_applied = False
     diamond_diadem_reduction = 0
-    if (
-        amount > 0
-        and _has_relic_id(relics, "diamond_diadem")
-        and len(combat.cards_played_this_turn) <= 2
-    ):
-        multiplier *= Fraction(1, 2)
+    if is_attack and _status_amount(player.statuses, "diamond_diadem") > 0:
         diamond_diadem_applied = True
     incoming = _incoming_player_damage(
         player, amount + tainted * tainted_multiplier, relics=relics, is_attack=is_attack,
@@ -24175,7 +24190,7 @@ def _damage_combat_player(
             extra_multiplier=multiplier * 2,
         )
         diamond_diadem_reduction = without_diadem - incoming
-    blocked = min(player.block, incoming)
+    blocked = 0 if unblockable else min(player.block, incoming)
     unblocked = max(0, incoming - blocked)
     osty_absorbed = 0
     osty_died = False
@@ -24247,8 +24262,11 @@ def _damage_combat_player(
             kind="buffer_prevented_hp_loss", source_id=source_id,
             target_id=PLAYER_TARGET_ID, amount=buffer_prevented,
         ))
+    effective_unblocked = hp_loss
+    overkill_damage = max(0, effective_unblocked - player.hp)
+    hp_loss = min(player.hp, effective_unblocked)
     plated_armor_lost = 0
-    if hp_loss > 0 and _has_relic_id(relics, "self_forming_clay"):
+    if 0 < hp_loss < player.hp and _has_relic_id(relics, "self_forming_clay"):
         statuses, clay_event = _apply_status_value(
             statuses,
             "next_turn_block",
@@ -24295,6 +24313,10 @@ def _damage_combat_player(
                 "diamond_diadem_reduction": diamond_diadem_reduction,
                 "osty_absorbed": osty_absorbed,
                 "osty_died": osty_died,
+                "unblockable": unblockable,
+                "unblocked_damage": effective_unblocked,
+                "overkill_damage": overkill_damage,
+                "total_damage_including_overkill": blocked + effective_unblocked,
                 "intangible": intangible_applied,
                 "tungsten_rod_reduction": tungsten_rod_reduction,
                 "beating_remnant_prevented": beating_remnant_prevented,
@@ -24316,9 +24338,10 @@ def _damage_player(
     source_id: str,
     *,
     relics: Sequence[str] = (),
+    unblockable: bool = False,
 ) -> tuple[PlayerState, EffectEvent]:
     incoming = _incoming_player_damage(player, amount, relics=relics, is_attack=False)
-    blocked = min(player.block, incoming)
+    blocked = 0 if unblockable else min(player.block, incoming)
     hp_loss = max(0, incoming - blocked)
     intangible_applied = False
     if hp_loss > 1 and _status_amount(player.statuses, "intangible") > 0:
@@ -24329,6 +24352,8 @@ def _damage_player(
         tungsten_rod_reduction = min(1, hp_loss)
         hp_loss -= tungsten_rod_reduction
     hp_loss, statuses, buffer_prevented = _player_hp_loss_after_buffer(player, hp_loss)
+    overkill_damage = max(0, hp_loss - player.hp)
+    hp_loss = min(player.hp, hp_loss)
     plated_armor_lost = 0
     return (
         player.model_copy(
@@ -24347,6 +24372,8 @@ def _damage_player(
                 "incoming": incoming,
                 "base": _damage_amount_for_metadata(amount),
                 "blocked": blocked,
+                "unblockable": unblockable,
+                "overkill_damage": overkill_damage,
                 "intangible": intangible_applied,
                 "tungsten_rod_reduction": tungsten_rod_reduction,
                 "plated_armor_lost": plated_armor_lost,
@@ -24366,9 +24393,11 @@ def _incoming_player_damage(
     extra_multiplier: Fraction = Fraction(1),
 ) -> int:
     if amount <= 0:
-        return int(amount)
-    if _status_amount(player.statuses, "tank") > 0:
+        return 0
+    if is_attack and _status_amount(player.statuses, "tank") > 0:
         amount *= 2
+    if is_attack and _status_amount(player.statuses, "diamond_diadem") > 0:
+        amount *= Fraction(1, 2)
     if is_attack and _status_amount(player.statuses, "stance_wrath") > 0:
         amount *= 2
     if is_attack and _status_amount(player.statuses, "vulnerable") > 0:
@@ -24379,7 +24408,7 @@ def _incoming_player_damage(
     amount *= extra_multiplier
     if _status_amount(player.statuses, "intangible") > 0:
         amount = min(Fraction(amount), Fraction(1))
-    return int(amount)
+    return max(0, int(amount))
 
 
 def _damage_monsters(
@@ -25195,6 +25224,7 @@ def _apply_combat_relic_marker(
             player,
             max(0, marker.amount or 0),
             marker.source_id or marker.relic_id,
+            relics=tuple(combat.metadata.get("item_relic_ids", ())),
         )
         events.append(
             event.model_copy(
@@ -29335,7 +29365,8 @@ def _modified_card_damage(
             modified *= multiplier
         if _status_amount(combat.player.statuses, "source_core_double_damage") > 0:
             modified *= 2
-        if _status_amount(combat.player.statuses, "shrink") > 0 and not _card_is_osty_attack(card):
+        if (_signed_status_amount(combat.player.statuses, "shrink") != 0
+            and not _card_is_osty_attack(card)):
             modified *= Fraction(7, 10)
     return max(Fraction(0), modified)
 
@@ -31809,7 +31840,9 @@ def _monster_intent_damage(
         ascension_level=ascension_level,
         relics=relics,
     )
-    if per_hit > 0:
+    if monster_move_damage(definition, move, ascension_level=ascension_level) > 0 or (
+        "attack" in str(move.intent or "").lower()
+    ):
         per_hit += _status_amount(player.statuses, "tainted") * _monster_attack_multiplier(
             statuses, relics,
         )
@@ -31830,7 +31863,7 @@ def _monster_attack_hit_damage(
         and _normalized_id(move.move_id) == "dread"
     ):
         damage += _signed_status_amount(statuses, "dexterity")
-    if damage <= 0:
+    if damage <= 0 and "attack" not in str(move.intent or "").lower():
         return Fraction(0)
     return _modified_monster_attack_damage(damage, statuses=statuses, relics=relics)
 
@@ -31842,13 +31875,11 @@ def _modified_monster_attack_damage(
     relics: Sequence[str] = (),
 ) -> Fraction:
     damage = Fraction(amount)
-    if damage <= 0:
-        return Fraction(0)
     damage += _signed_status_amount(statuses, "strength")
     damage += _signed_status_amount(statuses, "temporary_strength")
     damage += _status_amount(statuses, "vigor")
     damage *= _monster_attack_multiplier(statuses, relics)
-    return max(Fraction(0), damage)
+    return damage
 
 
 def _monster_attack_multiplier(
@@ -31859,7 +31890,7 @@ def _monster_attack_multiplier(
     attack_damage_percent += _signed_status_amount(statuses, "temporary_attack_damage_percent")
     if attack_damage_percent:
         multiplier *= Fraction(max(0, 100 + attack_damage_percent), 100)
-    if _status_amount(statuses, "shrink") > 0:
+    if _signed_status_amount(statuses, "shrink") != 0:
         multiplier *= Fraction(7, 10)
     if _status_amount(statuses, "weak") > 0:
         percent = 60 if _has_relic_id(relics, "paper_krane") else 75

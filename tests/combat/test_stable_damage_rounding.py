@@ -164,3 +164,72 @@ def test_block_cap_limits_stored_block_and_preserves_requested_hook_amount():
     assert result.player.block == 999_999_999
     event = next(event for event in result.combat.last_events if event.kind == "player_block")
     assert event.amount == 5
+
+
+@pytest.mark.parametrize("base,strength,tainted,expected", [(5, -7, 3, 1), (0, 3, 0, 3)])
+def test_enemy_signed_base_and_tainted_combine_before_zero_clamp(base, strength, tainted, expected):
+    state = _state(_simple("wait"), statuses={"tainted": tainted})
+    monster = state.combat.monsters[0].model_copy(update={
+        "intent": "attack", "intent_damage": base, "statuses": {"strength": strength},
+    })
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (monster,),
+    })})
+    result = _end_turn(_reload(state))
+    assert result.player.hp == 80 - expected
+
+
+def test_infinite_shrink_reduces_powered_attack_damage():
+    attack = _simple("attack", effects={"damage": 9}, card_type="attack", target="enemy")
+    result = _play(_state(attack, statuses={"shrink": -1}), "attack")
+    assert result.combat.monsters[0].hp == 94
+
+
+def test_unblockable_hp_loss_respects_tungsten_and_preserves_block():
+    card = _simple("pay", effects={"hp_loss": 3})
+    state = _state(card, relics=("tungsten_rod",), statuses={"tank": 1})
+    player = state.player.model_copy(update={"block": 8})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(update={
+        "player": player,
+    })})
+    result = _play(_reload(state), "pay")
+    assert result.player.hp == 78
+    assert result.player.block == 8
+    event = next(e for e in result.combat.last_events if e.kind == "player_hp_lost")
+    assert event.metadata["unblockable"]
+    assert event.metadata["tungsten_rod_reduction"] == 1
+    assert result.combat.metadata["hp_lost_this_turn"] == 2
+
+
+def test_diamond_diadem_only_protects_powered_attacks_after_owner_side_ends():
+    card = _simple("pay", effects={"hp_loss": 6})
+    state = _play(_state(card, relics=("diamond_diadem",)), "pay")
+    assert state.player.hp == 74
+    monster = state.combat.monsters[0].model_copy(update={
+        "intent": "attack", "intent_damage": 10,
+    })
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (monster,),
+    })})
+    result = _end_turn(_reload(state))
+    assert result.player.hp == 69
+    assert result.player.statuses.get("diamond_diadem", 0) == 0
+    event = next(e for e in result.combat.last_events if e.kind == "player_damaged")
+    assert event.metadata["diamond_diadem"]
+    assert event.metadata["diamond_diadem_reduction"] == 5
+
+
+def test_player_damage_records_actual_hp_loss_and_overkill():
+    from sts2sim.engine import transitions
+
+    state = _state(_simple("wait"))
+    combat = state.combat.model_copy(update={
+        "player": state.player.model_copy(update={"hp": 3, "block": 2}),
+    })
+    result, events = transitions._damage_combat_player(combat, 9, "hit")
+    event = next(e for e in events if e.kind == "player_damaged")
+    assert result.player.hp == 0
+    assert event.amount == 3
+    assert event.metadata["overkill_damage"] == 4
+    assert event.metadata["total_damage_including_overkill"] == 9
+    assert result.metadata["hp_lost_this_turn"] == 3
