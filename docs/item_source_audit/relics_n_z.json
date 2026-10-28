@@ -589,7 +589,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -602,10 +602,11 @@
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_paels_flesh_and_sparkling_rouge_apply_on_turn_three",
         "tests/combat/test_relic_combat.py::test_sts2_turn_timing_relics_apply_on_their_specific_turns",
-        "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped"
+        "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped",
+        "tests/combat/test_stable_item_contracts.py::test_paels_flesh_updates_maximum_energy_from_turn_three_and_restores_run_base"
       ],
       "notes": [
-        "Pending correction: source modifies maximum Energy on turns>=3; current gain-Energy marker only models current Energy."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2767,7 +2768,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -2785,7 +2786,7 @@
         "tests/content/test_relic_handlers.py::test_new_turn_start_and_combat_end_relic_markers_are_registered_for_audits"
       ],
       "notes": [
-        "Pending correction: source applies ConfusedPower before combat in addition to +2 hand draw; current marker grants only draw."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2836,7 +2837,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -2845,10 +2846,13 @@
         "src/sts2sim/engine/transitions.py:_use_potion",
         "src/sts2sim/engine/transitions.py:_add_event_potions"
       ],
-      "retained_tests": [],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_sozu_entropic_rolls_once_then_stops_at_forbidden_procurement",
+        "tests/combat/test_stable_item_contracts.py::test_sozu_claims_forbidden_potion_reward_even_with_full_inventory",
+        "tests/combat/test_stable_item_contracts.py::test_sozu_blocks_alchemize_procurement_but_preserves_source_factory_draws"
+      ],
       "notes": [
-        "Pending correction: source prevents all owner potion procurement; current marker grants Energy without procurement blocker.",
-        "No retained per-ID contract test identified; shared generic tests do not prove this item contract."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2899,16 +2903,17 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [],
-      "retained_tests": [],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_spiked_gauntlets_global_power_cost_applies_after_local_free_cost_and_mask"
+      ],
       "notes": [
-        "Pending correction: source adds1 global Energy cost to Power cards; current marker only grants Energy.",
-        "No retained per-ID contract test identified; shared generic tests do not prove this item contract."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },

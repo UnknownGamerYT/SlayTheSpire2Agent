@@ -149,3 +149,15 @@ eligible Basic Strikes, including its free cost and Eternal property. Pael's Cla
 applies Goopy1 to eligible Defend-tag cards. Pael's Growth applies Clone4 to its
 chosen card. Shared source enchantment predicates now filter relic card choices
 and automatic applications, and canonical source tags survive card creation.
+
+Sozu prevents owner potion procurement through rewards, shops, generated potions,
+events and combat relic grants. A forbidden potion reward is still claimed, as in
+PotionReward.OnSelect; a forbidden merchant potion is not purchased. Entropic
+Brew creates one potion before procurement fails and stops, retaining those RNG
+draws. Alchemize's stable factory draw still occurs when procurement is forbidden.
+Snecko Eye's existing Confused grant now has its actual draw consumer, using
+CombatEnergyCosts and a combat-local cost override. An X card consumes a roll
+while retaining its X-cost behavior. Spiked Gauntlets adds one to Power Energy
+costs after local free overrides. Pael's Flesh raises maximum Energy from turn
+three, retains that maximum across later turns, and restores the run base after
+combat. Ordered local Energy modifiers use the shared source_cost_hooks API.

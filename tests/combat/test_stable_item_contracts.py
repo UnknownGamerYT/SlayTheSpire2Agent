@@ -670,3 +670,85 @@ def test_blood_potion_small_max_hp_has_no_minimum_heal_in_or_out_of_combat():
     assert _potion(state, "blood_potion").player.hp == 1
     state = state.model_copy(update={"phase": RunPhase.MAP, "combat": None})
     assert _potion(state, "blood_potion").player.hp == 1
+
+
+def test_sozu_entropic_rolls_once_then_stops_at_forbidden_procurement():
+    state = _state(_simple("unused"), relics=("sozu",))
+    state = state.model_copy(update={"character_id": "IRONCLAD",
+        "rng": capture_random_state(RunRng(
+            "SOZU", derivation="sts2.v0.107.1.utf16-djb2-splitmix64"))})
+    state = _potion(state, "entropic_brew")
+    assert not state.potions
+    assert state.rng.streams["combat_potion_generation"].draws == 2
+    assert any(e.kind == "potion_procurement_blocked" for e in state.replay_log[-1].events)
+
+
+def test_sozu_claims_forbidden_potion_reward_even_with_full_inventory():
+    state = _state(_simple("unused"), relics=("sozu",))
+    state = state.model_copy(update={"phase": RunPhase.REWARD, "combat": None,
+        "potions": ("fire_potion",) * 3,
+        "reward": RewardState(reward_id="potion", source="combat", potion_id="blood_potion")})
+    action = next(a for a in legal_actions(state) if a.type == "take_reward_potion")
+    state = step(_reload(state), action)
+    assert state.potions == ("fire_potion",) * 3
+    assert state.reward.potion_claimed
+    event = next(e for e in state.replay_log[-1].events if e.kind == "reward_potion_taken")
+    assert not event.metadata["procured"]
+
+
+def test_sozu_blocks_alchemize_procurement_but_preserves_source_factory_draws():
+    card = _simple("alchemize_test", effects={"add_random_potion": 1})
+    state = _state(card, relics=("sozu",))
+    state = state.model_copy(update={"character_id": "IRONCLAD",
+        "rng": capture_random_state(RunRng(
+            "SOZU", derivation="sts2.v0.107.1.utf16-djb2-splitmix64"))})
+    state = _play(_reload(state), "alchemize_test")
+    assert not state.potions
+    assert state.rng.streams["combat_potion_generation"].draws == 2
+
+
+def test_confused_randomizes_drawn_costs_for_combat_and_consumes_roll_for_x_card():
+    normal = _simple("normal", cost=2)
+    x_card = _simple("x_card", cost=-1, custom={"x_cost": True})
+    unplayable = _simple("unplayable", cost=None, custom={"unplayable": True})
+    state = _state(_simple("unused"), statuses={"confused": 1}, draw=(normal, x_card, unplayable))
+    state = state.model_copy(update={"rng": capture_random_state(RunRng(
+        "CONFUSED", derivation="sts2.v0.107.1.utf16-djb2-splitmix64"))})
+    state = _potion(state, "swift_potion")
+    assert state.rng.streams["combat_energy_costs"].draws == 2
+    normal = next(c for c in state.combat.hand if c.instance_id == "normal")
+    assert normal.custom["source_local_energy_modifiers"][-1]["expiration"] == 4
+    assert next(c for c in state.combat.hand if c.instance_id == "x_card").cost == -1
+    state = _play(_reload(state), "normal")
+    played = next(c for c in state.combat.discard_pile if c.instance_id == "normal")
+    assert played.cost == normal.cost
+
+
+def test_spiked_gauntlets_global_power_cost_applies_after_local_free_cost_and_mask():
+    power = _simple("power", cost=3, card_type="power", custom={"free_to_play_this_turn": True})
+    state = _state(power, relics=("spiked_gauntlets",))
+    player = state.player.model_copy(update={"energy": 0})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(update={
+        "player": player, "metadata": {"item_relic_ids": state.relics},
+    })})
+    assert not any(a.type == "play_card" for a in legal_actions(state))
+    player = player.model_copy(update={"energy": 1})
+    state = state.model_copy(update={"player": player,
+        "combat": state.combat.model_copy(update={"player": player})})
+    state = _play(_reload(state), "power")
+    assert state.player.energy == 0
+
+
+def test_paels_flesh_updates_maximum_energy_from_turn_three_and_restores_run_base():
+    kill = _simple("kill", effects={"damage": 200}, card_type="attack", target="enemy",
+                   custom={"retain": True})
+    state = _state(kill, relics=("paels_flesh",))
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (20, 20)
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (21, 21)
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (21, 21)
+    state = _play(_reload(state), "kill")
+    assert state.phase == RunPhase.REWARD
+    assert state.player.max_energy == 20

@@ -381,6 +381,34 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsGrowth.cs",
       "sha256": "0ff5728cf4d9cd9861c51329f795afd985521aa4b4136cb10e59f55cb1a52155"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Sozu.cs",
+      "sha256": "e4526ab54c41f21ad2aa135a7a41dff433b2f9b586041b319676b81011fc0c77"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SpikedGauntlets.cs",
+      "sha256": "f68af9cb8e3369692db2538a06e81460a51fde3b66648e4bc2ccc9f472aa8faa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SneckoEye.cs",
+      "sha256": "7b27d2c6246f9c377d403c052c882cdb146a46e8251197608707b8c9b78d135d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsFlesh.cs",
+      "sha256": "48c5cd87a93b07237770cb66b849e1e187c127f9ab2cfd3f6e1954e4aeb06cde"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ConfusedPower.cs",
+      "sha256": "d38af5402c260325c9371b0ab688f66242b97ece96e6d6c32dfb8413638fc603"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/PotionReward.cs",
+      "sha256": "0e10a1901cfac2046ac1750e593df89f5341e6a4fb76c17e4d847c8b36297819"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantPotionEntry.cs",
+      "sha256": "79ec91e3b6a1349e7d0d9f3330f11348e794d613e0a4e65784b9428047bd19c1"
     }
   ],
   "cached_source_rows": {

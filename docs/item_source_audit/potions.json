@@ -224,6 +224,7 @@
         "tests/combat/test_stable_item_contracts.py::test_anytime_potions_are_legal_outside_combat_and_preserve_current_flow",
         "tests/combat/test_stable_item_contracts.py::test_red_skull_removal_can_be_blocked_by_artifact_on_healing",
         "tests/combat/test_stable_item_contracts.py::test_blood_potion_small_max_hp_has_no_minimum_heal_in_or_out_of_combat",
+        "tests/combat/test_stable_item_contracts.py::test_sozu_claims_forbidden_potion_reward_even_with_full_inventory",
         "tests/rewards/test_relic_run_state_effects.py::test_delicate_frond_fills_empty_potion_slots_at_combat_start"
       ],
       "notes": [
@@ -685,6 +686,7 @@
         "tests/combat/test_potion_use_engine.py::test_entropic_brew_fills_open_slots_after_consuming_itself",
         "tests/combat/test_stable_item_contracts.py::test_anytime_potions_are_legal_outside_combat_and_preserve_current_flow",
         "tests/combat/test_stable_item_contracts.py::test_belt_buckle_last_potion_discard_and_use_track_inventory_once",
+        "tests/combat/test_stable_item_contracts.py::test_sozu_entropic_rolls_once_then_stops_at_forbidden_procurement",
         "tests/content/test_potion_specials.py::test_classifies_random_card_duplication_generation_and_escape_blockers"
       ],
       "notes": [
@@ -2193,6 +2195,7 @@
       ],
       "retained_tests": [
         "tests/combat/test_stable_item_contracts.py::test_fiddle_allows_opening_and_turn_hand_draw_but_blocks_potion_draw",
+        "tests/combat/test_stable_item_contracts.py::test_confused_randomizes_drawn_costs_for_combat_and_consumes_roll_for_x_card",
         "tests/content/test_potion_triggers.py::test_potion_use_context_dispatches_custom_trigger_handlers",
         "tests/content/test_potion_specials.py::test_classifies_draw_energy_and_timed_turn_partials",
         "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories",

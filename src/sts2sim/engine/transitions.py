@@ -226,6 +226,7 @@ from . import (
     source_affliction_hooks,
     source_class_hooks,
     source_core_hooks,
+    source_cost_hooks,
     source_enchantment_hooks,
     source_modifier_hooks,
 )
@@ -948,6 +949,9 @@ def _fill_empty_potion_slots(
     events: list[EffectEvent] = []
     for _ in range(open_slots):
         potion_id = _normalized_id(draw_source_potion(generation_rng, pool, rarities))
+        if _has_relic(state, "sozu"):
+            events.append(_sozu_blocked_potion_event(potion_id, source_id))
+            break
         potions.append(potion_id)
         events.append(
             EffectEvent(
@@ -4642,6 +4646,9 @@ def _add_event_potions(
     events: list[EffectEvent] = []
     for potion_id in potion_ids:
         normalized = _normalized_id(potion_id)
+        if _has_relic(state, "sozu"):
+            events.append(_sozu_blocked_potion_event(normalized, None))
+            continue
         if len(potions) >= capacity:
             events.append(
                 EffectEvent(
@@ -4660,6 +4667,13 @@ def _add_event_potions(
             )
         )
     return state.model_copy(update={"potions": tuple(potions)}), tuple(events)
+
+
+def _sozu_blocked_potion_event(potion_id: str, source_id: str | None) -> EffectEvent:
+    return EffectEvent(
+        kind="potion_procurement_blocked", source_id=source_id, target_id=potion_id,
+        amount=0, metadata={"relic_id": "sozu", "reason": "not_allowed"},
+    )
 
 
 def _choose_event_enchant_option(
@@ -5623,7 +5637,9 @@ def _legal_shop_actions(state: RunState) -> tuple[Action, ...]:
             actions.append(Action(type=ActionType.SHOP_LEAVE))
         elif choice.item_index is not None:
             item = room_state.inventory.items[choice.item_index].item
-            if item.kind is ShopItemKind.POTION and not _has_open_potion_slot(state):
+            if item.kind is ShopItemKind.POTION and (
+                not _has_open_potion_slot(state) or _has_relic(state, "sozu")
+            ):
                 continue
             actions.append(
                 Action(
@@ -5713,6 +5729,8 @@ def _resolve_shop_action(
     elif item.item.kind is ShopItemKind.RELIC:
         update["relics"] = state.relics + (item.item.item_id,)
     elif item.item.kind is ShopItemKind.POTION:
+        if _has_relic(state, "sozu"):
+            return state, (_sozu_blocked_potion_event(item.item.item_id, None),)
         if not _has_open_potion_slot(state):
             return state, ()
         update["potions"] = state.potions + (item.item.item_id,)
@@ -6459,7 +6477,7 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
         Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
         for target_id, _card_id in _unclaimed_reward_fixed_card_targets(reward)
     )
-    if _has_open_potion_slot(state):
+    if _has_open_potion_slot(state) or _has_relic(state, "sozu"):
         actions.extend(
             Action(type=ActionType.TAKE_REWARD_POTION, target_id=target_id)
             for target_id, _potion_id in _unclaimed_reward_potion_targets(reward)
@@ -8375,7 +8393,7 @@ def _take_reward_potion(
     potion_target = _reward_potion_for_target_id(state.reward, action.target_id)
     if potion_target is None:
         return state, ()
-    if not _has_open_potion_slot(state):
+    if not _has_open_potion_slot(state) and not _has_relic(state, "sozu"):
         return state, ()
 
     potion_id, target_index = potion_target
@@ -8389,7 +8407,8 @@ def _take_reward_potion(
                 ),
             }
         )
-    potions = state.potions + (potion_id,)
+    blocked = _has_relic(state, "sozu")
+    potions = state.potions if blocked else state.potions + (potion_id,)
     return (
         state.model_copy(update={"potions": potions, "reward": reward}),
         (
@@ -8400,6 +8419,7 @@ def _take_reward_potion(
                     "reward_id": state.reward.reward_id,
                     "reward_source": state.reward.source,
                     "potion_slots": _potion_capacity(state),
+                    "procured": not blocked,
                 },
             ),
         ),
@@ -9352,7 +9372,7 @@ def _start_combat_for_node(
         state = state.model_copy(update={"player": _run_player_after_combat(state.player)})
     rng = random_from_state(state.rng)
     draw_pile, innate_events = _opening_draw_pile(state.master_deck, rng)
-    metadata: dict[str, Any] = {"relic_counters": {
+    metadata: dict[str, Any] = {"item_relic_ids": state.relics, "relic_counters": {
         key: value for key, value in _relic_counters_from_flags(state).items()
         if key not in COMBAT_ONLY_RELIC_COUNTERS
     }}
@@ -9687,6 +9707,8 @@ def _apply_relic_procure_potion_marker(
             ),
         )
     capacity = _potion_capacity(state)
+    if _has_relic(state, "sozu"):
+        return state, (_sozu_blocked_potion_event(potion_id, marker.relic_id),)
     if len(state.potions) >= capacity:
         return state, (
             EffectEvent(
@@ -12722,7 +12744,7 @@ def _apply_card_random_potion_effects(
 
     capacity = _potion_capacity(state)
     open_slots = max(0, capacity - len(state.potions))
-    if open_slots <= 0:
+    if open_slots <= 0 and not is_source_rng(random_from_state(rng_state)):
         return (
             state.potions,
             rng_state,
@@ -12743,9 +12765,14 @@ def _apply_card_random_potion_effects(
     rng = random_from_state(rng_state)
     generation_rng = random_stream(rng, "combat_potion_generation")
     generated: list[str] = []
-    for _ in range(min(count, open_slots)):
+    for _ in range(count if is_source_rng(rng) else min(count, open_slots)):
         generated.append(_normalized_id(draw_source_potion(generation_rng, pool, rarities)))
 
+    if _has_relic(state, "sozu"):
+        return state.potions, capture_random_state(rng), tuple(
+            _sozu_blocked_potion_event(potion_id, card.instance_id) for potion_id in generated
+        )
+    generated = generated[:open_slots]
     potions = tuple(state.potions) + tuple(generated)
     events = tuple(
         EffectEvent(
@@ -13583,13 +13610,23 @@ def _begin_next_player_turn(
         **combat.metadata, "turn_start_draws": True,
     }})
     monsters = list(combat.monsters)
+    turn_max_energy = combat.player.max_energy
+    if _has_relic(state, "paels_flesh") and combat.turn + 1 >= 3:
+        base_max_energy = _metadata_int(
+            combat.metadata, "paels_flesh_base_max_energy", combat.player.max_energy,
+        )
+        combat = combat.model_copy(update={"metadata": {
+            **combat.metadata, "paels_flesh_base_max_energy": base_max_energy,
+        }})
+        turn_max_energy = base_max_energy + 1
     player = combat.player.model_copy(
         update={
             "block": combat.player.block
             if (_status_amount(combat.player.statuses, "retain_block") > 0
                 or _status_amount(combat.player.statuses, "blur") > 0)
             else min(combat.player.block, 10) if _has_relic_id(state.relics, "sturdy_clamp") else 0,
-            "energy": combat.player.max_energy,
+            "energy": turn_max_energy,
+            "max_energy": turn_max_energy,
         }
     )
     combat = combat.model_copy(
@@ -13640,7 +13677,7 @@ def _begin_next_player_turn(
                 break
     turn_start_relics = _resolve_combat_relic_trigger(
         GameTrigger.TURN_START,
-        state.relics,
+        tuple(r for r in state.relics if _normalized_id(r) != "paels_flesh"),
         turn_number=combat.turn,
         player_hp=combat.player.hp,
         player_max_hp=combat.player.max_hp,
@@ -13849,6 +13886,8 @@ def _card_after_end_turn_retain(card: CardInstance) -> CardInstance:
 
 
 def _card_after_end_turn_cleanup(card: CardInstance) -> CardInstance:
+    if "source_local_energy_modifiers" in card.custom:
+        card = source_cost_hooks.expire(card, turn_end=True)
     custom = dict(card.custom)
     changed = False
     if custom.pop("source_core_temporary_sly", False):
@@ -19248,6 +19287,8 @@ def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardIn
     card = source_enchantment_hooks.played_card(combat, card)
     if card.custom.get("free_to_play_this_turn"):
         card = card.model_copy(update={"custom": {**card.custom, "free_energy_consumed": True}})
+    if "source_local_energy_modifiers" in card.custom:
+        card = source_cost_hooks.expire(card, when_played=True)
     if "cost_before_randomize" in card.custom:
         custom = dict(card.custom)
         cost = custom.pop("cost_before_randomize")
@@ -19452,6 +19493,16 @@ def _draw_cards(
         drawn_card = source_enchantment_hooks.after_draw(drawn_card, rng)
         drawn_card, mutation_events = _card_after_source_draw_mutation(drawn_card)
         events.extend(mutation_events)
+        if _status_amount(combat.player.statuses, "confused") > 0 and (
+            _card_is_x_cost(drawn_card) or drawn_card.cost is not None and drawn_card.cost >= 0
+        ):
+            cost = random_stream(rng, "combat_energy_costs").randrange(4)
+            drawn_card = source_cost_hooks.set_local_energy_cost(drawn_card, cost, "combat")
+            events.append(EffectEvent(
+                kind="card_cost_randomized", source_id="confused",
+                target_id=drawn_card.instance_id, amount=cost,
+                metadata={"duration": "combat", "x_cost": _card_is_x_cost(drawn_card)},
+            ))
         bound_card = source_modifier_hooks.after_draw(drawn_card, combat, drawn_this_turn)
         if bound_card != drawn_card:
             drawn_card = bound_card
@@ -27716,6 +27767,10 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
         reward = None
     run_player = combat.player
     if phase != RunPhase.COMBAT and not _combat_resolution_is_pending(combat):
+        if "paels_flesh_base_max_energy" in combat.metadata:
+            run_player = run_player.model_copy(update={
+                "max_energy": _metadata_int(combat.metadata, "paels_flesh_base_max_energy", 3),
+            })
         run_player = _run_player_after_combat(run_player)
     return state.model_copy(
         update={
@@ -29147,12 +29202,14 @@ def _energy_cost(
         return max(0, available_energy)
     if combat is not None and _void_form_applies(combat):
         return 0
-    if (_truthy(card.custom.get("free_to_play_this_turn"))
-        and not _truthy(card.custom.get("free_energy_consumed"))
-        and "randomized_cost_this_turn" not in card.custom):
-        return 0
-    if (_truthy(card.custom.get("free_to_play_this_combat"))
-        and "randomized_cost_this_turn" not in card.custom):
+    local_free = (
+        (_truthy(card.custom.get("free_to_play_this_turn"))
+         and not _truthy(card.custom.get("free_energy_consumed")))
+        or _truthy(card.custom.get("free_to_play_this_combat"))
+    ) and "randomized_cost_this_turn" not in card.custom and (
+        "confused_cost_this_combat" not in card.custom
+    ) and "source_local_energy_modifiers" not in card.custom
+    if local_free and card.type != CardType.POWER:
         return 0
     if combat is not None:
         card = _card_after_dynamic_monster_modifiers(combat, card)
@@ -29164,7 +29221,9 @@ def _energy_cost(
         return 0
     if combat is not None and _card_costs_zero_after_osty_attack(card, combat):
         return 0
-    cost = source_enchantment_hooks.energy_cost(card, card.cost or 0)
+    cost = 0 if local_free else source_enchantment_hooks.energy_cost(
+        card, source_cost_hooks.local_cost(card),
+    )
     if combat is not None and source_modifier_hooks.affliction_id(
         source_modifier_hooks.current_card(combat, card)
     ) == "entangled":
@@ -29172,6 +29231,9 @@ def _energy_cost(
     if combat is not None:
         cost = source_core_hooks.energy_cost(card, combat, cost)
     cost = source_class_hooks.energy_cost(card, combat, cost)
+    if (combat is not None and card.type == CardType.POWER
+        and _has_relic_id(tuple(combat.metadata.get("item_relic_ids", ())), "spiked_gauntlets")):
+        cost += 1
     return max(0, cost)
 
 
@@ -32312,6 +32374,7 @@ _ARTIFACT_BLOCKED_STATUSES = frozenset(
         "waste_away",
         "choking",
         "chains_of_binding",
+        "confused",
         "constrict",
         "borrowed_time",
         "conqueror",
