@@ -153,3 +153,41 @@ def test_temporary_focus_expiry_keeps_real_focus_when_artifact_blocks_stat_loss(
     assert state.player.statuses.get("focus") == 2
     assert "artifact" not in state.player.statuses
     assert "temporary_focus" not in state.player.statuses
+
+
+@pytest.mark.parametrize("artifact,immediate,restored", [(0, -3, 5), (1, 0, 8)])
+def test_misery_copies_effective_negative_stat_and_recovery_without_applying_it_twice(
+    artifact,
+    immediate,
+    restored,
+):
+    state = _fight("misery", monster_count=2)
+    source, receiver = state.combat.monsters
+    source = source.model_copy(update={"statuses": {"strength": 5, "temporary_strength": -8}})
+    receiver = receiver.model_copy(update={"statuses": {"artifact": artifact} if artifact else {}})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (source, receiver)})}
+    )
+    state = _play(load_state(serialize(state)), "misery")
+    receiver = state.combat.monsters[1]
+    assert receiver.statuses.get("strength", 0) == immediate
+    assert receiver.statuses["temporary_strength_recovery"] == -8
+    assert unique_source_debuff_count(receiver.statuses) == (1 if immediate < 0 else 0)
+    state = _end(load_state(serialize(state)))
+    receiver = state.combat.monsters[1]
+    assert receiver.statuses.get("strength", 0) == restored
+    assert "temporary_strength_recovery" not in receiver.statuses
+
+
+@pytest.mark.parametrize(
+    "temporary", ["temporary_strength", "temporary_dexterity", "temporary_focus"]
+)
+def test_misery_does_not_copy_positive_temporary_buffs(temporary):
+    state = _fight("misery", monster_count=2)
+    source, receiver = state.combat.monsters
+    source = source.model_copy(update={"statuses": {temporary: 5, "weak": 1}})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (source, receiver)})}
+    )
+    state = _play(state, "misery")
+    assert state.combat.monsters[1].statuses == {"weak": 1}

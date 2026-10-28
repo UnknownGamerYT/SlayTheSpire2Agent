@@ -310,11 +310,41 @@ _ALIASES = {
     "confusion": "confused",
     "strengthdown": "temporarystrength",
     "dexteritydown": "temporarydexterity",
+    "temporarystrengthrecovery": "temporarystrength",
+    "temporarydexterityrecovery": "temporarydexterity",
+    "temporaryfocusrecovery": "temporaryfocus",
 }
 # These inline modifiers represent an underlying signed stat together with its
 # temporary wrapper. Their stored negative amount denotes a temporary stat loss.
 _SIGNED_TEMPORARY_IDS = frozenset({"temporarystrength", "temporarydexterity", "temporaryfocus"})
 _RECOVERY_IDS = frozenset({"strengthdown", "dexteritydown"})
+_COPIED_TEMPORARY_STATS = {
+    "temporarystrengthrecovery": "strength",
+    "temporarydexterityrecovery": "dexterity",
+    "temporaryfocusrecovery": "focus",
+}
+_CONCRETE_TEMPORARY_STATS = {
+    **dict.fromkeys(
+        (
+            "coordinate",
+            "crushunder",
+            "darkshackles",
+            "dyingstar",
+            "enfeeblingtouch",
+            "feedingfrenzy",
+            "flexpotion",
+            "mangle",
+            "monarchsgazestrengthdown",
+            "piercingwail",
+            "reptiletrinket",
+            "setupstrike",
+            "shacklingpotion",
+        ),
+        "strength",
+    ),
+    **dict.fromkeys(("anticipate", "helicaldart", "speedpotion"), "dexterity"),
+    **dict.fromkeys(("focusedstrike", "hotfix", "synchronize"), "focus"),
+}
 
 
 def source_power_definition(power_id: object) -> SourcePowerDefinition | None:
@@ -325,7 +355,7 @@ def source_power_definition(power_id: object) -> SourcePowerDefinition | None:
 def power_type_for_amount(power_id: object, amount: int) -> PowerKind:
     """Classify the application delta, as Artifact does, or a current amount."""
     key = _key(power_id)
-    if key in _SIGNED_TEMPORARY_IDS:
+    if key in _SIGNED_TEMPORARY_IDS or key in _COPIED_TEMPORARY_STATS:
         return "debuff" if amount < 0 else "buff"
     definition = source_power_definition(key)
     if definition is None:
@@ -344,7 +374,7 @@ def power_is_temporary(power_id: object) -> bool:
 
 def power_allows_negative(power_id: object) -> bool:
     key = _key(power_id)
-    if key in _SIGNED_TEMPORARY_IDS:
+    if key in _SIGNED_TEMPORARY_IDS or key in _COPIED_TEMPORARY_STATS:
         return True
     definition = source_power_definition(key)
     return definition.allow_negative if definition is not None else True
@@ -366,7 +396,7 @@ def unique_source_debuff_count(statuses: Mapping[str, int]) -> int:
     amounts: dict[str, int] = {}
     for raw_id, amount in statuses.items():
         key = _key(raw_id)
-        if key in _RECOVERY_IDS:
+        if key in _RECOVERY_IDS or key in _COPIED_TEMPORARY_STATS:
             continue
         definition = source_power_definition(key)
         canonical = _key(definition.power_id) if definition is not None else key
@@ -382,3 +412,43 @@ def unique_source_debuff_count(statuses: Mapping[str, int]) -> int:
         and power_type_for_amount(power_id, amount) == "debuff"
         for power_id, amount in amounts.items()
     )
+
+
+def source_debuff_copy_payloads(statuses: Mapping[str, int]) -> tuple[tuple[str, int], ...]:
+    """Represent Misery's signed stat plus IgnoreNextInstance wrapper copy.
+
+    A copied temporary wrapper restores its stat at expiry without applying the
+    initial stat delta again. Inline modifiers therefore become a real signed
+    stat and a recovery-only wrapper on the receiving creature.
+    """
+    stats = ("strength", "dexterity", "focus")
+    amounts = {_key(key): value for key, value in statuses.items()}
+    handled: set[str] = set()
+    result: list[tuple[str, int]] = []
+    for raw_id, amount in statuses.items():
+        key = _key(raw_id)
+        inline_stat = key.removeprefix("temporary") if key in _SIGNED_TEMPORARY_IDS else None
+        stat = inline_stat or (key if key in stats else None)
+        if stat:
+            if stat not in handled:
+                effective = amounts.get(stat, 0) + amounts.get("temporary" + stat, 0)
+                if effective < 0:
+                    result.append((stat, effective))
+                handled.add(stat)
+            if inline_stat and amount < 0:
+                result.append((f"temporary_{stat}_recovery", amount))
+        elif power_application_is_debuff(raw_id, amount):
+            result.append((raw_id, amount))
+    return tuple(result)
+
+
+def source_temporary_power_expiry(power_id: object, amount: int) -> tuple[str, int] | None:
+    key = _key(power_id)
+    if key in _COPIED_TEMPORARY_STATS:
+        return _COPIED_TEMPORARY_STATS[key], -amount
+    if key in _CONCRETE_TEMPORARY_STATS:
+        definition = source_power_definition(key)
+        assert definition is not None
+        delta = amount if definition.kind == "debuff" else -amount
+        return _CONCRETE_TEMPORARY_STATS[key], delta
+    return None

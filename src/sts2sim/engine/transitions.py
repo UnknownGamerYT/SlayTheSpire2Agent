@@ -185,6 +185,7 @@ from sts2sim.mechanics.source_power_rules import (
     power_application_is_debuff,
     power_triggers_debuff_damage,
     source_power_definition,
+    source_temporary_power_expiry,
 )
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.source_rng import (
@@ -23285,6 +23286,20 @@ def _tick_status_map(
                     metadata={"status": down_status, "base_status": base_status},
                 )
             )
+    for power_id, amount in tuple(statuses.items()):
+        expiry = source_temporary_power_expiry(power_id, amount)
+        if expiry is None:
+            continue
+        statuses.pop(power_id, None)
+        stat, delta = expiry
+        statuses, event = _apply_status_value(
+            statuses, stat, delta, source_id=power_id, target_id=target_id,
+        )
+        if event is not None:
+            events.append(event)
+        events.append(EffectEvent(kind="temporary_status_expired", source_id=power_id,
+                                  target_id=target_id, amount=-amount,
+                                  metadata={"status": power_id, "base_status": stat}))
     return combatant.model_copy(update={"statuses": statuses}), tuple(events)
 
 

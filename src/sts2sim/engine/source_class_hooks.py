@@ -309,14 +309,11 @@ def execute(
                     )
                 )
     elif operation == "spread_debuffs":
-        from sts2sim.mechanics.source_debuff_rules import SOURCE_DEBUFF_POWER_IDS
+        from sts2sim.mechanics.source_power_rules import source_debuff_copy_payloads
 
-        debuffs = {value.lower().replace("_", "") for value in SOURCE_DEBUFF_POWER_IDS}
         target = next((m for m in combat.monsters if m.monster_id == target_id), None)
         if target is not None:
-            for status, amount in tuple(target.statuses.items()):
-                if status.lower().replace("_", "") not in debuffs and amount >= 0:
-                    continue
+            for status, amount in source_debuff_copy_payloads(target.statuses):
                 for other in tuple(combat.monsters):
                     if other.hp > 0 and other.monster_id != target_id:
                         apply(
