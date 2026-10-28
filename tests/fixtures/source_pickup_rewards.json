@@ -66,6 +66,10 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationFlags.cs",
       "sha256": "1e43d3793d138f8ede4db48e429d03ef515105f547ee8ced0dd3438cd613bc11"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhiteStar.cs",
+      "sha256": "bca994fd23df8836f549b35fa2d2c2a6039c0a3def7786e223019025c88ab5df"
     }
   ],
   "source_contracts": {
@@ -78,6 +82,7 @@
     "PaelsWing": "Sacrifice alternative completes one CardReward; every second sacrifice obtains front-bag relic",
     "PaelsTooth": "five upgradable removable cards sorted by ModelId and serialized; one Rewards-selected entry returned/upgraded/removed per surviving combat end",
     "TeaOfDiscourtesy": "CombatsLeft initial1; two Dazed random Shuffle insertion before Innate prioritization",
-    "SilverCrucible": "first three IsCardReward callbacks upgraded; first treasure entered after obtaining is empty"
+    "SilverCrucible": "first three IsCardReward callbacks upgraded; first treasure entered after obtaining is empty",
+    "WhiteStar": "after Elite room add one separate ForRoom(Boss) count3 CardReward; source Encounter, Boss rarity, upgrade rolls, card-count/pool/late hooks and original Boss reroll profile"
   }
 }

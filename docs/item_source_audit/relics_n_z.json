@@ -4499,21 +4499,24 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "TryModifyRewards: after Elite combat, populate one separate ForRoom(Boss) CardReward with Encounter source, count3 before card-choice modifiers, upgrade rolls, source pity updates and independent late callbacks"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
-        "src/sts2sim/engine/transitions.py:_take_reward_card"
+        "src/sts2sim/engine/transitions.py:_take_reward_card",
+        "src/sts2sim/engine/transitions.py:_combat_reward_state"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_white_star.py"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "The source-confirmed missing Elite bonus CardReward is implemented with a separate Boss-generation and Boss-reroll context. Five retained outcome/public-action fixtures cover room gating, rare options, source RNG draw count, reload, choice count and Silver Crucible batch count. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },

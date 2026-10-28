@@ -218,3 +218,8 @@ for Driftwood rerolls. Arcane Scroll's one-card factory also receives the
 non-CardReward late hooks before adding the card to the deck. The retained
 fixtures distinguish source constructors from rendered reward grouping and
 exercise reloads at nested reward boundaries; they are not a live-game oracle.
+
+White Star adds an independent CardReward after Elite combat using the Boss
+factory profile. Its rare choices, upgrade rolls, card-count/pool/late hooks and
+pity updates follow that profile, and Driftwood rerolls retain the Boss context
+rather than inheriting the Elite profile of the other reward.

@@ -29018,6 +29018,16 @@ def _combat_reward_state(
         card_count=reward_trigger.card_choice_count,
         upgraded_flags=card_group_upgrades,
     )
+    white_star_indices: tuple[int, ...] = ()
+    if encounter is EncounterType.ELITE and _has_relic(state, "white_star"):
+        first_index = len(card_option_groups)
+        star_groups, star_rarities, card_pity_state = _combat_extra_card_option_groups(
+            state, rng, EncounterType.BOSS, card_pity_state, group_count=1,
+            card_count=_card_reward_choice_count(state), upgraded_flags=card_group_upgrades,
+        )
+        card_option_groups += star_groups
+        card_group_rarities += star_rarities
+        white_star_indices = tuple(range(first_index, len(card_option_groups)))
     flags["card_non_rare_count"] = card_pity_state.card_non_rare_count
     if card_pity_state.card_rarity_offset is not None:
         flags["card_rarity_offset"] = card_pity_state.card_rarity_offset
@@ -29048,7 +29058,9 @@ def _combat_reward_state(
             "card_reroll_contexts": {
                 "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
                     mode="combat", pools=(_normalized_id(state.character_id),),
-                    count=reward_trigger.card_choice_count, encounter=encounter.value)
+                    count=(_card_reward_choice_count(state) if index - 1 in white_star_indices
+                           else reward_trigger.card_choice_count),
+                    encounter="boss" if index - 1 in white_star_indices else encounter.value)
                 for index, group in enumerate((card_options, *card_option_groups))
             },
             "base_gold": bundle.base_gold,
@@ -29063,6 +29075,7 @@ def _combat_reward_state(
                 potion_id=potion_id,
             ),
             "extra_potion_ids": potion_ids,
+            "white_star_card_reward_group_indices": white_star_indices,
             "potion_slots": _potion_capacity(state),
             "current_potions": len(state.potions),
             "reward_trigger_effects": _trigger_effect_metadata(reward_trigger.effects),
