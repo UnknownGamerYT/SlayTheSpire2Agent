@@ -10955,7 +10955,8 @@ def _choose_card_for_pending_choice(
             "source_core_temporary_sly": True}})
         combat = _replace_card_in_combat_zone(combat, pending_choice.zone, chosen)
         events.append(EffectEvent(kind="card_keyword_added", source_id=pending_choice.source_id,
-                                  target_id=chosen.instance_id, amount=1, metadata={"keyword": "sly"}))
+                                  target_id=chosen.instance_id, amount=1,
+                                  metadata={"keyword": "sly"}))
     elif pending_choice.kind == "upgrade":
         upgraded_card = _upgrade_card_instance(chosen)
         combat = _replace_card_in_combat_zone(combat, pending_choice.zone, upgraded_card)
@@ -12868,6 +12869,7 @@ def _execute_monster_turn(
                 monster,
                 player,
                 source_id=monster.monster_id,
+                damage_events=damage_events,
             )
             combat = _combat_with_monster(combat, monster_index, monster)
             events.extend(thorns_events)
@@ -14850,6 +14852,7 @@ def _execute_fallback_monster_turn(
                 monster,
                 combat.player,
                 source_id=monster.monster_id,
+                damage_events=damage_events,
             )
             combat = _combat_with_monster(combat, monster_index, monster)
             events.extend(thorns_events)
@@ -15724,6 +15727,7 @@ def _apply_effect_step(
             card.instance_id,
             relics=relics,
             source_card_type=card.type.value,
+            source_card_id=card.card_id,
             attacker_statuses=card_status_hooks.card_actor_statuses(combat, card),
             source_player_id=card_status_hooks.card_actor_id(combat, card),
         )
@@ -15758,7 +15762,9 @@ def _apply_effect_step(
             **dict(raw_damage_formula), "target_id": target_id,
             "source_player_id": card_status_hooks.card_actor_id(combat, card),
         }
-    formula_damage: int | Fraction = _formula_amount(raw_damage_formula, combat=combat)
+    formula_damage: int | Fraction = _formula_amount(
+        raw_damage_formula, combat=combat, clamp_nonnegative=False,
+    )
     if raw_damage_formula is not None:
         formula_damage = _modified_card_damage(combat, card, formula_damage, relics=relics)
         formula_damage = _sovereign_blade_damage_amount(
@@ -15781,6 +15787,7 @@ def _apply_effect_step(
             card.instance_id,
             relics=relics,
             source_card_type=card.type.value,
+            source_card_id=card.card_id,
             attacker_statuses=card_status_hooks.card_actor_statuses(combat, card),
             source_player_id=card_status_hooks.card_actor_id(combat, card),
         )
@@ -15822,6 +15829,7 @@ def _apply_effect_step(
             card.instance_id,
             relics=relics,
             source_card_type=card.type.value,
+            source_card_id=card.card_id,
             attacker_statuses=card_status_hooks.card_actor_statuses(combat, card),
             source_player_id=card_status_hooks.card_actor_id(combat, card),
         )
@@ -18009,7 +18017,9 @@ def _draw_cards(
                 "discard_pile": tuple(discard_pile),
                 "hand": tuple(hand),
                 "metadata": {**metadata, "chains_cards_drawn_this_turn": drawn_this_turn,
-                             "source_core_draws": int(metadata.get("source_core_draws", 0)) + drawn_count,
+                             "source_core_draws": (
+                                 int(metadata.get("source_core_draws", 0)) + drawn_count
+                             ),
                              "source_class_draws_turn": _metadata_int(
                                  metadata, "source_class_draws_turn", 0
                              ) + (0 if from_hand_draw else drawn_count)},
@@ -19702,7 +19712,9 @@ def _apply_matching_card_keyword_effect(
     )
 
 
-def _formula_amount(raw_formula: Any, *, combat: CombatState) -> int:
+def _formula_amount(
+    raw_formula: Any, *, combat: CombatState, clamp_nonnegative: bool = True,
+) -> int:
     formula = _formula_name(raw_formula)
     base = 0
     multiplier = 1
@@ -19787,7 +19799,8 @@ def _formula_amount(raw_formula: Any, *, combat: CombatState) -> int:
             combat, str(raw_formula.get("target_id", "")),
             str(raw_formula.get("source_player_id", card_status_hooks.local_player_id(combat))),
         )
-    return max(0, base + amount * multiplier + bonus)
+    result = base + amount * multiplier + bonus
+    return max(0, result) if clamp_nonnegative else result
 
 
 def _formula_name(raw_formula: Any) -> str:
@@ -22940,6 +22953,7 @@ def _damage_monsters(
     *,
     relics: Sequence[str] = (),
     source_card_type: str | None = None,
+    source_card_id: str | None = None,
     attacker_statuses: Mapping[str, int] | None = None,
     source_player_id: str = "player",
     unblockable: bool = False,
@@ -22954,6 +22968,7 @@ def _damage_monsters(
         incoming = _incoming_monster_damage(
             monster, amount, relics=relics, source_card_type=source_card_type,
             attacker_statuses=attacker_statuses, source_player_id=source_player_id,
+            source_card_id=source_card_id,
         )
         blocked = 0 if unblockable else min(monster.block, incoming)
         hp_loss = max(0, incoming - blocked)
@@ -23243,22 +23258,7 @@ def _tracking_modified_attack_damage(
     target_ids: Sequence[str],
     amount: int | Fraction,
 ) -> int | Fraction:
-    if amount <= 0 or card.type != CardType.ATTACK:
-        return amount
-    if _status_amount(combat.player.statuses, "tracking") <= 0:
-        return amount
-    target_set = set(target_ids)
-    if not target_set:
-        return amount
-    target_monsters = [
-        monster
-        for monster in combat.monsters
-        if monster.monster_id in target_set and monster.hp > 0
-    ]
-    if target_monsters and all(
-        _status_amount(monster.statuses, "weak") > 0 for monster in target_monsters
-    ):
-        return amount * 2
+    # Tracking is applied per receiver with the other multiplicative hooks.
     return amount
 
 
@@ -23362,32 +23362,26 @@ def _apply_player_thorns_to_attacker(
     player: PlayerState,
     *,
     source_id: str,
+    damage_events: Sequence[EffectEvent] = (),
 ) -> tuple[MonsterState, tuple[EffectEvent, ...]]:
     thorns = _status_amount(player.statuses, "thorns")
     flame = _status_amount(player.statuses, "flame_barrier")
-    if (thorns <= 0 and flame <= 0) or monster.hp <= 0:
+    reflected = sum(
+        _metadata_int(event.metadata, "blocked", 0)
+        for event in damage_events if event.kind == "player_damaged"
+    ) if _status_amount(player.statuses, "reflect") > 0 else 0
+    if (thorns <= 0 and flame <= 0 and reflected <= 0) or monster.hp <= 0:
         return monster, ()
 
     events: list[EffectEvent] = []
     if thorns > 0:
-        hp_loss, metadata = _cap_monster_hp_loss(monster, thorns)
-        monster = monster.model_copy(update={"hp": monster.hp - hp_loss, "metadata": metadata})
-        events.append(EffectEvent(
-            kind="monster_damaged",
-            source_id=PLAYER_TARGET_ID,
-            target_id=monster.monster_id,
-            amount=hp_loss,
-            metadata={"status": "thorns", "base": thorns, "source_attack_id": source_id},
-        ))
-    if monster.hp <= 0:
-        events.append(
-            EffectEvent(
-                kind="monster_defeated",
-                source_id=PLAYER_TARGET_ID,
-                target_id=monster.monster_id,
-                metadata={"status": "thorns"},
-            )
+        updated, retaliation_events = _damage_monsters(
+            (monster,), (monster.monster_id,), thorns, PLAYER_TARGET_ID,
         )
+        monster = updated[0]
+        events.extend(event.model_copy(update={"metadata": {
+            **event.metadata, "status": "thorns", "source_attack_id": source_id,
+        }}) for event in retaliation_events)
     if flame > 0 and monster.hp > 0:
         updated, retaliation_events = _damage_monsters(
             (monster,), (monster.monster_id,), flame, PLAYER_TARGET_ID,
@@ -23395,6 +23389,14 @@ def _apply_player_thorns_to_attacker(
         monster = updated[0]
         events.extend(event.model_copy(update={"metadata": {
             **event.metadata, "status": "flame_barrier", "source_attack_id": source_id,
+        }}) for event in retaliation_events)
+    if reflected > 0 and monster.hp > 0:
+        updated, retaliation_events = _damage_monsters(
+            (monster,), (monster.monster_id,), reflected, PLAYER_TARGET_ID,
+        )
+        monster = updated[0]
+        events.extend(event.model_copy(update={"metadata": {
+            **event.metadata, "status": "reflect", "source_attack_id": source_id,
         }}) for event in retaliation_events)
     return monster, tuple(events)
 
@@ -23407,12 +23409,22 @@ def _incoming_monster_damage(
     source_card_type: str | None = None,
     attacker_statuses: Mapping[str, int] | None = None,
     source_player_id: str = "player",
+    source_card_id: str | None = None,
 ) -> int:
     if amount <= 0:
         return int(amount)
     if _waterfall_giant_is_about_to_blow(monster):
         return 0
     multiplier = Fraction(1)
+    if source_card_type == CardType.ATTACK.value:
+        tracking = _status_amount(attacker_statuses or {}, "tracking")
+        if tracking > 0 and _status_amount(monster.statuses, "weak") > 0:
+            multiplier *= tracking
+        if (
+            _normalized_id(source_card_id or "") == "sovereign_blade"
+            and _status_amount(monster.statuses, "conqueror") > 0
+        ):
+            multiplier *= 2
     if (
         source_card_type == CardType.ATTACK.value
         and _status_amount(monster.statuses, "vulnerable") > 0

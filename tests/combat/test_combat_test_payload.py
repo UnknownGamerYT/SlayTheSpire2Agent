@@ -164,7 +164,7 @@ def test_debug_actions_can_add_energy_statuses_and_cards() -> None:
 
 def test_debug_actions_can_channel_and_evoke_orbs() -> None:
     state = combat_test.create_combat_state(seed=124, ascension=0)
-    monster_hp = state.combat.monsters[0].hp
+    total_monster_hp = sum(monster.hp for monster in state.combat.monsters)
 
     state, _ = combat_test.apply_debug_action(
         state,
@@ -188,7 +188,8 @@ def test_debug_actions_can_channel_and_evoke_orbs() -> None:
         },
     )
     assert state.combat.orbs == ()
-    assert state.combat.monsters[0].hp == monster_hp - 8
+    # A source encounter can contain several enemies; Lightning chooses one.
+    assert sum(monster.hp for monster in state.combat.monsters) == total_monster_hp - 8
 
 
 def test_debug_card_can_include_orb_effects() -> None:

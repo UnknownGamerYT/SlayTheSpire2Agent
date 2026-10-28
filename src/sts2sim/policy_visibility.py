@@ -33,6 +33,13 @@ def policy_payload(payload: Mapping[str, Any], *, oracle: bool = False) -> dict[
     visible.pop("rng", None)
     visible.pop("seed", None)
     visible.pop("replay_log", None)
+    flags = dict(_mapping(visible.get("flags")))
+    for key in (
+        "act_room_sets", "player_relic_bag", "shared_relic_bag", "shared_relic_bag_originals",
+        "player_relic_bag_multiplayer_fallback",
+    ):
+        flags.pop(key, None)
+    visible["flags"] = flags
     raw_combat = visible.get("combat")
     if isinstance(raw_combat, Mapping):
         combat = dict(raw_combat)

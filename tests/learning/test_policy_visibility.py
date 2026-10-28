@@ -108,6 +108,31 @@ def test_policy_inputs_are_invariant_to_hidden_draw_order_and_rng() -> None:
     assert [serialize(first), serialize(second)] == snapshots
 
 
+def test_generated_future_queues_are_hidden_from_policy_states_and_inputs():
+    from sts2sim.policy_visibility import policy_state
+
+    first = _combat().model_copy(update={"flags": {
+        "act_room_sets": {"1": {"events": ["future_event"]}},
+        "player_relic_bag": {"Common": ["secret_relic"]},
+        "shared_relic_bag": {"Rare": ["secret_rare"]},
+        "shared_relic_bag_originals": {"Rare": ["original_rare"]},
+    }})
+    second = first.model_copy(update={"flags": {
+        "act_room_sets": {"1": {"events": ["another_event"]}},
+        "player_relic_bag": {"Common": ["another_relic"]},
+        "shared_relic_bag": {"Rare": ["another_rare"]},
+        "shared_relic_bag_originals": {"Rare": ["another_original"]},
+    }})
+    assert policy_state(first).flags == policy_state(second).flags == {}
+    assert encode_observation(first, include_state=True) == encode_observation(
+        second, include_state=True,
+    )
+    assert encode_rich_observation(first, include_serialized_state=True) == encode_rich_observation(
+        second, include_serialized_state=True,
+    )
+    assert policy_state(first, oracle=True).flags == first.flags
+
+
 def test_hidden_draw_composition_has_no_top_positions_in_compact_or_rich_inputs() -> None:
     state = _combat()
     observation = encode_observation(state, include_state=True)

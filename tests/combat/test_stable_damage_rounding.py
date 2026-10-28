@@ -89,3 +89,45 @@ def test_zero_base_attack_still_receives_strength(effects):
     attack = _simple("attack", effects=effects, card_type="attack", target="enemy")
     result = _play(_state(attack, statuses={"strength": 3}), "attack")
     assert result.combat.monsters[0].hp == 97
+
+
+def test_signed_calculated_damage_adds_strength_before_clamping():
+    attack = _simple("attack", effects={"damage_formula": {
+        "formula": "hand_count", "base": 13, "multiplier": -2,
+    }}, card_type="attack", target="enemy")
+    others = tuple(_simple(f"other:{index}") for index in range(8))
+    result = _play(_state(attack, *others, statuses={"strength": 5}), "attack")
+    assert result.combat.monsters[0].hp == 98  # (13 - 2*8) + 5 = 2.
+
+
+@pytest.mark.parametrize("card_id,status,amount,expected", [
+    ("sweep", "weak", 3, [73, 91]),
+    ("sovereign_blade", "conqueror", 1, [82, 91]),
+])
+def test_target_specific_damage_multipliers_do_not_spread_across_aoe(
+    card_id, status, amount, expected,
+):
+    attack = _simple(card_id, effects={"all_damage": 9}, card_type="attack", target="all_enemies")
+    state = _state(attack, statuses={"tracking": amount} if status == "weak" else {})
+    first = state.combat.monsters[0].model_copy(update={"statuses": {status: 2}})
+    second = first.model_copy(update={"monster_id": "other", "statuses": {}})
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={
+        "monsters": (first, second),
+    })})
+    result = _play(_reload(state), card_id)
+    assert [monster.hp for monster in result.combat.monsters] == expected
+
+
+def test_reflection_returns_blocked_damage_without_attack_modifiers():
+    state = _state(_simple("wait"), statuses={"reflect": 1, "strength": 99})
+    player = state.player.model_copy(update={"block": 4})
+    monster = state.combat.monsters[0].model_copy(update={
+        "intent": "attack", "intent_damage": 8, "statuses": {"weak": 2, "vulnerable": 2},
+    })
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(update={
+        "player": player, "monsters": (monster,),
+    })})
+    result = _end_turn(_reload(state))
+    assert result.player.hp == 78  # 8*.75=6; four Block absorbed.
+    assert result.combat.monsters[0].hp == 96
+    assert result.player.statuses.get("reflect", 0) == 0
