@@ -251,8 +251,10 @@ def test_pickup_enchant_style_relics_return_modify_deck_markers() -> None:
         "enchant_amount": 3,
     }
     assert kifuda.markers[0].metadata["custom"] == {"enchant_keyword": "adroit"}
-    assert claw.markers[0].metadata["match_card_ids"] == ("defend",)
-    assert growth.markers[0].metadata["custom"] == {"enchant_keyword": "clone"}
+    assert claw.markers[0].metadata["match_source_tag"] == "defend"
+    assert growth.markers[0].metadata["custom"] == {
+        "enchant_keyword": "clone", "enchant_amount": 4,
+    }
     assert dagger.markers[0].metadata["custom"] == {
         "enchant_keyword": "momentum",
         "enchant_amount": 5,
@@ -371,10 +373,12 @@ def test_remaining_non_combat_pickup_relics_return_source_backed_markers() -> No
         "selection": "choose",
     }
     assert soup.markers[0].kind == "modify_deck_cards"
-    assert soup.markers[0].amount == 3
-    assert soup.markers[0].metadata["match_card_ids"] == ("strike",)
-    assert soup.markers[0].metadata["operation"] == "add_damage"
-    assert soup.markers[0].metadata["custom"] == {"damage_bonus": 3}
+    assert soup.markers[0].amount is None
+    assert soup.markers[0].metadata["match_source_tag"] == "strike"
+    assert soup.markers[0].metadata["match_basic"] is True
+    assert soup.markers[0].metadata["custom"] == {
+        "enchant_keyword": "tezcataras_ember", "enchant_amount": 1,
+    }
     assert [(marker.kind, marker.amount) for marker in scroll_boxes.markers] == [
         ("card_pack_reward", 1),
     ]

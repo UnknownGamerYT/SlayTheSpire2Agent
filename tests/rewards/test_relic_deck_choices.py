@@ -412,3 +412,67 @@ def test_new_leaf_chosen_transform_consumes_only_source_niche_rng_and_survives_r
     changed = {key for key, value in state.rng.streams.items()
                if value != before.streams.get(key)}
     assert changed == {"niche"}
+
+
+def test_neows_talisman_upgrades_last_basic_strike_and_defend_without_rng():
+    from sts2sim.engine.transitions import _card_from_spec
+    cards = tuple(_card_from_spec({"id": card_id, "instance_id": instance,
+        "type": card_type, "rarity": rarity, "cost": 1, "upgraded": upgraded}, i)
+        for i, (card_id, instance, card_type, rarity, upgraded) in enumerate((
+            ("STRIKE_IRONCLAD", "first", "attack", "basic", False),
+            ("STRIKE_IRONCLAD", "last", "attack", "basic", True),
+            ("DEFEND_IRONCLAD", "guard", "skill", "basic", False),
+            ("PERFECTED_STRIKE", "nonbasic", "attack", "common", False),
+        )))
+    state = _reward_state("neows_talisman", cards=cards)
+    before = state.rng
+    state = step(load_state(serialize(state)), next(a for a in legal_actions(state)
+                 if a.type == "take_reward_relic"))
+    assert [c.upgraded for c in state.master_deck] == [False, True, True, False]
+    assert state.rng == before
+
+
+def test_nutritious_soup_enchants_only_eligible_basic_strikes_with_ember():
+    from sts2sim.engine.transitions import _card_from_spec
+    cards = tuple(_card_from_spec({"id": card_id, "instance_id": instance,
+        "type": "attack", "rarity": rarity, "cost": 1, "damage": 6}, i)
+        for i, (card_id, instance, rarity) in enumerate((
+            ("STRIKE_IRONCLAD", "basic", "basic"),
+            ("PERFECTED_STRIKE", "nonbasic", "common"),
+            ("COUNTERSTRIKE", "false_match", "basic"),
+        )))
+    state = _reward_state("nutritious_soup", cards=cards)
+    state = step(load_state(serialize(state)), next(a for a in legal_actions(state)
+                 if a.type == "take_reward_relic"))
+    assert [len(c.enchantments) for c in state.master_deck] == [1, 0, 0]
+    card = state.master_deck[0]
+    assert card.enchantments[0].keyword == "tezcataras_ember"
+    assert card.enchantments[0].amount == 1
+    assert card.cost == 0 and card.custom["eternal"]
+
+
+def test_paels_claw_uses_defend_tag_and_enchantment_eligibility():
+    from sts2sim.engine.transitions import _card_from_spec
+    cards = (
+        _card_from_spec({"id": "ULTIMATE_DEFEND", "instance_id": "tagged",
+                         "type": "skill", "rarity": "ancient", "cost": 1}, 0),
+        _card_from_spec({"id": "DEFEND_IRONCLAD", "instance_id": "already",
+                         "type": "skill", "cost": 1, "enchantments": (
+                             {"keyword": "sharp", "amount": 1},)}, 1),
+        _card_from_spec({"id": "DEFENDER", "instance_id": "false_match",
+                         "type": "skill", "cost": 1}, 2),
+    )
+    state = _reward_state("paels_claw", cards=cards)
+    state = step(state, next(a for a in legal_actions(state) if a.type == "take_reward_relic"))
+    assert state.master_deck[0].enchantments[0].keyword == "goopy"
+    assert state.master_deck[0].enchantments[0].amount == 1
+    assert state.master_deck[0].exhausts
+    assert state.master_deck[1].enchantments[0].keyword == "sharp"
+    assert not state.master_deck[2].enchantments
+
+
+def test_paels_growth_chosen_clone_amount_is_four():
+    state = _choose(load_state(serialize(_pickup("paels_growth"))), "deck:3")
+    card = next(c for c in state.master_deck if c.instance_id == "deck:3")
+    assert card.enchantments[0].keyword == "clone"
+    assert card.enchantments[0].amount == 4

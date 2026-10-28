@@ -48,7 +48,7 @@
         "Rarity",
         "HasUponPickupEffect"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -58,10 +58,11 @@
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_random_upgrade_and_transform_pickup_relics_return_deck_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_relic_deck_choices.py::test_neows_talisman_upgrades_last_basic_strike_and_defend_without_rng"
       ],
       "notes": [
-        "Pending correction: source upgrades the last Basic Strike and last Basic Defend, with no random selection."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -243,7 +244,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -253,10 +254,11 @@
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_non_combat_pickup_relics_return_source_backed_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch"
+        "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
+        "tests/rewards/test_relic_deck_choices.py::test_nutritious_soup_enchants_only_eligible_basic_strikes_with_ember"
       ],
       "notes": [
-        "Pending correction: source applies TezcatarasEmber1 to every eligible Basic Strike; current damage-only marker loses free Energy/Eternal/eligibility."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -511,7 +513,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -521,10 +523,11 @@
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_enchant_style_relics_return_modify_deck_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_relic_deck_choices.py::test_paels_claw_uses_defend_tag_and_enchantment_eligibility"
       ],
       "notes": [
-        "Pending correction: source applies Goopy1 to all enchantable Defend-tag cards; name matching and base enchantment eligibility differ."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -621,7 +624,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -636,10 +639,11 @@
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
         "tests/rooms/test_cook_clone.py::test_clone_is_unavailable_without_a_clone_enchantment",
         "tests/rewards/test_relic_deck_choices.py::test_paels_growth_enchants_the_chosen_card_and_is_visible_to_the_agent",
-        "tests/rewards/test_relic_deck_choices.py::test_relic_choice_describes_master_deck_card_instead_of_a_temporary_combat_copy"
+        "tests/rewards/test_relic_deck_choices.py::test_relic_choice_describes_master_deck_card_instead_of_a_temporary_combat_copy",
+        "tests/rewards/test_relic_deck_choices.py::test_paels_growth_chosen_clone_amount_is_four"
       ],
       "notes": [
-        "Pending correction: source chosen Clone amount is4; marker currently omits that amount."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -808,7 +812,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -1468,7 +1472,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -1598,7 +1602,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -2632,7 +2636,7 @@
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -2672,7 +2676,7 @@
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -3477,7 +3481,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -3644,7 +3648,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -4310,7 +4314,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card",
         "src/sts2sim/engine/transitions.py:_use_potion",
         "src/sts2sim/engine/transitions.py:_add_event_potions"
@@ -4344,7 +4348,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -4376,7 +4380,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
@@ -4472,7 +4476,7 @@
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_triggers",
+        "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [

@@ -365,6 +365,22 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/PlatingPower.cs",
       "sha256": "d3cd1402c704dcc379caf0981595356d449ccd81da10ff043836e0c1644cc2f1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NeowsTalisman.cs",
+      "sha256": "14359161e3d0b400712b19e30f37562b7ca78835b00cad111dd097cb2f3b2197"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NutritiousSoup.cs",
+      "sha256": "c75f5cc395bf71ec6e2282bf34dc59bbd6c6ef734a44e84529e1852eee719a82"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsClaw.cs",
+      "sha256": "666d40b2d85e26e2272d51779c51fc36c8085067ca7dad0d267762f1af9e7be1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsGrowth.cs",
+      "sha256": "0ff5728cf4d9cd9861c51329f795afd985521aa4b4136cb10e59f55cb1a52155"
     }
   ],
   "cached_source_rows": {

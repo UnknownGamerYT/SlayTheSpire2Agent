@@ -259,6 +259,8 @@ from .rng import (
     run_random_from_seed,
 )
 from .serialization import SerializedState, load_state, state_digest
+from .source_enchantment_hooks import can_enchant as can_enchant_source
+from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 
 ActionInput = Action | Mapping[str, Any]
 SourceData = Mapping[str, Any] | None
@@ -6433,6 +6435,24 @@ def _apply_relic_pickup_effects(
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     normalized = _normalized_id(relic_id)
     state = remove_obtained_source_relic(state, normalized)
+    if normalized == "neows_talisman":
+        deck = list(state.master_deck)
+        talisman_events: list[EffectEvent] = []
+        for tag in ("strike", "defend"):
+            index = next((i for i in range(len(deck) - 1, -1, -1)
+                          if _is_source_basic_card(deck[i])
+                          and _has_source_card_tag(deck[i], tag)), None)
+            if index is None:
+                continue
+            card = deck[index]
+            upgraded = _upgrade_card_instance(card)
+            deck[index] = upgraded
+            if upgraded != card:
+                talisman_events.append(EffectEvent(
+                    kind="relic_deck_card_upgraded", source_id=relic_id,
+                    target_id=card.instance_id, amount=1, metadata={"card_id": card.card_id},
+                ))
+        return state.model_copy(update={"master_deck": tuple(deck)}), tuple(talisman_events)
     if normalized in {"scroll_boxes", "touch_of_orobas", "toy_box", "wongos_mystery_ticket"}:
         return _apply_lifecycle_relic_pickup(state, normalized)
     pickup = resolve_relic_pickup(normalized, hp=state.player.hp, max_hp=state.player.max_hp)
@@ -6827,6 +6847,7 @@ def _apply_relic_modify_deck_cards_marker(
                 updated, str(keyword),
                 _coerce_int(custom_updates.get("enchant_amount"), default=0), source_id=relic_id,
             )
+            updated = refresh_enchantment_properties(updated)
         deck.append(updated)
         events.append(
             EffectEvent(
@@ -6858,7 +6879,7 @@ def _apply_relic_upgrade_deck_cards_marker(
         index
         for index, card in enumerate(deck)
         if not card.upgraded
-        and not _deck_card_mutation_blocked(card)
+        and (marker.kind == "modify_deck_cards" or not _deck_card_mutation_blocked(card))
         and _relic_marker_matches_deck_card(card, marker.metadata)
     ]
     rng.shuffle(candidates)
@@ -7437,6 +7458,14 @@ def _relic_marker_matches_deck_card(
     card: CardInstance,
     metadata: Mapping[str, object],
 ) -> bool:
+    source_tag = str(metadata.get("match_source_tag", ""))
+    if source_tag and not _has_source_card_tag(card, source_tag):
+        return False
+    if _truthy(metadata.get("match_basic")) and not _is_source_basic_card(card):
+        return False
+    enchantment = _mapping_from(metadata.get("custom")).get("enchant_keyword")
+    if enchantment and not can_enchant_source(card, str(enchantment), in_deck=True):
+        return False
     match_instance_ids = set(_string_items(metadata.get("match_card_instance_ids")))
     if match_instance_ids and card.instance_id not in match_instance_ids:
         return False
@@ -7464,6 +7493,22 @@ def _relic_marker_matches_deck_card(
     if not match_ids and not match_names:
         return True
     return card_id in match_ids or any(item in card_id or item in card_name for item in match_names)
+
+
+def _has_source_card_tag(card: CardInstance, tag: str) -> bool:
+    return _normalized_tag(tag) in {
+        *(_normalized_tag(value) for value in card.tags),
+        *SOURCE_CARD_TAGS.get(_normalized_id(card.card_id), ()),
+    }
+
+
+def _is_source_basic_card(card: CardInstance) -> bool:
+    if str(_card_source_spec(card).get("rarity", "")).lower() == "basic":
+        return True
+    return _normalized_id(card.card_id) in {
+        f"{prefix}_{character}" for prefix in ("strike", "defend")
+        for character in ("ironclad", "silent", "regent", "necrobinder", "defect")
+    }
 
 
 def _take_reward_card(
@@ -29274,6 +29319,7 @@ def _card_from_spec(
 
     raw_tags = spec.get("tags", ())
     tags = tuple(str(tag) for tag in raw_tags) if raw_tags is not None else ()
+    tags = tuple(dict.fromkeys((*tags, *SOURCE_CARD_TAGS.get(_normalized_id(card_id), ()))))
     return CardInstance(
         instance_id=str(spec.get("instance_id", f"card_{instance_counter:03d}")),
         card_id=card_id,

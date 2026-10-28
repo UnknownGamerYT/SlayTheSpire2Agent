@@ -141,3 +141,11 @@ also covers Defend, OstyAttack, Shiv and Minion tags for other consumers.
 Regen Potion heals and decays at the owner's side end before enemy attacks. Heart
 of Iron's Plating decays at the next owner side start, rather than on damage hits.
 Blood Potion truncates one fifth of maximum HP with no minimum heal of one.
+
+Neow's Talisman upgrades the last Basic Strike and the last Basic Defend in deck
+order without random draws; an already-upgraded final copy does not redirect the
+upgrade to an earlier copy. Nutritious Soup applies Tezcatara's Ember1 to all
+eligible Basic Strikes, including its free cost and Eternal property. Pael's Claw
+applies Goopy1 to eligible Defend-tag cards. Pael's Growth applies Clone4 to its
+chosen card. Shared source enchantment predicates now filter relic card choices
+and automatic applications, and canonical source tags survive card creation.
