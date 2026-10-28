@@ -421,9 +421,10 @@ def validate_map_layout(layout: MapLayout, constraints: MapConstraints) -> MapVa
             seen_kinds: dict[NodeKind, str] = {}
             for target_id in target_ids:
                 target = nodes_by_id[target_id]
-                # The source sibling restriction omits treasure; fixed treasure
-                # rows can have multiple outgoing destinations of that type.
-                if target.kind is NodeKind.TREASURE:
+                # Treasure is outside the sibling restriction. Monsters also
+                # fill any unassigned nodes after the constrained queue pass,
+                # so final layouts can contain repeated monster siblings.
+                if target.kind in {NodeKind.TREASURE, NodeKind.MONSTER}:
                     continue
                 previous = seen_kinds.setdefault(target.kind, target_id)
                 if previous != target_id:

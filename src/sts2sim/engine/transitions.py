@@ -69,6 +69,7 @@ from sts2sim.mechanics.event_flows import (
     resolve_event_flow_option,
 )
 from sts2sim.mechanics.event_specials import self_help_book_options
+from sts2sim.mechanics.map_generation import generate_standard_map
 from sts2sim.mechanics.monster_scripts import (
     MONSTER_POWER_MOVES,
     MONSTER_STATUS_CARD_MOVES,
@@ -133,6 +134,12 @@ from sts2sim.mechanics.rewards import (
     RelicRarity,
     RewardPityState,
     potion_slots_for_ascension,
+)
+from sts2sim.mechanics.run_generation import (
+    generate_run_room_sets,
+    initial_relic_bags,
+    select_run_act_ids,
+    selected_act_id,
 )
 from sts2sim.mechanics.shop_rooms import (
     ShopRoomAction,
@@ -320,11 +327,39 @@ def new_run_state(
         else XOSHIRO256STARSTAR_ALGORITHM
     ))
     rng = run_random_from_seed(seed, algorithm=algorithm)
+    flags = _initial_flags(source)
+    generation_source = {**flags, **source}
+    act_ids = select_run_act_ids(generation_source, random_stream(rng, "act_selection"))
+    relic_rows = tuple(_mapping_from(row) for row in _initial_cached_source_rows(source, "relics"))
+    up_front = random_stream(rng, "up_front")
+    flags.update(initial_relic_bags(
+        relic_rows, character_id, up_front,
+        unlocked_relic_ids=generation_source.get("unlocked_relic_ids"),
+        revealed_epochs=generation_source.get("revealed_epochs"),
+    ))
+    acts = tuple(_mapping_from(row) for row in (
+        _source_items(source.get("acts")) or _initial_cached_source_rows(source, "acts")
+    ))
+    encounter_rows = (
+        _source_items(source.get("encounters")) or _source_items(source.get("encounter_pool"))
+        or _initial_cached_source_rows(source, "encounters")
+    )
+    flags["act_ids"] = act_ids
+    flags["act_room_sets"] = generate_run_room_sets(
+        build_encounter_definitions(encounter_rows), acts, up_front,
+        act_ids=act_ids, profile=generation_source, ascension=ascension,
+    )
+    flags["generation_profile"] = (
+        "supplied" if "revealed_epochs" in generation_source else "all_unlocked"
+    )
     deck = _starter_deck(character_id, source)
     player = _initial_player(character_id, ascension, source)
-    map_state = _generate_act_map(act=_source_int(source, "act", 1), rng=rng, source=source)
+    map_state = _generate_act_map(
+        act=_source_int(source, "act", 1), rng=rng, source={**source, **flags},
+        ascension=ascension,
+    )
     player = _apply_ancient_heal(player, ascension)
-    ancient_state = _generate_ancient_state(act=map_state.act, rng=rng)
+    ancient_state = _generate_ancient_state(act=map_state.act, rng=rng, source=flags)
     rng_state = capture_random_state(rng)
 
     return RunState(
@@ -332,7 +367,7 @@ def new_run_state(
         character_id=character_id,
         ascension=ascension,
         rng=rng_state,
-        phase=RunPhase.ANCIENT,
+        phase=RunPhase.ANCIENT if ancient_state is not None else RunPhase.MAP,
         act=map_state.act,
         floor=_source_int(source, "floor", 0),
         player=player,
@@ -341,7 +376,7 @@ def new_run_state(
         ancient=ancient_state,
         map=map_state,
         combat=None,
-        flags=_initial_flags(source),
+        flags=flags,
     )
 
 
@@ -2133,6 +2168,14 @@ def _enter_event_room(
         )
 
     event = _event_state_for_node(state, node, rng)
+    flags = dict(state.flags)
+    flags["visited_event_ids"] = list(dict.fromkeys(
+        (*_flag_str_sequence(state, "visited_event_ids"), event.event_id)
+    ))
+    state = state.model_copy(update={"flags": flags})
+    cursor = event.metadata.get("generation_event_cursor")
+    if cursor is not None:
+        state = _with_room_set_values(state, {"events_visited": int(cursor)})
     return (
         state.model_copy(
             update={
@@ -2186,6 +2229,10 @@ def _event_state_for_node(
         result = result.model_copy(update={
             "metadata": {**result.metadata, "eligibility_diagnostics": diagnostics},
         })
+    if "_generation_event_cursor" in event:
+        result = result.model_copy(update={"metadata": {
+            **result.metadata, "generation_event_cursor": event["_generation_event_cursor"],
+        }})
     return result
 
 
@@ -2265,6 +2312,34 @@ def _event_source_for_room(state: RunState, rng: Random) -> Mapping[str, Any]:
             if eligibility.unknown:
                 unknown[str(event.get("id", ""))] = eligibility.unknown
     if candidates:
+        room_set = _act_room_set(state)
+        ordered_ids = tuple(str(value) for value in room_set.get("events", ()))
+        if ordered_ids:
+            by_id = {_normalized_id(str(value.get("id", ""))): value for value in candidates}
+            cursor = int(room_set.get("events_visited", 0))
+            visited = {
+                _normalized_id(value) for value in _flag_str_sequence(state, "visited_event_ids")
+            }
+            for offset in range(len(ordered_ids)):
+                candidate_id = _normalized_id(ordered_ids[(cursor + offset) % len(ordered_ids)])
+                if candidate_id in by_id and candidate_id not in visited:
+                    chosen = by_id[candidate_id]
+                    return {
+                        **chosen, "_generation_event_cursor": cursor + offset + 1,
+                        "eligibility_diagnostics": (
+                            {"unknown_requirements": unknown} if unknown else {}
+                        ),
+                    }
+            # Exhausted unique eligible events can repeat; known entry clauses
+            # still apply, including to a deliberately narrowed fixture pool.
+            for offset in range(len(ordered_ids)):
+                candidate_id = _normalized_id(ordered_ids[(cursor + offset) % len(ordered_ids)])
+                if candidate_id in by_id:
+                    return {
+                        **by_id[candidate_id], "_generation_event_cursor": cursor + offset + 1,
+                        "eligibility_diagnostics": {"unique_events_exhausted": True,
+                                                    "unknown_requirements": unknown},
+                    }
         chosen = rng.choice(candidates)
         if unknown:
             return {**chosen, "eligibility_diagnostics": {"unknown_requirements": unknown}}
@@ -2277,13 +2352,7 @@ def _event_source_for_room(state: RunState, rng: Random) -> Mapping[str, Any]:
 
 def _event_eligibility_context(state: RunState) -> EventEligibilityContext:
     removable = tuple(card for card in state.master_deck if not _deck_card_mutation_blocked(card))
-    act_ids = _mapping_from(state.flags.get("act_ids"))
-    act_id = act_ids.get(str(state.act))
-    if act_id is None:
-        configured = str(state.flags.get("act_id", ""))
-        known_act = {"overgrowth": 1, "underdocks": 1, "hive": 2, "glory": 3}
-        if known_act.get(configured.lower()) == state.act:
-            act_id = configured
+    act_id = selected_act_id(state.act, state.flags)
     allies = _ally_states_from_source(state.flags.get("allies", state.flags.get("ally_players")))
     return EventEligibilityContext(
         act=state.act, floor=state.floor, gold=state.player.gold,
@@ -8153,7 +8222,10 @@ def _complete_current_room(
         metadata={"act": node.act, "floor": node.floor, "room_kind": node.kind.value},
     )
 
-    if node.kind == RoomKind.BOSS:
+    if node.kind == RoomKind.BOSS and not any(
+        state.map.node_by_id[target].kind == RoomKind.BOSS
+        for target in state.map.outgoing_by_id.get(node.node_id, ())
+    ):
         if state.act >= _max_acts(state):
             return (
                 state.model_copy(
@@ -8170,15 +8242,17 @@ def _complete_current_room(
             )
         next_act = state.act + 1
         rng = random_from_state(state.rng)
-        next_map = _generate_act_map(act=next_act, rng=rng, source=state.flags)
+        next_map = _generate_act_map(
+            act=next_act, rng=rng, source=state.flags, ascension=state.ascension,
+        )
         flags = dict(state.flags)
         next_map, flags, map_events = _mark_spoils_map_site(next_map, flags)
         player = _apply_ancient_heal(state.player, state.ascension)
-        ancient_state = _generate_ancient_state(act=next_act, rng=rng)
+        ancient_state = _generate_ancient_state(act=next_act, rng=rng, source=flags)
         return (
         state.model_copy(
             update={
-                "phase": RunPhase.ANCIENT,
+                "phase": RunPhase.ANCIENT if ancient_state is not None else RunPhase.MAP,
                 "act": next_act,
                 "floor": 0,
                 "player": player,
@@ -8198,7 +8272,10 @@ def _complete_current_room(
                 completion_event,
                 EffectEvent(kind="act_advanced", amount=next_act),
                 *map_events,
-                EffectEvent(kind="ancient_ready", source_id=ancient_state.ancient_id),
+                *(
+                    (EffectEvent(kind="ancient_ready", source_id=ancient_state.ancient_id),)
+                    if ancient_state is not None else ()
+                ),
             ),
         )
 
@@ -8257,6 +8334,14 @@ def _start_combat_for_node(
             }),
             "metadata": {"player_facing": "right", **combat.metadata},
         })
+    if not _preferred_encounter_id(state) and not state.flags.get("event_combat_restore_flags"):
+        key = {
+            RoomKind.MONSTER: "normal_encounters_visited",
+            RoomKind.ELITE: "elite_encounters_visited",
+            RoomKind.BOSS: "boss_encounters_visited",
+        }.get(node.kind)
+        if key is not None and _act_room_set(state):
+            state = _with_room_set_values(state, {key: int(_act_room_set(state).get(key, 0)) + 1})
     fur_coat_events: tuple[EffectEvent, ...] = ()
     if _fur_coat_room_is_marked(state, node):
         combat = combat.model_copy(
@@ -27552,11 +27637,20 @@ def _apply_ancient_heal(player: PlayerState, ascension: int) -> PlayerState:
     return player.model_copy(update={"hp": min(player.max_hp, player.hp + heal)})
 
 
-def _generate_ancient_state(act: int, rng: Random) -> AncientState:
-    context = with_generated_ancient_choices(MechanicsAncientContext(act=act), rng=rng)
+def _generate_ancient_state(
+    act: int, rng: Random, source: Mapping[str, Any] | None = None,
+) -> AncientState | None:
+    source = source or {}
+    room_set = _mapping_from(_mapping_from(source.get("act_room_sets")).get(str(act)))
+    ancient_id = room_set.get("ancient_id")
+    if room_set and ancient_id is None:
+        return None
+    context = with_generated_ancient_choices(
+        MechanicsAncientContext(act=act, ancient_id=str(ancient_id) if ancient_id else None),
+        rng=random_stream(rng, str(ancient_id or "NEOW").upper()),
+    )
     return AncientState(
-        act=act,
-        ancient_id=context.ancient_id or "neow",
+        act=act, ancient_id=context.ancient_id or "neow",
         options=tuple(_ancient_option_from_choice(choice) for choice in context.choices),
     )
 
@@ -28608,6 +28702,11 @@ def _initial_flags(source: Mapping[str, Any]) -> dict[str, Any]:
         "acts",
         "act_id",
         "act_ids",
+        "revealed_epochs",
+        "number_of_runs",
+        "seen_encounters",
+        "discovered_act_ids",
+        "unlocked_relic_ids",
         "has_event_pet",
         "unlocked_character_count",
         "tradeable_relic_count",
@@ -28794,128 +28893,32 @@ def _infer_target(card_type: CardType, effects: Mapping[str, Any]) -> str:
     return TargetType.NONE.value
 
 
-def _generate_act_map(act: int, rng: Random, source: Mapping[str, Any]) -> MapState:
+def _generate_act_map(
+    act: int, rng: Random, source: Mapping[str, Any], *, ascension: int = 0,
+) -> MapState:
     if act == 2 and _source_bool(source, "golden_compass_act2_map", False):
         return _generate_golden_compass_map(act=act)
-
-    floors = _source_int(source, "map_floors", _default_act_floors(act))
-    width = _source_int(source, "map_width", 7)
-    width = max(1, min(7, width))
-    floors = max(4, floors)
-    boss_floor = floors - 1
-    rest_floor = boss_floor - 1
-    treasure_floor = max(2, boss_floor - 7)
-
-    start_lane = width // 2
-    start_node_id = f"a{act}:0:{start_lane}"
-    nodes: list[MapNodeState] = [
-        MapNodeState(
-            node_id=start_node_id,
-            act=act,
-            floor=0,
-            lane=start_lane,
-            kind=RoomKind.START,
-        )
-    ]
-    room_cycle = (
-        RoomKind.MONSTER,
-        RoomKind.EVENT,
-        RoomKind.SHOP,
-        RoomKind.ELITE,
-        RoomKind.MONSTER,
-        RoomKind.REST,
-        RoomKind.TREASURE,
+    multiplayer = _source_int(source, "player_count", 1) > 1
+    default_rooms = _default_act_floors(act) - 2 - int(multiplayer)
+    rooms = max(2, _source_int(source, "map_floors", default_rooms + 2) - 2)
+    layout = generate_standard_map(
+        random_stream(rng, f"act_{act}_map"), act=act,
+        act_id=selected_act_id(act, source), ascension_level=ascension,
+        room_count=rooms, width=_source_int(source, "map_width", 7),
+        path_count=_source_int(source, "map_paths", 7),
+        has_second_boss=act == _source_int(source, "max_acts", 3) and ascension >= 10,
     )
-    pre_rest_cycle = (
-        RoomKind.MONSTER,
-        RoomKind.EVENT,
-        RoomKind.SHOP,
-        RoomKind.ELITE,
-        RoomKind.MONSTER,
-        RoomKind.TREASURE,
-    )
-
-    for floor in range(1, boss_floor):
-        if floor == rest_floor:
-            kinds = [RoomKind.REST for _ in range(width)]
-        elif floor == treasure_floor:
-            kinds = [RoomKind.TREASURE for _ in range(width)]
-        elif floor == 1:
-            kinds = [RoomKind.MONSTER for _ in range(width)]
-        elif floor <= 5:
-            early_cycle = (RoomKind.MONSTER, RoomKind.EVENT, RoomKind.SHOP)
-            offset = rng.randrange(len(early_cycle))
-            kinds = [
-                early_cycle[(floor + lane + offset + act) % len(early_cycle)]
-                for lane in range(width)
-            ]
-        elif floor == rest_floor - 1:
-            offset = rng.randrange(len(pre_rest_cycle))
-            kinds = [
-                pre_rest_cycle[(floor + lane + offset + act) % len(pre_rest_cycle)]
-                for lane in range(width)
-            ]
-        else:
-            offset = rng.randrange(len(room_cycle))
-            kinds = [
-                room_cycle[(floor + lane + offset + act) % len(room_cycle)]
-                for lane in range(width)
-            ]
-
-        for lane, kind in enumerate(kinds):
-            nodes.append(
-                MapNodeState(
-                    node_id=f"a{act}:{floor}:{lane}",
-                    act=act,
-                    floor=floor,
-                    lane=lane,
-                    kind=kind,
-                )
-            )
-
-    boss_node_id = f"a{act}:{boss_floor}:{start_lane}"
-    nodes.append(
-        MapNodeState(
-            node_id=boss_node_id,
-            act=act,
-            floor=boss_floor,
-            lane=start_lane,
-            kind=RoomKind.BOSS,
-        )
-    )
-
-    nodes_by_floor: dict[int, list[MapNodeState]] = {}
-    for node in nodes:
-        nodes_by_floor.setdefault(node.floor, []).append(node)
-    edges = _generate_path_edges(
-        act=act,
-        boss_floor=boss_floor,
-        width=width,
-        rng=rng,
-        path_count=_source_int(source, "map_paths", _default_path_count(width)),
-        start_lane=start_lane,
-    )
-    edges = _dedupe_fixed_destination_floor_edges(
-        edges,
-        fixed_destination_floors={treasure_floor, rest_floor},
-    )
-    nodes, edges = _prune_nodes_to_edges(nodes, edges)
-    nodes = _repair_generated_map_node_kinds(
-        nodes,
-        edges,
-        act=act,
-        boss_floor=boss_floor,
-        treasure_floor=treasure_floor,
-        rest_floor=rest_floor,
-    )
-
+    nodes = tuple(MapNodeState(
+        node_id=node.node_id, act=act, floor=node.floor, lane=node.lane or 0,
+        kind=RoomKind(node.kind.value),
+    ) for node in layout.nodes)
+    start = next(node for node in nodes if node.kind == RoomKind.START)
+    boss = max((node for node in nodes if node.kind == RoomKind.BOSS), key=lambda n: n.floor)
     return MapState(
-        act=act,
-        nodes=tuple(nodes),
-        edges=tuple(edges),
-        current_node_id=start_node_id,
-        completed_node_ids=(start_node_id,),
-        boss_node_id=boss_node_id,
+        act=act, nodes=nodes,
+        edges=tuple(MapEdgeState(from_id=edge.from_id, to_id=edge.to_id) for edge in layout.edges),
+        current_node_id=start.node_id, completed_node_ids=(start.node_id,),
+        boss_node_id=boss.node_id,
     )
 
 
@@ -29597,15 +29600,45 @@ def _encounter_for_node(
     encounters = build_encounter_definitions(raw_encounters)
     if not encounters:
         return None
-
+    preferred = _preferred_encounter_id(state)
+    room_set = _act_room_set(state)
+    if preferred is None and room_set:
+        if node.kind == RoomKind.BOSS:
+            planned_id = room_set.get(
+                "second_boss_encounter" if int(room_set.get("boss_encounters_visited", 0))
+                and room_set.get("second_boss_encounter") else "boss_encounter"
+            )
+        else:
+            pool_key = "elite_encounters" if node.kind == RoomKind.ELITE else "normal_encounters"
+            planned = tuple(str(value) for value in room_set.get(pool_key, ()))
+            cursor = int(room_set.get(pool_key + "_visited", 0))
+            planned_id = planned[cursor % len(planned)] if planned else None
+        if planned_id is not None:
+            return next((encounter for encounter in encounters
+                         if _normalized_id(encounter.encounter_id)
+                         == _normalized_id(str(planned_id))),
+                        None)
     return choose_encounter(
         encounters,
         rng,
         act=node.act,
         room_type=node.kind.value,
-        preferred_id=_preferred_encounter_id(state),
-        prefer_weak=node.kind == RoomKind.MONSTER and node.floor <= 3,
+        preferred_id=preferred,
+        act_id=selected_act_id(node.act, state.flags),
+        prefer_weak=(node.kind == RoomKind.MONSTER
+                     and int(room_set.get("normal_encounters_visited", 0))
+                     < (3 if node.act == 1 else 2)),
     )
+
+
+def _act_room_set(state: RunState) -> Mapping[str, Any]:
+    return _mapping_from(_mapping_from(state.flags.get("act_room_sets")).get(str(state.act)))
+
+
+def _with_room_set_values(state: RunState, values: Mapping[str, Any]) -> RunState:
+    room_sets = dict(_mapping_from(state.flags.get("act_room_sets")))
+    room_sets[str(state.act)] = {**_act_room_set(state), **values}
+    return state.model_copy(update={"flags": {**state.flags, "act_room_sets": room_sets}})
 
 
 def _preferred_encounter_id(state: RunState) -> str | None:

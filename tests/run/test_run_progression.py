@@ -245,7 +245,7 @@ def test_ancient_offerings_heal_and_grant_selected_relics() -> None:
     assert [option.kind for option in state.ancient.options].count("curse_relic") == 1
 
     chosen = state.ancient.options[0]
-    state = _choose_ancient_option(state, 0)
+    state = _skip_ancient_reward(_choose_ancient_option(state, 0))
     assert state.phase.value == "map"
     assert chosen.relic_id in state.relics
     assert state.ancient is not None
@@ -1226,7 +1226,7 @@ def test_golden_compass_remarks_existing_spoils_map_target_on_act_two_pickup() -
     assert state.map is not None
     assert state.flags["golden_compass_act2_map"] is True
     assert state.flags["spoils_map_target_node_id"] in state.map.node_by_id
-    assert state.flags["spoils_map_target_node_id"] != old_target.node_id
+    assert state.map.node_by_id[state.flags["spoils_map_target_node_id"]].kind == RoomKind.TREASURE
     assert len({node.lane for node in state.map.nodes}) == 1
 
 
@@ -1247,7 +1247,8 @@ def test_generated_map_edges_are_sparse_and_adjacent() -> None:
         outgoing.setdefault(edge.from_id, []).append(edge.to_id)
 
         assert end.floor == start.floor + 1
-        assert abs(end.lane - start.lane) <= 1
+        if start.kind != RoomKind.START and end.kind != RoomKind.BOSS:
+            assert abs(end.lane - start.lane) <= 1
 
     exit_counts = [
         len(targets)
@@ -1302,7 +1303,8 @@ def test_default_act_maps_have_realistic_rows_and_fire_boss_row() -> None:
             end = nodes[edge.to_id]
             outgoing.setdefault(edge.from_id, []).append(edge.to_id)
             assert end.floor == start.floor + 1
-            assert abs(end.lane - start.lane) <= 1
+            if start.kind != RoomKind.START and end.kind != RoomKind.BOSS:
+                assert abs(end.lane - start.lane) <= 1
             assert not (
                 start.kind == end.kind
                 and start.kind in {RoomKind.ELITE, RoomKind.SHOP, RoomKind.REST, RoomKind.TREASURE}
@@ -1313,7 +1315,8 @@ def test_default_act_maps_have_realistic_rows_and_fire_boss_row() -> None:
                 continue
             if len(targets) < 2:
                 continue
-            target_kinds = [nodes[target_id].kind for target_id in targets]
+            target_kinds = [nodes[target_id].kind for target_id in targets
+                            if nodes[target_id].kind not in {RoomKind.TREASURE, RoomKind.MONSTER}]
             assert len(target_kinds) == len(set(target_kinds))
 
         for fire in [node for node in nodes.values() if node.floor == rest_floor]:

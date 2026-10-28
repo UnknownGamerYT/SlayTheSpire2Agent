@@ -17,10 +17,13 @@ the listed predicates, not exact game event distributions.
 The runtime previously tracked numeric acts only. Event selection now accepts
 `source_data={"act_id": "UNDERDOCKS"}` for Act 1 or a per-act string-keyed
 `act_ids` mapping. Named events follow the selected cached act's `events` list;
-shared events still apply their own entry clauses. The existing default is
-Overgrowth, Hive, Glory. This selector does not implement variant-specific maps,
-encounter pools or random act selection. Custom event IDs absent from the cached
-act lists retain their declared act-label eligibility.
+shared events still apply their own entry clauses. Normal run generation now
+selects and persists the named acts using the stable source rules. The default
+all-unlocked training profile can select Overgrowth or Underdocks, followed by
+Hive and Glory. The same identity binds maps, encounter/event pools, bosses and
+Ancient candidates; see [stable run generation](run_generation_stable.md).
+Custom event IDs absent from the cached act lists retain their declared
+act-label eligibility.
 
 The runtime does not establish event-pet taxonomy, profile unlock state or relic
 tradeability. Callers can supply `has_event_pet`, `unlocked_character_count` and
