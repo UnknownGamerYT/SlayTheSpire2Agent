@@ -508,7 +508,8 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
             and state.reward is None
         ):
             event_actions = list(_legal_event_actions(state))
-            event_actions.append(Action(type=ActionType.PROCEED))
+            if not is_source_rng(state.rng):
+                event_actions.append(Action(type=ActionType.PROCEED))
             return _with_potion_discard_actions(state, tuple(event_actions))
         reward_actions = list(_legal_reward_actions(state))
         if not _reward_has_forced_pending_items(state):
