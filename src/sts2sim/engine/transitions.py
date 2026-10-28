@@ -81,11 +81,11 @@ from sts2sim.mechanics.event_flows import (
     roll_source_conveyor_dish,
 )
 from sts2sim.mechanics.event_specials import self_help_book_options
-from sts2sim.mechanics.map_generation import generate_standard_map
 from sts2sim.mechanics.item_energy import (
     SOURCE_MAX_ENERGY_RELIC_IDS,
     source_max_energy_bonus,
 )
+from sts2sim.mechanics.map_generation import generate_standard_map
 from sts2sim.mechanics.monster_scripts import (
     MONSTER_POWER_MOVES,
     MONSTER_STATUS_CARD_MOVES,
@@ -276,8 +276,8 @@ from .rng import (
     run_random_from_seed,
 )
 from .serialization import SerializedState, load_state, state_digest
-from .source_enchantment_hooks import can_enchant as can_enchant_source
 from .source_crystal_sphere import choose_sphere
+from .source_enchantment_hooks import can_enchant as can_enchant_source
 from .source_enchantment_hooks import can_enchant as source_can_enchant
 from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 from .source_event_offers import native_dynamic_offers
@@ -26257,7 +26257,6 @@ def _apply_relic_draw_pile_to_hand_marker(
 
     for card in combat.draw_pile:
         if remaining > 0 and _relic_draw_pile_card_matches(card, marker.kind, card_type):
-            custom = dict(card.custom)
             if make_free:
                 card = source_cost_hooks.free_to_play(card)
             moved.append(card)
@@ -30718,7 +30717,8 @@ def _upgrade_card_instance(card: CardInstance) -> CardInstance:
             upgraded = _enchant_card(
                 upgraded, enchantment.keyword, enchantment.amount, source_id=enchantment.source_id
             )
-        return source_cost_hooks.preserve_changes(card, source_enchantment_hooks.preserve_changes(card, upgraded.model_copy(
+        return source_cost_hooks.preserve_changes(
+            card, source_enchantment_hooks.preserve_changes(card, upgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
                 "custom": {**upgraded.custom, **{k: v for k, v in card.custom.items()
@@ -30739,7 +30739,8 @@ def _downgrade_card_instance(card: CardInstance) -> CardInstance:
         downgraded_spec["upgraded"] = False
         downgraded_spec["instance_id"] = card.instance_id
         downgraded = _card_from_spec(downgraded_spec, 1)
-        return source_cost_hooks.preserve_changes(card, source_enchantment_hooks.preserve_changes(card, downgraded.model_copy(
+        return source_cost_hooks.preserve_changes(
+            card, source_enchantment_hooks.preserve_changes(card, downgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
                 "custom": {**downgraded.custom, **{k: v for k, v in card.custom.items()
