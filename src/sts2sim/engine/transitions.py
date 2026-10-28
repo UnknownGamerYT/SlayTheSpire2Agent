@@ -14233,14 +14233,14 @@ def _execute_monster_turn(
         return combat, tuple(events)
 
     if move.block:
-        monster = monster.model_copy(update={"block": monster.block + move.block})
+        monster, block_amount = _gain_monster_block(monster, move.block)
         combat = _combat_with_monster(combat, monster_index, monster)
         events.append(
             EffectEvent(
                 kind="monster_block",
                 source_id=monster.monster_id,
                 target_id=monster.monster_id,
-                amount=move.block,
+                amount=block_amount,
             )
         )
 
@@ -14554,9 +14554,13 @@ def _refresh_monster_intent_from_metadata(
         or _status_amount(monster.statuses, "stunned")
     ):
         return monster.model_copy(update={"intent": "Stun", "intent_damage": 0})
+    block = _metadata_int(monster.metadata, "move_block", monster.intent_block)
     if (_metadata_int(monster.metadata, "damage_per_hit", 0) <= 0
         and "attack" not in str(monster.intent or "").lower()):
-        return monster.model_copy(update={"intent_damage": 0})
+        return monster.model_copy(update={
+            "intent_damage": 0,
+            "intent_block": _modified_monster_block_gain(monster.statuses, block) if block else 0,
+        })
     damage = _modified_monster_attack_damage(
         _metadata_int(monster.metadata, "damage_per_hit", 0)
         + (_signed_status_amount(monster.statuses, "dexterity")
@@ -14568,7 +14572,10 @@ def _refresh_monster_intent_from_metadata(
             monster.statuses, relics,
         )
     damage = Fraction(_incoming_player_damage(player, damage, relics=relics))
-    return monster.model_copy(update={"intent_damage": int(damage) * monster.hit_count})
+    return monster.model_copy(update={
+        "intent_damage": int(damage) * monster.hit_count,
+        "intent_block": _modified_monster_block_gain(monster.statuses, block) if block else 0,
+    })
 
 
 def _apply_monster_player_turn_start(
@@ -14587,13 +14594,13 @@ def _apply_monster_player_turn_start(
             amount = _status_amount(monster.statuses, "plating")
             if monster.hp <= 0 or amount <= 0 or monster.metadata.get("initial_plating_given"):
                 continue
+            monster, block_amount = _gain_monster_block(monster, amount, powered_move=False)
             monsters[index] = monster.model_copy(update={
-                "block": monster.block + amount,
                 "metadata": {**monster.metadata, "initial_plating_given": True},
             })
             events.append(EffectEvent(
                 kind="monster_plating_block", source_id=monster.monster_id,
-                target_id=monster.monster_id, amount=amount,
+                target_id=monster.monster_id, amount=block_amount,
                 metadata={"status": "plating", "initial": True},
             ))
     for source in monsters:
@@ -14607,10 +14614,11 @@ def _apply_monster_player_turn_start(
                 != "turret_operator"
             ):
                 continue
-            monsters[index] = target.model_copy(update={"block": target.block + amount})
+            target, block_amount = _gain_monster_block(target, amount, powered_move=False)
+            monsters[index] = target
             events.append(EffectEvent(
                 kind="monster_rampart_block", source_id=source.monster_id,
-                target_id=target.monster_id, amount=amount,
+                target_id=target.monster_id, amount=block_amount,
                 metadata={"status": "rampart"},
             ))
     return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
@@ -14990,10 +14998,10 @@ def _apply_monster_special_move_effects(
             if candidate.hp > 0 and _normalized_id(candidate.metadata.get(
                 "source_monster_id", candidate.monster_id,
             )) == "fabricator":
-                candidate = candidate.model_copy(update={"block": candidate.block + 15})
+                candidate, block_amount = _gain_monster_block(candidate, 15, powered_move=False)
                 guard_events.append(EffectEvent(
                     kind="monster_block", source_id=monster.monster_id,
-                    target_id=candidate.monster_id, amount=15,
+                    target_id=candidate.monster_id, amount=block_amount,
                 ))
             monsters.append(candidate)
         return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(guard_events)
@@ -15852,13 +15860,47 @@ def _apply_monster_plating_start(
     )
 
 
+def _modified_monster_block_gain(
+    statuses: Mapping[str, int],
+    amount: int | Fraction,
+    *,
+    powered_move: bool = True,
+) -> int:
+    """Source Hook.ModifyBlock for a monster gain with no card source.
+
+    NoBlock explicitly exempts cardSource == null. Unmovable exempts monster
+    targets. Shadowmeld applies to both powered Move and unpowered gains.
+    """
+    modified = Fraction(amount)
+    if powered_move:
+        modified += _signed_status_amount(statuses, "dexterity")
+        modified += _signed_status_amount(statuses, "temporary_dexterity")
+        modified += _status_amount(statuses, "fasten")
+        if _status_amount(statuses, "frail") > 0:
+            modified *= Fraction(3, 4)
+    modified *= 2 ** _status_amount(statuses, "shadowmeld")
+    return int(max(0, modified))
+
+
+def _gain_monster_block(
+    monster: MonsterState,
+    amount: int | Fraction,
+    *,
+    powered_move: bool = True,
+) -> tuple[MonsterState, int]:
+    modified = _modified_monster_block_gain(monster.statuses, amount, powered_move=powered_move)
+    return (
+        monster.model_copy(update={"block": min(999_999_999, monster.block + modified)}), modified,
+    )
+
+
 def _apply_monster_plating_end(
     monster: MonsterState,
 ) -> tuple[MonsterState, tuple[EffectEvent, ...]]:
     plating = _status_amount(monster.statuses, "plating")
     if plating <= 0 or monster.hp <= 0:
         return monster, ()
-    monster = monster.model_copy(update={"block": monster.block + plating})
+    monster, block_amount = _gain_monster_block(monster, plating, powered_move=False)
     return (
         monster,
         (
@@ -15866,7 +15908,7 @@ def _apply_monster_plating_end(
                 kind="monster_plating_block",
                 source_id=monster.monster_id,
                 target_id=monster.monster_id,
-                amount=plating,
+                amount=block_amount,
                 metadata={"status": "plating"},
             ),
         ),
@@ -16330,14 +16372,14 @@ def _execute_fallback_monster_turn(
     if monster.hp <= 0:
         return combat, tuple(events)
     if monster.intent_block:
-        monster = monster.model_copy(update={"block": monster.block + monster.intent_block})
+        monster, block_amount = _gain_monster_block(monster, monster.intent_block)
         combat = _combat_with_monster(combat, monster_index, monster)
         events.append(
             EffectEvent(
                 kind="monster_block",
                 source_id=monster.monster_id,
                 target_id=monster.monster_id,
-                amount=monster.intent_block,
+                amount=block_amount,
             )
         )
     return combat, tuple(events)
@@ -16832,7 +16874,8 @@ def _set_monster_move(
         update={
             "intent": move.intent,
             "intent_damage": intent_damage,
-            "intent_block": move.block,
+            "intent_block": _modified_monster_block_gain(monster.statuses, move.block)
+            if move.block else 0,
             "move_id": move.move_id,
             "next_move_id": None,
             "hit_count": move.hit_count,
@@ -24760,7 +24803,7 @@ def _apply_monster_hit_block_triggers(
                 kind="monster_curl_up",
                 source_id=source_id,
                 target_id=monster.monster_id,
-                amount=curl_up,
+                amount=_modified_monster_block_gain(monster.statuses, curl_up, powered_move=False),
                 metadata={"status": "curl_up"},
             )
         )
@@ -24775,7 +24818,7 @@ def _apply_monster_hit_block_triggers(
                 kind="monster_skittish_block",
                 source_id=source_id,
                 target_id=monster.monster_id,
-                amount=skittish,
+                amount=_modified_monster_block_gain(monster.statuses, skittish, powered_move=False),
                 metadata={"status": "skittish"},
             )
         )
@@ -24863,12 +24906,8 @@ def _apply_monster_hit_block_triggers(
             return monster.model_copy(update={"metadata": metadata}), tuple(events)
         return monster, tuple(events)
 
-    return (
-        monster.model_copy(
-            update={"block": monster.block + block_gain, "metadata": metadata}
-        ),
-        tuple(events),
-    )
+    monster, _ = _gain_monster_block(monster, block_gain, powered_move=False)
+    return monster.model_copy(update={"metadata": metadata}), tuple(events)
 
 
 def _apply_personal_hive_from_damage_events(
@@ -27617,15 +27656,18 @@ def _apply_monster_death_power_triggers(
                 source_id=monster.monster_id, target_id=monster.monster_id,
             )
             monster = monster.model_copy(update={
-                "statuses": statuses, "block": monster.block + 99 * ally_deaths,
+                "statuses": statuses,
             })
+            monster, block_amount = _gain_monster_block(
+                monster, 99 * ally_deaths, powered_move=False,
+            )
             if strength_event is not None:
                 events.append(strength_event.model_copy(update={
                     "metadata": {**strength_event.metadata, "trigger": "crab_rage"},
                 }))
             events.append(EffectEvent(
                 kind="monster_block", source_id=monster.monster_id,
-                target_id=monster.monster_id, amount=99 * ally_deaths,
+                target_id=monster.monster_id, amount=block_amount,
                 metadata={"trigger": "crab_rage"},
             ))
         monsters.append(monster)
@@ -31955,7 +31997,7 @@ def _monster_state_from_spawn(
             ascension_level=state.ascension,
             relics=state.relics,
         )
-        intent_block = move.block
+        intent_block = _modified_monster_block_gain(statuses, move.block) if move.block else 0
         hit_count = move.hit_count
         move_metadata = _monster_move_metadata(definition, move, state.ascension)
 
@@ -31977,7 +32019,8 @@ def _monster_state_from_spawn(
         name=spawned_monster.name,
         hp=spawned_monster.hp,
         max_hp=spawned_monster.max_hp,
-        block=13 if _normalized_id(definition.monster_id) == "cubex_construct" else 0,
+        block=_modified_monster_block_gain(statuses, 13)
+        if _normalized_id(definition.monster_id) == "cubex_construct" else 0,
         intent=move.intent if move is not None else None,
         intent_damage=intent_damage,
         intent_block=intent_block,
@@ -32029,6 +32072,7 @@ def _monster_move_metadata(
         "damage_per_hit": damage_per_hit,
         "hit_count": move.hit_count,
         "base_intent_damage": damage_per_hit * move.hit_count,
+        "move_block": move.block,
         "move_heal": move.heal,
         "move_powers": [power.as_metadata() for power in move.powers if power.power_id],
     }

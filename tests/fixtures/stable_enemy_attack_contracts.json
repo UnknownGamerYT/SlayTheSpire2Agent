@@ -5,7 +5,7 @@
     "target": "v0.107.1 public",
     "steam_build_id": 23811903,
     "main_assembly_hash": -1555940892,
-    "scope": "206 source attack methods matched to registered moves; 203 constant/ascension damage expressions and 205 constant/ascension hit-count expressions. Null means a dynamic expression covered elsewhere, not a numeric equivalence claim."
+    "scope": "226 source attack methods matched to registered moves; 223 constant/ascension damage expressions and 225 constant/ascension hit-count expressions. Null means a dynamic expression covered elsewhere, not a numeric equivalence claim."
   },
   "attacks": [
     {
@@ -57,6 +57,44 @@
         "7": 10,
         "8": 10,
         "9": 11
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "AXE_RUBY_RAIDER",
+      "move_id": "SWING_1",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/AxeRubyRaider.cs": "f31ea20e4d298980f9e8f411415a626b5273f9e560b1a33714cec62f37e95b53"
+      },
+      "damage_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 6
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "AXE_RUBY_RAIDER",
+      "move_id": "SWING_2",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/AxeRubyRaider.cs": "f31ea20e4d298980f9e8f411415a626b5273f9e560b1a33714cec62f37e95b53"
+      },
+      "damage_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 6
       },
       "hits_by_ascension": {
         "0": 1,
@@ -161,6 +199,25 @@
       }
     },
     {
+      "monster_id": "BOWLBUG_NECTAR",
+      "move_id": "THRASH2",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/BowlbugNectar.cs": "20fe7813633482f3a07034e9170bcf8b9e0410e31aac1c0be0ef79dc09a38738"
+      },
+      "damage_by_ascension": {
+        "0": 3,
+        "7": 3,
+        "8": 3,
+        "9": 3
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
       "monster_id": "BOWLBUG_ROCK",
       "move_id": "HEADBUTT",
       "source_files": {
@@ -209,6 +266,25 @@
         "7": 7,
         "8": 7,
         "9": 8
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "BYGONE_EFFIGY",
+      "move_id": "SLASHES",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/BygoneEffigy.cs": "7ba06948010e9da14f9d84984b531d8f563b8ead28a7f2bfd63b74f80b015aca"
+      },
+      "damage_by_ascension": {
+        "0": 13,
+        "7": 13,
+        "8": 13,
+        "9": 15
       },
       "hits_by_ascension": {
         "0": 1,
@@ -519,6 +595,25 @@
         "7": 1,
         "8": 1,
         "9": 1
+      }
+    },
+    {
+      "monster_id": "CUBEX_CONSTRUCT",
+      "move_id": "EXPEL",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/CubexConstruct.cs": "3f7b7cfd7beda761dbfb5ef60ad46154ff986284a7e9b246dbc09da03e3f05a8"
+      },
+      "damage_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 6
+      },
+      "hits_by_ascension": {
+        "0": 2,
+        "7": 2,
+        "8": 2,
+        "9": 2
       }
     },
     {
@@ -884,6 +979,25 @@
     },
     {
       "monster_id": "FOGMOG",
+      "move_id": "SWIPE_RANDOM",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Fogmog.cs": "adb0ae07239973c167d7c35a3c36ae8b4cafd764b4bc44e7e44b04f91874d7b9"
+      },
+      "damage_by_ascension": {
+        "0": 8,
+        "7": 8,
+        "8": 8,
+        "9": 9
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "FOGMOG",
       "move_id": "HEADBUTT",
       "source_files": {
         "MegaCrit.Sts2.Core.Models.Monsters/Fogmog.cs": "adb0ae07239973c167d7c35a3c36ae8b4cafd764b4bc44e7e44b04f91874d7b9"
@@ -940,6 +1054,25 @@
       }
     },
     {
+      "monster_id": "FOSSIL_STALKER",
+      "move_id": "LASH",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/FossilStalker.cs": "0ffb3ed0c92eddbbb08ab04d06608ed5ad42d2b6feb3236bf5c9af39dc0171b5"
+      },
+      "damage_by_ascension": {
+        "0": 3,
+        "7": 3,
+        "8": 3,
+        "9": 4
+      },
+      "hits_by_ascension": {
+        "0": 2,
+        "7": 2,
+        "8": 2,
+        "9": 2
+      }
+    },
+    {
       "monster_id": "FROG_KNIGHT",
       "move_id": "STRIKE_DOWN_EVIL",
       "source_files": {
@@ -988,6 +1121,25 @@
         "7": 35,
         "8": 35,
         "9": 40
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "FUZZY_WURM_CRAWLER",
+      "move_id": "FIRST_ACID_GOOP",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/FuzzyWurmCrawler.cs": "e1441bb5e3c2210e64c29cd94fdf6501c4a5b04c7b200a21fb57bd950d0208f9"
+      },
+      "damage_by_ascension": {
+        "0": 4,
+        "7": 4,
+        "8": 4,
+        "9": 6
       },
       "hits_by_ascension": {
         "0": 1,
@@ -1701,6 +1853,25 @@
     },
     {
       "monster_id": "LOUSE_PROGENITOR",
+      "move_id": "WEB_CANNON",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/LouseProgenitor.cs": "b22709c84fabae54eb5b71c4acde195eb4412f9a12e1c6bb5383405b99d2e99f"
+      },
+      "damage_by_ascension": {
+        "0": 9,
+        "7": 9,
+        "8": 9,
+        "9": 10
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "LOUSE_PROGENITOR",
       "move_id": "POUNCE",
       "source_files": {
         "MegaCrit.Sts2.Core.Models.Monsters/LouseProgenitor.cs": "b22709c84fabae54eb5b71c4acde195eb4412f9a12e1c6bb5383405b99d2e99f"
@@ -1748,6 +1919,25 @@
         "7": 35,
         "8": 35,
         "9": 40
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "MAGI_KNIGHT",
+      "move_id": "RAM",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/MagiKnight.cs": "618bccd85a038d2faa09ddb7ca76c6b3ee52aad45d7e20697b111cfe2d9e0d2c"
+      },
+      "damage_by_ascension": {
+        "0": 10,
+        "7": 10,
+        "8": 10,
+        "9": 11
       },
       "hits_by_ascension": {
         "0": 1,
@@ -2248,6 +2438,25 @@
         "7": 1,
         "8": 1,
         "9": 1
+      }
+    },
+    {
+      "monster_id": "SCROLL_OF_BITING",
+      "move_id": "CHEW",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/ScrollOfBiting.cs": "36138c02e24b461e6145e591ba695baa9cdd52fa5debf13fbfe45416616c3d26"
+      },
+      "damage_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 6
+      },
+      "hits_by_ascension": {
+        "0": 2,
+        "7": 2,
+        "8": 2,
+        "9": 2
       }
     },
     {
@@ -2764,6 +2973,44 @@
       }
     },
     {
+      "monster_id": "SPINY_TOAD",
+      "move_id": "SPIKE_EXPLOSION",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/SpinyToad.cs": "0d9805768700deb448bb21bc31ed83daadb9da1c2b42a365281583e343323e4e"
+      },
+      "damage_by_ascension": {
+        "0": 23,
+        "7": 23,
+        "8": 23,
+        "9": 25
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "SPINY_TOAD",
+      "move_id": "TONGUE_LASH",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/SpinyToad.cs": "0d9805768700deb448bb21bc31ed83daadb9da1c2b42a365281583e343323e4e"
+      },
+      "damage_by_ascension": {
+        "0": 17,
+        "7": 17,
+        "8": 17,
+        "9": 19
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
       "monster_id": "STABBOT",
       "move_id": "STAB",
       "source_files": {
@@ -3144,6 +3391,25 @@
       }
     },
     {
+      "monster_id": "THE_INSATIABLE",
+      "move_id": "LUNGING_BITE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TheInsatiable.cs": "66c6ad48b3544056e8f8057bea38376c919e70dfc153b79cf9525737eb68660f"
+      },
+      "damage_by_ascension": {
+        "0": 28,
+        "7": 28,
+        "8": 28,
+        "9": 31
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
       "monster_id": "THE_LOST",
       "move_id": "EYE_LASERS",
       "source_files": {
@@ -3315,6 +3581,82 @@
       }
     },
     {
+      "monster_id": "TORCH_HEAD_AMALGAM",
+      "move_id": "TACKLE_2",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TorchHeadAmalgam.cs": "7f16688b97116b98b38ab3cb8a5bb7ff4a5a7f2b48e7ccc7c9aa01d6fc89883a"
+      },
+      "damage_by_ascension": {
+        "0": 18,
+        "7": 18,
+        "8": 18,
+        "9": 19
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "TORCH_HEAD_AMALGAM",
+      "move_id": "BEAM",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TorchHeadAmalgam.cs": "7f16688b97116b98b38ab3cb8a5bb7ff4a5a7f2b48e7ccc7c9aa01d6fc89883a"
+      },
+      "damage_by_ascension": {
+        "0": 8,
+        "7": 8,
+        "8": 8,
+        "9": 8
+      },
+      "hits_by_ascension": {
+        "0": 3,
+        "7": 3,
+        "8": 3,
+        "9": 3
+      }
+    },
+    {
+      "monster_id": "TORCH_HEAD_AMALGAM",
+      "move_id": "TACKLE_3",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TorchHeadAmalgam.cs": "7f16688b97116b98b38ab3cb8a5bb7ff4a5a7f2b48e7ccc7c9aa01d6fc89883a"
+      },
+      "damage_by_ascension": {
+        "0": 14,
+        "7": 14,
+        "8": 14,
+        "9": 15
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "TORCH_HEAD_AMALGAM",
+      "move_id": "TACKLE_4",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TorchHeadAmalgam.cs": "7f16688b97116b98b38ab3cb8a5bb7ff4a5a7f2b48e7ccc7c9aa01d6fc89883a"
+      },
+      "damage_by_ascension": {
+        "0": 14,
+        "7": 14,
+        "8": 14,
+        "9": 15
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
       "monster_id": "TOUGH_EGG",
       "move_id": "NIBBLE",
       "source_files": {
@@ -3426,6 +3768,25 @@
         "7": 5,
         "8": 5,
         "9": 5
+      }
+    },
+    {
+      "monster_id": "TWIG_SLIME_M",
+      "move_id": "POKEY_POUNCE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TwigSlimeM.cs": "002b31ac7c27430441c28af9299a900b88e5f60e3414127db97111b76658842c"
+      },
+      "damage_by_ascension": {
+        "0": 11,
+        "7": 11,
+        "8": 11,
+        "9": 12
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
       }
     },
     {
@@ -3686,6 +4047,25 @@
         "7": null,
         "8": null,
         "9": null
+      },
+      "hits_by_ascension": {
+        "0": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1
+      }
+    },
+    {
+      "monster_id": "WRIGGLER",
+      "move_id": "NASTY_BITE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Wriggler.cs": "05285e4ac115443c4980cf5d7ac86efeaa32b8b255954760db58a6fc441f5062"
+      },
+      "damage_by_ascension": {
+        "0": 6,
+        "7": 6,
+        "8": 6,
+        "9": 7
       },
       "hits_by_ascension": {
         "0": 1,

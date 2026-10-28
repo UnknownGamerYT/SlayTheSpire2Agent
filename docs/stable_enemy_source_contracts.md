@@ -122,11 +122,17 @@ Confirmed corrections:
   revivals do not invoke the added-creature hook. Required summon definitions
   now fail the transition with a named diagnostic when missing, instead of
   silently omitting enemies from a training trajectory.
-- Independent numeric fixtures cover 206 matched source attack methods:
-  203 constant/ascension damage expressions and 205 hit-count expressions at
+- Independent numeric fixtures cover 226 registered attack payloads mapped to
+  source methods: 223 constant/ascension damage expressions and 225 hit-count expressions at
   A0/A7/A8/A9. This identified Gremlin Merc's A8 exception and Fake Merchant's
   unconditional Spew Coins 2 damage × 8 hits. Dynamic Dread, Pressure Gun,
   Explode and Multi Claw expressions retain their focused behavior checks.
+- Enemy Move Block now uses signed Dexterity, temporary Dexterity, Fasten and
+  Frail, retains fractions through Shadowmeld, and applies the creature storage
+  cap. Unpowered gains omit Dexterity/Frail. NoBlock exempts gains without a
+  card source, and Unmovable exempts monster targets. All 22 source Move Block
+  payloads have numeric A0/A7/A8/A9 contracts. The Forgotten's successive Miasma
+  gains are 8, 10, 12, before its next Dexterity increase.
 
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
