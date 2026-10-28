@@ -408,6 +408,13 @@ def new_run_state(
             "completed_node_ids": (),
         })
         flags["starting_monster_pending"] = True
+    if character_id.upper() == "TEST" and algorithm == PYTHON_RANDOM_ALGORITHM:
+        # TEST is the reserved synthetic fixture character. Preserve its
+        # historical setup RNG and offerings so unrelated card/relic fixtures
+        # retain their controlled opening hands and have no new pickup choices.
+        # The five real characters always use the stable generation above.
+        rng, ancient_state = _legacy_test_setup(seed, map_state.act, source)
+        flags["fixture_generation_mode"] = "synthetic_legacy_TEST"
     rng_state = capture_random_state(rng)
 
     return RunState(
@@ -425,6 +432,32 @@ def new_run_state(
         map=map_state,
         combat=None,
         flags=flags,
+    )
+
+
+def _legacy_test_setup(
+    seed: int | str, act: int, source: Mapping[str, Any],
+) -> tuple[Random, AncientState]:
+    """Original MT setup consumption, exclusively for the TEST fixture ID."""
+    rng = run_random_from_seed(seed, algorithm=PYTHON_RANDOM_ALGORITHM)
+    if not (act == 2 and _source_bool(source, "golden_compass_act2_map", False)):
+        width = max(1, min(7, _source_int(source, "map_width", 7)))
+        boss_floor = max(4, _source_int(source, "map_floors", _default_act_floors(act))) - 1
+        rest_floor = boss_floor - 1
+        treasure_floor = max(2, boss_floor - 7)
+        for floor in range(1, boss_floor):
+            if floor in {1, rest_floor, treasure_floor}:
+                continue
+            rng.randrange(3 if floor <= 5 else 6 if floor == rest_floor - 1 else 7)
+        _generate_path_edges(
+            act=act, boss_floor=boss_floor, width=width, rng=rng,
+            path_count=_source_int(source, "map_paths", _default_path_count(width)),
+            start_lane=width // 2,
+        )
+    context = with_generated_ancient_choices(MechanicsAncientContext(act=act), rng=rng)
+    return rng, AncientState(
+        act=act, ancient_id=context.ancient_id or "neow",
+        options=tuple(_ancient_option_from_choice(choice) for choice in context.choices),
     )
 
 

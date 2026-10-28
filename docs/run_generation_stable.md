@@ -66,6 +66,14 @@ in run flags. Existing explicit encounter/monster/event fixtures still override
 normal selection. Synthetic `map_width`, `map_paths` and `map_floors` overrides
 remain available; custom geometry is outside the seven-column game contract.
 
+The reserved `TEST` character with MT19937 is a synthetic legacy fixture.
+Its historical setup RNG consumption and synthetic Ancient offerings remain
+stable so card/relic tests keep their controlled opening hands and avoid
+unrelated pickup choices. It records `fixture_generation_mode` accordingly.
+It does not represent any playable game character or a game fidelity mode.
+The five real characters use the stable run generation even when a caller
+explicitly selects MT19937 for a diagnostic run.
+
 ## Profile assumptions and evidence limits
 
 Absent profile facts, training uses all unlocked content and records

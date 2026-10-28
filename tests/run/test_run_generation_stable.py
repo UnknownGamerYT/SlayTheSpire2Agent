@@ -365,3 +365,35 @@ def test_map_regeneration_restarts_its_local_rng_without_consuming_run_streams()
     second = _generate_act_map(2, rng, {"spoils_map_pending_act": 2})
     assert first == second
     assert capture_random_state(rng) == before
+
+
+def test_reserved_legacy_test_fixture_retains_controlled_opening_hand() -> None:
+    state = new_run(
+        5100,
+        "TEST",
+        0,
+        source_data={
+            "deck": [
+                {"id": "HEADBUTT_TEST", "name": "Headbutt Test", "type": "Skill", "cost": 0},
+                {"id": "JUNK_A", "name": "Junk A", "type": "Skill", "cost": 0},
+            ],
+            "draw_per_turn": 1,
+        },
+    )
+    assert state.flags["fixture_generation_mode"] == "synthetic_legacy_TEST"
+    state = step(
+        state,
+        next(action for action in legal_actions(state) if action.type == ActionType.CHOOSE_ANCIENT),
+    )
+    state = _single_next_room(state, RoomKind.MONSTER)
+    state = step(state, Action(type=ActionType.CHOOSE_NODE, target_id="fixture:next"))
+    assert state.combat is not None
+    assert [card.card_id for card in state.combat.hand] == ["headbutt_test"]
+
+
+def test_real_character_with_explicit_mt_still_uses_stable_source_generation() -> None:
+    state = new_run("REAL-MT", "IRONCLAD", 0, rng_algorithm="python.random.MT19937")
+    assert "fixture_generation_mode" not in state.flags
+    assert state.flags["generation_profile"] == "all_unlocked"
+    assert state.ancient is not None
+    assert state.ancient.ancient_id.upper() == state.flags["act_room_sets"]["1"]["ancient_id"]
