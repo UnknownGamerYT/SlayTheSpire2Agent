@@ -808,6 +808,10 @@ def _with_potion_discard_actions(
 
 
 def _should_offer_potion_discard(state: RunState) -> bool:
+    if (is_source_rng(state.rng) and state.event is not None
+            and state.event.resolved_option_id is None and state.event.event_id.upper() in {
+                "STONE_OF_ALL_TIME", "RANWID_THE_ELDER", "THE_FUTURE_OF_POTIONS"}):
+        return False
     if not state.potions:
         return False
     if _flag_bool(state, "allow_free_potion_discard", False):
@@ -2493,11 +2497,11 @@ def _event_state_from_room_source(
 
 
 def _source_event_rule_options(
-    event_id: str, options: tuple[EventOptionState, ...], gold: int
+    event_id: str, options: tuple[EventOptionState, ...], gold: int, page_id: str = "INITIAL"
 ) -> tuple[EventOptionState, ...]:
     result = []
     for option in options:
-        rule = source_event_rule(event_id, option.option_id)
+        rule = source_event_rule(event_id, option.option_id, page_id)
         if rule is not None:
             numeric = rule.numeric.payload()
             numeric.update(_mapping_from(option.metadata.get("source_numeric_effect")))
@@ -2875,7 +2879,9 @@ def _event_state_from_flow(
         event_id=event_id,
         name=name,
         page_id=page.page_id,
-        options=_event_flow_option_states(page, state.player.gold),
+        options=(_source_event_rule_options(event_id,
+            _event_flow_option_states(page, state.player.gold), state.player.gold, page.page_id)
+            if is_source_rng(state.rng) else _event_flow_option_states(page, state.player.gold)),
         resolved_option_id=resolved_option_id,
         metadata=metadata,
     )
@@ -3003,7 +3009,8 @@ def _legal_event_actions(state: RunState) -> tuple[Action, ...]:
             actions.extend(Action(type=ActionType.CHOOSE_EVENT, target_id=option.option_id,
                 payload={"card_instance_ids": group}) for group in combinations(offered, count))
             continue
-        if is_source_rng(state.rng) and native_rule.get("selection"):
+        if (is_source_rng(state.rng) and native_rule.get("selection")
+                and not native_rule.get("defer_selection")):
             candidates = _source_event_selection_candidates(state, native_rule)
             count = min(len(candidates), _coerce_int(native_rule.get("count"), default=1))
             if count == 0:
@@ -3251,7 +3258,7 @@ def _source_event_next_page(state: RunState, event: EventState, page_id: str) ->
     page = next((_mapping_from(value) for value in _source_items(row.get("pages"))
                  if str(_mapping_from(value).get("id", "")).upper() == page_id.upper()), {})
     options = _source_event_rule_options(
-        event.event_id, _event_option_states(page), state.player.gold
+        event.event_id, _event_option_states(page), state.player.gold, page_id
     )
     return event.model_copy(update={
         "page_id": page_id, "resolved_option_id": None, "options": options
@@ -3273,7 +3280,7 @@ def _choose_source_native_event(
                 or not set(selected) <= set(offered_ids)):
             return state, ()
     count = min(len(candidates), _coerce_int(rule.get("count"), default=1))
-    if rule.get("selection") not in {"", "offered"} and (
+    if (not rule.get("defer_selection") and rule.get("selection") not in {"", "offered"}) and (
             len(selected) != count or len(set(selected)) != len(selected)
             or not set(selected) <= {card.instance_id for card in candidates}):
         return state, ()
@@ -3288,6 +3295,11 @@ def _choose_source_native_event(
         next_state = next_state.model_copy(update={"potions": tuple(
             potion for index, potion in enumerate(next_state.potions) if index != potion_index)})
         events.append(EffectEvent(kind="event_potion_discarded", target_id=discarded))
+    if rule.get("remove_instance_id"):
+        remove_id = str(rule["remove_instance_id"])
+        next_state = next_state.model_copy(update={"master_deck": tuple(
+            card for card in next_state.master_deck if card.instance_id != remove_id)})
+        events.append(EffectEvent(kind="event_card_removed", target_id=remove_id))
     if rule.get("remove_relic"):
         relic_id = str(rule["remove_relic"])
         next_state = next_state.model_copy(update={"relics": tuple(
@@ -3301,7 +3313,18 @@ def _choose_source_native_event(
     if not rule.get("selection_first"):
         next_state, numeric_events = _apply_event_option_immediate_effects(next_state, option, rng)
         events.extend(numeric_events)
-    kind = str(rule.get("selection", ""))
+    if rule.get("bridge_hold"):
+        holds = _coerce_int(state.event.metadata.get("bridge_hold_count"), default=0) + 1
+        suffix = str(holds - 1) if holds - 1 < 7 else "LOOP"
+        event = state.event.model_copy(update={"page_id": f"HOLD_ON_{suffix}",
+            "metadata": {**state.event.metadata, "bridge_hold_count": holds}})
+        event = native_dynamic_offers(next_state, event, rng,
+            relic_rows=tuple(_cached_source_rows(state, "relics")),
+            potion_rarities=_combat_potion_rarities(state))
+        return next_state.model_copy(update={"event": event, "rng": capture_random_state(rng),
+            "phase": RunPhase.FAILED if next_state.player.hp <= 0 else next_state.phase
+        }), tuple(events)
+    kind = "" if rule.get("defer_selection") else str(rule.get("selection", ""))
     if kind == "remove":
         removed = tuple(card for card in next_state.master_deck if card.instance_id in selected)
         next_state = next_state.model_copy(update={"master_deck": tuple(
@@ -3446,7 +3469,21 @@ def _choose_source_native_event(
             next_state = next_state.model_copy(update={"flags": {**next_state.flags,
                 "spoils_map_pending_act": state.act + 1, "spoils_map_source_act": state.act}})
     next_state = next_state.model_copy(update={"master_deck": tuple(deck)})
+    if rule.get("defer_selection"):
+        followup_rule = {**rule, "defer_selection": False, "add_cards": (), "numeric": {}}
+        event = state.event.model_copy(update={"page_id": "CHOOSE_CARDS", "options": (
+            EventOptionState(option_id="choose_cards", title="Choose cards", metadata={
+                "source_native_rule": followup_rule}),), "resolved_option_id": None})
+        return next_state.model_copy(update={"event": event,
+            "rng": capture_random_state(rng)}), tuple(events)
     relic_ids = list(_string_items(rule.get("add_relics")))
+    if rule.get("wongo_points"):
+        earned = _coerce_int(rule["wongo_points"], default=0)
+        profile = _flag_int(next_state, "wongo_points", 0)
+        next_state = next_state.model_copy(update={"flags": {**next_state.flags,
+            "wongo_points_earned": earned, "wongo_points": profile + earned}})
+        if profile % 2000 + earned >= 2000:
+            relic_ids.append("wongo_customer_appreciation_badge")
     relic_pool = _string_items(rule.get("relic_pool"))
     if relic_pool:
         relic_ids.append(rng.choice(relic_pool))
@@ -3454,8 +3491,10 @@ def _choose_source_native_event(
                    if rule.get("random_relic") else 0):
         if has_source_relic_bag(next_state):
             flags = dict(next_state.flags)
-            rarity = source_relic_rarity(random_stream(rng, "rewards"))
-            relic_ids.append(draw_source_relic(next_state, flags, rarity))
+            rarity = str(rule.get("relic_rarity") or source_relic_rarity(
+                random_stream(rng, "rewards")))
+            relic_ids.append(draw_source_relic(next_state, flags, rarity,
+                for_shop=bool(rule.get("relic_for_shop"))))
             next_state = next_state.model_copy(update={"flags": flags})
         else:
             relic_ids.extend(_draw_event_relic_ids(next_state, rng, 1))
@@ -3481,11 +3520,24 @@ def _choose_source_native_event(
             potion_ids.append(random_stream(rng, "rewards").choice(pool))
     reward = None
     if generated_ids and rule.get("generated_reward"):
-        reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
-            source="event", card_options=generated_ids,
-            metadata={"card_rarities": generated_rarities,
-                      "card_option_upgraded": (tuple(True for _ in generated_ids)
-                        if rule.get("force_generated_upgrade") else generated_upgrades)})
+        group_count = _coerce_int(rule.get("generated_groups"), default=1)
+        card_groups = [generated_ids]
+        card_rarities = [generated_rarities]
+        upgrade_groups = [generated_upgrades]
+        for _ in range(max(0, group_count - 1)):
+            ids, extra_rarities, upgrades = source_noncombat_cards(rng, pool, generated_count,
+                uniform=bool(rule.get("generated_uniform")),
+                no_upgrade_roll=not bool(rule.get("generated_upgrade_roll")),
+                act=state.act, ascension=state.ascension)
+            card_groups.append(ids)
+            card_rarities.append(extra_rarities)
+            upgrade_groups.append(upgrades)
+        reward = _reward_with_card_option_groups(None,
+            reward_id=f"event:{state.event.event_id}:{option.option_id}",
+            groups=tuple(card_groups), rarities=tuple(card_rarities), metadata={
+                "card_option_upgraded": (tuple(True for _ in generated_ids)
+                    if rule.get("force_generated_upgrade") else generated_upgrades),
+                "card_option_group_upgraded": tuple(upgrade_groups[1:])})
         events.extend(_reward_generated_events(reward))
     if potion_ids:
         reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
@@ -3525,6 +3577,10 @@ def _choose_event_flow_option(
     rng = random_from_state(state.rng)
     if is_source_rng(rng):
         rng = random_stream(rng, state.event.event_id.upper())
+    if (is_source_rng(rng) and state.event.event_id.upper() == "TRIAL"
+            and action.target_id.upper() == "ACCEPT"):
+        flow_state = replace(flow_state, data={**flow_state.data,
+            "trial_case": rng.choice(("MERCHANT", "NOBLE", "NONDESCRIPT"))})
     resolution = resolve_event_flow_option(flow_state, action.target_id)
     player = state.player.model_copy(
         update={

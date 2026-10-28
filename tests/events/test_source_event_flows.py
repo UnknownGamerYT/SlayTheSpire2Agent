@@ -78,3 +78,39 @@ def test_conveyor_golden_fysh_requires_gold_but_does_not_charge_it():
     assert option.required_gold == 40 and not option.locked
     assert resolve_event_flow_option(flow, option.option_id).state.gold == 115
     assert current_event_flow_page(replace(flow, gold=39)).options[0].locked
+
+
+def test_bridge_offer_is_an_instance_randomly_rolled_once_then_rerolled_without_type_repeat():
+    state = _event('SLIPPERY_BRIDGE', 100, 100)
+    first_id = state.event.metadata['bridge_card_instance_id']
+    first = next(card for card in state.master_deck if card.instance_id == first_id)
+    assert state.rng.streams['SLIPPERY_BRIDGE'].draws == 1
+    state = step(load_state(serialize(state)), Action(type=ActionType.CHOOSE_EVENT,
+                                                    target_id='HOLD_ON_0'))
+    second_id = state.event.metadata['bridge_card_instance_id']
+    second = next(card for card in state.master_deck if card.instance_id == second_id)
+    assert state.player.hp == 97 and first.card_id != second.card_id
+    assert state.rng.streams['SLIPPERY_BRIDGE'].draws == 2
+    result = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='OVERCOME'))
+    assert all(card.instance_id != second_id for card in result.master_deck)
+    assert any(card.instance_id == first_id for card in result.master_deck)
+    assert result.rng.streams['SLIPPERY_BRIDGE'].draws == 2
+
+
+def test_trial_selects_its_case_randomly_without_player_branch_selection():
+    state = _event('TRIAL')
+    state = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='ACCEPT'))
+    assert state.event.page_id in {'MERCHANT', 'NOBLE', 'NONDESCRIPT'}
+    assert {a.target_id for a in legal_actions(state)} == {'GUILTY', 'INNOCENT'}
+    assert state.rng.streams['TRIAL'].draws == 1
+    assert all(o.metadata.get('source_native_rule') for o in state.event.options)
+
+
+def test_tablet_offers_give_up_after_each_decipher_and_kills_when_cost_consumes_max_hp():
+    state = _event('TABLET_OF_TRUTH', 5, 5)
+    state = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='DECIPHER_1'))
+    assert state.player.max_hp == 2 and state.player.hp == 2
+    assert {a.target_id for a in legal_actions(state)} == {'DECIPHER', 'GIVE_UP'}
+    result = step(state, Action(type=ActionType.CHOOSE_EVENT, target_id='DECIPHER'))
+    assert result.player.max_hp == 1 and result.player.hp == 0
+    assert result.rng.streams['TABLET_OF_TRUTH'].draws == 1

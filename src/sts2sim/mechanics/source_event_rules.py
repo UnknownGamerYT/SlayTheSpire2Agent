@@ -51,6 +51,11 @@ class SourceEventRule:
     remove_relic: str = ""
     random_relic_count: int = 1
     doll_offers: int = 0
+    relic_rarity: str = ""
+    relic_for_shop: bool = False
+    wongo_points: int = 0
+    generated_groups: int = 1
+    defer_selection: bool = False
 
     def payload(self) -> dict[str, object]:
         return asdict(self)
@@ -111,6 +116,7 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "BIG_MUSHROOM": R(add_relics=("big_mushroom",)),
         "FRAGRANT_MUSHROOM": R(add_relics=("fragrant_mushroom",)),
     },
+    "JUNGLE_MAZE_ADVENTURE": {"SOLO_QUEST": R(extra_rng_draws=2)},
     "LOST_WISP": {"CLAIM": R(add_cards=("decay",), add_relics=("lost_wisp",))},
     "LUMINOUS_CHOIR": {
         "REACH_INTO_THE_FLESH": R(selection="remove", count=2, add_cards=("spore_mind",)),
@@ -197,6 +203,24 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
             ),
         ),
     },
+    "TRIAL": {
+        "MERCHANT:GUILTY": R(add_cards=("regret",), random_relic=True, random_relic_count=2),
+        "MERCHANT:INNOCENT": R(add_cards=("shame",), selection="upgrade", count=2),
+        "NOBLE:GUILTY": R(N(heal=10)),
+        "NOBLE:INNOCENT": R(N(gold_delta=300), add_cards=("regret",)),
+        "NONDESCRIPT:GUILTY": R(add_cards=("doubt",), generated_count=3,
+                               generated_reward=True, generated_groups=2),
+        "NONDESCRIPT:INNOCENT": R(add_cards=("doubt",), selection="transform", count=2,
+                                 defer_selection=True),
+    },
+    "WELCOME_TO_WONGOS": {
+        "BARGAIN_BIN": R(N(gold_delta=-100), random_relic=True, relic_rarity="common",
+                         relic_for_shop=True, required_gold=100, wongo_points=32),
+        "FEATURED_ITEM": R(N(gold_delta=-200), required_gold=200, wongo_points=16),
+        "MYSTERY_BOX": R(N(gold_delta=-300), add_relics=("wongos_mystery_ticket",),
+                         required_gold=300, wongo_points=8),
+        "LEAVE": R(downgrade_random=1),
+    },
     "UNREST_SITE": {
         "REST": R(heal_to_full=True, add_cards=("poor_sleep",)),
         "KILL": R(N(max_hp_delta=-8), random_relic=True),
@@ -231,5 +255,8 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
 }
 
 
-def source_event_rule(event_id: str, option_id: str) -> SourceEventRule | None:
-    return SOURCE_EVENT_RULES.get(event_id.upper(), {}).get(option_id.upper())
+def source_event_rule(
+    event_id: str, option_id: str, page_id: str = "INITIAL"
+) -> SourceEventRule | None:
+    rules = SOURCE_EVENT_RULES.get(event_id.upper(), {})
+    return rules.get(f"{page_id.upper()}:{option_id.upper()}", rules.get(option_id.upper()))

@@ -14,6 +14,7 @@ from sts2sim.mechanics.relic_bag_runtime import (
 
 from .models import EventOptionState, EventState, RunState
 from .rng import random_stream
+from .source_enchantment_hooks import _SOURCE_BASIC_CARDS as SOURCE_BASIC_CARDS
 
 
 def source_tradable_relics(state: RunState, rows: tuple[Mapping[str, Any], ...]) -> tuple[str, ...]:
@@ -33,7 +34,47 @@ def native_dynamic_offers(
     event_id = event.event_id.upper()
     options = list(event.options)
     metadata = dict(event.metadata)
-    if event_id == 'COLORFUL_PHILOSOPHERS':
+    if event_id == 'SLIPPERY_BRIDGE':
+        previous = str(metadata.get('bridge_card_instance_id', ''))
+        skipped = set(metadata.get('bridge_skipped_instance_ids', ()))
+        removable = [card for card in state.master_deck
+                     if not any(enchantment.keyword.lower() == 'eternal'
+                                for enchantment in card.enchantments)
+                     and 'eternal' not in card.tags]
+        previous_card = next((card for card in removable if card.instance_id == previous), None)
+        if previous_card is None:
+            candidates = [card for card in removable if
+                          card.card_id not in SOURCE_BASIC_CARDS]
+        else:
+            skipped.add(previous)
+            candidates = [card for card in removable if card.card_id != previous_card.card_id
+                          and card.instance_id not in skipped]
+        chosen = rng.choice(candidates or removable) if removable else None
+        holds = int(metadata.get('bridge_hold_count', 0))
+        metadata.update({'bridge_card_instance_id': chosen.instance_id if chosen else '',
+                         'bridge_skipped_instance_ids': tuple(sorted(skipped))})
+        suffix = str(holds) if holds < 7 else 'LOOP'
+        options = [EventOptionState(option_id='OVERCOME', title='Overcome',
+            description=f'Remove {chosen.name}.' if chosen else 'No removable cards.',
+            disabled=chosen is None, metadata={'source_native_rule': {'selection': '',
+                'remove_instance_id': chosen.instance_id if chosen else ''}}),
+            EventOptionState(option_id=f'HOLD_ON_{suffix}', title='Hold On',
+                description=f'Lose {3 + holds} HP.', metadata={
+                    'source_native_rule': {'selection': '', 'bridge_hold': True},
+                    'source_numeric_effect': {'hp_loss': 3 + holds}})]
+    elif event_id == 'WELCOME_TO_WONGOS':
+        flags = dict(state.flags)
+        if has_source_relic_bag(state):
+            featured = draw_source_relic(state, flags, 'rare', for_shop=True)
+            for index, option in enumerate(options):
+                if option.option_id.upper() == 'FEATURED_ITEM':
+                    rule = dict(option.metadata.get('source_native_rule', {}))
+                    rule['add_relics'] = (featured,)
+                    options[index] = option.model_copy(update={
+                        'title': featured, 'metadata': {**option.metadata,
+                                                      'source_native_rule': rule}})
+            metadata['source_startup_flags'] = flags
+    elif event_id == 'COLORFUL_PHILOSOPHERS':
         unlocked = state.flags.get('unlocked_character_ids',
                                    ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT'))
         colors = [color for color in ('NECROBINDER', 'IRONCLAD', 'REGENT', 'SILENT', 'DEFECT')
@@ -45,21 +86,22 @@ def native_dynamic_offers(
                                   'colorful_groups': True}}) for color in colors]
     elif event_id in {'STONE_OF_ALL_TIME', 'RANWID_THE_ELDER'}:
         # Empty NextItem returns null without drawing in the source.
-        index = rng.randrange(len(state.potions)) if state.potions else None
+        potion_index = rng.randrange(len(state.potions)) if state.potions else None
         if event_id == 'STONE_OF_ALL_TIME':
             options = [option for option in options if option.option_id.upper() != 'LIFT_LOCKED']
             for i, option in enumerate(options):
                 if option.option_id.upper() == 'LIFT':
                     rule = dict(option.metadata.get('source_native_rule', {}))
-                    rule['remove_potion_index'] = index
-                    options[i] = option.model_copy(update={'disabled': index is None,
+                    rule['remove_potion_index'] = potion_index
+                    options[i] = option.model_copy(update={'disabled': potion_index is None,
                         'metadata': {**option.metadata, 'source_native_rule': rule}})
         else:
             tradable = source_tradable_relics(state, relic_rows)
             relic = rng.choice(tradable) if tradable else ''
             options = [EventOptionState(option_id=key, title=key.title(), disabled=disabled,
                 metadata={'source_native_rule': rule}) for key, disabled, rule in (
-                ('potion', index is None, {'selection': '', 'remove_potion_index': index,
+                ('potion', potion_index is None, {'selection': '',
+                                                    'remove_potion_index': potion_index,
                                           'random_relic': True}),
                 ('gold', state.player.gold < 100, {'selection': '', 'random_relic': True,
                     'numeric': {'gold_delta': -100}, 'required_gold': 100}),

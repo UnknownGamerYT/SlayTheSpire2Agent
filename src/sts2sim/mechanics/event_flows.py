@@ -721,6 +721,10 @@ def _resolution_markers(
                 description="Choosing to linger after the death warning is lethal.",
             ),
         )
+    if (state.data.get("source_runtime") and state.event_id == "TABLET_OF_TRUTH"
+            and option.max_hp_delta < 0 and -option.max_hp_delta >= state.max_hp):
+        return (EventFlowMarker(kind=EventFlowMarkerKind.RUN_DEATH,
+                                description="The decipher cost consumes all Max HP."),)
     if next_hp <= 0:
         markers += (
             EventFlowMarker(
@@ -1260,7 +1264,10 @@ def _tablet_of_truth_page(state: EventFlowState) -> EventFlowPage:
 
     option = _TABLET_DECIPHER_OPTIONS.get(state.page_id)
     if option is not None:
-        return EventFlowPage(state.page_id, "The tablet demands more.", (option,))
+        return EventFlowPage(state.page_id, "The tablet demands more.", (
+            (option, EventFlowOption(option_id="GIVE_UP", label="Give Up", terminal=True,
+                                     next_page_id="GIVE_UP"))
+            if state.data.get("source_runtime") else (option,)))
     return _terminal_page(state.page_id, "Tablet of Truth terminal page.")
 
 

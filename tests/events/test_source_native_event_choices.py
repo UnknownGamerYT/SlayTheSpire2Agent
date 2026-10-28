@@ -274,3 +274,25 @@ def test_relic_trader_pulls_three_front_offers_on_entry_even_before_selection():
     assert rule['remove_relic'] not in result.relics
     assert rule['add_relics'][0] in result.relics
     assert result.rng.streams['rewards'].draws == 3
+
+
+def test_wongo_featured_relic_is_consumed_on_entry_and_fixed_before_purchase():
+    state = _bag(_event('WELCOME_TO_WONGOS'))
+    state = state.model_copy(update={'flags': {**state.flags, 'wongo_points': 1990}})
+    state = e._enter_event_room(state, state.map.nodes[0].model_copy(
+        update={'kind': RoomKind.EVENT}))[0]
+    assert not state.flags['player_relic_bag']['Rare']
+    option = next(option for option in state.event.options if option.option_id == 'FEATURED_ITEM')
+    assert option.metadata['source_native_rule']['add_relics'] == ('du_vu_doll',)
+    result = _choose(load_state(serialize(state)), 'FEATURED_ITEM')
+    assert result.player.gold == 100 and 'du_vu_doll' in result.relics
+    assert result.flags['wongo_points'] == 2006
+    assert 'wongo_customer_appreciation_badge' in result.relics
+    assert result.rng.streams.get('rewards') is None or result.rng.streams['rewards'].draws == 0
+
+
+def test_jungle_solo_consumes_cosmetic_stable_shuffle_of_three_effects():
+    state = _event('JUNGLE_MAZE_ADVENTURE')
+    assert state.rng.streams['JUNGLE_MAZE_ADVENTURE'].draws == 2
+    result = _choose(state, 'solo_quest')
+    assert result.rng.streams['JUNGLE_MAZE_ADVENTURE'].draws == 4
