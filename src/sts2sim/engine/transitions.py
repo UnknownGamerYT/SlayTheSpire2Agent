@@ -12733,8 +12733,9 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
                 target_id=monster.monster_id, amount=monster.block,
             ))
             monster = monster.model_copy(update={"block": 0})
-        monster, plating_events = _apply_monster_plating_start(monster)
-        events.extend(plating_events)
+        if combat.turn > 1:
+            monster, plating_events = _apply_monster_plating_start(monster)
+            events.extend(plating_events)
         combat = _combat_with_monster(combat, index, monster)
     monsters = list(combat.monsters)
     for monster_index in range(len(monsters)):
@@ -12831,6 +12832,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         player = combat.player
         monsters = list(combat.monsters)
 
+    combat, early_end_events = _apply_enemy_side_end_early(combat)
+    events.extend(early_end_events)
     # These powers observe the end of the enemy side, after every participant
     # has acted. Demise is unpowered, unblockable damage, not a player trigger.
     combat, item_end_events = _apply_item_enemy_side_end(combat)
@@ -12861,12 +12864,22 @@ def _begin_next_player_turn(
     combat, vital_turn_events = source_affliction_hooks.synchronize(combat)
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = list(vital_turn_events)
+    combat, early_end_events = _apply_enemy_side_end_early(combat)
+    events.extend(early_end_events)
     # Ritual, Territorial, High Voltage and Escape Artist all implement
     # AfterSideTurnEnd; resolve after every enemy has finished acting.
     for index in range(len(combat.monsters)):
         monster, side_events = _apply_monster_end_turn_strength(combat.monsters[index])
         combat = _combat_with_monster(combat, index, monster)
         events.extend(side_events)
+    for index, monster in enumerate(combat.monsters):
+        if monster.hp > 0 and _status_amount(monster.statuses, "slumber") > 0:
+            monster = monster.model_copy(update={"metadata": {
+                **monster.metadata, "slumber_pending_hp_losses": 1,
+            }})
+            combat = _combat_with_monster(combat, index, monster)
+            combat, wake_events = _resolve_pending_slumber(state, combat, index)
+            events.extend(wake_events)
     # HatchPower.AfterSideTurnEnd sees the enemy-side roster after summons.
     # Eggs created during that side receive 2, then display 1 until they hatch.
     hatch_monsters = []
@@ -13363,6 +13376,13 @@ def _execute_monster_turn(
             definition=definition, move=move, rng=rng,
         )
         events.extend(spawn_events)
+    pre_attack_theft = (
+        _normalized_id(definition.monster_id) == "thieving_hopper" and move.move_id == "THIEVERY"
+    )
+    if pre_attack_theft:
+        combat, theft_events = _thieving_hopper_steal_card(state, combat, monster_index, rng)
+        events.extend(theft_events)
+        monster = combat.monsters[monster_index]
 
     per_hit_damage = _monster_attack_hit_damage(
         definition,
@@ -13392,13 +13412,23 @@ def _execute_monster_turn(
                 target_id=PLAYER_TARGET_ID, amount=stolen,
             ))
         for hit_index in range(move.hit_count):
+            attack_multiplier = _back_attack_multiplier(combat, combat.monsters[monster_index])
+            monster, before_events = _apply_player_thorns_before_attack(
+                combat.monsters[monster_index], combat.player, source_id=monster.monster_id,
+            )
+            combat = _combat_with_monster(combat, monster_index, monster)
+            events.extend(before_events)
+            if any(event.kind == "monster_defeated" for event in before_events):
+                combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
+                combat, death_events = _apply_monster_death_power_triggers(combat, before_events)
+                events.extend(spawn_events + death_events)
             combat, damage_events = _damage_combat_player(
                 combat,
                 per_hit_damage,
                 monster.monster_id,
                 relics=state.relics,
                 is_attack=True,
-                attack_multiplier=_back_attack_multiplier(combat, combat.monsters[monster_index]),
+                attack_multiplier=attack_multiplier,
             )
             combat, hit_rng, item_events = _apply_damage_taken_relics_from_events(
                 state, combat, capture_random_state(rng), damage_events,
@@ -13431,6 +13461,7 @@ def _execute_monster_turn(
                 player,
                 source_id=monster.monster_id,
                 damage_events=damage_events,
+                include_thorns=False,
             )
             combat = _combat_with_monster(combat, monster_index, monster)
             events.extend(thorns_events)
@@ -13533,15 +13564,16 @@ def _execute_monster_turn(
                     **combat.metadata, "tangled_turns_remaining": 2,
                 }})
 
-    combat, special_move_events = _apply_monster_special_move_effects(
-        combat,
-        monster_index,
-        definition,
-        move,
-        rng=rng,
-        state=state,
-    )
-    events.extend(special_move_events)
+    if not pre_attack_theft:
+        combat, special_move_events = _apply_monster_special_move_effects(
+            combat,
+            monster_index,
+            definition,
+            move,
+            rng=rng,
+            state=state,
+        )
+        events.extend(special_move_events)
     if combat.monsters[monster_index].hp <= 0:
         return combat, tuple(events)
 
@@ -13561,28 +13593,15 @@ def _execute_monster_turn(
     monster = combat.monsters[monster_index]
     player = combat.player
 
-    monster, plating_end_events = _apply_monster_plating_end(monster)
-    if plating_end_events:
-        events.extend(plating_end_events)
-        combat = _combat_with_monster(combat, monster_index, monster)
-
     slumber = _status_amount(monster.statuses, "slumber")
     if slumber > 0:
-        monster = monster.model_copy(update={"metadata": {
-            **monster.metadata, "slumber_pending_hp_losses": 1,
-        }})
+        monster = _set_monster_move(
+            monster, definition, move_by_id(definition, "SNORE") or move,
+            player=combat.player, ascension_level=state.ascension,
+            move_counts=next_move_counts(_monster_move_counts(monster), move.move_id),
+            relics=state.relics,
+        )
         combat = _combat_with_monster(combat, monster_index, monster)
-        combat, wake_events = _resolve_pending_slumber(state, combat, monster_index)
-        events.extend(wake_events)
-        monster = combat.monsters[monster_index]
-        if _status_amount(monster.statuses, "slumber") > 0:
-            monster = _set_monster_move(
-                monster, definition, move_by_id(definition, "SNORE") or move,
-                player=combat.player, ascension_level=state.ascension,
-                move_counts=next_move_counts(_monster_move_counts(monster), move.move_id),
-                relics=state.relics,
-            )
-            combat = _combat_with_monster(combat, monster_index, monster)
         return combat, tuple(events)
 
     time_limit = _status_amount(monster.statuses, "battleworn_dummy_time_limit")
@@ -13814,6 +13833,20 @@ def _apply_monster_player_turn_start(
         metadata.pop("slow_cards_played", None)
         monsters.append(monster.model_copy(update={"metadata": metadata}))
     events: list[EffectEvent] = []
+    if combat.turn == 1:
+        for index, monster in enumerate(monsters):
+            amount = _status_amount(monster.statuses, "plating")
+            if monster.hp <= 0 or amount <= 0 or monster.metadata.get("initial_plating_given"):
+                continue
+            monsters[index] = monster.model_copy(update={
+                "block": monster.block + amount,
+                "metadata": {**monster.metadata, "initial_plating_given": True},
+            })
+            events.append(EffectEvent(
+                kind="monster_plating_block", source_id=monster.monster_id,
+                target_id=monster.monster_id, amount=amount,
+                metadata={"status": "plating", "initial": True},
+            ))
     for source in monsters:
         amount = _status_amount(source.statuses, "rampart")
         if source.hp <= 0 or amount <= 0:
@@ -14678,10 +14711,7 @@ def _thieving_hopper_steal_card(
     permanent = {card.instance_id: card for card in state.master_deck}
     candidates = [
         permanent[card.instance_id] for card in (*combat.draw_pile, *combat.discard_pile)
-        if card.instance_id in permanent and card.type != CardType.STATUS
-        and _normalized_id(str(_card_source_spec(permanent[card.instance_id]).get("rarity", "")))
-        not in {"token", "status"}
-        and not _truthy(permanent[card.instance_id].custom.get("token"))
+        if card.instance_id in permanent
     ]
     if not candidates:
         return combat, (EffectEvent(
@@ -15029,6 +15059,23 @@ def _reset_monster_hit_trigger_flags(monster: MonsterState) -> MonsterState:
     if metadata.pop("skittish_used_this_turn", None) is None:
         return monster
     return monster.model_copy(update={"metadata": metadata})
+
+
+def _apply_enemy_side_end_early(
+    combat: CombatState,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Plating grants Block before side-end damage and late power callbacks."""
+    if combat.metadata.get("enemy_side_end_early_turn") == combat.turn:
+        return combat, ()
+    events: list[EffectEvent] = []
+    for index, monster in enumerate(combat.monsters):
+        monster, block_events = _apply_monster_plating_end(monster)
+        combat = _combat_with_monster(combat, index, monster)
+        events.extend(block_events)
+    combat = combat.model_copy(update={"metadata": {
+        **combat.metadata, "enemy_side_end_early_turn": combat.turn,
+    }})
+    return combat, tuple(events)
 
 
 def _apply_monster_plating_start(
@@ -15481,13 +15528,19 @@ def _execute_fallback_monster_turn(
                 statuses=monster.statuses,
                 relics=relics,
             )
+            attack_multiplier = _back_attack_multiplier(combat, combat.monsters[monster_index])
+            monster, before_events = _apply_player_thorns_before_attack(
+                combat.monsters[monster_index], combat.player, source_id=monster.monster_id,
+            )
+            combat = _combat_with_monster(combat, monster_index, monster)
+            events.extend(before_events)
             combat, damage_events = _damage_combat_player(
                 combat,
                 intent_damage,
                 monster.monster_id,
                 relics=relics,
                 is_attack=True,
-                attack_multiplier=_back_attack_multiplier(combat, combat.monsters[monster_index]),
+                attack_multiplier=attack_multiplier,
             )
             for damage_event in damage_events:
                 events.append(
@@ -15512,6 +15565,7 @@ def _execute_fallback_monster_turn(
                 combat.player,
                 source_id=monster.monster_id,
                 damage_events=damage_events,
+                include_thorns=False,
             )
             combat = _combat_with_monster(combat, monster_index, monster)
             events.extend(thorns_events)
@@ -24166,14 +24220,33 @@ def _apply_attack_damage_riders(
     return updated, tuple(events)
 
 
+def _apply_player_thorns_before_attack(
+    monster: MonsterState,
+    player: PlayerState,
+    *,
+    source_id: str,
+) -> tuple[MonsterState, tuple[EffectEvent, ...]]:
+    """ThornsPower.BeforeDamageReceived; the current hit still resolves."""
+    amount = _status_amount(player.statuses, "thorns")
+    if amount <= 0 or monster.hp <= 0:
+        return monster, ()
+    updated, events = _damage_monsters(
+        (monster,), (monster.monster_id,), amount, PLAYER_TARGET_ID,
+    )
+    return updated[0], tuple(event.model_copy(update={"metadata": {
+        **event.metadata, "status": "thorns", "source_attack_id": source_id,
+    }}) for event in events)
+
+
 def _apply_player_thorns_to_attacker(
     monster: MonsterState,
     player: PlayerState,
     *,
     source_id: str,
+    include_thorns: bool = True,
     damage_events: Sequence[EffectEvent] = (),
 ) -> tuple[MonsterState, tuple[EffectEvent, ...]]:
-    thorns = _status_amount(player.statuses, "thorns")
+    thorns = _status_amount(player.statuses, "thorns") if include_thorns else 0
     flame = _status_amount(player.statuses, "flame_barrier")
     reflected = sum(
         _metadata_int(event.metadata, "blocked", 0)
@@ -24184,13 +24257,10 @@ def _apply_player_thorns_to_attacker(
 
     events: list[EffectEvent] = []
     if thorns > 0:
-        updated, retaliation_events = _damage_monsters(
-            (monster,), (monster.monster_id,), thorns, PLAYER_TARGET_ID,
+        monster, thorns_events = _apply_player_thorns_before_attack(
+            monster, player, source_id=source_id,
         )
-        monster = updated[0]
-        events.extend(event.model_copy(update={"metadata": {
-            **event.metadata, "status": "thorns", "source_attack_id": source_id,
-        }}) for event in retaliation_events)
+        events.extend(thorns_events)
     if flame > 0 and monster.hp > 0:
         updated, retaliation_events = _damage_monsters(
             (monster,), (monster.monster_id,), flame, PLAYER_TARGET_ID,
@@ -26614,12 +26684,10 @@ def _apply_monster_death_power_triggers(
                         },
                     }))
             if monster.hp <= 0 and _status_amount(monster.statuses, "illusion") > 0:
-                debuffs = _ARTIFACT_BLOCKED_STATUSES | {
-                    "doom", "stunned", "strength_down", "dexterity_down",
-                }
                 statuses = {
                     key: value for key, value in monster.statuses.items()
-                    if key not in debuffs and value > 0
+                    if ((illusion_power := source_power_definition(key)) is None
+                        or illusion_power.kind != "debuff" or illusion_power.temporary)
                 }
                 monster = monster.model_copy(update={
                     "block": 0, "move_id": "REVIVE", "intent": "Heal", "intent_damage": 0,

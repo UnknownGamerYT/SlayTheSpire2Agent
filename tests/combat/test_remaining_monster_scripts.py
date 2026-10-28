@@ -78,6 +78,11 @@ def test_slumber_wakes_after_three_hp_loss_hits_and_removes_plating() -> None:
             },
         ),
     )
+    # Three unblocked HP losses, after the source opening Plating Block.
+    combat = state.combat
+    state = state.model_copy(update={"combat": combat.model_copy(update={
+        "monsters": (combat.monsters[0].model_copy(update={"block": 0}),),
+    })})
     state = _play(state, effects={"sequence": ({"damage": 1},) * 3})
     beetle = state.combat.monsters[0]
     assert beetle.hp == 97

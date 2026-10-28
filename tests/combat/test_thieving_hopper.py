@@ -124,13 +124,13 @@ def test_no_eligible_card_does_not_softlock_thievery() -> None:
     assert any(event.kind == "thieving_hopper_theft_skipped" for event in state.combat.last_events)
 
 
-def test_thievery_never_steals_status_or_token_cards_even_if_permanent() -> None:
+def test_thievery_falls_back_to_any_permanent_deck_version_when_no_priority_matches() -> None:
     token = {**_card("token", damage=1), "rarity": "Token"}
     status = {**_card("status", damage=0), "type": "status", "rarity": "Status"}
     state = _combat(_hopper(), deck=(token, status))
     state = step(state, _end_turn_action(state))
-    assert "stolen_card" not in state.combat.monsters[0].metadata
-    assert len(state.master_deck) == 2
+    assert state.combat.monsters[0].metadata["stolen_card"]["card_id"] in {"token", "status"}
+    assert len(state.master_deck) == 1
 
 
 def test_flutter_halves_attack_hits_then_stuns_and_advances_the_skipped_move() -> None:
@@ -162,3 +162,18 @@ def test_flutter_does_not_reduce_potion_damage_or_lose_a_charge_from_it() -> Non
     state = step(state, action)
     assert state.combat.monsters[0].hp == 80
     assert state.combat.monsters[0].statuses["flutter"] == 5
+
+
+def test_hopper_steals_before_thorns_can_kill_him_during_theft_attack() -> None:
+    state = _combat(_hopper(), deck=_deck())
+    combat = state.combat
+    state = state.model_copy(update={"combat": combat.model_copy(update={
+        "player": combat.player.model_copy(update={"statuses": {"thorns": 100}}),
+    })})
+    state = step(state, _end_turn_action(state))
+    assert state.reward.card_option_groups == (("victim",),)
+    events = state.combat.last_events
+    theft = next(i for i, e in enumerate(events) if e.kind == "thieving_hopper_card_stolen")
+    death = next(i for i, e in enumerate(events) if e.kind == "monster_defeated")
+    hit = next(i for i, e in enumerate(events) if e.kind == "player_damaged")
+    assert theft < death < hit

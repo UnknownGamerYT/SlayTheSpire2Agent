@@ -842,6 +842,10 @@ def _source_specific_moves(
             else power
             for power in move.powers
         )
+        if normalized_monster_id == "spectral_knight" and _normalized_id(move.move_id) == "hex":
+            powers = tuple(replace(power, target="player")
+                           if _normalized_id(power.power_id) == "hex" else power
+                           for power in powers)
         patched.append(replace(move, powers=powers))
     return tuple(patched)
 
@@ -869,6 +873,13 @@ def _source_specific_innate_powers(
         patched.append(MonsterPower("THIEVERY", 20))
     if normalized_monster_id == "axebot" and "stock" not in normalized_power_ids:
         patched.append(MonsterPower("STOCK", 2))
+    if normalized_monster_id == "sewer_clam" and "plating" not in normalized_power_ids:
+        patched.append(MonsterPower("PLATING", 8, amount_ascension=9))
+    if normalized_monster_id == "mysterious_knight":
+        if "strength" not in normalized_power_ids:
+            patched.append(MonsterPower("STRENGTH", 6))
+        if "plating" not in normalized_power_ids:
+            patched.append(MonsterPower("PLATING", 6))
     if normalized_monster_id == "phrog_parasite":
         patched = [replace(power, amount=1) if _normalized_id(power.power_id) == "infested"
                    else power for power in patched]

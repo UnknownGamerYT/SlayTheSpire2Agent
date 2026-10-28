@@ -2121,6 +2121,11 @@ def test_plating_reduces_at_start_and_grants_end_turn_block() -> None:
     )
     state = _enter_source_combat(source_data)
 
+    assert state.combat.monsters[0].block == 3
+    state = step(state, _end_turn_action(state))
+    assert state.combat.monsters[0].statuses["plating"] == 3
+    assert state.combat.monsters[0].block == 3
+    assert not any(e.kind == "monster_plating_reduced" for e in state.combat.last_events)
     state = step(state, _end_turn_action(state))
 
     assert state.combat is not None
@@ -2882,6 +2887,11 @@ def test_lagavulin_matriarch_hp_damage_wakes_and_stuns_next_action() -> None:
     )
     state = _enter_source_combat(source_data)
 
+    # This case specifically tests HP damage after the opening Plating Block.
+    combat = state.combat
+    state = state.model_copy(update={"combat": combat.model_copy(update={
+        "monsters": (combat.monsters[0].model_copy(update={"block": 0}),),
+    })})
     state = _play_first_card(state, "poke")
 
     assert state.combat is not None

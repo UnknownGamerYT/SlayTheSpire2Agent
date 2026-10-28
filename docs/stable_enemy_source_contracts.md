@@ -105,6 +105,17 @@ Confirmed corrections:
   and pet HP before each target's damage; a pet death finishes that AoE batch
   and stops later hits. Necro Mastery stacks, bypasses enemy Block, and echoes
   actual pet HP loss. These outcomes include missing pets and save/reload.
+- `PlatingPower` grants opening Block, skips its first enemy-round decrement,
+  then decrements on later enemy-side starts. It grants Block for the whole
+  side before side-end damage. Slumber's side-end wake removes Plating after
+  that Block is granted. Sewer Clam starts with Plating 8/9 at A8; Mysterious
+  Knight inherits Flail Knight and adds Strength 6 and Plating 6.
+- Player Thorns resolves before each enemy hit as blockable, unpowered damage.
+  Killing the attacker completes the current hit and stops subsequent hits.
+  Hopper steals before that attack and uses any permanent deck version as its
+  final fallback. Illusions keep buffs, signed negative buffs and temporary
+  debuff wrappers after death, using the source power type declarations.
+  Spectral Knight applies Hex 2 to the player on its first enemy action.
 
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
