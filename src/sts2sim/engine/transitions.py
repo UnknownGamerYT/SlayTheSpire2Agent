@@ -13419,6 +13419,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         })
         if diadem_event is not None:
             events.append(diadem_event)
+    combat, early_rng, plating_events = _apply_player_plating_early(
+        state, combat, capture_random_state(rng),
+    )
+    events.extend(plating_events)
+    rng = random_from_state(early_rng)
     combat, hand_rng, hand_effect_events = source_keyword_hooks.resolve_end_hand(
         state, combat, capture_random_state(rng),
     )
@@ -24496,6 +24501,26 @@ def _apply_player_turn_start_effects(
     )
 
 
+def _apply_player_plating_early(
+    state: RunState,
+    combat: CombatState,
+    rng_state: RngState,
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    """PlatingPower.BeforeSideTurnEndEarly runs before orb and hand damage."""
+    if combat.metadata.get("source_player_plating_early_turn") == combat.turn:
+        return combat, rng_state, ()
+    combat = combat.model_copy(update={"metadata": {
+        **combat.metadata, "source_player_plating_early_turn": combat.turn,
+    }})
+    amount = _status_amount(combat.player.statuses, "plated_armor")
+    if amount <= 0 or combat.player.hp <= 0:
+        return combat, rng_state, ()
+    return _gain_player_block(
+        state, combat, rng_state, amount, source_id="plating", source_card=None,
+        metadata={"status": "plated_armor", "phase": "before_side_turn_end_early"},
+    )
+
+
 def _apply_player_end_turn_status_block(
     player: PlayerState,
 ) -> tuple[PlayerState, tuple[EffectEvent, ...]]:
@@ -24511,7 +24536,6 @@ def _apply_player_end_turn_status_block(
             events.append(event)
     block_sources: Sequence[tuple[str, int]] = (
         ("metallicize", _status_amount(player.statuses, "metallicize")),
-        ("plated_armor", _status_amount(player.statuses, "plated_armor")),
     )
     block_sources = tuple(
         (status, _unpowered_player_block_gain(player, amount)) for status, amount in block_sources

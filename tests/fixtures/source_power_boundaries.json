@@ -1,0 +1,47 @@
+{
+  "game_version": "0.107.1",
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "review_scope": [
+    "Plating BeforeSideTurnEndEarly before orb/hand damage and Parrying threshold",
+    "ParryingShield and Tingsha actual CombatTargets consumer paths; singleton and per-discard draws",
+    "Hang applies one receiver multiplier after additive Strength"
+  ],
+  "independent_rng_vector": {
+    "displayed_seed": "TEST",
+    "stream": "combat_targets",
+    "bound": 3,
+    "indices": [
+      1,
+      1,
+      2,
+      1,
+      0,
+      2
+    ],
+    "derivation": "ASCII source StringHelper hash, uint32 named stream mixing, SplitMix64/xoshiro256** compiled independently in C"
+  },
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/PlatingPower.cs",
+      "sha256": "d3cd1402c704dcc379caf0981595356d449ccd81da10ff043836e0c1644cc2f1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ParryingShield.cs",
+      "sha256": "8938397a0a8fb658ea71e6e404340f186c388d8f00074549691e63b8fb209a35"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Tingsha.cs",
+      "sha256": "6229a87a90dd90e48a3af54bfbcc67424cf853f175760da6dc70dbb34ff800a7"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/HangPower.cs",
+      "sha256": "5c161595e7d3023a635aceacf779920f0ffd0ffb29119454f06dcfaa9c37047f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Hang.cs",
+      "sha256": "17fe973dff63555d11fc84718433d6a2eeb8439d6102830f32dc7d90fb718c79"
+    }
+  ]
+}
