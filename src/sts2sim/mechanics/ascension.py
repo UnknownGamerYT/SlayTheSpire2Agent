@@ -96,7 +96,6 @@ ASCENSION_FLAG_RULES: tuple[AscensionFlagRule, ...] = (
     AscensionFlagRule(2, AscensionFlag.DEADLY_NORMALS, "Normal enemies are more dangerous."),
     AscensionFlagRule(3, AscensionFlag.DEADLY_ELITES, "Elite enemies are more dangerous."),
     AscensionFlagRule(4, AscensionFlag.DEADLY_BOSSES, "Boss enemies are more dangerous."),
-    AscensionFlagRule(5, AscensionFlag.REDUCED_REST_HEAL, "Rest sites heal less."),
     AscensionFlagRule(6, AscensionFlag.DAMAGED_START, "Runs start damaged."),
     AscensionFlagRule(7, AscensionFlag.TOUGHER_NORMALS, "Normal encounters use tougher tuning."),
     AscensionFlagRule(8, AscensionFlag.TOUGHER_ELITES, "Elite encounters use tougher tuning."),
@@ -204,11 +203,9 @@ def rest_site_heal_fraction_at_ascension(
     *,
     rules: AscensionEconomyRules = DEFAULT_ASCENSION_ECONOMY_RULES,
 ) -> float:
-    """Return the rest-site healing fraction before max/min HP clamping."""
+    """Stable HealRestSiteOption uses30% at every Ascension, before modifiers."""
 
     validate_ascension_level(ascension_level)
-    if ascension_level >= rules.reduced_rest_heal_level:
-        return rules.reduced_rest_heal_fraction
     return rules.rest_heal_fraction
 
 

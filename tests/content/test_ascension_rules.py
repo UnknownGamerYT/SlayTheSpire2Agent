@@ -29,7 +29,7 @@ def test_a0_to_a10_non_combat_rule_boundaries() -> None:
     assert reward_gold_multiplier_at_ascension(2) == 1.0
     assert reward_gold_multiplier_at_ascension(3) == 0.75
     assert rest_site_heal_fraction_at_ascension(4) == 0.30
-    assert rest_site_heal_fraction_at_ascension(5) == 0.20
+    assert rest_site_heal_fraction_at_ascension(5) == 0.30
     assert card_removal_price_at_ascension(5, card_removals_bought=2) == 125
     assert card_removal_price_at_ascension(6, card_removals_bought=2) == 200
     assert rarity_scarcity_at_ascension(6) is False

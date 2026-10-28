@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from decimal import Decimal
 from enum import Enum
 
 from sts2sim.content.sources import STS1_COMPAT_SOURCE, SourceRef
 
-from .ascension import AscensionFlag, ascension_enabled
+from .ascension import validate_ascension_level
 
 
 class CampfireAction(str, Enum):
@@ -24,7 +25,7 @@ class CampfireAction(str, Enum):
 class CampfireRules:
     rest_heal_fraction: float = 0.30
     ascension_rest_heal_fraction: float = 0.20
-    min_rest_heal: int = 1
+    min_rest_heal: int = 0
     max_lift_count: int = 3
     source: SourceRef = STS1_COMPAT_SOURCE
 
@@ -71,12 +72,10 @@ def rest_heal_amount(
     ascension_level: int = 0,
     rules: CampfireRules = DEFAULT_CAMPFIRE_RULES,
 ) -> int:
-    fraction = (
-        rules.ascension_rest_heal_fraction
-        if ascension_enabled(ascension_level, AscensionFlag.REDUCED_REST_HEAL)
-        else rules.rest_heal_fraction
+    validate_ascension_level(ascension_level)
+    return max(
+        rules.min_rest_heal, int(Decimal(max_hp) * Decimal(str(rules.rest_heal_fraction))),
     )
-    return max(rules.min_rest_heal, int(max_hp * fraction))
 
 
 def available_campfire_actions(

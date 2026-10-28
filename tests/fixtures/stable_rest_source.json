@@ -1,0 +1,16 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "source_methods": [
+    "decompiled/MegaCrit.Sts2.Core.Entities.RestSite/HealRestSiteOption.cs:GetBaseHealAmount",
+    "decompiled/MegaCrit.Sts2.Core.Entities.RestSite/HealRestSiteOption.cs:ExecuteRestSiteHeal",
+    "decompiled/MegaCrit.Sts2.Core.Models.Relics/RegalPillow.cs:ModifyRestSiteHealAmount",
+    "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/NightTerrors.cs:ModifyRestSiteHealAmount",
+    "decompiled/MegaCrit.Sts2.Core.Runs/RunState.cs:IterateHookListeners"
+  ],
+  "base_percent": 30,
+  "regal_pillow_addition": 15,
+  "night_terrors_overrides_relic_amount": true,
+  "ascension_changes_healing": false,
+  "floor_vectors": [[1, 0], [2, 0], [3, 0], [4, 1], [5, 1], [10, 3], [83, 24], [1690, 507]]
+}
