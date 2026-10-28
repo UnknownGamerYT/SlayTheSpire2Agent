@@ -85,6 +85,7 @@ from sts2sim.mechanics.potion_triggers import (
     resolve_potion_use_triggers,
 )
 from sts2sim.mechanics.relic_combat import (
+    CombatRelicHook,
     CombatRelicMarker,
     CombatRelicResolution,
     resolve_damage_dealt_relics,
@@ -20327,11 +20328,14 @@ def _apply_combat_won_run_relics(
     combat: CombatState,
     rng_state: RngState,
 ) -> tuple[RunState, CombatState, RngState, tuple[EffectEvent, ...]]:
+    state, combat, rng_state, fishing_events = _apply_fishing_rod_after_combat(
+        state, combat, rng_state
+    )
     run_relics = tuple(
         relic_id for relic_id in state.relics if _normalized_id(relic_id) in {"war_hammer"}
     )
     if not run_relics:
-        return state, combat, rng_state, ()
+        return state, combat, rng_state, fishing_events
 
     resolution = _resolve_combat_relic_trigger(
         GameTrigger.MONSTER_KILLED,
@@ -20351,7 +20355,7 @@ def _apply_combat_won_run_relics(
     next_combat, combat_events = _apply_combat_relic_resolution(combat, combat_resolution)
     rng = random_from_state(rng_state)
     next_state = state
-    events: list[EffectEvent] = list(combat_events)
+    events: list[EffectEvent] = list(fishing_events + combat_events)
     for marker in run_markers:
         next_state, marker_events = _apply_run_state_combat_relic_marker(
             next_state,
@@ -20360,6 +20364,46 @@ def _apply_combat_won_run_relics(
         )
         events.extend(marker_events)
     return next_state, next_combat, capture_random_state(rng), tuple(events)
+
+
+def _apply_fishing_rod_after_combat(
+    state: RunState,
+    combat: CombatState,
+    rng_state: RngState,
+) -> tuple[RunState, CombatState, RngState, tuple[EffectEvent, ...]]:
+    if (
+        not _has_relic(state, "fishing_rod")
+        or _current_encounter_type(state) != RoomKind.MONSTER.value
+    ):
+        return state, combat, rng_state, ()
+
+    counter = (_combat_relic_counters(combat).get("fishing_rod", 0) + 1) % 3
+    marker = CombatRelicMarker(
+        kind="relic_counter_changed",
+        relic_id="fishing_rod",
+        hook=CombatRelicHook.COMBAT_END,
+        amount=counter,
+        target_id=PLAYER_TARGET_ID,
+        metadata={"counter": counter, "interval": 3, "encounter_type": "normal"},
+    )
+    combat, counter_events = _apply_combat_relic_marker(combat, marker)
+    if counter:
+        return state, combat, rng_state, counter_events
+
+    rng = random_from_state(rng_state)
+    state, upgrade_events = _apply_relic_upgrade_deck_cards_marker(
+        state,
+        rng,
+        "fishing_rod",
+        RelicEffectMarker(
+            kind="upgrade_deck_cards",
+            relic_id="fishing_rod",
+            amount=1,
+            target_id=PLAYER_TARGET_ID,
+            metadata={"selection": "random"},
+        ),
+    )
+    return state, combat, capture_random_state(rng), counter_events + upgrade_events
 
 
 def _apply_monster_ravenous_from_events(

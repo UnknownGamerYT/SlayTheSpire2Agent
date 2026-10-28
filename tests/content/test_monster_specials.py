@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from helpers import project_root
 
 from sts2sim.mechanics import (
@@ -336,6 +337,53 @@ def test_supported_special_innate_powers_are_hints() -> None:
 
         assert not classification.blocked
         assert "special_innate_power_supported" in _codes(classification.hints)
+
+
+@pytest.mark.parametrize(
+    ("monster_id", "power_id"),
+    (
+        ("TEST_SUBJECT", "ADAPTABLE"),
+        ("LAGAVULIN_MATRIARCH", "ASLEEP"),
+        ("DECIMILLIPEDE_SEGMENT", "REATTACH"),
+        ("DECIMILLIPEDE_SEGMENT_BACK", "REATTACH"),
+        ("DECIMILLIPEDE_SEGMENT_FRONT", "REATTACH"),
+        ("DECIMILLIPEDE_SEGMENT_MIDDLE", "REATTACH"),
+    ),
+)
+def test_identity_specific_innate_scripts_are_supported_only_on_their_monsters(
+    monster_id: str, power_id: str
+) -> None:
+    raw_monster = {
+        "id": monster_id,
+        "type": "Normal",
+        "min_hp": 20,
+        "max_hp": 20,
+        "innate_powers": ({"power_id": power_id, "amount": 1},),
+        "moves": ({"id": "WAIT", "name": "Wait", "intent": "Unknown"},),
+    }
+    supported = classify_raw_monster_specials(raw_monster)
+    unhandled = classify_raw_monster_specials({**raw_monster, "id": "OTHER_MONSTER"})
+
+    assert not supported.blocked
+    assert "special_innate_power_supported" in _codes(supported.hints)
+    assert unhandled.blocker_codes == ("special_innate_power_requires_hook",)
+    assert unhandled.blockers[0].source_id == power_id
+
+
+def test_byrdonis_territorial_is_still_an_unimplemented_power() -> None:
+    classification = classify_raw_monster_specials(
+        {
+            "id": "BYRDONIS",
+            "type": "Elite",
+            "min_hp": 81,
+            "max_hp": 84,
+            "innate_powers": ({"power_id": "TERRITORIAL", "amount": 1},),
+            "moves": ({"id": "PECK", "name": "Peck", "intent": "Attack"},),
+        }
+    )
+
+    assert classification.blocker_codes == ("special_innate_power_requires_hook",)
+    assert classification.blockers[0].source_id == "TERRITORIAL"
 
 
 def test_escape_moves_are_supported_explicit_removal_hints() -> None:
@@ -844,6 +892,10 @@ def test_source_coverage_summary_counts_blocked_encounters_and_missing_monsters(
 
 def test_cached_monster_special_source_coverage_smoke() -> None:
     cache_dir = project_root() / "data" / "cache" / "eng"
+    if not all(
+        (cache_dir / filename).is_file() for filename in ("monsters.json", "encounters.json")
+    ):
+        pytest.skip("Source cache unavailable; run sts2sim sync-data before coverage checks.")
     raw_monsters = json.loads((cache_dir / "monsters.json").read_text(encoding="utf-8"))
     raw_encounters = json.loads((cache_dir / "encounters.json").read_text(encoding="utf-8"))
 
@@ -858,7 +910,12 @@ def test_cached_monster_special_source_coverage_smoke() -> None:
     assert "SKULKING_COLONY" in summary.blocked_monster_ids
     assert "QUEEN" not in summary.blocked_monster_ids
     assert "TEST_SUBJECT" not in summary.blocked_monster_ids
-    assert "BYRDONIS" not in summary.blocked_monster_ids
+    # Refreshed source exposes Territorial; the turn-end Strength hook is missing.
+    assert "BYRDONIS" in summary.blocked_monster_ids
+    byrdonis = classify_raw_monster_specials(
+        next(monster for monster in raw_monsters if monster["id"] == "BYRDONIS")
+    )
+    assert {requirement.source_id for requirement in byrdonis.blockers} == {"TERRITORIAL"}
     assert "CEREMONIAL_BEAST" not in summary.blocked_monster_ids
     assert "MAGI_KNIGHT" not in summary.blocked_monster_ids
     assert "LAGAVULIN_MATRIARCH" not in summary.blocked_monster_ids

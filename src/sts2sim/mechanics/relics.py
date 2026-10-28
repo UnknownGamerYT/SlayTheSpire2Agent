@@ -374,7 +374,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "interval": 3,
                             "upgrade_count": 1,
                             "selection": "random",
-                            "needed_subsystem": "combat_count_relic_trigger",
                         },
                     ),
                 ),

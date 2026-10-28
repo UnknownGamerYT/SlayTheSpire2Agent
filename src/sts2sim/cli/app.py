@@ -2213,6 +2213,24 @@ def train_until_boss(
     _write_result_if_missing(output_path, payload)
 
 
+@app.command("training-check")
+def training_check(
+    cache_dir: Annotated[
+        Path, typer.Option("--cache-dir", help="Root of the local stable source cache.")
+    ] = Path("data/cache"),
+    manifest_path: Annotated[
+        Path, typer.Option("--manifest", help="Manifest to verify cached checksums against.")
+    ] = Path("data/manifest.json"),
+) -> None:
+    """Check local training dependencies and source integrity without network access."""
+    from sts2sim.learning.readiness import check_training_readiness
+
+    result = check_training_readiness(cache_dir=cache_dir, manifest_path=manifest_path)
+    _emit(result)
+    if not result["ready"]:
+        raise typer.Exit(code=1)
+
+
 @app.command("train-masked-ppo")
 def train_masked_ppo(
     target: Annotated[

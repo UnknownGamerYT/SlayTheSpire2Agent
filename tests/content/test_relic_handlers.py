@@ -348,7 +348,6 @@ def test_remaining_non_combat_pickup_relics_return_source_backed_markers() -> No
         "interval": 3,
         "upgrade_count": 1,
         "selection": "random",
-        "needed_subsystem": "combat_count_relic_trigger",
     }
     assert [marker.kind for marker in hug.markers] == ["remove_deck_cards", "no_effect"]
     assert hug.markers[0].amount == 4

@@ -18,7 +18,7 @@ import random
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html import escape as html_escape
 from itertools import count
@@ -332,6 +332,9 @@ class _Transition:
     reward: float
     done: bool
     teacher_action_index: int | None = None
+    # A time limit ends this rollout but does not terminate the underlying run.
+    # Keep its next-state value separate from the next collected episode.
+    bootstrap_value: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -397,6 +400,7 @@ def train_masked_ppo(
     """Train a masked PPO policy over random simulator seeds."""
 
     torch, nn, optim = _load_torch()
+    _seed_training_rngs(torch, seed)
     torch_device = _resolve_torch_device(torch, device)
     resolved_rollout_workers = _resolve_rollout_workers(rollout_workers)
     resolved_rollout_inference = _normalize_rollout_inference(rollout_inference)
@@ -2448,6 +2452,7 @@ def _collect_training_run_with_policy_server(
     truncated = False
     error: str | None = None
     failed_to_continue = False
+    bootstrap_value = 0.0
     observation: dict[str, Any] = {}
     reward_breakdown_totals: dict[str, float] = {}
     diagnostics: dict[str, Any] = {}
@@ -2533,6 +2538,19 @@ def _collect_training_run_with_policy_server(
             info = next_info
             if done:
                 break
+        if transitions and truncated and not terminated and not target.reached(observation):
+            bootstrap_decision = _request_policy_server_decision(
+                worker_id=worker_id,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                request_id=f"{run_index}:train:bootstrap",
+                observation=observation,
+                info=info,
+                deterministic=True,
+                forced_action_index=None,
+            )
+            if bootstrap_decision is not None:
+                bootstrap_value = bootstrap_decision[3]
     except Exception as exc:  # pragma: no cover - defensive runtime capture
         failed_to_continue = True
         error = f"{type(exc).__name__}: {exc}"
@@ -2562,7 +2580,7 @@ def _collect_training_run_with_policy_server(
             decision_summary=_final_run_decision_summary(diagnostics),
             steps=(),
         ),
-        tuple(transitions),
+        _close_training_rollout(transitions, bootstrap_value=bootstrap_value),
     )
 
 
@@ -2809,6 +2827,14 @@ def _seed_worker_torch(torch: Any, seed: int) -> None:
         return
 
 
+def _seed_training_rngs(torch: Any, seed: int | str) -> None:
+    """Seed model initialization, policy sampling, and PPO minibatch ordering."""
+
+    seed_bytes = hashlib.sha256(f"{seed}:ppo-trainer".encode()).digest()
+    torch.manual_seed(int.from_bytes(seed_bytes[:8], byteorder="big"))
+    random.seed(f"{seed}:ppo-trainer")
+
+
 def _worker_jobs(payload: Mapping[str, Any]) -> tuple[tuple[int, int], ...]:
     jobs = []
     for item in _sequence(payload.get("jobs")):
@@ -2937,6 +2963,7 @@ def _collect_training_run(
     truncated = False
     error: str | None = None
     failed_to_continue = False
+    bootstrap_value = 0.0
     observation: dict[str, Any] = {}
     reward_breakdown_totals: dict[str, float] = {}
     diagnostics: dict[str, Any] = {}
@@ -3021,6 +3048,17 @@ def _collect_training_run(
             info = next_info
             if done:
                 break
+        if transitions and truncated and not terminated and not target.reached(observation):
+            bootstrap_decision = _choose_action(
+                torch,
+                model,
+                observation,
+                info,
+                deterministic=True,
+                device=device,
+            )
+            if bootstrap_decision is not None:
+                bootstrap_value = bootstrap_decision[3]
     except Exception as exc:  # pragma: no cover - defensive runtime capture
         failed_to_continue = True
         error = f"{type(exc).__name__}: {exc}"
@@ -3050,7 +3088,22 @@ def _collect_training_run(
             decision_summary=_final_run_decision_summary(diagnostics),
             steps=(),
         ),
-        tuple(transitions),
+        _close_training_rollout(transitions, bootstrap_value=bootstrap_value),
+    )
+
+
+def _close_training_rollout(
+    transitions: Sequence[_Transition],
+    *,
+    bootstrap_value: float,
+) -> tuple[_Transition, ...]:
+    """Separate every run, including interrupted runs, before flattening rollouts."""
+
+    if not transitions:
+        return ()
+    return (
+        *transitions[:-1],
+        replace(transitions[-1], done=True, bootstrap_value=bootstrap_value),
     )
 
 
@@ -3854,7 +3907,8 @@ def _returns_and_advantages(
     for index in reversed(range(len(transitions))):
         transition = transitions[index]
         nonterminal = 0.0 if transition.done else 1.0
-        delta = transition.reward + gamma * next_value * nonterminal - transition.value
+        bootstrap = transition.bootstrap_value if transition.done else next_value
+        delta = transition.reward + gamma * bootstrap - transition.value
         advantage = delta + gamma * gae_lambda * nonterminal * next_advantage
         advantages[index] = advantage
         returns[index] = advantage + transition.value

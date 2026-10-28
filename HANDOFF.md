@@ -1,6 +1,37 @@
 # SlayTheSpire2Agent Handoff
 
-Last updated: 2026-07-05
+Last updated: 2026-10-28
+
+## October 2026 Update
+
+- Refreshed all 12 stable Spire Codex datasets and the tracked manifest; cache
+  files remain local under `data/cache/eng`. New clones must run
+  `uv run sts2sim sync-data --data-dir data/cache` before tests or training.
+- Added `uv run sts2sim training-check` for offline dependency and snapshot
+  integrity checks, with a nonzero exit status for missing or mismatched inputs.
+- Repaired curriculum training's stage-completion crash and checkpoint lifecycle:
+  train/retry through mutable latest, forward champion controls, and promote the
+  verified champion into completed stage milestones.
+- PPO now bootstraps time-limited runs, isolates interrupted episodes, and seeds
+  model initialization, sampling, and minibatch shuffle for fresh experiments.
+- Added optional `sts2sim.gymnasium_adapter.GymnasiumSts2Env`, with numeric
+  observations, mask validation, seeded resets, vectorization, and default
+  learning rewards. Existing rich `Sts2Env` remains the built-in PPO interface.
+- Implemented Fishing Rod's persistent normal-combat counter and deterministic
+  random deck upgrade every third normal victory, including save/reload tests.
+- Added automated lint, type, and test checks in GitHub Actions.
+
+See [the dated status report](docs/project_status_2026_10_28.md) for current source
+counts and fidelity limits. Stable v0.107.1 and beta v0.111.0 remain separate;
+this update uses stable sources. Registered handler counts overstate complete
+runtime parity: 36 monsters and 34 encounters are explicitly blocked.
+
+Further training work: teacher-mixed actor updates remain off-policy (use the
+default `teacher_mix=0`); corrupt/LFS-pointer checkpoint resume needs clearer
+handling; benchmark seed selection should be independent of checkpoint filenames.
+Pumpkin Candle's lifecycle, Kaleidoscope's cross-character reward pools, and
+Silken Tress's first-reward Glam behavior still need work. Exact live-game RNG
+stream derivation remains unverified.
 
 ## Goal
 

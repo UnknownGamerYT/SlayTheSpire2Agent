@@ -51,6 +51,18 @@ _BASIC_STATUS_POWERS = frozenset(
 _SUPPORTED_SPECIAL_INNATE_POWERS = frozenset(
     ("plating", "curl_up", "skittish", "ravenous", "shriek", "enrage", "slippery")
 )
+# These powers are executed by identity-specific engine scripts, rather than
+# generic status hooks. Do not infer support for the same power on other monsters.
+_SUPPORTED_SCRIPTED_INNATE_POWERS = MappingProxyType(
+    {
+        "test_subject": frozenset(("adaptable",)),
+        "lagavulin_matriarch": frozenset(("asleep",)),
+        "decimillipede_segment": frozenset(("reattach",)),
+        "decimillipede_segment_back": frozenset(("reattach",)),
+        "decimillipede_segment_front": frozenset(("reattach",)),
+        "decimillipede_segment_middle": frozenset(("reattach",)),
+    }
+)
 _VERIFIED_ELITE_SOURCE_INTEGRATIONS = frozenset(
     (
         "bygone_effigy",
@@ -447,7 +459,11 @@ def _innate_power_requirements(
                 )
             )
             continue
-        if normalized in _SUPPORTED_SPECIAL_INNATE_POWERS:
+        if normalized in _SUPPORTED_SPECIAL_INNATE_POWERS or normalized in (
+            _SUPPORTED_SCRIPTED_INNATE_POWERS.get(
+                _normalized_id(definition.monster_id), frozenset()
+            )
+        ):
             requirements.append(
                 _requirement(
                     definition,

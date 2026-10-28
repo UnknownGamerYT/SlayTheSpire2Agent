@@ -1,87 +1,87 @@
 {
-  "generated_at": "2026-06-19T12:49:34.143264+00:00",
+  "generated_at": "2026-10-28T10:47:24.386121+00:00",
   "schema_version": 1,
   "sources": {
     "eng/acts": {
       "count": 4,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "4d2a06aa4e42055630887f1da76ee09a7dbdeba4e57da0ec6191b9f1ba4b3250",
+      "sha256": "768ccb7ab7231c8b7584eca5a0a6e4932c67dc671f0f286bb8226f2ec02a51e5",
       "source_url": "https://spire-codex.com/api/acts?lang=eng"
     },
     "eng/ascensions": {
       "count": 11,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
       "sha256": "f9342d130bf18981b6bc34df91da6c04379acced3e3e3105405aea1bfc0e43da",
       "source_url": "https://spire-codex.com/api/ascensions?lang=eng"
     },
     "eng/cards": {
       "count": 577,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "593ae6e36963f17b5b3158c707300e658fa1d1c9494360c4457585727085b4ba",
+      "sha256": "ae1bf6a2f52d6a80327de818c2c6c93749f97faccbf1f7df0d72164539b5f0ef",
       "source_url": "https://spire-codex.com/api/cards?lang=eng"
     },
     "eng/characters": {
       "count": 5,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "34ef1b60692c46964f8afe2e3cf41045509fce3f7e45b1f4165ee5075bcb92cb",
+      "sha256": "9be5d05020b896f438eb5356166b2e097343d0c6a842fb749ff411cf9488fe69",
       "source_url": "https://spire-codex.com/api/characters?lang=eng"
     },
     "eng/encounters": {
       "count": 87,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
       "sha256": "a24589ba6560dc6c120d75068b46933fd7337699a0a67e7e7254582d25eb0c04",
       "source_url": "https://spire-codex.com/api/encounters?lang=eng"
     },
     "eng/events": {
       "count": 66,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "cc0c9409306ab2ccb5961280e2e5d5296be35d0e0e8adc3111c49d8b61c3ac33",
+      "sha256": "37be0fc3457e3e0745f098b304b49bc95c067f222a5e0af50680d5ffec69bec0",
       "source_url": "https://spire-codex.com/api/events?lang=eng"
     },
     "eng/mechanics_constants": {
       "count": 7,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
       "sha256": "5bbd658f5b7d10e7c50c883adf2f2cf454757bf69007d55983a0c38f6f1efd35",
       "source_url": "https://spire-codex.com/api/mechanics/constants"
     },
     "eng/mechanics_sections": {
       "count": 27,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "e30b0ad319cfdd7685a078cfe1e183291633eafdc552132f5018fe55ab1f6f9d",
+      "sha256": "33ac3898bfeca90f9061f367db7e58cff4214f92f76326809b32165257dba832",
       "source_url": "https://spire-codex.com/api/mechanics/sections"
     },
     "eng/monsters": {
       "count": 115,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "89199ff7bfc71cd3ad1d1e8988bb98738d8f5df46249381c7f4925049c5710ab",
+      "sha256": "7be9b2b075e09cba1f46cad387581ca2b347d31821fe9e9f22dee4a9dd4372d1",
       "source_url": "https://spire-codex.com/api/monsters?lang=eng"
     },
     "eng/potions": {
       "count": 63,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
       "sha256": "b3acfc172172201470a3386b5bff37651f4476ddcb4f34b9b10661665ed1afbe",
       "source_url": "https://spire-codex.com/api/potions?lang=eng"
     },
     "eng/powers": {
       "count": 257,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
-      "sha256": "794d3c0e7a9a1370a66c1423c7d2059ca6a3f5ff4e302e203e2872ae0c79fbbf",
+      "sha256": "58659b3f69f33a846ddfa9f36f4ccb9d2b9e6d7d4aeb45582c34c008af9348be",
       "source_url": "https://spire-codex.com/api/powers?lang=eng"
     },
     "eng/relics": {
       "count": 296,
-      "fetched_at": "2026-06-19T12:49:34.143264Z",
+      "fetched_at": "2026-10-28T10:47:24.386121Z",
       "schema_version": 1,
       "sha256": "ba7c9ce8db46c798437ce8899b9b805e7b1dd7d6d6e977a3ac6635c2f78425da",
       "source_url": "https://spire-codex.com/api/relics?lang=eng"

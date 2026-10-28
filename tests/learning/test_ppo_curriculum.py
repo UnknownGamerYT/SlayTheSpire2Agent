@@ -77,6 +77,8 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
         envs_per_worker=3,
         policy_server_min_batch=4,
         policy_server_max_wait_ms=7,
+        champion_eval_runs=9,
+        champion_patience=5,
         progress_reporter=progress_reporter,
         trainer=fake_trainer,
     )
@@ -102,6 +104,14 @@ def test_train_masked_ppo_curriculum_advances_until_stage_fails(tmp_path: Path) 
     assert calls[0]["envs_per_worker"] == 3
     assert calls[0]["policy_server_min_batch"] == 4
     assert calls[0]["policy_server_max_wait_ms"] == 7
+    assert calls[0]["champion_eval_runs"] == 9
+    assert calls[0]["champion_patience"] == 5
+    assert calls[0]["champion_model_path"] == tmp_path / "checkpoints" / (
+        "ppo_curriculum_act1_boss_champion.pt"
+    )
+    assert calls[0]["model_output_path"] == tmp_path / "checkpoints" / (
+        "ppo_curriculum_latest.pt"
+    )
     assert calls[0]["progress_reporter"] is progress_reporter
     assert calls[1]["resume_from_path"] == tmp_path / "checkpoints" / (
         "ppo_curriculum_latest.pt"
@@ -185,6 +195,76 @@ def test_curriculum_promotes_the_stage_champion_not_mutable_latest(tmp_path: Pat
     checkpoints = tmp_path / "checkpoints"
     assert (checkpoints / "ppo_curriculum_act1_boss.pt").read_bytes() == b"champion-policy"
     assert (checkpoints / "ppo_curriculum_latest.pt").read_bytes() == b"champion-policy"
+
+
+def test_curriculum_retries_unfinished_stage_from_mutable_latest(tmp_path: Path) -> None:
+    calls: list[dict[str, Any]] = []
+    checkpoints = tmp_path / "checkpoints"
+
+    def fake_trainer(**kwargs: Any) -> dict[str, Any]:
+        calls.append(dict(kwargs))
+        latest_path = Path(kwargs["model_output_path"])
+        assert latest_path == checkpoints / "ppo_curriculum_latest.pt"
+        if len(calls) == 1:
+            assert kwargs["resume"] is False
+            assert kwargs["resume_from_path"] is None
+            latest_path.write_bytes(b"unfinished")
+        else:
+            assert kwargs["resume"] is True
+            assert kwargs["resume_from_path"] == latest_path
+            assert latest_path.read_bytes() == b"unfinished"
+            assert not (checkpoints / "ppo_curriculum_act1_boss.pt").exists()
+            latest_path.write_bytes(b"trained")
+            Path(kwargs["champion_model_path"]).write_bytes(b"champion")
+        return {
+            "reached_target": len(calls) == 2,
+            "champion": {"checkpoint_path": str(kwargs["champion_model_path"])},
+        }
+
+    result = train_masked_ppo_curriculum(
+        stages=("act1-boss",),
+        max_batches=1,
+        until_stopped=True,
+        resume=False,
+        checkpoint_dir=checkpoints,
+        report_dir=tmp_path / "reports",
+        output_path=tmp_path / "curriculum.json",
+        report_output_path=None,
+        trainer=fake_trainer,
+    )
+
+    assert len(calls) == 2
+    assert result["completed_curriculum"] is True
+    assert (checkpoints / "ppo_curriculum_latest.pt").read_bytes() == b"champion"
+    assert (checkpoints / "ppo_curriculum_act1_boss.pt").read_bytes() == b"champion"
+
+
+def test_curriculum_does_not_promote_latest_when_declared_champion_is_missing(
+    tmp_path: Path,
+) -> None:
+    checkpoints = tmp_path / "checkpoints"
+
+    def fake_trainer(**kwargs: Any) -> dict[str, Any]:
+        Path(kwargs["model_output_path"]).write_bytes(b"unverified-latest")
+        return {
+            "reached_target": True,
+            "champion": {"checkpoint_path": str(kwargs["champion_model_path"])},
+        }
+
+    with pytest.raises(FileNotFoundError, match="Cannot promote"):
+        train_masked_ppo_curriculum(
+            stages=("act1-boss",),
+            max_batches=1,
+            resume=False,
+            checkpoint_dir=checkpoints,
+            report_dir=tmp_path / "reports",
+            output_path=None,
+            report_output_path=None,
+            trainer=fake_trainer,
+        )
+
+    assert not (checkpoints / "ppo_curriculum_act1_boss.pt").exists()
+    assert (checkpoints / "ppo_curriculum_latest.pt").read_bytes() == b"unverified-latest"
 
 
 def test_legacy_active_checkpoint_migrates_to_latest_slot(tmp_path: Path) -> None:

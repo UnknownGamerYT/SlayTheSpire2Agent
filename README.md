@@ -7,6 +7,10 @@ This repository focuses on local simulation and developer tools. Graphics and
 game assets are out of scope. Implementation notes and current project direction
 live in [HANDOFF.md](HANDOFF.md).
 
+The [October 2026 status report](docs/project_status_2026_10_28.md) records the
+stable data refresh and remaining fidelity gaps. The simulator targets stable
+v0.107.1; the v0.111.0 beta is a separate data/game channel.
+
 ## Requirements
 
 - Windows or Linux with Python 3.12 or newer.
@@ -59,6 +63,18 @@ uv sync --extra dev --extra rl --link-mode=copy
 ```
 
 ## Quick Checks
+
+Create the local source cache before testing or training. It is intentionally
+excluded from Git, so this step is required after cloning:
+
+```powershell
+uv run sts2sim sync-data --data-dir data/cache --manifest data/manifest.json
+uv run sts2sim training-check
+```
+
+`training-check` works offline and exits with code 1 if RL packages, cached files,
+or manifest checksums are missing or inconsistent. A passing check verifies local
+inputs; it does not certify that all simulator mechanics match the game.
 
 ```powershell
 uv run sts2sim --help
@@ -178,6 +194,24 @@ Install RL dependencies first:
 uv sync --extra rl
 ```
 
+First verify a short training run on CPU:
+
+```powershell
+uv run sts2sim training-check
+uv run sts2sim train-masked-ppo --max-batches 1 --train-runs-per-batch 1 --train-max-steps 12 --eval-runs 1 --eval-max-steps 12 --champion-eval-runs 1 --hidden-size 32 --hidden-layers 1 --head-hidden-layers 1 --ppo-epochs 1 --minibatch-size 16 --device cpu --rollout-workers 1 --history-mode off --seed smoke --no-resume --model-output checkpoints/smoke.pt --output reports/smoke.json --progress-output reports/smoke_progress.json --report-output reports/smoke.html
+```
+
+Repeat with `--resume` and the same paths to check continuation. This short run
+checks rollout collection, optimization, evaluation, checkpointing, and reports;
+it is too short to learn useful gameplay. For small CPU experiments, setting
+`OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` before launching can reduce thread overhead.
+
+Fresh runs now seed model initialization, action sampling, and minibatch order.
+PPO bootstraps time-limited rollouts from their final state and isolates interrupted
+episodes. Parallel rollout scheduling and CUDA kernels can still introduce
+variation. Avoid `--teacher-mix` for baseline experiments until its off-policy
+actor update is corrected; `--imitation-coef` provides the separate teacher loss.
+
 Single-target Act 1 boss training:
 
 ```powershell
@@ -216,6 +250,27 @@ Open a generated report:
 ```powershell
 Start-Process reports\ppo_curriculum_latest.html
 ```
+
+## Gymnasium Integration
+
+The existing `Sts2Env` exposes structured observations for the built-in trainer.
+Use the optional numeric adapter with Gymnasium or mask-aware external libraries:
+
+```python
+from sts2sim.gymnasium_adapter import GymnasiumSts2Env
+
+env = GymnasiumSts2Env(character_id="IRONCLAD", max_episode_steps=1000)
+observation, info = env.reset(seed=42)
+action = env.action_space.sample(mask=observation["action_mask"])
+observation, reward, terminated, truncated, info = env.step(action)
+env.close()
+```
+
+Observations contain a float32 `vector` and int8 `action_mask`. Full structured
+observations and action descriptors are in `info["rich_observation"]` and
+`info["action_space"]`. `action_masks()` supports MaskablePPO-style callers.
+Always select actions using the current mask and reset after an episode ends.
+The adapter uses learning rewards by default and supports Gymnasium vectorization.
 
 ## Source Data
 
