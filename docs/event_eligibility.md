@@ -1,44 +1,68 @@
-# Event entry eligibility
+# Stable event entry eligibility
 
-Random event selection applies the entry clauses in the stable English source
-snapshot to the current act, floor, gold, HP, deck, potions and supplied profile
-facts. Ancient records are not random event rooms. An exhausted or narrowed pool
-produces an explicit `UNKNOWN_EVENT` with `no_eligible_event`; it never falls back
-to unrelated or ineligible events. Explicit `event_id` / `event_room_id` fixtures
-continue to override selection and eligibility.
+Normal event selection applies the v0.107.1 `IsAllowed` methods from the
+[version-qualified public source snapshot](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7),
+then consumes the act's stored shuffled event queue. Named act membership,
+previously visited events and current entry requirements govern selection.
+Ancients are separate act-start rooms. Explicit `event_id` / `event_room_id`
+fixtures continue to override selection and eligibility.
 
-The fixture `tests/fixtures/event_eligibility_source.json` projects all 66 cached
-event rows and four act definitions. Its tests cover all 26 distinct published
-precondition strings, including numeric boundaries, the Foul Potion alternative,
-and actual map-to-event transitions. Basic-card eligibility uses source rarity,
-and deck removability uses the existing Eternal-card rule. These checks establish
-the listed predicates, not exact game event distributions.
+`tests/fixtures/stable_event_entry_source.json` retains the exact 35 source
+entry method bodies and all 57 canonical ordinary event IDs. The remaining
+ordinary events inherit the base `true` method. Source boundary regressions
+cover every override, and public transitions cover actual deck/relic/profile
+facts and serialized event continuation. The older
+`event_eligibility_source.json` remains a projection of the 66 cached API event
+rows, including Ancients. Its 26 published precondition strings continue to
+work for custom events; stable canonical IDs use the full game-source rules.
 
-The runtime previously tracked numeric acts only. Event selection now accepts
-`source_data={"act_id": "UNDERDOCKS"}` for Act 1 or a per-act string-keyed
-`act_ids` mapping. Named events follow the selected cached act's `events` list;
-shared events still apply their own entry clauses. Normal run generation now
-selects and persists the named acts using the stable source rules. The default
-all-unlocked training profile can select Overgrowth or Underdocks, followed by
-Hive and Glory. The same identity binds maps, encounter/event pools, bosses and
-Ancient candidates; see [stable run generation](run_generation_stable.md).
-Custom event IDs absent from the cached act lists retain their declared
-act-label eligibility.
+The source resolves several previous API ambiguities and omissions:
 
-The runtime does not establish event-pet taxonomy, profile unlock state or relic
-tradeability. Callers can supply `has_event_pet`, `unlocked_character_count` and
-`tradeable_relic_count`. Without a supplied fact, the corresponding requirement
-remains unknown and does not exclude the event. Supplied `player_count` or ally
-state excludes single-player-only events in multiplayer contexts. Unknown source
-clauses are also retained rather than guessed.
+- Amalgamator requires both two removable Basic cards tagged Strike and two
+  removable Basic cards tagged Defend. A card's title does not establish its
+  tag, rarity or removability.
+- Punch Off requires `TotalFloor >= 6`; Slippery Bridge requires
+  `TotalFloor > 6` and a removable deck card. Total floor counts entered map
+  points across acts, including Ancient rooms and the current room. The local
+  map coordinate is a different number.
+- Luminous Choir tests its canonical 149 Gold entry threshold and an available
+  relic in the player's bag. After entry, its mutable price rolls 100–149.
+  The API's `100-149` text is not an inclusive player-gold eligibility range.
+- Morphic Grove needs two transformable deck cards in addition to 100 Gold.
+  Field of Man-Sized Holes needs a Perfect Fit enchantable card; Grave of the
+  Forgotten needs a Soul's Power enchantable card; Spiraling Whirlpool needs
+  an enchantable Basic Strike/Defend. Existing enchantments, unplayable cards,
+  card type and printed Exhaust are checked against source enchantment rules.
+- Ranwid additionally needs 100 Gold and at least one tradable relic.
+  The Future of Potions needs two potions. Trash Heap requires HP above 5.
+  Dense Vegetation permits any single-player HP, while every multiplayer
+  participant must have HP above 8. War Historian Repy is source-disabled.
 
-The Amalgamator API lists requirements for two different options without an
-entry AND/OR rule. When only one card pair is available, entry remains admitted
-with an explicit grouping diagnostic; neither pair excludes it, and both pairs
-establish the printed requirements. This needs game-source or trace evidence.
+The runtime derives event pets from Byrdpip, Pael's Legion and Byrdonis Egg;
+uses profile epochs for unlocked character card pools; and derives relic
+tradability from source rarity, pickup/pet effects, used-up state and supplied
+melted state. Unknown custom relic metadata leaves tradability unresolved.
+Callers can still supply `has_event_pet`, `unlocked_character_count` or
+`tradeable_relic_count` for explicit fixtures and imported profile facts.
 
-Selection records unresolved candidate requirements in
-`event.metadata.eligibility_diagnostics.unknown_requirements`. This includes
-requirements on unselected candidates because they affect the sampling pool.
-These diagnostics survive serialization. Event weights, no-repeat rules and
-other hidden prerequisites remain unverified; this change does not invent them.
+All-player predicates apply to supplied ally facts. An ally can supply an
+`event_eligibility` mapping for deck and profile counts not otherwise present
+in its lightweight metadata. Missing ally/profile facts stay visible as
+unknown requirements; they are not converted to zero or asserted as verified.
+This supports eligibility evaluation without certifying a complete networked
+multiplayer game.
+
+`source_data={"act_id": "UNDERDOCKS"}` or per-act `act_ids` overrides the
+source-selected act. Normal runs persist the same act identity for maps,
+encounters, events, bosses and Ancient candidates; see
+[stable run generation](run_generation_stable.md). Custom events absent from
+the canonical act lists retain their declared act-label and printed-clause
+eligibility.
+
+Unresolved candidate facts appear in
+`event.metadata.eligibility_diagnostics.unknown_requirements`, including facts
+on unselected candidates. Diagnostics and event-queue cursors survive reload.
+Unique eligible events can repeat after exhaustion. If every candidate is
+known to be ineligible, the simulator emits `UNKNOWN_EVENT` with
+`no_eligible_event`; this deliberately preserves the established eligibility
+invariant instead of the source queue's final unchecked fallback.

@@ -20,6 +20,7 @@ from sts2sim.engine import (
 from sts2sim.engine.transitions import _event_eligibility_context
 from sts2sim.mechanics.event_eligibility import (
     EventEligibilityContext,
+    _act_eligibility,
     evaluate_event_eligibility,
 )
 
@@ -139,7 +140,7 @@ def test_named_act_membership_matches_cached_act_event_lists(act_id: str) -> Non
             continue
         # Isolate act membership from each event's separate requirements.
         event = {**event, "preconditions": []}
-        assert evaluate_event_eligibility(event, context, ACTS).eligible == (
+        assert _act_eligibility(event, context, ACTS).eligible == (
             event["id"] in named_ids
         ), event["id"]
 
@@ -149,9 +150,9 @@ def test_all_nine_underdocks_exclusive_events_require_selected_variant() -> None
     assert len(rows) == 9
     for event in rows:
         event = {**event, "preconditions": []}
-        assert evaluate_event_eligibility(event, _context(act_id="UNDERDOCKS"), ACTS).eligible
-        assert not evaluate_event_eligibility(event, _context(act_id="OVERGROWTH"), ACTS).eligible
-        assert not evaluate_event_eligibility(event, _context(act=2), ACTS).eligible
+        assert _act_eligibility(event, _context(act_id="UNDERDOCKS"), ACTS).eligible
+        assert not _act_eligibility(event, _context(act_id="OVERGROWTH"), ACTS).eligible
+        assert not _act_eligibility(event, _context(act=2), ACTS).eligible
 
 
 def test_named_act_fallback_parses_underdocks_without_numeric_act_prefix() -> None:
@@ -211,7 +212,7 @@ def _enter_public_event(
             "act": act,
             "events": events,
             "player": {"hp": 80, "max_hp": 80, "gold": gold},
-            "flags": {"resolve_unknown_rooms": False},
+            "flags": {"resolve_unknown_rooms": False, "total_floor": floor},
             **configuration,
         },
     )
@@ -337,7 +338,7 @@ def test_custom_event_keeps_declared_act_when_cached_membership_has_no_row() -> 
     assert not evaluate_event_eligibility(event, _context(act=1), ACTS).eligible
 
 
-def test_amalgamator_entry_grouping_stays_explicit_when_only_one_option_is_possible() -> None:
+def test_amalgamator_source_requires_both_pairs() -> None:
     event = EVENTS["AMALGAMATOR"]
     assert not evaluate_event_eligibility(
         event, _context(act=2, strikes=1, defends=1), ACTS
@@ -349,5 +350,5 @@ def test_amalgamator_entry_grouping_stays_explicit_when_only_one_option_is_possi
         result = evaluate_event_eligibility(
             event, _context(act=2, strikes=strikes, defends=defends), ACTS
         )
-        assert result.eligible
-        assert result.unknown == ("Amalgamator entry predicate grouping unverified",)
+        assert not result.eligible
+        assert result.unknown == ()

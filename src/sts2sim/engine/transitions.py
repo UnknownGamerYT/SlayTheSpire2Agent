@@ -65,6 +65,7 @@ from sts2sim.mechanics.event_eligibility import (
     EventEligibilityContext,
     evaluate_event_eligibility,
 )
+from sts2sim.mechanics.event_entry_data import RELIC_ENTRY_METADATA
 from sts2sim.mechanics.event_flows import (
     EventFlowMarker,
     EventFlowMarkerKind,
@@ -116,6 +117,7 @@ from sts2sim.mechanics.relic_bag_runtime import (
     has_source_relic_bag,
     remove_obtained_source_relic,
 )
+from sts2sim.mechanics.relic_bags import RelicBagContext, relic_is_allowed
 from sts2sim.mechanics.relic_combat import (
     CombatRelicHook,
     CombatRelicMarker,
@@ -2431,36 +2433,134 @@ def _event_source_for_room(state: RunState, rng: Random) -> Mapping[str, Any]:
     }
 
 
+def _source_total_floor(state: RunState) -> int:
+    if "total_floor" in state.flags:
+        return _flag_int(state, "total_floor", 0)
+    entered = bool(state.map is not None and state.map.current_node_id is not None
+                   and state.map.current_node_id not in state.map.completed_node_ids)
+    return (len(state.room_history) + state.act + int(entered)
+            - int(state.flags.get("generation_started_with_neow") is False))
+
+
+def _event_tradeable_relic_count(state: RunState) -> int | None:
+    if "tradeable_relic_count" in state.flags:
+        return _flag_int(state, "tradeable_relic_count", 0)
+    counters = _relic_counters_from_flags(state)
+    melted = {_normalized_id(value) for value in _flag_str_sequence(state, "melted_relic_ids")}
+    count = 0
+    for relic_id in state.relics:
+        normalized = _normalized_id(relic_id)
+        spec = RELIC_ENTRY_METADATA.get(normalized.upper())
+        if spec is None:
+            return None
+        if (spec["rarity"] in {"Starter", "Ancient", "Event"}
+                or spec["pickup"] or spec["pet"] or normalized in melted):
+            continue
+        if normalized == "lizard_tail" and counters.get("lizard_tail", 1) <= 0:
+            continue
+        if normalized == "maw_bank" and state.flags.get("maw_bank_disabled"):
+            continue
+        count += 1
+    return count
+
+
 def _event_eligibility_context(state: RunState) -> EventEligibilityContext:
     removable = tuple(card for card in state.master_deck if not _deck_card_mutation_blocked(card))
     act_id = selected_act_id(state.act, state.flags)
     allies = _ally_states_from_source(state.flags.get("allies", state.flags.get("ally_players")))
+    player_count = max(1 + len(allies), _flag_int(state, "player_count", 1))
+    total_floor = _source_total_floor(state)
+
+    def basic(card: CardInstance) -> bool:
+        spec = _card_source_spec(card)
+        return _normalized_id(str(spec.get("rarity", spec.get("rarity_key", "")))) == "basic"
+
+    def tagged(card: CardInstance, tag: str) -> bool:
+        return tag in {_normalized_id(value) for value in card.tags}
+
+    enchantable = tuple(card for card in state.master_deck
+                        if card.type in {CardType.ATTACK, CardType.SKILL, CardType.POWER}
+                        and not _card_has_keyword(card, "unplayable") and not card.enchantments)
+    epochs = state.flags.get("revealed_epochs")
+    unlocked = (1 + sum(epoch in epochs for epoch in (
+        "SILENT1_EPOCH", "REGENT1_EPOCH", "NECROBINDER1_EPOCH", "DEFECT1_EPOCH"
+    ))) if epochs is not None else (
+        5 if state.flags.get("generation_profile") == "all_unlocked" else None
+    )
+    bag = _mapping_from(state.flags.get("player_relic_bag"))
+    has_available = None
+    if "player_relic_bag" in state.flags:
+        bag_context = RelicBagContext(
+            total_floor=total_floor, player_count=player_count,
+            first_run_ironclad_present=(
+                state.character_id.upper() == "IRONCLAD" and state.flags.get("number_of_runs") == 0
+            ),
+        )
+        has_available = any(relic_is_allowed(str(value), bag_context)
+                            for rarity in ("Common", "Uncommon", "Rare", "Shop")
+                            for value in bag.get(rarity, ()))
+    other_players = tuple(_ally_event_eligibility_context(
+        state, ally, player_count=player_count, total_floor=total_floor,
+    ) for ally in allies)
     return EventEligibilityContext(
         act=state.act, floor=state.floor, gold=state.player.gold,
-        hp=state.player.hp, max_hp=state.player.max_hp,
-        act_id=str(act_id) if act_id is not None else None,
-        removable_cards=len(removable),
-        removable_basic_cards=sum(
-            _normalized_id(str(_card_source_spec(card).get(
-                "rarity", _card_source_spec(card).get("rarity_key", "")
-            ))) == "basic"
-            for card in removable
-        ),
-        strikes=sum(_normalized_id(card.name) == "strike" for card in state.master_deck),
-        defends=sum(_normalized_id(card.name) == "defend" for card in state.master_deck),
-        potions=state.potions,
-        player_count=max(1 + len(allies), _flag_int(state, "player_count", 1)),
+        hp=state.player.hp, max_hp=state.player.max_hp, act_id=act_id,
+        total_floor=total_floor, deck_size=len(state.master_deck),
+        removable_cards=len(removable), transformable_cards=len(removable),
+        removable_basic_cards=sum(basic(card) for card in removable),
+        strikes=sum(basic(card) and tagged(card, "strike") for card in removable),
+        defends=sum(basic(card) and tagged(card, "defend") for card in removable),
+        perfect_fit_cards=len(enchantable),
+        souls_power_cards=sum(card.exhausts or _card_has_keyword(card, "exhaust")
+                              for card in enchantable),
+        spiral_cards=sum(basic(card) and (tagged(card, "strike") or tagged(card, "defend"))
+                         for card in enchantable),
+        potions=state.potions, player_count=player_count, other_players=other_players,
         has_event_pet=(
-            _truthy(state.flags["has_event_pet"]) if "has_event_pet" in state.flags else None
+            _truthy(state.flags["has_event_pet"]) if "has_event_pet" in state.flags else (
+                any(_normalized_id(value) in {"byrdpip", "paels_legion"} for value in state.relics)
+                or any(_normalized_id(card.card_id) == "byrdonis_egg" for card in state.master_deck)
+            )
         ),
         unlocked_character_count=(
             _flag_int(state, "unlocked_character_count", 0)
-            if "unlocked_character_count" in state.flags else None
+            if "unlocked_character_count" in state.flags else unlocked
         ),
-        tradeable_relic_count=(
-            _flag_int(state, "tradeable_relic_count", 0)
-            if "tradeable_relic_count" in state.flags else None
-        ),
+        tradeable_relic_count=_event_tradeable_relic_count(state),
+        has_available_relics=has_available,
+    )
+
+
+def _ally_event_eligibility_context(
+    state: RunState, ally: Mapping[str, Any], *, player_count: int, total_floor: int,
+) -> EventEligibilityContext:
+    facts = {**ally, **_mapping_from(ally.get("event_eligibility"))}
+    unavailable = frozenset(key for key in (
+        "hp", "max_hp", "gold", "potions", "removable_cards",
+        "removable_basic_cards", "strikes", "defends"
+    ) if key not in facts)
+    return EventEligibilityContext(
+        act=state.act, floor=state.floor, act_id=selected_act_id(state.act, state.flags),
+        total_floor=total_floor, player_count=player_count,
+        gold=_coerce_int(facts.get("gold"), default=0),
+        hp=_coerce_int(facts.get("hp"), default=0),
+        max_hp=_coerce_int(facts.get("max_hp"), default=0),
+        potions=_string_items(facts.get("potions", ())),
+        removable_cards=_coerce_int(facts.get("removable_cards"), default=0),
+        removable_basic_cards=_coerce_int(facts.get("removable_basic_cards"), default=0),
+        strikes=_coerce_int(facts.get("strikes"), default=0),
+        defends=_coerce_int(facts.get("defends"), default=0),
+        unavailable_player_facts=unavailable,
+        has_event_pet=_truthy(facts["has_event_pet"]) if "has_event_pet" in facts else None,
+        unlocked_character_count=_optional_int(facts.get("unlocked_character_count")),
+        tradeable_relic_count=_optional_int(facts.get("tradeable_relic_count")),
+        deck_size=_optional_int(facts.get("deck_size")),
+        transformable_cards=_optional_int(facts.get("transformable_cards")),
+        perfect_fit_cards=_optional_int(facts.get("perfect_fit_cards")),
+        souls_power_cards=_optional_int(facts.get("souls_power_cards")),
+        spiral_cards=_optional_int(facts.get("spiral_cards")),
+        has_available_relics=(_truthy(facts["has_available_relics"])
+                              if "has_available_relics" in facts else None),
     )
 
 
@@ -29211,6 +29311,8 @@ def _initial_flags(source: Mapping[str, Any]) -> dict[str, Any]:
         "unlocked_character_count",
         "tradeable_relic_count",
         "player_count",
+        "total_floor",
+        "melted_relic_ids",
         "map_floors",
         "map_width",
         "draw_per_turn",
