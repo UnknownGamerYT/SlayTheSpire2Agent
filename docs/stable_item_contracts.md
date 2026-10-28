@@ -22,6 +22,29 @@ Potions have no upgrades. Existing tests that asserted the incorrect behavior
 were corrected. Coverage registration and these six fixes do not certify the
 other item clauses or cross-item ordering.
 
+A second reviewed family corrects twelve additional item contracts. Block Potion
+and Ship in a Bottle give unpowered Block, bypass Dexterity/Frail and card-only
+bonuses, preserve card bonus charges, and still trigger powers that react to any
+Block gain. Ship's delayed Block also bypasses the card Block restriction.
+Flex and Speed Potion expire at the end of the player's side; Artifact can block
+the negative stat application at that point. Ruined Helmet's missing runtime
+Strength-gain dispatch is connected, including temporary Strength gains.
+
+Attack, Skill, Power, and Colorless Potion's generated offers can be skipped.
+Generated free cards preserve their base energy cost, apply the source's combat
+generation and supplied unlock/MP eligibility, and use the source registry order
+and named card-generation stream. Cosmic Concoction generates distinct upgraded
+cards. Orobic Acid uses a distinct draw for each of its three types. Free-to-Play
+also removes Stars over its printed duration; Touch of Insanity offers only cards
+with a local or globally modified energy/Star cost. The all-card Block helper now
+applies powered Dexterity/Frail rules to Attack cards too. Block gains touched by
+these paths respect the source maximum of 999,999,999.
+
+The second family is covered by fourteen additional parametrized public-action
+cases in `test_stable_item_contracts.py`. The free-energy-until-played cleanup
+integration is shared with the core-card source patch; absent profile unlock facts
+still mean an explicitly assumed fully unlocked profile.
+
 Implementation source:
 [pinned repository](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7),
 `Models.Potions/{GlowwaterPotion,LiquidMemories,GigantificationPotion,BeetleJuice,PowderedDemise}.cs`,

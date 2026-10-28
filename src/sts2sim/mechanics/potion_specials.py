@@ -476,6 +476,7 @@ def _special_runtime_steps(
                     "count": count,
                     "pool": "colorless",
                     "upgraded": "upgraded" in normalized,
+                    "distinct": True,
                 }
             }
         )
@@ -487,6 +488,7 @@ def _special_runtime_steps(
                     "add_random_card_to_hand": {
                         "count": 1,
                         "card_types": (card_type,),
+                        "distinct": True,
                         "free_to_play_this_turn": "free to play this turn" in normalized,
                     }
                 }
@@ -716,6 +718,7 @@ def _special_runtime_steps(
                     "zone": "hand",
                     "count": 1,
                     "free_to_play_this_combat": True,
+                    "costs_energy_or_stars": True,
                 }
             }
         )
@@ -736,6 +739,7 @@ def _random_card_choice_step(normalized: str) -> Mapping[str, Any]:
         "count": 1,
         "choices": 3,
         "pool": "character",
+        "optional": True,
         "free_to_play_this_turn": "free to play this turn" in normalized,
     }
     if "colorless" in normalized:

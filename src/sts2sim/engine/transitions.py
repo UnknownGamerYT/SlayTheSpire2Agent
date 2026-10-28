@@ -11,6 +11,11 @@ from pathlib import Path
 from random import Random
 from typing import Any, Literal
 
+from sts2sim.content.source_card_pools import (
+    COMBAT_GENERATION_EXCLUDED,
+    SOURCE_CARD_POOLS,
+    source_pool_cards,
+)
 from sts2sim.content.sources import STS1_COMPAT_SOURCE
 from sts2sim.data import load_cached_json
 from sts2sim.mechanics.ancients import (
@@ -263,6 +268,7 @@ _RUNTIME_RELIC_HOOK_RELIC_IDS: Mapping[str, tuple[str, ...]] = {
     "potion_used": ("reptile_trinket",),
     "card_created": ("regalite",),
     "resource_spent": ("galactic_dust", "mini_regent"),
+    "status_gained": ("ruined_helmet",),
     "block_gained_from_card": ("vambrace", "paels_legion"),
     "status_applied": (
         "snecko_skull",
@@ -5225,6 +5231,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
                 "count": 3,
                 "pool": "colorless",
                 "upgraded": True,
+                "distinct": True,
                 "free_to_play_this_turn": False,
             }
         }
@@ -5297,6 +5304,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
                     "add_random_card_to_hand": {
                         "count": 1,
                         "card_types": ("attack",),
+                        "distinct": True,
                         "free_to_play_this_turn": True,
                     }
                 },
@@ -5304,6 +5312,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
                     "add_random_card_to_hand": {
                         "count": 1,
                         "card_types": ("skill",),
+                        "distinct": True,
                         "free_to_play_this_turn": True,
                     }
                 },
@@ -5311,6 +5320,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
                     "add_random_card_to_hand": {
                         "count": 1,
                         "card_types": ("power",),
+                        "distinct": True,
                         "free_to_play_this_turn": True,
                     }
                 },
@@ -5347,6 +5357,7 @@ def _potion_effects(state: RunState, potion_id: str, combat: CombatState) -> dic
                 "zone": "hand",
                 "count": 1,
                 "free_to_play_this_combat": True,
+                "costs_energy_or_stars": True,
                 "text": "Choose a card in your Hand. It is free to play this combat.",
             }
         }
@@ -5407,6 +5418,7 @@ def _random_card_choice_potion_effect(
         "count": 1,
         "choices": 3,
         "pool": pool,
+        "optional": True,
         "free_to_play_this_turn": True,
         "text": "Choose 1 of 3 generated cards to add to your hand.",
     }
@@ -12080,6 +12092,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     events.extend(tangled_events)
     combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
     events.extend(spawn_events)
+    combat, potion_expiry_events = _expire_temporary_potion_stats(combat)
+    events.extend(potion_expiry_events)
     player = combat.player
     monster_definitions = _monster_definitions(state)
     # v0.107.1 resets Skulking Colony's budget at both turn starts, so Poison
@@ -12462,7 +12476,8 @@ def _card_after_end_turn_cleanup(card: CardInstance) -> CardInstance:
     if custom.pop("temporary_choice_retain", False):
         custom.pop("retain", None)
         changed = True
-    for key in ("retain_once", "temporary_retain", "free_to_play_this_turn", "bound"):
+    for key in ("retain_once", "temporary_retain", "free_to_play_this_turn",
+                "free_energy_consumed", "bound"):
         if key in custom:
             custom.pop(key, None)
             changed = True
@@ -12942,6 +12957,33 @@ def _apply_item_enemy_side_end(
             ))
         monsters[index] = monster
     return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
+
+
+def _expire_temporary_potion_stats(
+    combat: CombatState,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Remove temporary stat buffs, then apply a real, Artifact-blockable loss.
+
+    TemporaryStrengthPower/TemporaryDexterityPower expire after the owner's side.
+    """
+    statuses = dict(combat.player.statuses)
+    events: list[EffectEvent] = []
+    for deferred, stat in (("strength_down", "strength"), ("dexterity_down", "dexterity")):
+        amount = statuses.pop(deferred, 0)
+        if amount <= 0:
+            continue
+        statuses, event = _apply_status_value(
+            statuses, stat, -amount, source_id=deferred, target_id=PLAYER_TARGET_ID,
+        )
+        if event is not None:
+            events.append(event)
+        events.append(EffectEvent(
+            kind="temporary_status_expired", target_id=PLAYER_TARGET_ID, amount=-amount,
+            metadata={"status": deferred, "base_status": stat},
+        ))
+    return combat.model_copy(update={
+        "player": combat.player.model_copy(update={"statuses": statuses}),
+    }), tuple(events)
 
 
 def _apply_monster_end_turn_strength(
@@ -18737,6 +18779,16 @@ def _card_matches_choice_payload(
     }
     if card_types and card.type.value not in card_types:
         return False
+    if _truthy(payload.get("costs_energy_or_stars")):
+        already_free = _truthy(card.custom.get("free_to_play_this_combat")) or _truthy(
+            card.custom.get("free_to_play_this_turn")
+        )
+        energy = 0 if already_free or _card_is_x_cost(card) else max(0, card.cost or 0)
+        stars = 0 if already_free else _card_resource_costs(card, available_star=0).get("star", 0)
+        combat = state.combat if state is not None else None
+        global_energy = _energy_cost(card, 0, combat=combat) if not _card_is_x_cost(card) else 0
+        if max(energy, stars, global_energy) <= 0:
+            return False
 
     if payload.get("action") == "add_sly" and _card_has_keyword(card, "sly"):
         return False
@@ -18779,7 +18831,9 @@ def _generated_choice_cards(
         seen.add(card_id)
         candidates.append(spec)
 
-    rng.shuffle(candidates)
+    pool = _normalized_id(str(payload.get("pool", "character")))
+    _sort_source_generation_specs(state, candidates, pool)
+    random_stream(rng, "combat_card_generation").shuffle(candidates)
     selected = candidates[:choices]
     generated: list[CardInstance] = []
     for index, spec in enumerate(selected, start=1):
@@ -18796,12 +18850,10 @@ def _generated_choice_cards(
             custom = dict(_mapping_from(spec.get("custom", {})))
             custom["free_to_play_this_turn"] = True
             spec["custom"] = custom
-            spec["cost"] = 0
         if _truthy(payload.get("free_to_play_this_combat")):
             custom = dict(_mapping_from(spec.get("custom", {})))
             custom["free_to_play_this_combat"] = True
             spec["custom"] = custom
-            spec["cost"] = 0
         if _truthy(payload.get("upgraded")):
             spec["upgraded"] = True
         generated.append(_card_from_spec(spec, index, card_library=card_library))
@@ -18836,6 +18888,8 @@ def _generated_card_matches_choice(
         return False
     if card_type in {"curse", "status"}:
         return False
+    if not _source_combat_generation_allowed(state, spec):
+        return False
 
     pool = _normalized_id(str(payload.get("pool", "any") or "any"))
     character = _normalized_id(state.character_id)
@@ -18851,6 +18905,36 @@ def _generated_card_matches_choice(
         for card_type_filter in payload.get("card_types", ())
     }
     return not card_types or card_type in card_types
+
+
+def _source_combat_generation_allowed(state: RunState, spec: Mapping[str, Any]) -> bool:
+    """Apply source combat-generation exclusions and supplied unlock facts."""
+    rarity = _normalized_id(str(spec.get("rarity", spec.get("rarity_key", ""))))
+    if rarity in {"basic", "ancient", "event"} or spec.get("can_be_generated_in_combat") is False:
+        return False
+    card_id = _normalized_id(str(spec.get("card_id", spec.get("id", ""))))
+    if card_id in COMBAT_GENERATION_EXCLUDED:
+        return False
+    pool = _normalized_id(str(spec.get("color", spec.get("pool", state.character_id))))
+    if pool not in SOURCE_CARD_POOLS or card_id not in SOURCE_CARD_POOLS[pool]:
+        # Preserve explicit synthetic/custom card libraries used by callers.
+        return True
+    epochs = state.flags.get("revealed_epochs", state.flags.get("unlocked_epochs"))
+    unlocked = None if epochs is None else _string_items(epochs)
+    multiplayer = _flag_int(state, "player_count", 1) > 1
+    return card_id in source_pool_cards(
+        pool, unlocked_epochs=unlocked, multiplayer=multiplayer, for_combat_generation=True,
+    )
+
+
+def _sort_source_generation_specs(
+    state: RunState, specs: list[Mapping[str, Any]], pool: str,
+) -> None:
+    source_pool = _normalized_id(state.character_id) if pool == "character" else pool
+    order = {card_id: index for index, card_id in enumerate(SOURCE_CARD_POOLS.get(source_pool, ()))}
+    specs.sort(key=lambda spec: order.get(
+        _normalized_id(str(spec.get("card_id", spec.get("id", "")))), len(order),
+    ))
 
 
 def _copy_card_for_choice(
@@ -18988,6 +19072,7 @@ def _apply_next_turn_effects(
         ):
             raw_amount = next_turn.get(key, 0)
             if (key == "block" and not isinstance(raw_amount, Mapping)
+                    and source_card.custom.get("source_kind") not in {"potion", "power"}
                     and _status_amount(statuses, "no_card_block_gain") > 0):
                 continue
             amount = (
@@ -20986,15 +21071,17 @@ def _gain_player_block(
         return combat, rng_state, ()
 
     player = combat.player
-    if (source_card is not None and source_card.custom.get("source_kind") not in {"potion", "power"}
-            and _status_amount(player.statuses, "no_card_block_gain") > 0):
+    from_card = source_card is not None and source_card.custom.get("source_kind") not in {
+        "potion", "power",
+    }
+    if from_card and _status_amount(player.statuses, "no_card_block_gain") > 0:
         return combat, rng_state, (EffectEvent(
             kind="card_block_prevented", source_id=source_id, target_id=PLAYER_TARGET_ID,
             amount=0, metadata={"status": "no_card_block_gain", "requested": amount},
         ),)
     block = amount
     event_metadata = dict(metadata or {})
-    if source_card is not None:
+    if from_card and source_card is not None:
         if _status_amount(player.statuses, "double_block_gain_this_turn") > 0:
             block *= 2
             event_metadata["double_block_gain_this_turn"] = True
@@ -21016,6 +21103,7 @@ def _gain_player_block(
             block += defend_bonus
             event_metadata["defend_block_bonus"] = defend_bonus
 
+    block = min(block, max(0, 999_999_999 - combat.player.block))
     player = combat.player.model_copy(update={"block": combat.player.block + block})
     combat = combat.model_copy(update={"player": player})
     events: list[EffectEvent] = [
@@ -21043,11 +21131,11 @@ def _gain_player_block(
             context={
                 "amount": block,
                 "source_card": source_card,
-                "from_card": source_card is not None,
+                "from_card": from_card,
             },
         )
         events.extend(trigger_events)
-    if state is not None and source_card is not None:
+    if state is not None and from_card and source_card is not None:
         combat, rng_state, relic_events = _apply_runtime_relic_hook(
             state.model_copy(update={"combat": combat, "player": combat.player}),
             combat,
@@ -21259,6 +21347,8 @@ def _add_random_pool_cards_to_hand(
         )
         if not card_id or card_type in {"curse", "status"}:
             continue
+        if not _source_combat_generation_allowed(state, spec):
+            continue
         if card_types and card_type not in card_types:
             continue
         if rarity and card_rarity != rarity:
@@ -21273,11 +21363,18 @@ def _add_random_pool_cards_to_hand(
     if not candidates:
         return combat, rng_state, ()
 
+    _sort_source_generation_specs(state, candidates, pool)
+    generation_rng = random_stream(rng, "combat_card_generation")
+    distinct = isinstance(payload, Mapping) and _truthy(payload.get("distinct"))
+    if distinct:
+        generation_rng.shuffle(candidates)
     hand = list(combat.hand)
     discard_pile = list(combat.discard_pile)
     events: list[EffectEvent] = []
     for index in range(count):
-        spec = dict(rng.choice(candidates))
+        if not candidates:
+            break
+        spec = dict(candidates.pop(0) if distinct else generation_rng.choice(candidates))
         card_id = _normalized_id(str(spec.get("card_id", spec.get("id", f"random_{index}"))))
         spec["card_id"] = card_id
         if upgraded:
@@ -21291,10 +21388,8 @@ def _add_random_pool_cards_to_hand(
         custom["temporary"] = True
         if free_this_turn:
             custom["free_to_play_this_turn"] = True
-            spec["cost"] = 0
         if free_this_combat:
             custom["free_to_play_this_combat"] = True
-            spec["cost"] = 0
         spec["custom"] = custom
         if isinstance(payload, Mapping):
             keywords = tuple(_string_items(payload.get("keywords", ())))
@@ -27016,6 +27111,9 @@ def _pay_card_resource_costs(
 
 def _card_resource_costs(card: CardInstance, *, available_star: int) -> dict[str, int]:
     raw_star_cost = card.custom.get("star_cost", 0)
+    if (_truthy(card.custom.get("free_to_play_this_turn"))
+            or _truthy(card.custom.get("free_to_play_this_combat"))):
+        return {}
     if card.custom.get("void_form_free") and str(raw_star_cost).lower() != "x":
         return {}
     if raw_star_cost in (None, "", 0):
@@ -27265,8 +27363,10 @@ def _modified_card_block(
 ) -> int:
     if amount <= 0:
         return amount
+    if card.custom.get("source_kind") in {"potion", "power"}:
+        return amount
     modified = amount
-    if card.type == CardType.SKILL:
+    if card.type in {CardType.SKILL, CardType.ATTACK, CardType.POWER}:
         modified += _signed_status_amount(combat.player.statuses, "dexterity")
         modified += _signed_status_amount(combat.player.statuses, "temporary_dexterity")
         if _status_amount(combat.player.statuses, "frail") > 0:

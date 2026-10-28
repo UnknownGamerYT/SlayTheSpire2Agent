@@ -150,3 +150,124 @@ def test_powdered_demise_is_unblockable_unpowered_damage_with_hp_caps(defense, e
     assert state.combat.monsters[0].hp == 100 - expected
     assert state.combat.monsters[1].hp == 100
 
+
+@pytest.mark.parametrize("potion_id,amount", [("block_potion", 12), ("ship_in_a_bottle", 10)])
+def test_potion_block_is_unpowered_and_does_not_spend_card_block_bonuses(potion_id, amount):
+    state = _state(_simple("block", effects={"block": 2}), statuses={
+        "dexterity": 9, "frail": 2, "double_block_gain_this_turn": 1,
+        "first_card_block_double": 1, "juggernaut": 3, "no_card_block_gain": 2,
+    }, relics=("vambrace",))
+    state = _potion(state, potion_id)
+    assert state.player.block == amount
+    assert not state.combat.metadata.get("first_card_block_double_used_turn")
+    assert state.combat.monsters[0].hp == 97  # Any-Block power still triggers once.
+    assert not any(e.kind == "combat_relic_triggered" and e.source_id == "vambrace"
+                   for e in state.combat.last_events)
+    state = _play(_reload(state), "block")
+    assert state.player.block == amount  # Card Block lock still applies.
+    if potion_id == "ship_in_a_bottle":
+        state = _end_turn(_reload(state))
+        assert state.player.block == 10
+
+
+@pytest.mark.parametrize("potion_id,stat", [("flex_potion", "strength"),
+                                         ("speed_potion", "dexterity")])
+@pytest.mark.parametrize("artifact", [0, 1])
+def test_temporary_potion_stat_expiration_is_artifact_blockable_at_player_side_end(
+    potion_id, stat, artifact,
+):
+    state = _enemies(_state(_simple("unused"), statuses={"artifact": artifact}), damage=1)
+    state = _potion(state, potion_id)
+    assert state.player.statuses[stat] == 5
+    assert state.player.statuses.get("artifact", 0) == artifact
+    state = _end_turn(_reload(state))
+    assert state.player.statuses.get(stat, 0) == (5 if artifact else 0)
+    assert state.player.statuses.get("artifact", 0) == 0
+    if artifact:
+        events = state.combat.last_events
+        decay = next(i for i, e in enumerate(events) if e.kind == "status_blocked_by_artifact")
+        attack = next(i for i, e in enumerate(events) if e.kind == "player_damaged")
+        assert decay < attack
+
+
+def test_flex_expiry_preserves_actual_additional_strength_from_ruined_helmet():
+    state = _potion(_state(_simple("unused"), relics=("ruined_helmet",)), "flex_potion")
+    assert state.player.statuses["strength"] == 10
+    state = _end_turn(_reload(state))
+    assert state.player.statuses["strength"] == 5
+
+
+@pytest.mark.parametrize("potion_id,pool,card_type,ids", [
+    ("attack_potion", "ironclad", "attack", ("anger", "bludgeon", "pommel_strike")),
+    ("skill_potion", "ironclad", "skill", ("shrug_it_off", "armaments", "bloodletting")),
+    ("power_potion", "ironclad", "power", ("barricade", "demon_form", "inflame")),
+    ("colorless_potion", "colorless", "skill", ("finesse", "impatience", "discovery")),
+])
+def test_card_choice_potions_are_optional_exclude_invalid_cards_and_restore_costs(
+    potion_id, pool, card_type, ids,
+):
+    cards = tuple({"id": card_id, "color": pool, "rarity": "Common", "type": card_type,
+                   "target": "self", "cost": 2, "effects": {"block": 1}}
+                  for card_id in ids)
+    cards += (
+        {"id": "basic", "color": pool, "rarity": "Basic", "type": card_type},
+        {"id": "alchemize", "color": pool, "rarity": "Rare", "type": card_type},
+    )
+    state = _state(_simple("unused"))
+    state = state.model_copy(update={"character_id": "IRONCLAD", "flags": {
+        **state.flags, "cards": cards,
+    }})
+    state = _potion(state, potion_id)
+    choice = state.combat.pending_choices[0]
+    assert choice.min_choices == 0
+    assert {c["card_id"] for c in choice.metadata["generated_cards"]} == set(ids)
+    skip = next(a for a in legal_actions(state) if a.type == "proceed")
+    assert not step(_reload(state), skip).combat.pending_choices
+    action = next(a for a in legal_actions(state) if a.type == "choose_card")
+    state = step(_reload(state), action)
+    chosen = next(c for c in state.combat.hand if c.instance_id == action.card_instance_id)
+    assert chosen.cost == 2
+    assert chosen.custom["free_to_play_this_turn"]
+    state = _end_turn(_reload(state))
+    chosen = next(c for c in state.combat.discard_pile if c.instance_id == chosen.instance_id)
+    assert chosen.cost == 2
+    assert not chosen.custom.get("free_to_play_this_turn")
+
+
+def test_cosmic_concoction_adds_distinct_upgraded_colorless_cards():
+    ids = ("finesse", "impatience", "discovery")
+    cards = tuple({"id": card_id, "color": "colorless", "rarity": "Common", "type": "skill",
+                   "target": "self", "cost": 2, "effects": {"block": 1}}
+                  for card_id in ids)
+    state = _state(_simple("unused"))
+    state = state.model_copy(update={"flags": {**state.flags, "cards": cards}})
+    state = _potion(state, "cosmic_concoction")
+    generated = [c for c in state.combat.hand if c.custom.get("generated")]
+    assert {c.card_id for c in generated} == set(ids)
+    assert len(generated) == 3
+    assert all(c.upgraded and not c.custom.get("free_to_play_this_turn") for c in generated)
+
+
+@pytest.mark.parametrize("potion_id", ["touch_of_insanity", "liquid_memories"])
+def test_free_to_play_potions_remove_star_cost_and_restore_at_printed_duration(potion_id):
+    costly = _simple("costly", cost=2, custom={"star_cost": 3, "retain": True})
+    free = _simple("already_free")
+    state = _state(free, costly)
+    player = state.player.model_copy(update={"energy": 0, "max_energy": 0,
+                                            "resources": {"star": 0}})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(
+        update={"player": player, "hand": (free,) if potion_id == "liquid_memories" else
+                (free, costly), "discard_pile": (costly,) if potion_id == "liquid_memories"
+                else ()},
+    )})
+    state = _potion(state, potion_id)
+    assert state.combat.pending_choices[0].candidate_ids == ("costly",)
+    action = next(a for a in legal_actions(state) if a.type == "choose_card")
+    state = step(_reload(state), action)
+    assert any(a.type == "play_card" and a.card_instance_id == "costly"
+               for a in legal_actions(state))
+    state = _end_turn(_reload(state))
+    playable = any(a.type == "play_card" and a.card_instance_id == "costly"
+                   for a in legal_actions(state))
+    assert playable == (potion_id == "touch_of_insanity")
+

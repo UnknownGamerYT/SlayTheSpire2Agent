@@ -177,6 +177,7 @@ def test_classifies_random_card_duplication_generation_and_escape_blockers() -> 
                 "count": 1,
                 "choices": 3,
                 "pool": "character",
+                "optional": True,
                 "free_to_play_this_turn": True,
                 "card_types": ("attack",),
             }

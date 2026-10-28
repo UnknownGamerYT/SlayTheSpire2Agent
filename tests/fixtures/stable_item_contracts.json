@@ -53,6 +53,78 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Monsters/TestSubject.cs",
       "sha256": "b7e6e24a3633e53c5e272001d4ea0f973122e7d69e20370e76da872301c8b675"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BlockPotion.cs",
+      "sha256": "580c18cd744735b84b486937268bcb5ba4e4fb572be1b6b3128c2994c48a79b4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ShipInABottle.cs",
+      "sha256": "e7186ac626546066a14ff28bb488ad79d4ad4d2bbd1d0f8512a5e56581a8c5a0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FlexPotion.cs",
+      "sha256": "684ff43aaeeefeb347618e60a079b7e17ceab3b3e7e0118ce3345a5fd37aaeb2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SpeedPotion.cs",
+      "sha256": "b9ad495f23c386c86044bdfa33e54c19fa9d8fc8a8ea8164932ce4869f83344b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/TouchOfInsanity.cs",
+      "sha256": "81a6232ea522148063d6fb3d3448824c22e0dea467be8990548793562c9188f4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/AttackPotion.cs",
+      "sha256": "c106048eb42fea06b85da5e079a40352782b64c1f9bef98b241cf92b8d6b3e1c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SkillPotion.cs",
+      "sha256": "79a811feaffb87dccde0901f6c558be5a7d45b45402e2bb18df330aac7fe2e7c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PowerPotion.cs",
+      "sha256": "34f47ec805e475e76d657753af03e51722f3a3804f27c3048f9605813a09fa0c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ColorlessPotion.cs",
+      "sha256": "cd4dd713158bc23e298687dab9497537dede29071ef33253c50328ec4e56ae4e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/CosmicConcoction.cs",
+      "sha256": "c5a1337227300935b51d23fa547a3364ea299d5d818e4a5b97f44c795524aea6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/OrobicAcid.cs",
+      "sha256": "773cc3f5e0df11cf0e008b9b60b8b0dd89fba461696d1bff81fc6d0a65454acc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TemporaryStrengthPower.cs",
+      "sha256": "c6b426e4bb0b195133970959fa5c0441ba7c5166bf21feeb3318df1e614aa637"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TemporaryDexterityPower.cs",
+      "sha256": "0f2b4a7f1060b543a38837e4e98a87d435b1aef8b14fe03b43a70510e7a3db4a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/BlockNextTurnPower.cs",
+      "sha256": "cd97a64ecf79b7259101d74d03ff2fa37b1bd40d39ae1c35477a32c60a45cec4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RuinedHelmet.cs",
+      "sha256": "a88f33545295ad4025ad3c95e7e5bed4f32f892309eb3c10246010e3d8b32ff3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs",
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Extensions/IEnumerableExtensions.cs",
+      "sha256": "d6062ab2a496c6d21aba6bdd48937a1097858f46197f2c17f2cbac7177b494a5"
     }
   ],
   "cached_source_rows": {
@@ -169,6 +241,7 @@
     "Only selected source contracts are verified; item registration is not full item parity.",
     "Source DEMISE is unpowered, unblockable Damage; Intangible/Slippery and HP-loss caps still apply.",
     "Fur Coat samples all Monster/Elite grid points column-major, without completed/future filtering, uses independent relic RNG, and only sets current HP.",
-    "Fur Coat does not retrigger on Test Subject same-creature Revive."
+    "Fur Coat does not retrigger on Test Subject same-creature Revive.",
+    "Core-card helper patch owns free Energy until the first play; potion/shared marker code owns free Stars for the turn or combat."
   ]
 }

@@ -1476,7 +1476,8 @@ def test_generated_discovery_choice_adds_selected_card_to_hand() -> None:
     assert state.combat.pending_choices == ()
     assert len(state.combat.hand) == 1
     assert state.combat.hand[0].card_id.startswith("colorless_")
-    assert state.combat.hand[0].cost == 0
+    assert state.combat.hand[0].cost == 1
+    assert state.combat.hand[0].custom["free_to_play_this_turn"] is True
     assert state.combat.hand[0].custom["free_to_play_this_turn"] is True
 
 
