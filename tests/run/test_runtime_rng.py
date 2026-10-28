@@ -136,7 +136,7 @@ def test_model_rng_is_repeatable_and_does_not_consume_run_streams() -> None:
     ).random()
 
 
-def test_stable_shuffle_sorts_before_shuffling_and_gaussian_rounds_even() -> None:
+def test_stable_shuffle_sorts_before_shuffling_and_gaussian_handles_zero_variance() -> None:
     assert stable_shuffle([4, 2, 3, 1], RunRng("TEST")) == stable_shuffle(
         [1, 4, 2, 3], RunRng("TEST")
     )
@@ -148,6 +148,22 @@ def test_stable_shuffle_sorts_before_shuffling_and_gaussian_rounds_even() -> Non
     assert stable_gaussian_int(rng, 4, 0, 1, 4) == 4
     with pytest.raises(ValueError, match="Gaussian"):
         stable_gaussian_int(rng, 4, 0, 1, 3)
+
+
+def test_gaussian_matches_independent_c_vector_including_rejected_draws() -> None:
+    # Independent C Box-Muller/nearbyint harness on the reference core; the
+    # 10th and 11th samples each reject one result and consume four doubles.
+    bank = RunRng("TEST")
+    rng = random_stream(bank, "act_1_map")
+    actual = []
+    for _ in range(15):
+        actual.append((stable_gaussian_int(rng, 4, 2, 2, 6),
+                       capture_random_state(bank).streams["act_1_map"].draws))
+    assert actual == [
+        (4, 2), (4, 4), (6, 6), (4, 8), (2, 10),
+        (3, 12), (4, 14), (3, 16), (3, 18), (4, 22),
+        (3, 26), (6, 28), (2, 30), (4, 32), (3, 34),
+    ]
 
 
 def test_normal_seed_normalization_and_explicit_legacy_configuration() -> None:
