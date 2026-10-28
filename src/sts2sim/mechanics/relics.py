@@ -139,9 +139,14 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         target_id="player",
                         metadata={
                             "selection": "chosen",
-                            "match_card_ids": ("strike", "defend"),
-                            "match_name_contains": ("strike", "defend"),
-                            "transform_pool": "ancient",
+                            "match_card_ids": (
+                                "bash", "neutralize", "falling_star", "unleash", "dualcast"
+                            ),
+                            "target_card_map": {"bash": "break", "neutralize": "suppress",
+                                                "falling_star": "meteor_shower",
+                                                "unleash": "protector", "dualcast": "quadcast"},
+                            "preserve_enchantments": True,
+                            "apply_upgrade_eggs": True,
                         },
                     ),
                 ),
@@ -172,7 +177,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "shuffle_add_card_to_draw_pile",
                             "card_id": "soot",
-                            "needed_subsystem": "draw_pile_shuffle_relic_trigger",
                         },
                     ),
                 ),
@@ -187,7 +191,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "no_effect",
                         metadata={
                             "passive": "deck_card_added_duplicate_copy",
-                            "needed_subsystem": "deck_add_trigger",
                         },
                     ),
                 ),
@@ -220,7 +223,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "passive": "deck_card_added_count_heal",
                             "cards": 5,
                             "heal": 20,
-                            "needed_subsystem": "deck_add_trigger",
                         },
                     ),
                 ),
@@ -232,7 +234,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "gold_gain_bonus_percent",
                             "bonus_percent": 25,
-                            "needed_subsystem": "gold_gain_modifier",
                         },
                     ),
                 ),
@@ -270,7 +271,7 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "transform_deck_cards",
                         amount=6,
                         target_id="player",
-                        metadata={"selection": "chosen", "target_card_id": "maul"},
+                        metadata={"selection": "chosen", "target_card_id": "maul", "up_to": True},
                     ),
                 ),
             ),
@@ -313,7 +314,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "gold_gain_max_hp_delta",
                             "max_hp_delta": 1,
-                            "needed_subsystem": "gold_gain_trigger",
                         },
                     ),
                 ),
@@ -423,7 +423,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "passive": "deck_added_block_card_enchanted",
                             "enchant_keyword": "nimble",
                             "enchant_amount": 2,
-                            "needed_subsystem": "deck_add_trigger",
                         },
                     ),
                 ),
@@ -438,7 +437,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "room_kind": "combat",
                             "passive": "marked_combat_enemies_one_hp",
                             "enemy_hp": 1,
-                            "needed_subsystem": "map_room_markers",
                         },
                     ),
                 ),
@@ -484,6 +482,7 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "selection": "chosen",
                             "card_type": "attack",
                             "custom": {"enchant_keyword": "sharp", "enchant_amount": 3},
+                            "up_to": True,
                         },
                     ),
                 ),
@@ -507,7 +506,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "card_pool": "other_character",
                             "selection": "choose",
-                            "needed_subsystem": "cross_character_card_reward",
                         },
                     ),
                 ),
@@ -534,7 +532,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "no_effect",
                         metadata={
                             "passive": "question_rooms_no_regular_enemy_combats",
-                            "needed_subsystem": "event_room_generation",
                         },
                     ),
                 ),
@@ -548,6 +545,7 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "selection": "chosen",
                             "custom": {"enchant_keyword": "adroit"},
+                            "up_to": True,
                         },
                     ),
                 ),
@@ -646,7 +644,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "deck_card_added_gold",
                             "gold": 15,
-                            "needed_subsystem": "deck_add_trigger",
                         },
                     ),
                 ),
@@ -662,7 +659,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "floor_climb_gold_until_shop_spend",
                             "gold": 12,
-                            "needed_subsystem": "floor_transition_trigger",
                         },
                     ),
                 ),
@@ -758,7 +754,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "event_room_enter_heal",
                             "heal": 5,
-                            "needed_subsystem": "room_enter_relic_trigger",
                         },
                     ),
                 ),
@@ -915,7 +910,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "choices": 2,
                             "selection": "choose",
-                            "needed_subsystem": "card_pack_rewards",
                         },
                     ),
                 ),
@@ -930,7 +924,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "passive": "first_card_reward_enchanted",
                             "enchant_keyword": "glam",
                             "card_reward_index": 1,
-                            "needed_subsystem": "card_reward_enchant_trigger",
                         },
                     ),
                 ),
@@ -944,7 +937,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "card_pool": "other_character",
                             "selection": "choose_any",
-                            "needed_subsystem": "cross_character_card_reward",
                         },
                     ),
                 ),
@@ -999,7 +991,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         target_id="player",
                         metadata={
                             "replacement_pool": "ancient_starter_relics",
-                            "needed_subsystem": "starter_relic_upgrade",
                         },
                     ),
                 ),
@@ -1017,7 +1008,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "wax_relic_melts_every_combats",
                             "combats": 3,
-                            "needed_subsystem": "combat_count_relic_decay",
                         },
                     ),
                 ),
@@ -1079,7 +1069,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "counter": 3,
                             "passive": "ignore_map_paths",
-                            "needed_subsystem": "map_path_override",
                         },
                     ),
                 ),
@@ -1117,7 +1106,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "counter": 5,
                             "passive": "delayed_random_relics_after_combats",
                             "random_relics": 3,
-                            "needed_subsystem": "combat_count_delayed_rewards",
                         },
                     ),
                 ),
@@ -1186,7 +1174,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         target_id="player",
                         metadata={
                             "passive": "floor_climb_gold_until_shop_spend",
-                            "needed_subsystem": "shop_purchase_relic_state",
                         },
                     ),
                 ),
@@ -1205,7 +1192,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "no_effect",
                         metadata={
                             "passive": "rest_add_card_reward",
-                            "needed_subsystem": "campfire_rest_action",
                         },
                     ),
                 ),
@@ -1218,7 +1204,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                             "passive": "rest_site_enter_heal_per_deck_cards",
                             "cards_per_heal": 5,
                             "heal": 3,
-                            "needed_subsystem": "campfire_enter_deck_size",
                         },
                     ),
                 ),
@@ -1235,7 +1220,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "campfire_multi_action_unlocked",
                         metadata={
                             "passive": "campfire_choose_any_number_of_options",
-                            "needed_subsystem": "campfire_multi_action_resolution",
                         },
                     ),
                 ),
@@ -1250,7 +1234,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "rest_heal_bonus",
                             "heal": 15,
-                            "needed_subsystem": "campfire_rest_action",
                         },
                     ),
                 ),
@@ -1265,7 +1248,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "rest_max_hp_delta",
                             "max_hp_delta": 5,
-                            "needed_subsystem": "campfire_rest_action",
                         },
                     ),
                 ),
@@ -1277,7 +1259,6 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "passive": "rest_random_potions",
                             "random_potions": 2,
-                            "needed_subsystem": "campfire_rest_action",
                         },
                     ),
                 ),
@@ -1644,7 +1625,7 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                 markers=(
                     RelicMarkerSpec(
                         "player_resource",
-                        amount=1,
+                        amount=2,
                         target_id="player",
                         metadata={"resource": "summon"},
                     ),

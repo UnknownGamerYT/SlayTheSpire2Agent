@@ -1,0 +1,1631 @@
+{
+  "schema_version": 1,
+  "scope": "bounded_source_predicate_runtime_audit",
+  "certifies_game_parity": false,
+  "source": {
+    "cards": 577,
+    "cards_file_sha256": "ae1bf6a2f52d6a80327de818c2c6c93749f97faccbf1f7df0d72164539b5f0ef",
+    "card_api": "https://spire-codex.com/api/cards",
+    "local_runtime_baseline_commit": "47e6899",
+    "local_conditional_audit_runtime_baseline": "40700f7 plus f3ceb4e and pending conditional batch"
+  },
+  "counts": {
+    "conditional_known_findings": 41,
+    "status_dispatch_findings": 44,
+    "overlap": 4,
+    "distinct_known_findings": 81,
+    "predicate_fixes_with_commit_and_test_evidence": 81,
+    "remaining_known_runtime_gaps": 0,
+    "original_conditional_requires_runtime_audit": 82,
+    "converted_from_requires_audit_to_known_finding": 25,
+    "subsequently_reviewed_predicates": 57,
+    "remaining_conditional_requires_runtime_audit": 0,
+    "residual_predicate_spot_checks_reconciled": 54,
+    "finite_conditional_source_cards_reviewed": 140,
+    "original_residual_conditional_spot_checks": 82
+  },
+  "limits": [
+    "A verified fix or predicate_spot_checked classification covers only the recorded source clause and cited cases; it does not certify full behavior of the card.",
+    "All 81 initial runtime findings have recorded source-predicate fix evidence. Supplementary repairs and reviews are listed separately.",
+    "All 82 residual rows from the finite 140-card conditional scan were spot reviewed. A zero remaining review queue refers to this finite index, not every interaction or every source card.",
+    "The source snapshot has 577 cards. Registry coverage, finite source-clause review, and live-game parity remain different claims.",
+    "Commit IDs are local review provenance. Reproduce against retained test paths and source fixtures in the final published tree.",
+    "The compact predicate index retains up to three test references per card; each reference is bounded evidence for its named case."
+  ],
+  "evidence_groups": {
+    "physical_card_rules": {
+      "local_review_commits": [
+        "bb3a081",
+        "0c35763"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_card_execution_rules.py"
+      ],
+      "card_ids": [
+        "BLUR",
+        "BOLAS",
+        "CLASH",
+        "EIDOLON",
+        "GRAND_FINALE",
+        "HEAVENLY_DRILL",
+        "SPITE",
+        "TEAR_ASUNDER",
+        "THE_GAMBIT",
+        "THRUMMING_HATCHET"
+      ]
+    },
+    "source_passive_dispatch": {
+      "local_review_commits": [
+        "e070aea"
+      ],
+      "local_worker_commits": [
+        "513fdbf"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_source_passive_dispatch.py"
+      ],
+      "card_ids": [
+        "DEMESNE",
+        "DRUM_OF_BATTLE",
+        "SUBROUTINE",
+        "ECHO_FORM",
+        "HOWL_FROM_BEYOND",
+        "BEACON_OF_HOPE",
+        "HAMMER_TIME",
+        "BOMBARDMENT",
+        "I_AM_INVINCIBLE"
+      ]
+    },
+    "source_timing_and_bound_events": {
+      "local_review_commits": [
+        "f77ede8",
+        "b1a69fc"
+      ],
+      "local_worker_commits": [
+        "d349c23",
+        "766f407"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_source_card_timing.py",
+        "tests/combat/test_source_card_event_listeners.py"
+      ],
+      "card_ids": [
+        "CALL_OF_THE_VOID",
+        "CORROSIVE_WAVE",
+        "DANSE_MACABRE",
+        "DEMON_FORM",
+        "DEVOUR_LIFE",
+        "ENTROPY",
+        "FRIENDSHIP",
+        "HAUNT",
+        "INFINITE_BLADES",
+        "LOOP",
+        "MACHINE_LEARNING",
+        "MELANCHOLY",
+        "NOXIOUS_FUMES",
+        "OBLIVION",
+        "PAGESTORM",
+        "PALE_BLUE_DOT",
+        "PYRE",
+        "SPECTRUM_SHIFT",
+        "STRANGLE",
+        "TORIC_TOUGHNESS",
+        "VOID"
+      ]
+    },
+    "played_card_powers": {
+      "local_review_commits": [
+        "d3101d7",
+        "197b269"
+      ],
+      "local_worker_commits": [
+        "d6ba8a1"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_card_play_status_runtime.py"
+      ],
+      "card_ids": [
+        "ARSENAL",
+        "FERAL",
+        "ITERATION",
+        "JUGGERNAUT",
+        "LETHALITY",
+        "PHANTOM_BLADES",
+        "SERPENT_FORM",
+        "SIGNAL_BOOST",
+        "SPEEDSTER",
+        "VOID_FORM",
+        "AFTERIMAGE"
+      ]
+    },
+    "stored_turn_powers": {
+      "local_review_commits": [
+        "25a393d",
+        "6d15e6c"
+      ],
+      "local_worker_commits": [
+        "e418858",
+        "f5d530f"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_stored_turn_powers.py",
+        "tests/combat/test_source_power_upgrades.py"
+      ],
+      "card_ids": [
+        "BIASED_COGNITION",
+        "WRAITH_FORM",
+        "COOLANT",
+        "COUNTDOWN",
+        "CRIMSON_MANTLE",
+        "INFERNO",
+        "NEUROSURGE",
+        "PREP_TIME",
+        "ROLLING_BOULDER",
+        "SENTRY_MODE",
+        "HAILSTORM",
+        "MIND_ROT",
+        "WASTE_AWAY"
+      ]
+    },
+    "poison_damage_and_creation_powers": {
+      "local_review_commits": [
+        "b65b1de",
+        "62fa3ae"
+      ],
+      "local_worker_commits": [
+        "a7d7753",
+        "0bf7ca0"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_card_status_runtime.py"
+      ],
+      "card_ids": [
+        "ACCELERANT",
+        "BLACK_HOLE",
+        "CRUELTY",
+        "DEBILITATE",
+        "ENVENOM",
+        "FLANKING",
+        "KNOCKDOWN",
+        "OUTBREAK",
+        "SLEIGHT_OF_FLESH",
+        "SMOKESTACK",
+        "SNEAKY",
+        "THUNDER"
+      ]
+    },
+    "source_callback_integrations": {
+      "local_review_commits": [
+        "a95e4bf"
+      ],
+      "local_worker_commits": [
+        "e73b0a9"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_source_card_callback_integrations.py"
+      ],
+      "card_ids": [
+        "PILLAR_OF_CREATION",
+        "RUPTURE",
+        "SHROUD",
+        "TRASH_TO_TREASURE",
+        "VICIOUS"
+      ]
+    }
+  },
+  "findings": [
+    {
+      "card_id": "ACCELERANT",
+      "finding": "poison_extra_triggers: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "AFTERIMAGE",
+      "finding": "Both _apply_after_card_play_hooks reads afterimage and normalized combat_trigger grants Block on cardplay. Publiccast grants1; a synthetic SkillBlock1 then adds3 total instead of2 (skill1+power1).",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "ARSENAL",
+      "finding": "arsenal: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "BEACON_OF_HOPE",
+      "finding": "_apply_combat_trigger_effect_step returns original combat plus _ally_block_events; _ally_block_events emits event without mutating combat.metadata.allies.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "BIASED_COGNITION",
+      "finding": "biasedcognition: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "BLACK_HOLE",
+      "finding": "blackhole: Only status literal is alias table; no star gain/spend damage hook in engine.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "BLUR",
+      "finding": "plan only gainsBlock; no retain-Block-next-turn marker",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "BOLAS",
+      "finding": "no next-turn return-to-Hand registration",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "BOMBARDMENT",
+      "finding": "no turn-start/exhaust-zone autoplay registration",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "CALL_OF_THE_VOID",
+      "finding": "extra immediateDraw and generated card lacks requiredEthereal",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "CLASH",
+      "finding": "legal_actions checks no all-Hand-Attack restriction; plan only damage",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "COOLANT",
+      "finding": "immediate block_formula instead of turn-start block generation; coolant status has no engine consumer",
+      "origins": [
+        "conditional_timing_audit",
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "CORROSIVE_WAVE",
+      "finding": "extra immediatePoison in addition to correct card-drawn turn trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "COUNTDOWN",
+      "finding": "countdown: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "CRIMSON_MANTLE",
+      "finding": "crimsonmantle: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "CRUELTY",
+      "finding": "cruelty: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "DANSE_MACABRE",
+      "finding": "card_played condition empty instead of cost>=2; matcher has no cost predicate",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "DEBILITATE",
+      "finding": "debilitate: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "DEMESNE",
+      "finding": "immediateenergy/draw instead of recurring; turn-startenergy exists but extraDraw doesnot",
+      "origins": [
+        "conditional_timing_audit",
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "DEMON_FORM",
+      "finding": "immediateStrength instead of recurring turn-start Strength",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "DEVOUR_LIFE",
+      "finding": "unwarranted immediate addSoul in addition to Soul-play summon trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "DRUM_OF_BATTLE",
+      "finding": "card-exhausted trigger emits energy step but _apply_combat_trigger_effect_step has no energy branch.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "ECHO_FORM",
+      "finding": "turn-start trigger emits next_card_extra_play but dispatcher has no branch; public nextturn has no extra-play queue.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "EIDOLON",
+      "finding": "plan chooses one Exhaust instead of exhausting Hand and omits9-card Intangible condition",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "ENTROPY",
+      "finding": "unwarranted immediateDraw from sourcefield in addition to transform trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "ENVENOM",
+      "finding": "envenom: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "FERAL",
+      "finding": "feral: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "FLANKING",
+      "finding": "flanking: No owner/applier-aware other-player Attack multiplier or duration consumer.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "FRIENDSHIP",
+      "finding": "immediateenergy and positiveStrength instead of loseStrength plus recurringenergy",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "GRAND_FINALE",
+      "finding": "legal_actions checks no empty-Draw-Pile restriction; plan only all_damage",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "HAILSTORM",
+      "finding": "hailstorm: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "HAMMER_TIME",
+      "finding": "_apply_combat_trigger_effect_step returns original combat plus _forge_allies_events; no allied Forge state mutation.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "HAUNT",
+      "finding": "unwarranted immediate selfHP-loss and addSoul in addition to Soul-play enemyHP-loss trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "HEAVENLY_DRILL",
+      "finding": "plan deals one hit and grants4energy instead of X hits and conditional doubledX",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "HOWL_FROM_BEYOND",
+      "finding": "turn-end trigger emits play_named_card but dispatcher has no branch.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "INFERNO",
+      "finding": "inferno: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "INFINITE_BLADES",
+      "finding": "immediateShiv creation instead of recurring turn-start creation",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "ITERATION",
+      "finding": "iteration: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "I_AM_INVINCIBLE",
+      "finding": "no turn-end/top-Draw-Pile autoplay registration",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "JUGGERNAUT",
+      "finding": "juggernaut: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "KNOCKDOWN",
+      "finding": "knockdown: No owner/applier-aware other-player damage multiplier or duration consumer.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "LETHALITY",
+      "finding": "lethality: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "LOOP",
+      "finding": "two equivalent turn-start passive triggers retained because payload amount defaults differ",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "MACHINE_LEARNING",
+      "finding": "immediateDraw instead of recurring extra turn-startDraw",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "MELANCHOLY",
+      "finding": "unwarranted immediateenergy; no anyone-dies cost reduction registration",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "MIND_ROT",
+      "finding": "mindrot: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "NEUROSURGE",
+      "finding": "neurosurge: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "NOXIOUS_FUMES",
+      "finding": "extra immediatePoison in addition to correct turn-startPoison trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "OBLIVION",
+      "finding": "immediateDoom instead of card-play targetDoom trigger for restofturn",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "OUTBREAK",
+      "finding": "outbreak: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "PAGESTORM",
+      "finding": "immediateDraw instead of Ethereal-card-drawn conditionalDraw",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "PALE_BLUE_DOT",
+      "finding": "immediateDraw instead of turn-count threshold plus delayednextturnDraw",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "PHANTOM_BLADES",
+      "finding": "phantomblades: Only emits stored status plus one immediately generated Shiv; no Retain matching-card hook or first-Shiv-per-turn damage consumer.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "PILLAR_OF_CREATION",
+      "finding": "immediateBlock instead of card-created trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_callback_integrations",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "PREP_TIME",
+      "finding": "preptime: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "PYRE",
+      "finding": "immediateenergy instead of recurring turn-startenergy",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "ROLLING_BOULDER",
+      "finding": "rollingboulder: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "RUPTURE",
+      "finding": "immediateStrength instead of player-turnHP-loss trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_callback_integrations",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SENTRY_MODE",
+      "finding": "immediateSweepingGaze instead of recurring turn-start creation; sentrymode status unused",
+      "origins": [
+        "conditional_timing_audit",
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SERPENT_FORM",
+      "finding": "serpentform: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SHROUD",
+      "finding": "immediateBlock instead of successful-Doom-application trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_callback_integrations",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SIGNAL_BOOST",
+      "finding": "signalboost: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SLEIGHT_OF_FLESH",
+      "finding": "sleightofflesh: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SMOKESTACK",
+      "finding": "smokestack: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SNEAKY",
+      "finding": "sneaky: No allied player attack event/Block hook exists.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SPECTRUM_SHIFT",
+      "finding": "unwarranted immediateDraw in addition to recurring randomColorless creation",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SPEEDSTER",
+      "finding": "speedster: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SPITE",
+      "finding": "source hit_count2 becomes two unconditional hits despite lost-HP condition",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "STRANGLE",
+      "finding": "unwarranted immediate2damage; strangle monsterstatus has no card-play HP-loss consumer",
+      "origins": [
+        "conditional_timing_audit",
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "SUBROUTINE",
+      "finding": "Power-card-play trigger emits energy step but _apply_combat_trigger_effect_step has no energy branch.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "source_passive_dispatch",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "TEAR_ASUNDER",
+      "finding": "singlehit; no additionalhit per HP-loss event thiscombat",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "THE_GAMBIT",
+      "finding": "plan gainsBlock but omits death-on-unblocked-attack condition",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "THRUMMING_HATCHET",
+      "finding": "no next-turn return-to-Hand registration",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "physical_card_rules",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "THUNDER",
+      "finding": "thunder: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "poison_damage_and_creation_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "TORIC_TOUGHNESS",
+      "finding": "only immediateBlock; missing two future turn-start Block grants",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "TRASH_TO_TREASURE",
+      "finding": "immediateChannel instead of Status-created trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_callback_integrations",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "VICIOUS",
+      "finding": "immediateDraw instead of successful-Vulnerable-application trigger",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_callback_integrations",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "VOID",
+      "finding": "energygain onplay instead of energy-loss ondraw",
+      "origins": [
+        "conditional_timing_audit"
+      ],
+      "fix_evidence": "source_timing_and_bound_events",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "VOID_FORM",
+      "finding": "voidform: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "played_card_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "WASTE_AWAY",
+      "finding": "wasteaway: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    },
+    {
+      "card_id": "WRAITH_FORM",
+      "finding": "wraithform: Normalized plan stores this status, but the engine has no status reader or equivalent registered trigger/action for its printed behavior.",
+      "origins": [
+        "status_dispatch_audit"
+      ],
+      "fix_evidence": "stored_turn_powers",
+      "review_status": "predicate_fix_verified"
+    }
+  ],
+  "conditional_cards_requiring_runtime_audit": [],
+  "additional_conditional_review": {
+    "local_review_commits": [
+      "0d09c6d",
+      "777808c"
+    ],
+    "local_worker_commits": [
+      "53a2408",
+      "a481ce6"
+    ],
+    "primary_test_paths": [
+      "tests/combat/test_conditional_card_powers.py",
+      "tests/combat/test_osty_source_attack_riders.py"
+    ],
+    "predicate_spot_checked_card_ids": [
+      "CHILD_OF_THE_STARS",
+      "FLAME_BARRIER",
+      "MONARCHS_GAZE",
+      "REAPER_FORM",
+      "REGRET"
+    ],
+    "scope": "Includes source Osty Attack riders, Block/Artifact, base/upgraded and reload checks; does not certify every interaction of these cards."
+  },
+  "monster_source_verification_gaps": [
+    {
+      "monster_id": "AEONGLASS",
+      "code": "aeonglass_intensity_scaling_requires_live_verification",
+      "source_id": "INCREASING_INTENSITY",
+      "detail": "The public API omits Increasing Intensity's numeric effect payload.",
+      "evidence": [
+        "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Aeonglass"
+      ]
+    },
+    {
+      "monster_id": "CRUSHER",
+      "code": "back_attack_initial_facing_requires_live_verification",
+      "source_id": "BACK_ATTACK_LEFT",
+      "detail": "Targeted cards and potions turn the player; Back Attack is executable.",
+      "evidence": [
+        "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Kaiser_Crab"
+      ]
+    },
+    {
+      "monster_id": "ROCKET",
+      "code": "back_attack_initial_facing_requires_live_verification",
+      "source_id": "BACK_ATTACK_RIGHT",
+      "detail": "Targeted cards and potions turn the player; Back Attack is executable.",
+      "evidence": [
+        "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Kaiser_Crab"
+      ]
+    }
+  ],
+  "relic_marker_dispatch_audit": {
+    "emitted_kinds_exercised": 45,
+    "unique_relic_hook_outputs_exercised": 168,
+    "direct_dispatch_stubs_checked": 7,
+    "proven_unhandled_runtime_kind_count": 0,
+    "scope": "Bounded resolver-context sweep plus external-dispatch tracing; not a relic parity certificate.",
+    "local_runtime_baseline_commit": "47e6899"
+  },
+  "conditional_predicate_reviews": [
+    {
+      "card_id": "AGGRESSION",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, put a random Attack from your Discard Pile into your Hand and Upgrade it.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_aggression_moves_upgraded_attack_from_discard_on_turn_start"
+      ]
+    },
+    {
+      "card_id": "BAD_LUCK",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, lose 13 HP.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_held_source_curse_predicates_resolve_at_end_turn"
+      ]
+    },
+    {
+      "card_id": "BARRICADE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Block is not removed at the start of your turn.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_barricade_status_keeps_block_between_turns"
+      ]
+    },
+    {
+      "card_id": "BECKON",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand,\n lose 6 HP.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_buffer_hp_loss.py::test_buffer_prevents_status_card_damage_and_direct_hp_loss_at_end_turn",
+        "tests/combat/test_combat_engine_monsters.py::test_soul_fysh_beckon_adds_beckons_to_draw_and_discard",
+        "tests/combat/test_combat_engine_monsters.py::test_soul_fysh_gaze_attacks_and_adds_beckon_to_draw_pile"
+      ]
+    },
+    {
+      "card_id": "BONE_SHARDS",
+      "classification": "predicate_spot_checked",
+      "source_clause": "If Osty is alive, he deals 9 damage to ALL enemies and you gain 9 Block.\nOsty dies.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_bone_shards_damage_block_and_death_are_gated_by_osty_state"
+      ]
+    },
+    {
+      "card_id": "BURN",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, take 2 damage.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_card_exhausted_trigger_grants_block",
+        "tests/combat/test_combat_engine_cards.py::test_played_card_destination_emits_discard_or_exhaust_trigger",
+        "tests/combat/test_combat_engine_cards.py::test_unplayable_card_cannot_be_played_but_end_turn_hand_effect_resolves"
+      ]
+    },
+    {
+      "card_id": "CALAMITY",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you play an Attack, add a random Attack into your Hand.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_calamity_creates_only_after_attack"
+      ]
+    },
+    {
+      "card_id": "CALTROPS",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you are attacked, deal 3 damage back.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_caltrops_retaliates_against_enemy_attack"
+      ]
+    },
+    {
+      "card_id": "CONSUMING_SHADOW",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Channel 2 Dark.\nAt the end of your turn, Evoke your leftmost Orb.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_consuming_shadow_channels_then_evokes_leftmost_at_end_turn"
+      ]
+    },
+    {
+      "card_id": "CORRUPTION",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Skills cost 0 [energy:1].\nWhenever you play a Skill, Exhaust it.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_corruption_makes_skills_free_and_exhaust_on_play"
+      ]
+    },
+    {
+      "card_id": "CREATIVE_AI",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, add a random Power into your Hand.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_turn_start_trigger_adds_random_card_from_pool"
+      ]
+    },
+    {
+      "card_id": "DARK_EMBRACE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever a card is Exhausted,\ndraw 1 card.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_dark_embrace_draws_after_another_card_exhausts"
+      ]
+    },
+    {
+      "card_id": "DEBT",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, lose 10 Gold.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_held_source_curse_predicates_resolve_at_end_turn"
+      ]
+    },
+    {
+      "card_id": "DECAY",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, take 2 damage.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_held_source_curse_predicates_resolve_at_end_turn"
+      ]
+    },
+    {
+      "card_id": "DISINTEGRATION",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, take 6 damage.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_monsters.py::test_knowledge_demon_disintegration_deals_end_turn_damage",
+        "tests/combat/test_combat_engine_monsters.py::test_knowledge_demon_forced_mind_rot_choice_resumes_next_turn"
+      ]
+    },
+    {
+      "card_id": "DOUBT",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, gain 1 Weak.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_held_source_curse_predicates_resolve_at_end_turn"
+      ]
+    },
+    {
+      "card_id": "ENTHRALLED",
+      "classification": "predicate_spot_checked",
+      "source_clause": "If this is in your Hand, it must be played before other cards.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_enthralled_must_be_played_before_other_cards"
+      ]
+    },
+    {
+      "card_id": "FEEL_NO_PAIN",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever a card is Exhausted, gain 3 Block.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_card_exhausted_trigger_grants_block"
+      ]
+    },
+    {
+      "card_id": "FLATTEN",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Osty deals 12 damage.\nThis card costs 0 [energy:1] if Osty has attacked this turn.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_flatten_costs_zero_after_osty_has_attacked_this_turn"
+      ]
+    },
+    {
+      "card_id": "FORBIDDEN_GRIMOIRE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of combat, you may remove a card from your Deck.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_forbidden_grimoire_offers_optional_deck_removal_after_combat"
+      ]
+    },
+    {
+      "card_id": "FURNACE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, Forge 5.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_forge_blade.py::test_furnace_and_hammer_time_descriptors_emit_mapping_friendly_events"
+      ]
+    },
+    {
+      "card_id": "GANG_UP",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Deal 5 damage.\nDeals 5 additional damage for each time another player has attacked the enemy this turn.",
+      "basis": "concurrent_explicit_family",
+      "primary_test_references": [
+        "tests/combat/test_gang_up.py"
+      ]
+    },
+    {
+      "card_id": "GENESIS",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, gain [star:2].",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_genesis_gains_stars_at_turn_start"
+      ]
+    },
+    {
+      "card_id": "HELLO_WORLD",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, add a random Common card into your Hand.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_hello_world_waits_for_turn_start_and_uses_common_pool"
+      ]
+    },
+    {
+      "card_id": "HELLRAISER",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you draw a card containing \u201cStrike\u201d, it is played against a random enemy.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_hellraiser_plays_drawn_strike_against_random_enemy"
+      ]
+    },
+    {
+      "card_id": "INFECTION",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, take 3 damage.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_buffer_hp_loss.py::test_buffer_prevents_status_card_damage_and_direct_hp_loss_at_end_turn",
+        "tests/combat/test_buffer_hp_loss.py::test_two_buffer_stacks_protect_two_hand_cards_then_third_card_damages",
+        "tests/combat/test_combat_engine_monsters.py::test_phrog_parasite_infect_adds_infections_to_discard_pile"
+      ]
+    },
+    {
+      "card_id": "KINGLY_KICK",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Deal 27 damage.\nWhenever you draw this card, reduce its cost by 1.",
+      "basis": "new_runtime_gap_fixed_here",
+      "primary_test_references": [
+        "tests/combat/test_source_draw_mutations.py::test_kingly_kick_reduces_each_draw_floored_at_zero_and_keeps_master_cost",
+        "tests/combat/test_source_draw_mutations.py::test_moving_kingly_cards_to_hand_does_not_count_as_draw"
+      ]
+    },
+    {
+      "card_id": "KINGLY_PUNCH",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Deal 8 damage.\nWhenever you draw this card, increase its damage by 4 this combat.",
+      "basis": "new_runtime_gap_fixed_here",
+      "primary_test_references": [
+        "tests/combat/test_source_draw_mutations.py::test_kingly_punch_increases_its_own_damage_each_draw_this_combat"
+      ]
+    },
+    {
+      "card_id": "LIGHTNING_ROD",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Gain 4 Block.\nAt the start of the next 2 turns, Channel 1 Lightning.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_lightning_rod_channels_at_exactly_next_two_turn_starts"
+      ]
+    },
+    {
+      "card_id": "MASTER_PLANNER",
+      "classification": "predicate_spot_checked",
+      "source_clause": "When you play a Skill, it gains Sly.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_master_planner_adds_sly_to_played_skill"
+      ]
+    },
+    {
+      "card_id": "MAYHEM",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, play the top card of your Draw Pile.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_mayhem_style_trigger_plays_top_draw_card_at_turn_start"
+      ]
+    },
+    {
+      "card_id": "MONARCHS_GAZE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you attack an enemy, it loses 1 Strength this turn.",
+      "basis": "concurrent_explicit_family",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_monarchs_gaze_applies_temporary_strength_loss_on_attack_damage",
+        "tests/combat/test_conditional_card_powers.py",
+        "tests/combat/test_osty_source_attack_riders.py"
+      ]
+    },
+    {
+      "card_id": "MONOLOGUE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you play a card this turn, gain 1 Strength this turn.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_monologue_grants_temporary_strength_on_later_cards_only_this_turn"
+      ]
+    },
+    {
+      "card_id": "NECRO_MASTERY",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Summon 5.\nWhenever Osty loses HP,\nALL enemies lose that much HP as well.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_necro_mastery_mirrors_osty_hp_loss_to_enemies"
+      ]
+    },
+    {
+      "card_id": "RAGE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you play an Attack this turn, gain 3 Block.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_turn_limited_attack_trigger_grants_block"
+      ]
+    },
+    {
+      "card_id": "REAPER_FORM",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever Attacks deal damage, apply that much Doom.",
+      "basis": "concurrent_explicit_family",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_reaper_form_applies_doom_equal_to_attack_damage",
+        "tests/combat/test_conditional_card_powers.py",
+        "tests/combat/test_osty_source_attack_riders.py"
+      ]
+    },
+    {
+      "card_id": "RIGHT_HAND_HAND",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Osty deals 4 damage.\nWhenever you play a card that costs [energy:2] or more, return this to your Hand from the Discard Pile.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_right_hand_hand_returns_from_discard_after_costly_card"
+      ]
+    },
+    {
+      "card_id": "ROCKET_PUNCH",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Deal 13 damage.\nDraw 1 card.\nWhenever you create a Status, reduce this card's cost to 0 [energy:1] until played.",
+      "basis": "new_runtime_gap_fixed_here",
+      "primary_test_references": [
+        "tests/combat/test_source_draw_mutations.py::test_creating_nonstatus_card_does_not_discount_rocket_punch",
+        "tests/combat/test_source_draw_mutations.py::test_rocket_punch_discounts_in_every_zone_until_its_next_play",
+        "tests/combat/test_source_draw_mutations.py::test_upgraded_rocket_punch_draws_two_source_cards"
+      ]
+    },
+    {
+      "card_id": "ROYALTIES",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of combat, gain 30 Gold.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_combat_end_trigger_grants_gold"
+      ]
+    },
+    {
+      "card_id": "SACRIFICE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "If Osty is alive, he dies and you gain Block equal to double his Max HP.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_necro_mastery_mirrors_osty_hp_loss_to_enemies",
+        "tests/combat/test_combat_engine_cards.py::test_sacrifice_blocks_for_double_osty_max_hp_and_kills_osty",
+        "tests/combat/test_source_card_conditions.py::test_evil_eye_bonus_checks_exhaust_event_this_turn"
+      ]
+    },
+    {
+      "card_id": "SHAME",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, gain 1 Frail.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_held_source_curse_predicates_resolve_at_end_turn"
+      ]
+    },
+    {
+      "card_id": "SIC_EM",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Osty deals 5 damage.\nWhenever Osty hits this enemy this turn, Summon 3.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_sic_em_grants_summon_when_osty_hits_marked_enemy"
+      ]
+    },
+    {
+      "card_id": "SPINNER",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, Channel 1 Glass.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_spinner_channels_glass_at_turn_start"
+      ]
+    },
+    {
+      "card_id": "SPIRIT_OF_ASH",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you play an Ethereal card, gain 4 Block.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_spirit_of_ash_requires_played_ethereal_keyword"
+      ]
+    },
+    {
+      "card_id": "STAMPEDE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, 1 random Attack in your Hand is played against a random enemy.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_stampede_plays_random_hand_attack_before_end_turn_discard"
+      ]
+    },
+    {
+      "card_id": "STORM",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you play a Power, Channel 1 Lightning.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_residual_source_predicates.py::test_source_storm_requires_another_power_play"
+      ]
+    },
+    {
+      "card_id": "STRATAGEM",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you shuffle your Draw Pile, choose a card from it to put into your Hand.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_stratagem_prompts_for_draw_pile_card_after_shuffle"
+      ]
+    },
+    {
+      "card_id": "THE_BOMB",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of 3 turns, deal 40 damage to ALL enemies.",
+      "basis": "new_runtime_gap_fixed_here",
+      "primary_test_references": [
+        "tests/combat/test_source_draw_mutations.py::test_the_bomb_waits_three_turns_then_explodes_only_once"
+      ]
+    },
+    {
+      "card_id": "THE_SEALED_THRONE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "Whenever you play a card, gain [star:1].",
+      "basis": "concurrent_explicit_family",
+      "primary_test_references": [
+        "tests/combat/test_trigger_any_card_type.py::test_sealed_throne_any_card_condition_matches_every_playable_type"
+      ]
+    },
+    {
+      "card_id": "TOOLS_OF_THE_TRADE",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, draw 1 card and discard 1 card.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_tools_of_the_trade_draws_then_requires_discard_choice"
+      ]
+    },
+    {
+      "card_id": "TOXIC",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, take 5 damage.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_buffer_hp_loss.py::test_buffer_prevents_status_card_damage_and_direct_hp_loss_at_end_turn",
+        "tests/combat/test_buffer_hp_loss.py::test_two_buffer_stacks_protect_two_hand_cards_then_third_card_damages",
+        "tests/combat/test_monster_move_payloads.py::test_myte_toxic_cards_damage_in_hand_and_can_be_exhausted_by_playing"
+      ]
+    },
+    {
+      "card_id": "TYRANNY",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the start of your turn, draw 1 card and Exhaust 1 card from your Hand.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_tyranny_draws_then_requires_exhaust_choice_at_start_of_turn"
+      ]
+    },
+    {
+      "card_id": "WELL_LAID_PLANS",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, Retain up to 1 card.",
+      "basis": "new_runtime_gap_fixed_here",
+      "primary_test_references": [
+        "tests/combat/test_combat_engine_cards.py::test_well_laid_plans_pends_retain_choice_before_end_turn_discard",
+        "tests/combat/test_source_draw_mutations.py::test_well_laid_plans_allows_skipping_retention",
+        "tests/combat/test_source_draw_mutations.py::test_well_laid_plans_partial_retention_is_one_turn_not_permanent"
+      ]
+    },
+    {
+      "card_id": "WITHER",
+      "classification": "predicate_spot_checked",
+      "source_clause": "At the end of your turn, if this is in your Hand, take 3 damage.",
+      "basis": "existing_generic_or_named_runtime_reviewed",
+      "primary_test_references": [
+        "tests/combat/test_autoplay_lifecycle.py::test_top_autoplay_runs_card_power_and_monster_hooks_without_paying_costs",
+        "tests/combat/test_buffer_hp_loss.py::test_buffer_prevents_status_card_damage_and_direct_hp_loss_at_end_turn",
+        "tests/combat/test_buffer_hp_loss.py::test_two_buffer_stacks_protect_two_hand_cards_then_third_card_damages"
+      ]
+    }
+  ],
+  "supplementary_predicate_groups": {
+    "source_draw_mutations_and_delayed_effects": {
+      "local_review_commits": [
+        "32f5ef2"
+      ],
+      "local_worker_commits": [
+        "883f94d"
+      ],
+      "card_ids": [
+        "KINGLY_KICK",
+        "KINGLY_PUNCH",
+        "ROCKET_PUNCH",
+        "THE_BOMB",
+        "WELL_LAID_PLANS"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_source_draw_mutations.py"
+      ],
+      "scope": "Actual draws versus hand movement, combat-only cost/damage changes, one delayed explosion, selected-turn retention and installed Power lifecycle."
+    },
+    "source_any_card_listener": {
+      "local_review_commits": [
+        "280540f"
+      ],
+      "local_worker_commits": [
+        "da4b59e"
+      ],
+      "card_ids": [
+        "THE_SEALED_THRONE"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_trigger_any_card_type.py"
+      ],
+      "scope": "Any-card listener matches the tested playable card types."
+    },
+    "other_player_attack_formula": {
+      "local_review_commits": [
+        "73e86b7"
+      ],
+      "local_worker_commits": [
+        "1d6a111"
+      ],
+      "card_ids": [
+        "GANG_UP"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_gang_up.py"
+      ],
+      "scope": "Other-player Attack instances on the target this turn, including blocked hits and replay/reload. Osty is not inferred to be another player; this is printed-text grouping, not full co-op parity."
+    },
+    "typed_x_cost_family": {
+      "local_review_commits": [
+        "b82b1ca"
+      ],
+      "local_worker_commits": [
+        "95eef1f"
+      ],
+      "card_ids": [
+        "CASCADE",
+        "DIRGE",
+        "ERADICATE",
+        "HEAVENLY_DRILL",
+        "MALAISE",
+        "MULTI_CAST",
+        "SKEWER",
+        "STARDUST",
+        "TEMPEST",
+        "VOLLEY",
+        "WHIRLWIND"
+      ],
+      "primary_test_paths": [
+        "tests/combat/test_x_cost_source_runtime.py"
+      ],
+      "primary_source_fixtures": [
+        "tests/fixtures/x_cost_source.json"
+      ],
+      "source_references": [
+        "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Chemical_X"
+      ],
+      "scope": "75 public raw-source cases cover Energy versus Star payment, base/upgraded, zero X, Chemical X for both resources, repeat/Evoke, original-X replay and free autoplay using current resources. Does not certify every card interaction."
+    }
+  },
+  "finite_conditional_spot_audit": {
+    "local_review_commits": [
+      "32f5ef2",
+      "ed3e1ce"
+    ],
+    "local_worker_commits": [
+      "883f94d",
+      "3a369ec"
+    ],
+    "source_cards_payload_sha256": "ae1bf6a2f52d6a80327de818c2c6c93749f97faccbf1f7df0d72164539b5f0ef",
+    "residual_rows_reviewed": 82,
+    "original_outcome_counts": {
+      "existing_generic_or_named_runtime_reviewed": 45,
+      "covered_by_status_family_batch": 25,
+      "concurrent_explicit_family": 7,
+      "new_runtime_gap_fixed_here": 5
+    },
+    "primary_test_paths": [
+      "tests/combat/test_residual_source_predicates.py",
+      "tests/combat/test_source_draw_mutations.py"
+    ],
+    "scope": "Finite source-clause, normalized-plan and named-adapter review with retained public test references. Test references are a navigation index and bounded predicate evidence, not a full card parity assertion."
+  },
+  "publication_provenance": {
+    "commit_ids_scope": "All commit IDs in this inventory identify local review provenance. Individual worker or integration commits are not assumed reachable in public history.",
+    "primary_reproduction_evidence": "Retained test paths and source fixtures at the published checkout, plus source snapshot hashes and URLs.",
+    "public_revision": "The publishing workflow records the final public revision and validated tree hash outside this inventory, in its deliverable or PR validation log."
+  }
+}

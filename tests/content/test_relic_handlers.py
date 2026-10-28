@@ -195,9 +195,13 @@ def test_more_transform_upgrade_and_remove_pickup_relics_return_deck_markers() -
     scissors = resolve_relic_pickup("PRECISE_SCISSORS")
     fog = resolve_relic_pickup("PRESERVED_FOG")
 
-    assert tooth.markers[0].metadata["transform_pool"] == "ancient"
-    assert tooth.markers[0].metadata["match_card_ids"] == ("strike", "defend")
-    assert claws.markers[0].metadata == {"selection": "chosen", "target_card_id": "maul"}
+    assert tooth.markers[0].metadata["target_card_map"]["bash"] == "break"
+    assert tooth.markers[0].metadata["match_card_ids"] == (
+        "bash", "neutralize", "falling_star", "unleash", "dualcast"
+    )
+    assert claws.markers[0].metadata == {
+        "selection": "chosen", "target_card_id": "maul", "up_to": True
+    }
     assert leaf.markers[0].metadata == {"selection": "chosen"}
     assert poultice.max_hp_delta == -12
     assert [marker.kind for marker in poultice.markers] == [
@@ -354,7 +358,6 @@ def test_remaining_non_combat_pickup_relics_return_source_backed_markers() -> No
     assert hug.markers[1].metadata == {
         "passive": "shuffle_add_card_to_draw_pile",
         "card_id": "soot",
-        "needed_subsystem": "draw_pile_shuffle_relic_trigger",
     }
     assert [(marker.kind, marker.amount) for marker in neows_bones.markers] == [
         ("random_relics_gained", 2),
@@ -366,7 +369,6 @@ def test_remaining_non_combat_pickup_relics_return_source_backed_markers() -> No
     assert kaleidoscope.markers[0].metadata == {
         "card_pool": "other_character",
         "selection": "choose",
-        "needed_subsystem": "cross_character_card_reward",
     }
     assert soup.markers[0].kind == "modify_deck_cards"
     assert soup.markers[0].amount == 3
@@ -376,11 +378,10 @@ def test_remaining_non_combat_pickup_relics_return_source_backed_markers() -> No
     assert [(marker.kind, marker.amount) for marker in scroll_boxes.markers] == [
         ("card_pack_reward", 1),
     ]
-    assert scroll_boxes.markers[0].metadata["needed_subsystem"] == "card_pack_rewards"
+    assert "needed_subsystem" not in scroll_boxes.markers[0].metadata
     assert sea_glass.markers[0].metadata == {
         "card_pool": "other_character",
         "selection": "choose_any",
-        "needed_subsystem": "cross_character_card_reward",
     }
     assert [(marker.kind, marker.amount) for marker in sere_talon.markers] == [
         ("random_curses_gained", 2),
@@ -395,17 +396,18 @@ def test_remaining_non_combat_pickup_relics_return_source_backed_markers() -> No
         "passive": "first_card_reward_enchanted",
         "enchant_keyword": "glam",
         "card_reward_index": 1,
-        "needed_subsystem": "card_reward_enchant_trigger",
     }
     assert toy_box.markers[0].metadata == {"relic_pool": "wax"}
     assert toy_box.markers[1].metadata["passive"] == "wax_relic_melts_every_combats"
+    assert "needed_subsystem" not in toy_box.markers[1].metadata
     assert tri_boomerang.markers[0].metadata["custom"] == {"enchant_keyword": "instinct"}
     assert winged_boots.markers[0].kind == "relic_counter_changed"
     assert winged_boots.markers[0].amount == 3
     assert mystery_ticket.markers[0].metadata["random_relics"] == 3
+    assert "needed_subsystem" not in mystery_ticket.markers[0].metadata
 
 
-def test_remaining_non_combat_passive_pickups_document_needed_subsystems() -> None:
+def test_non_combat_passive_pickups_document_runtime_intent() -> None:
     expected_passives = {
         "BING_BONG": "deck_card_added_duplicate_copy",
         "BOOK_OF_FIVE_RINGS": "deck_card_added_count_heal",
@@ -423,16 +425,15 @@ def test_remaining_non_combat_passive_pickups_document_needed_subsystems() -> No
 
         assert marker.kind == "no_effect"
         assert marker.metadata["passive"] == passive
-        assert "needed_subsystem" in marker.metadata
 
     fur_coat = resolve_relic_pickup("FUR_COAT")
     touch = resolve_relic_pickup("TOUCH_OF_OROBAS")
 
     assert fur_coat.markers[0].kind == "mark_map_rooms"
     assert fur_coat.markers[0].amount == 7
-    assert fur_coat.markers[0].metadata["needed_subsystem"] == "map_room_markers"
+    assert "needed_subsystem" not in fur_coat.markers[0].metadata
     assert touch.markers[0].kind == "replace_starter_relic"
-    assert touch.markers[0].metadata["needed_subsystem"] == "starter_relic_upgrade"
+    assert "needed_subsystem" not in touch.markers[0].metadata
 
 
 def test_max_hp_and_healing_pickup_relics_report_bounded_markers() -> None:
@@ -487,7 +488,6 @@ def test_remaining_shop_and_campfire_relics_register_hook_markers() -> None:
     assert shop_purchase.markers[0].kind == "maw_bank_disabled"
     assert shop_purchase.markers[0].metadata == {
         "passive": "floor_climb_gold_until_shop_spend",
-        "needed_subsystem": "shop_purchase_relic_state",
     }
     assert [marker.kind for marker in campfire.markers] == [
         "no_effect",
@@ -503,7 +503,6 @@ def test_remaining_shop_and_campfire_relics_register_hook_markers() -> None:
         "passive": "rest_site_enter_heal_per_deck_cards",
         "cards_per_heal": 5,
         "heal": 3,
-        "needed_subsystem": "campfire_enter_deck_size",
     }
     assert campfire.markers[3].metadata["passive"] == "campfire_choose_any_number_of_options"
     assert campfire.markers[4].metadata["passive"] == "rest_heal_bonus"

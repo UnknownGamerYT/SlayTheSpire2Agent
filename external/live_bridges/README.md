@@ -1,46 +1,40 @@
-# Live Bridge References
+# Live bridge references
 
-This folder tracks notes for third-party Slay the Spire 2 live-state bridges.
-The actual cloned repositories live under `external/live_bridges/repos/`, which
-is intentionally ignored by git.
+The tracked [registry](bridges.json) pins reviewed public source commits and
+published release assets separately. Cloned sources in `repos/`, staged release
+files in `downloads/`, and build outputs are ignored by git. No licensed game
+files are included.
 
-These projects were downloaded as shallow clones for local reference only. Do
-not run or build them blindly; read their install instructions and use a
-throwaway/test run when enabling game-control features.
+| Name | Reviewed source | Source pin | Integration |
+| --- | --- | --- | --- |
+| STS2MCP | <https://github.com/Gennadiyev/STS2MCP> | `55e064850a68f3b4cde7e5fd525bf9b2dec4e885` | Preferred REST protocol at `http://localhost:15526`; source observation patch needed for checkpoint inputs. |
+| STS2-Agent | <https://github.com/CharTyr/STS2-Agent> | `89d5fd3d56c25d7d87a09dfbaa283485a6c3e1b1` | Alternative capture API at `http://127.0.0.1:8080`; checkpoint control unsupported. |
+| BoberInSpire | <https://github.com/S0ul3r/BoberInSpire> | `67263f2` (older reference) | Read-only JSON export / WebSocket overlay reference. |
+| CLI-Anything | <https://github.com/HKUDS/CLI-Anything> | `bf3cc39` (older reference) | Command-line bridge reference. |
 
-## Downloaded Repositories
+Reproducible download and source preparation:
 
-| Name | Local path | Source | Commit | Main use |
-| --- | --- | --- | --- | --- |
-| STS2MCP | `repos/STS2MCP` | <https://github.com/Gennadiyev/STS2MCP> | `20eadeb` | Full localhost REST bridge and MCP server. Default HTTP server: `http://localhost:15526`. |
-| STS2-Agent | `repos/STS2-Agent` | <https://github.com/CharTyr/STS2-Agent> | `2617fb1` | Live state, legal actions, and safe action execution. Health endpoint: `http://127.0.0.1:8080/health`. |
-| BoberInSpire | `repos/BoberInSpire` | <https://github.com/S0ul3r/BoberInSpire> | `67263f2` | Assistant/overlay pattern. Exports combat/merchant state to JSON and streams via WebSocket. |
-| CLI-Anything | `repos/CLI-Anything` | <https://github.com/HKUDS/CLI-Anything> | `bf3cc39` | CLI bridge pattern around a local `STS2_Bridge` HTTP API at `localhost:15526`. |
+```sh
+uv run sts2sim sync-live-bridges
+uv run sts2sim doctor-live-bridge --offline
+uv run sts2sim prepare-live-ppo-bridge
+```
 
-## Our Integration Commands
+Downloads are checksum verified and staged without installing or executing them.
+The source preparation command verifies the exact reviewed commit, checks the
+[patch](patches/STS2MCP-55e06485-ppo-observations.patch) checksum, and applies it.
+Compilation requires .NET 9 and assemblies from the user's own installed game.
+See [the complete setup guide](../../docs/live_bridge_setup.md) for the build,
+installation, checkpoint evaluation, and live inference commands and their limits.
 
-Probe common bridge ports:
+Once the modded game is running:
 
-```powershell
+```sh
 uv run sts2sim probe-live
+uv run sts2sim doctor-live-bridge --base-url http://localhost:15526
+uv run sts2sim capture-live --base-url http://localhost:15526 --output traces/live-state.parity.json
 ```
 
-Capture state from whichever known bridge is currently reachable:
-
-```powershell
-uv run sts2sim capture-live --output traces/live-state.parity.json
-```
-
-Let a tiny policy take a few live actions and record a trace:
-
-```powershell
-uv run sts2sim live-play --max-steps 5 --policy first --output traces/live-play.parity.json
-```
-
-If auto-detection fails, provide the bridge explicitly:
-
-```powershell
-uv run sts2sim capture-live --base-url http://localhost:15526
-uv run sts2sim capture-live --base-url http://127.0.0.1:8080
-```
-
+Both published release downloads and fresh pinned-source patch application were
+verified on 2026-10-28. No game process or game assemblies were available in this
+environment, so compilation and actual game control remain unverified.

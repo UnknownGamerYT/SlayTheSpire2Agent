@@ -63,7 +63,13 @@ def _force_next_room(state, room_kind: RoomKind):
         current_node_id=start.node_id,
         completed_node_ids=(start.node_id,),
     )
-    return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
+    # This fixture replaces the intro with an unrelated room under test.
+    flags = {
+        key: value for key, value in state.flags.items() if key != "pending_relic_deck_choices"
+    }
+    return state.model_copy(
+        update={"phase": RunPhase.MAP, "map": game_map, "floor": 0, "flags": flags}
+    )
 
 
 def _reward_after_kill(

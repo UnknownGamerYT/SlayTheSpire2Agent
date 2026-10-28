@@ -56,6 +56,11 @@ class ActionType(str, Enum):
     DISCARD_POTION = "discard_potion"
     THROW_POTION_AT_MERCHANT = "throw_potion_at_merchant"
     PROCEED = "proceed"
+    KINDLE = "kindle"
+    COOK = "cook"
+    CLONE = "clone"
+    HATCH = "hatch"
+    MEND = "mend"
 
 
 class CardType(str, Enum):

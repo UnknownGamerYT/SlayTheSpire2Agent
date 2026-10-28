@@ -1,0 +1,207 @@
+{
+  "ACCELERANT": {
+    "cost": 1,
+    "description": "[gold]Poison[/gold] is triggered 1 additional time.",
+    "id": "ACCELERANT",
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "accelerant": "+1"
+    },
+    "upgrade_description": "[gold]Poison[/gold] is triggered 2 additional times."
+  },
+  "BLACK_HOLE": {
+    "cost": 1,
+    "description": "Whenever you spend or gain [star:1], deal 3 damage to ALL enemies.",
+    "id": "BLACK_HOLE",
+    "powers_applied": [
+      {
+        "amount": 3,
+        "power": "Black Hole",
+        "power_key": "BlackHole"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "blackholepower": "+1"
+    },
+    "upgrade_description": "Whenever you spend or gain [star:1], deal 4 damage to ALL enemies."
+  },
+  "CRUELTY": {
+    "cost": 1,
+    "description": "[gold]Vulnerable[/gold] enemies take an additional 25% damage.",
+    "id": "CRUELTY",
+    "powers_applied": [
+      {
+        "amount": 25,
+        "power": "Cruelty",
+        "power_key": "Cruelty"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "crueltypower": "+25"
+    },
+    "upgrade_description": "[gold]Vulnerable[/gold] enemies take an additional 50% damage."
+  },
+  "DEBILITATE": {
+    "cost": 1,
+    "damage": 10,
+    "description": "Deal 10 damage.\n[gold]Vulnerable[/gold] and [gold]Weak[/gold] are twice as effective against the enemy for the next 2 turns.",
+    "id": "DEBILITATE",
+    "powers_applied": [
+      {
+        "amount": 2,
+        "power": "Debilitate",
+        "power_key": "Debilitate"
+      }
+    ],
+    "target": "AnyEnemy",
+    "type": "Attack",
+    "upgrade": {
+      "damage": "+2",
+      "debilitatepower": "+1"
+    },
+    "upgrade_description": "Deal 12 damage.\n[gold]Vulnerable[/gold] and [gold]Weak[/gold] are twice as effective against the enemy for the next 3 turns."
+  },
+  "ENVENOM": {
+    "cost": 2,
+    "description": "Whenever an Attack deals unblocked damage, apply 1 [gold]Poison[/gold].",
+    "id": "ENVENOM",
+    "powers_applied": [
+      {
+        "amount": 1,
+        "power": "Envenom",
+        "power_key": "Envenom"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "envenompower": "+1"
+    },
+    "upgrade_description": "Whenever an Attack deals unblocked damage, apply 2 [gold]Poison[/gold]."
+  },
+  "FLANKING": {
+    "cost": 2,
+    "description": "The enemy takes double attack damage from other players this turn.",
+    "id": "FLANKING",
+    "target": "AnyEnemy",
+    "type": "Skill",
+    "upgrade": {
+      "cost": 1
+    }
+  },
+  "KNOCKDOWN": {
+    "cost": 3,
+    "damage": 10,
+    "description": "Deal 10 damage.\nThe enemy takes double damage from other players this turn.",
+    "id": "KNOCKDOWN",
+    "powers_applied": [
+      {
+        "amount": 2,
+        "power": "Knockdown",
+        "power_key": "Knockdown"
+      }
+    ],
+    "target": "AnyEnemy",
+    "type": "Attack",
+    "upgrade": {
+      "damage": "+4",
+      "knockdownpower": "+1"
+    },
+    "upgrade_description": "Deal 14 damage.\nThe enemy takes triple damage from other players this turn."
+  },
+  "OUTBREAK": {
+    "cost": 1,
+    "description": "Every 3 times you apply [gold]Poison[/gold], deal 11 damage to ALL enemies.",
+    "id": "OUTBREAK",
+    "powers_applied": [
+      {
+        "amount": 11,
+        "power": "Outbreak",
+        "power_key": "Outbreak"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "outbreakpower": "+4"
+    },
+    "upgrade_description": "Every 3 times you apply [gold]Poison[/gold], deal 15 damage to ALL enemies."
+  },
+  "SLEIGHT_OF_FLESH": {
+    "cost": 2,
+    "description": "Whenever you apply a debuff to an enemy, they take 9 damage.",
+    "id": "SLEIGHT_OF_FLESH",
+    "powers_applied": [
+      {
+        "amount": 9,
+        "power": "Sleight of Flesh",
+        "power_key": "SleightOfFlesh"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "sleightoffleshpower": "+4"
+    },
+    "upgrade_description": "Whenever you apply a debuff to an enemy, they take 13 damage."
+  },
+  "SMOKESTACK": {
+    "cost": 1,
+    "description": "Whenever you create a Status, deal 5 damage to ALL enemies.",
+    "id": "SMOKESTACK",
+    "powers_applied": [
+      {
+        "amount": 5,
+        "power": "Smokestack",
+        "power_key": "Smokestack"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "smokestackpower": "+2"
+    },
+    "upgrade_description": "Whenever you create a Status, deal 7 damage to ALL enemies."
+  },
+  "SNEAKY": {
+    "cost": 2,
+    "description": "Whenever another player attacks an enemy, gain 1 [gold]Block[/gold].",
+    "id": "SNEAKY",
+    "powers_applied": [
+      {
+        "amount": 1,
+        "power": "Sneaky",
+        "power_key": "Sneaky"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "sneakypower": "+1"
+    },
+    "upgrade_description": "Whenever another player attacks an enemy, gain 2 [gold]Block[/gold]."
+  },
+  "THUNDER": {
+    "cost": 1,
+    "description": "Whenever you [gold]Evoke Lightning[/gold], deal 6 damage to each enemy hit.",
+    "id": "THUNDER",
+    "powers_applied": [
+      {
+        "amount": 6,
+        "power": "Thunder",
+        "power_key": "Thunder"
+      }
+    ],
+    "target": "Self",
+    "type": "Power",
+    "upgrade": {
+      "thunderpower": "+2"
+    },
+    "upgrade_description": "Whenever you [gold]Evoke Lightning[/gold], deal 8 damage to each enemy hit."
+  }
+}

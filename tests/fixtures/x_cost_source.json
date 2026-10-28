@@ -1,0 +1,278 @@
+[
+  {
+    "id": "CASCADE",
+    "name": "Cascade",
+    "type": "Skill",
+    "target": "Self",
+    "cost": -1,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Play the top X cards of your [gold]Draw Pile[/gold].",
+    "damage": null,
+    "upgrade_description": "Play the top X+1 cards of your [gold]Draw Pile[/gold].",
+    "upgrade": {
+      "description_changed": 1
+    },
+    "vars": null,
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "DIRGE",
+    "name": "Dirge",
+    "type": "Skill",
+    "target": "Self",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "[gold]Summon[/gold] 3 X times.\nAdd X [gold]Souls[/gold] into your [gold]Draw Pile[/gold].",
+    "damage": null,
+    "upgrade_description": "[gold]Summon[/gold] 4 X times.\nAdd X [gold]Souls+[/gold] into your [gold]Draw Pile[/gold].",
+    "upgrade": {
+      "summon": "+1"
+    },
+    "vars": {
+      "Summon": 3
+    },
+    "keywords_key": [
+      "Exhaust"
+    ],
+    "star_cost": null,
+    "spawns_cards": [
+      "SOUL"
+    ],
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "ERADICATE",
+    "name": "Eradicate",
+    "type": "Attack",
+    "target": "AnyEnemy",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Deal 11 damage X times.",
+    "damage": 11,
+    "upgrade_description": "Deal 14 damage X times.",
+    "upgrade": {
+      "damage": "+3"
+    },
+    "vars": {
+      "Damage": 11
+    },
+    "keywords_key": [
+      "Retain"
+    ],
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "HEAVENLY_DRILL",
+    "name": "Heavenly Drill",
+    "type": "Attack",
+    "target": "AnyEnemy",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Deal 8 damage X times.\nDouble X if it's 4 or more.",
+    "damage": 8,
+    "upgrade_description": "Deal 10 damage X times.\nDouble X if it's 4 or more.",
+    "upgrade": {
+      "damage": "+2"
+    },
+    "vars": {
+      "Damage": 8,
+      "Energy": 4
+    },
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": 4,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "MALAISE",
+    "name": "Malaise",
+    "type": "Skill",
+    "target": "AnyEnemy",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Enemy loses X [gold]Strength[/gold]. Apply X [gold]Weak[/gold].",
+    "damage": null,
+    "upgrade_description": "Enemy loses X+1 [gold]Strength[/gold]. Apply X+1 [gold]Weak[/gold].",
+    "upgrade": {
+      "description_changed": 1
+    },
+    "vars": null,
+    "keywords_key": [
+      "Exhaust"
+    ],
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "MULTI_CAST",
+    "name": "Multi-Cast",
+    "type": "Skill",
+    "target": "Self",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "[gold]Evoke[/gold] your rightmost Orb X times.",
+    "damage": null,
+    "upgrade_description": "[gold]Evoke[/gold] your rightmost Orb X+1 times.",
+    "upgrade": {
+      "description_changed": 1
+    },
+    "vars": null,
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "SKEWER",
+    "name": "Skewer",
+    "type": "Attack",
+    "target": "AnyEnemy",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Deal 8 damage X times.",
+    "damage": 8,
+    "upgrade_description": "Deal 11 damage X times.",
+    "upgrade": {
+      "damage": "+3"
+    },
+    "vars": {
+      "Damage": 8
+    },
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "STARDUST",
+    "name": "Stardust",
+    "type": "Attack",
+    "target": "RandomEnemy",
+    "cost": 0,
+    "is_x_cost": null,
+    "is_x_star_cost": true,
+    "description": "Deal 5 damage to a random enemy X times.",
+    "damage": 5,
+    "upgrade_description": "Deal 7 damage to a random enemy X times.",
+    "upgrade": {
+      "damage": "+2"
+    },
+    "vars": {
+      "Damage": 5
+    },
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "TEMPEST",
+    "name": "Tempest",
+    "type": "Skill",
+    "target": "Self",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "[gold]Channel[/gold] X [gold]Lightning[/gold].",
+    "damage": null,
+    "upgrade_description": "[gold]Channel[/gold] X+1 [gold]Lightning[/gold].",
+    "upgrade": {
+      "description_changed": 1
+    },
+    "vars": null,
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "VOLLEY",
+    "name": "Volley",
+    "type": "Attack",
+    "target": "RandomEnemy",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Deal 10 damage to a random enemy X times.",
+    "damage": 10,
+    "upgrade_description": "Deal 14 damage to a random enemy X times.",
+    "upgrade": {
+      "damage": "+4"
+    },
+    "vars": {
+      "Damage": 10
+    },
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  },
+  {
+    "id": "WHIRLWIND",
+    "name": "Whirlwind",
+    "type": "Attack",
+    "target": "AllEnemies",
+    "cost": 0,
+    "is_x_cost": true,
+    "is_x_star_cost": null,
+    "description": "Deal 5 damage to ALL enemies X times.",
+    "damage": 5,
+    "upgrade_description": "Deal 8 damage to ALL enemies X times.",
+    "upgrade": {
+      "damage": "+3"
+    },
+    "vars": {
+      "Damage": 5
+    },
+    "keywords_key": null,
+    "star_cost": null,
+    "spawns_cards": null,
+    "powers_applied": null,
+    "energy_gain": null,
+    "cards_draw": null,
+    "block": null
+  }
+]

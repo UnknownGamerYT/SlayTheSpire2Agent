@@ -703,6 +703,14 @@ def _resolve_turn_start_dynamic(
     hook: CombatRelicHook,
     context: CombatRelicContext,
 ) -> tuple[CombatRelicMarker, ...]:
+    if relic_id == "pumpkin_candle":
+        if context.relic_counters.get(relic_id, 5) <= 0:
+            return ()
+        return (
+            CombatRelicMarker(
+                kind="gain_energy", relic_id=relic_id, hook=hook, amount=1, target_id="player"
+            ),
+        )
     if relic_id == "bread":
         if context.turn_number == 1:
             return (
@@ -3428,9 +3436,8 @@ _STATIC_MARKERS_BY_HOOK: Mapping[
         "philosophers_stone": (
             CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),
         ),
-        "phylactery_unbound": (_resource_spec("summon", 1),),
+        "phylactery_unbound": (_resource_spec("summon", 2),),
         "prismatic_gem": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
-        "pumpkin_candle": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
         "sai": (CombatRelicMarkerSpec("gain_block", amount=7, target_id="player"),),
         "snecko_eye": (CombatRelicMarkerSpec("draw_cards", amount=2, target_id="player"),),
         "sozu": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
@@ -3675,7 +3682,7 @@ _DYNAMIC_MARKER_RELICS_BY_HOOK: Mapping[CombatRelicHook, frozenset[str]] = {
     CombatRelicHook.STATUS_APPLIED: frozenset({"snecko_skull"}),
     CombatRelicHook.STATUS_GAINED: frozenset({"ruined_helmet"}),
     CombatRelicHook.TURN_END: frozenset({"bookmark", "paels_eye", "parrying_shield"}),
-    CombatRelicHook.TURN_START: frozenset({"emotion_chip", "history_course"}),
+    CombatRelicHook.TURN_START: frozenset({"emotion_chip", "history_course", "pumpkin_candle"}),
 }
 
 _SUPPORTED_BY_HOOK: Mapping[CombatRelicHook, frozenset[str]] = {

@@ -1012,7 +1012,11 @@ def _coverage_value(payload: Any) -> float | None:
             if "count_ok" not in item and "sha256_ok" not in item:
                 continue
             checked += 1
-            if item.get("count_ok", True) and item.get("sha256_ok", True):
+            if (
+                item.get("count_ok", True)
+                and item.get("sha256_ok", True)
+                and item.get("channel_ok", True)
+            ):
                 passed += 1
         if checked:
             return passed / checked
@@ -1385,9 +1389,9 @@ def sync_data(
         typer.Option(
             "--data-dir",
             "-d",
-            help="Directory where normalized game data should be stored.",
+            help="Cache root; beta sources are isolated in its beta subdirectory.",
         ),
-    ] = Path("data"),
+    ] = Path("data/cache"),
     manifest_path: Annotated[
         Path | None,
         typer.Option(
@@ -1410,6 +1414,9 @@ def sync_data(
             help="Language code for localized source data.",
         ),
     ] = "eng",
+    channel: Annotated[
+        str, typer.Option("--channel", help="Source channel: stable or beta (audit only).")
+    ] = "stable",
     force: Annotated[
         bool,
         typer.Option(
@@ -1435,9 +1442,10 @@ def sync_data(
             source=source,
             base_url=source or "https://spire-codex.com/api",
             lang=lang,
+            channel=channel,
             force=force,
         )
-    except BackendUnavailable as exc:
+    except (BackendUnavailable, ValueError) as exc:
         _backend_error(exc)
     _emit(result)
 
@@ -1451,7 +1459,7 @@ def audit_coverage(
             "-d",
             help="Directory containing normalized game data.",
         ),
-    ] = Path("data"),
+    ] = Path("data/cache"),
     manifest_path: Annotated[
         Path | None,
         typer.Option(
@@ -1467,6 +1475,9 @@ def audit_coverage(
             help="Language code for localized source data.",
         ),
     ] = "eng",
+    channel: Annotated[
+        str, typer.Option("--channel", help="Source channel: stable or isolated beta.")
+    ] = "stable",
     fail_under: Annotated[
         float | None,
         typer.Option(
@@ -1492,8 +1503,9 @@ def audit_coverage(
             manifest_path=manifest_path,
             manifest=manifest_path,
             lang=lang,
+            channel=channel,
         )
-    except BackendUnavailable as exc:
+    except (BackendUnavailable, ValueError) as exc:
         _backend_error(exc)
 
     payload = _emit(result)
@@ -2216,19 +2228,71 @@ def train_until_boss(
 @app.command("training-check")
 def training_check(
     cache_dir: Annotated[
-        Path, typer.Option("--cache-dir", help="Root of the local stable source cache.")
+        Path, typer.Option("--cache-dir", help="Root of the local source cache.")
     ] = Path("data/cache"),
     manifest_path: Annotated[
-        Path, typer.Option("--manifest", help="Manifest to verify cached checksums against.")
-    ] = Path("data/manifest.json"),
+        Path | None, typer.Option("--manifest", help="Manifest; defaults to the channel location.")
+    ] = None,
+    channel: Annotated[
+        str, typer.Option("--channel", help="Source channel to inspect; only stable is trainable.")
+    ] = "stable",
 ) -> None:
     """Check local training dependencies and source integrity without network access."""
     from sts2sim.learning.readiness import check_training_readiness
 
-    result = check_training_readiness(cache_dir=cache_dir, manifest_path=manifest_path)
+    try:
+        result = check_training_readiness(
+            cache_dir=cache_dir, manifest_path=manifest_path, channel=channel
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--channel") from exc
     _emit(result)
     if not result["ready"]:
         raise typer.Exit(code=1)
+
+
+@app.command("evaluate-ppo")
+def evaluate_ppo(
+    checkpoint_path: Annotated[
+        Path, typer.Option("--checkpoint", exists=True, dir_okay=False, help="Saved PPO weights.")
+    ],
+    seed: Annotated[str, typer.Option("--seed", help="Required fixed evaluation-suite seed.")],
+    target: Annotated[str, typer.Option("--target")] = "act1-boss",
+    eval_runs: Annotated[int, typer.Option("--runs", min=1)] = 20,
+    eval_max_steps: Annotated[int, typer.Option("--max-steps", min=1)] = 1200,
+    character_id: Annotated[str, typer.Option("--character")] = "IRONCLAD",
+    ascension: Annotated[int, typer.Option("--ascension", min=0)] = 0,
+    device: Annotated[str, typer.Option("--device")] = "auto",
+    output_path: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+) -> None:
+    """Evaluate a saved PPO checkpoint on fixed seeds without updating its weights."""
+    from sts2sim.learning.policy import evaluate_ppo as evaluate_saved_policy
+
+    try:
+        result = evaluate_saved_policy(
+            checkpoint_path,
+            seed=seed,
+            target=target,
+            eval_runs=eval_runs,
+            eval_max_steps=eval_max_steps,
+            character_id=character_id,
+            ascension=ascension,
+            device=device,
+        )
+    except (ValueError, RuntimeError, OSError) as exc:
+        _backend_error(exc)
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    _emit(result)
+    if (
+        not result.get("compatible")
+        or result.get("evaluation_errors")
+        or result.get("evaluation_failed_to_continue")
+    ):
+        raise typer.Exit(1)
 
 
 @app.command("train-masked-ppo")
@@ -3540,6 +3604,23 @@ def play_live_agent(
             help="Optional path for the live-agent comparison report.",
         ),
     ] = Path("live_traces/live_agent_latest.json"),
+    checkpoint_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--checkpoint",
+            exists=True,
+            dir_okay=False,
+            help="Use validated PPO weights for supported combat screens.",
+        ),
+    ] = None,
+    device: Annotated[str, typer.Option("--device", help="PPO inference device.")] = "auto",
+    heuristic_fallback: Annotated[
+        bool,
+        typer.Option(
+            "--heuristic-fallback/--no-heuristic-fallback",
+            help="Explicitly use the heuristic on unsupported PPO observations.",
+        ),
+    ] = False,
 ) -> None:
     """Let a conservative live agent play and compare snapshots to the simulator."""
 
@@ -3563,8 +3644,90 @@ def play_live_agent(
             delay_seconds=delay_seconds,
             settle_timeout_seconds=settle_timeout_seconds,
             output_path=output_path,
+            checkpoint_path=checkpoint_path,
+            device=device,
+            heuristic_fallback=heuristic_fallback,
         )
-    except BackendUnavailable as exc:
+    except (BackendUnavailable, ValueError, RuntimeError, OSError) as exc:
+        _backend_error(exc)
+    payload = _emit(result)
+    if checkpoint_path is not None and payload.get("stopped_reason") in {
+        "checkpoint_observation_unsupported",
+        "checkpoint_inference_failed",
+    }:
+        raise typer.Exit(1)
+
+
+@app.command("sync-live-bridges")
+def sync_live_bridge_packages(
+    bridge: Annotated[
+        str, typer.Option(help="Pinned bridge: STS2MCP, STS2-Agent, or all.")
+    ] = "STS2MCP",
+    destination: Annotated[
+        Path, typer.Option(help="Directory for verified release downloads; nothing is installed.")
+    ] = Path("external/live_bridges/downloads"),
+) -> None:
+    """Download checksum-pinned public bridge releases without executing them."""
+    try:
+        backend = _resolve_backend(
+            "sync-live-bridges", ("sts2sim.live_bridges",), ("sync_live_bridges",)
+        )
+        result = _call_backend(backend, bridge=bridge, destination=destination)
+    except (BackendUnavailable, ValueError, RuntimeError, OSError) as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("prepare-live-ppo-bridge")
+def prepare_live_checkpoint_bridge(
+    source_dir: Annotated[
+        Path, typer.Option(help="Clean pinned STS2MCP checkout, or destination for a new clone.")
+    ] = Path("external/live_bridges/repos/STS2MCP"),
+    clone: Annotated[
+        bool, typer.Option("--clone/--no-clone", help="Fetch missing pinned public source.")
+    ] = True,
+) -> None:
+    """Verify and patch STS2MCP source to expose exact PPO combat card identities."""
+    try:
+        backend = _resolve_backend(
+            "prepare-live-ppo-bridge", ("sts2sim.live_bridges",), ("prepare_live_ppo_bridge",)
+        )
+        result = _call_backend(backend, source_dir=source_dir, clone=clone)
+    except (BackendUnavailable, ValueError, RuntimeError, OSError) as exc:
+        _backend_error(exc)
+    _emit(result)
+
+
+@app.command("doctor-live-bridge")
+def inspect_live_bridge(
+    bridge: Annotated[str, typer.Option(help="Pinned bridge to inspect.")] = "STS2MCP",
+    destination: Annotated[
+        Path, typer.Option(help="Directory containing previously downloaded releases.")
+    ] = Path("external/live_bridges/downloads"),
+    base_url: Annotated[
+        str | None, typer.Option(help="Override the bridge's local API URL.")
+    ] = None,
+    offline: Annotated[
+        bool, typer.Option(help="Check downloaded files without probing a running game.")
+    ] = False,
+    timeout_seconds: Annotated[
+        float, typer.Option("--timeout", min=0.1, help="Per-endpoint timeout in seconds.")
+    ] = 1.0,
+) -> None:
+    """Report release integrity, reachable state, and current PPO observation support."""
+    try:
+        backend = _resolve_backend(
+            "doctor-live-bridge", ("sts2sim.live_bridges",), ("doctor_live_bridge",)
+        )
+        result = _call_backend(
+            backend,
+            bridge=bridge,
+            destination=destination,
+            base_url=base_url,
+            offline=offline,
+            timeout_seconds=timeout_seconds,
+        )
+    except (BackendUnavailable, ValueError, RuntimeError, OSError) as exc:
         _backend_error(exc)
     _emit(result)
 

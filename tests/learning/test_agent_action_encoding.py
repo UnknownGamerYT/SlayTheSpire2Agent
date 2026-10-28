@@ -122,7 +122,7 @@ def test_combat_play_card_action_exposes_effect_amounts() -> None:
     assert play["preview"]["target_hp_delta"] == -8
     assert play["preview"]["player_energy_delta"] == -2
     assert play["preview"]["hand_delta"] == -1
-    assert "projected_damage_taken_after_end" in play["preview"]
+    assert "projected_damage_taken_after_end" not in play["preview"]
     assert len(_action_features(play)) == ACTION_FEATURE_DIM
 
 
@@ -259,7 +259,9 @@ def test_enemy_turn_preview_exposes_retaliation_and_next_turn_context() -> None:
         ),
     )
 
-    end_turn = next(action for action in action_space(state) if action["type"] == "end_turn")
+    end_turn = next(
+        action for action in action_space(state, oracle=True) if action["type"] == "end_turn"
+    )
 
     assert end_turn["preview"]["projected_damage_taken_after_end"] == 6
     assert end_turn["preview"]["enemy_turn_available"] == 1
@@ -625,7 +627,7 @@ def test_positions_are_visible_to_observation_and_actions() -> None:
 
     assert observation["positions"]["cards"]["hand"][1]["card_id"] == "defend"
     assert observation["positions"]["cards"]["draw_pile"][0]["card_id"] == "bash"
-    assert observation["positions"]["cards"]["draw_pile"][0]["position_from_top"] == 0
+    assert observation["positions"]["cards"]["draw_pile"][0]["position_from_top"] is None
     assert observation["positions"]["potions"][1]["potion_id"] == "block_potion"
     assert defend_action["card"]["zone"] == "hand"
     assert defend_action["card"]["position"] == 1

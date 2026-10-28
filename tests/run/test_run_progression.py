@@ -103,7 +103,13 @@ def _force_next_room(state, room_kind: RoomKind):
         completed_node_ids=(start.node_id,),
     )
     return state.model_copy(
-        update={"phase": RunPhase.MAP, "map": game_map, "floor": 0, "reward": None}
+        update={
+            "phase": RunPhase.MAP, "map": game_map, "floor": 0, "reward": None,
+            "flags": {
+                key: value for key, value in state.flags.items()
+                if key != "pending_relic_deck_choices"
+            },
+        }
     )
 
 

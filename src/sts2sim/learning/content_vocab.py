@@ -13,16 +13,18 @@ import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from functools import cache
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from sts2sim.learning.provenance import resolve_english_dataset_path
 
 CONTENT_VOCAB_SCHEMA_VERSION = 1
 CONTENT_IDENTITY_SLOTS = 8
 CONTENT_IDENTITY_EMBED_DIM = 32
 PAD_TOKEN = "<pad>"
 UNKNOWN_TOKEN = "<unk>"
-_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "cache" / "eng"
+_VOCAB_DATASETS = ("cards", "relics", "potions", "monsters", "powers", "events")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,18 +60,45 @@ class ContentVocab:
         return self.token_to_id.get(token, self.unknown_id)
 
 
-@cache
 def load_content_vocab(cache_dir: str | Path | None = None) -> ContentVocab:
-    """Load a deterministic vocabulary from cached Spire Codex content."""
+    """Load IDs from the same cwd-first source files used by the engine.
 
-    root = Path(cache_dir) if cache_dir is not None else _CACHE_DIR
+    Explicit ``cache_dir`` retains its historical English-directory meaning.
+    The internal cache key includes selected file identity and modification time,
+    so changing directories or refreshing source IDs cannot reuse an old vocab.
+    """
+    keys = []
+    for dataset in _VOCAB_DATASETS:
+        path = (
+            Path(cache_dir) / f"{dataset}.json" if cache_dir is not None
+            else resolve_english_dataset_path(dataset)
+        )
+        try:
+            stat = path.stat() if path is not None else None
+        except OSError:
+            stat = None
+        keys.append((dataset, str(path.resolve()) if path is not None else "",
+                     stat.st_mtime_ns if stat else 0, stat.st_size if stat else 0,
+                     stat.st_ctime_ns if stat else 0, stat.st_ino if stat else 0))
+    return _load_content_vocab_from_paths(tuple(keys))
+
+
+@lru_cache(maxsize=16)
+def _load_content_vocab_from_paths(
+    keys: tuple[tuple[str, str, int, int, int, int], ...],
+) -> ContentVocab:
+    paths = {row[0]: Path(row[1]) if row[1] else None for row in keys}
     tokens: set[str] = set()
-    tokens.update(_dataset_id_tokens(root / "cards.json", "card"))
-    tokens.update(_dataset_id_tokens(root / "relics.json", "relic"))
-    tokens.update(_dataset_id_tokens(root / "potions.json", "potion"))
-    tokens.update(_dataset_id_tokens(root / "monsters.json", "monster"))
-    tokens.update(_dataset_id_tokens(root / "powers.json", "status"))
-    tokens.update(_event_tokens(root / "events.json"))
+    for dataset, namespace in (
+        ("cards", "card"), ("relics", "relic"), ("potions", "potion"),
+        ("monsters", "monster"), ("powers", "status"),
+    ):
+        path = paths[dataset]
+        if path is not None:
+            tokens.update(_dataset_id_tokens(path, namespace))
+    events_path = paths["events"]
+    if events_path is not None:
+        tokens.update(_event_tokens(events_path))
     tokens.update(_static_option_tokens())
     ordered = tuple(sorted(tokens))
     return ContentVocab(tokens=ordered, checksum=_checksum((PAD_TOKEN, UNKNOWN_TOKEN, *ordered)))

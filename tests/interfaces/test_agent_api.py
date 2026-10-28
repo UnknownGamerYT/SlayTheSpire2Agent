@@ -79,7 +79,8 @@ def test_encode_observation_is_json_friendly_and_has_numeric_vector() -> None:
     compact_observation = encode_observation(state, include_state=False)
 
     json.dumps(observation, sort_keys=True)
-    assert "state" in observation
+    assert "state" not in observation
+    assert encode_observation(state, oracle=True, include_state=True)["state"] == serialize(state)
     assert "state" not in compact_observation
     assert len(observation["vector"]) == len(observation["vector_schema"])
     assert all(isinstance(value, int | float) for value in observation["vector"])

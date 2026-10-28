@@ -10,6 +10,7 @@ from sts2sim.api import legal_actions as _legal_actions
 from sts2sim.api import serialize as _serialize
 from sts2sim.api import step as _step
 from sts2sim.engine.models import Action, ActionType
+from sts2sim.policy_visibility import draw_order_is_visible, policy_state
 
 SECOND_TURN_ACTION_LIMIT = 32
 
@@ -25,33 +26,44 @@ def preview_actions(
     actions: Sequence[Action],
     *,
     second_turn_action_limit: int = SECOND_TURN_ACTION_LIMIT,
+    oracle: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Preview legal actions without mutating the original state.
 
-    The preview is intentionally bounded: it simulates the selected action, an
-    optional forced end turn, and one aggregate pass over the next visible legal
-    actions. This keeps the PPO input useful without turning action enumeration
-    into a full tree search.
+    The default only exposes deterministic effects of visible combat actions.
+    Map outcomes, hidden draws, random effects, and next-turn lookahead are
+    suppressed. ``oracle=True`` restores exact bounded simulator lookahead for
+    debugging and must not be used as a normal policy input.
     """
 
+    state = policy_state(state, oracle=oracle)
     before_payload = _serialize(state)
     previews: dict[str, dict[str, Any]] = {}
     for action in actions:
         key = preview_action_key(action)
+        if not oracle and (
+            not _mapping(before_payload.get("combat")) or action.type == ActionType.END_TURN
+        ):
+            previews[key] = {"preview_available": 0}
+            continue
         try:
             next_state = _step(state, action)
             next_payload = _serialize(next_state)
+            if not oracle and _preview_crosses_visibility_boundary(before_payload, next_payload):
+                previews[key] = {"preview_available": 0}
+                continue
             preview = _transition_preview(before_payload, next_payload, action)
-            preview.update(
-                _combat_lookahead_preview(
-                    before_state=state,
-                    before_payload=before_payload,
-                    action=action,
-                    after_state=next_state,
-                    after_payload=next_payload,
-                    second_turn_action_limit=second_turn_action_limit,
+            if oracle:
+                preview.update(
+                    _combat_lookahead_preview(
+                        before_state=state,
+                        before_payload=before_payload,
+                        action=action,
+                        after_state=next_state,
+                        after_payload=next_payload,
+                        second_turn_action_limit=second_turn_action_limit,
+                    )
                 )
-            )
         except Exception as exc:  # pragma: no cover - defensive runtime capture
             preview = {
                 "preview_error": 1,
@@ -60,6 +72,18 @@ def preview_actions(
             }
         previews[key] = preview
     return previews
+
+
+def _preview_crosses_visibility_boundary(
+    before: Mapping[str, Any], after: Mapping[str, Any]
+) -> bool:
+    if before.get("rng") != after.get("rng"):
+        return True
+    if draw_order_is_visible(before):
+        return False
+    before_combat = _mapping(before.get("combat"))
+    after_combat = _mapping(after.get("combat"))
+    return before_combat.get("draw_pile") != after_combat.get("draw_pile")
 
 
 def _transition_preview(
@@ -96,8 +120,7 @@ def _transition_preview(
         "player_energy_delta": _int(after_player.get("energy")) - _int(before_player.get("energy")),
         "player_gold_delta": _int(after_root_player.get("gold"))
         - _int(before_root_player.get("gold")),
-        "player_max_hp_delta": _int(after_player.get("max_hp"))
-        - _int(before_player.get("max_hp")),
+        "player_max_hp_delta": _int(after_player.get("max_hp")) - _int(before_player.get("max_hp")),
         "deck_count_delta": len(_sequence(after_payload.get("master_deck")))
         - len(_sequence(before_payload.get("master_deck"))),
         "relic_count_delta": len(_sequence(after_payload.get("relics")))
@@ -106,16 +129,14 @@ def _transition_preview(
         - len(_sequence(before_payload.get("potions"))),
         "target_is_monster": int(bool(before_target or after_target)),
         "target_hp_delta": _int(after_target.get("hp")) - _int(before_target.get("hp")),
-        "target_block_delta": _int(after_target.get("block"))
-        - _int(before_target.get("block")),
+        "target_block_delta": _int(after_target.get("block")) - _int(before_target.get("block")),
         "monster_hp_total_delta": _monster_hp_total(after_payload)
         - _monster_hp_total(before_payload),
         "monster_block_total_delta": _monster_block_total(after_payload)
         - _monster_block_total(before_payload),
         "alive_monster_delta": after_alive - before_alive,
         "kills": max(0, before_alive - after_alive),
-        "incoming_damage_delta": _incoming_damage(after_payload)
-        - _incoming_damage(before_payload),
+        "incoming_damage_delta": _incoming_damage(after_payload) - _incoming_damage(before_payload),
         "hand_delta": _zone_count(after_combat, "hand") - _zone_count(before_combat, "hand"),
         "draw_pile_delta": _zone_count(after_combat, "draw_pile")
         - _zone_count(before_combat, "draw_pile"),
@@ -199,9 +220,7 @@ def _combat_lookahead_preview(
         "next_turn_player_block": _int(end_player.get("block")),
         "next_turn_player_energy": _int(end_player.get("energy")),
         "next_turn_hand_count": _zone_count(_mapping(end_payload.get("combat")), "hand"),
-        "next_turn_draw_pile_count": _zone_count(
-            _mapping(end_payload.get("combat")), "draw_pile"
-        ),
+        "next_turn_draw_pile_count": _zone_count(_mapping(end_payload.get("combat")), "draw_pile"),
         "next_turn_discard_pile_count": _zone_count(
             _mapping(end_payload.get("combat")), "discard_pile"
         ),
@@ -296,8 +315,7 @@ def _enemy_turn_preview(
         "enemy_turn_damage_taken": max(0, start_player_hp - end_player_hp),
         "enemy_turn_player_block_delta": _int(end_player.get("block"))
         - _int(start_player.get("block")),
-        "enemy_turn_player_status_delta": _status_total(end_player)
-        - _status_total(start_player),
+        "enemy_turn_player_status_delta": _status_total(end_player) - _status_total(start_player),
         "enemy_turn_monster_hp_delta": _monster_hp_total(end_payload)
         - _monster_hp_total(start_payload),
         "enemy_turn_monster_block_delta": _monster_block_total(end_payload)
@@ -392,8 +410,7 @@ def _event_is_debuff(kind: str, metadata: Mapping[str, Any]) -> bool:
 
 def _last_events(payload: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
     return tuple(
-        _mapping(event)
-        for event in _sequence(_mapping(payload.get("combat")).get("last_events"))
+        _mapping(event) for event in _sequence(_mapping(payload.get("combat")).get("last_events"))
     )
 
 

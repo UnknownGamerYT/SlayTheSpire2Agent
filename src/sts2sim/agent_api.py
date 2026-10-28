@@ -59,6 +59,13 @@ from sts2sim.mechanics.trigger_visibility import (
     trigger_visibility_summary,
     trigger_visibility_vector,
 )
+from sts2sim.policy_visibility import (
+    POLICY_OBSERVATION_SCHEMA_VERSION,
+    draw_order_is_visible,
+    policy_payload,
+    policy_state,
+    public_run_flags,
+)
 
 DEFAULT_MAX_ACTIONS = 512
 RELIC_HASH_BUCKETS = 32
@@ -227,7 +234,7 @@ OBSERVATION_VECTOR_SCHEMA: tuple[str, ...] = (
 )
 
 
-def action_space(state: Any) -> list[dict[str, Any]]:
+def action_space(state: Any, *, oracle: bool = False) -> list[dict[str, Any]]:
     """Return state-local action descriptors with deterministic integer IDs.
 
     IDs are assigned after sorting legal engine actions by their canonical JSON
@@ -237,8 +244,9 @@ def action_space(state: Any) -> list[dict[str, Any]]:
     """
 
     actions = _ordered_legal_actions(state)
-    previews = preview_actions(state, actions)
-    state_payload = _serialize(state)
+    previews = preview_actions(state, actions, oracle=oracle)
+    state = policy_state(state, oracle=oracle)
+    state_payload = policy_payload(_serialize(state), oracle=oracle)
     return [
         _action_descriptor(
             action_id,
@@ -246,6 +254,7 @@ def action_space(state: Any) -> list[dict[str, Any]]:
             state,
             preview=previews.get(preview_action_key(action)),
             state_payload=state_payload,
+            draw_order_visible=draw_order_is_visible(state_payload, oracle=oracle),
         )
         for action_id, action in enumerate(actions)
     ]
@@ -289,18 +298,21 @@ def decode_action(state: Any, action_id: int) -> Action:
 def encode_observation(
     state: Any,
     *,
-    include_state: bool = True,
+    include_state: bool = False,
     agent_memory: object | None = None,
+    oracle: bool = False,
 ) -> dict[str, Any]:
     """Encode a simulator state as a JSON-friendly observation payload.
 
     The ``vector`` field is fixed-length and numeric. Structured sections keep
     useful symbolic context available for agents that are not purely tensor
-    based. The full serialized state is included by default for lossless
-    debugging and can be omitted with ``include_state=False``.
+    based. Hidden draw order and RNG are excluded by default. ``oracle=True``
+    enables exact simulator facts for debugging; combine it with
+    ``include_state=True`` for a lossless engine snapshot. Otherwise an included
+    state is sanitized and is not an engine save.
     """
 
-    payload = _serialize(state)
+    payload = policy_payload(_serialize(state), oracle=oracle)
     phase = str(payload.get("phase", ""))
     legal_action_count = len(_ordered_legal_actions(state))
 
@@ -370,14 +382,16 @@ def encode_observation(
         + len(_sequence(reward.get("potion_ids"))),
     }
     aggression = aggression_summary(payload)
-    belief = belief_summary(payload)
+    belief = belief_summary(payload, oracle=oracle)
     reward_plan = reward_plan_summary(payload)
     route_plan = route_plan_summary(payload)
     player_status_atoms = status_atom_summary(_mapping(player.get("statuses")))
     enemy_traits_vector = enemy_trait_aggregate_vector(payload)
     trigger_visibility = trigger_visibility_summary(payload)
     potion_slots = potion_slot_summary(payload)
-    card_slots = _card_visibility_slots(payload)
+    card_slots = _card_visibility_slots(
+        payload, draw_order_visible=draw_order_is_visible(payload, oracle=oracle)
+    )
     reward_slots = reward_option_slots(payload, limit=REWARD_OPTION_SLOT_LIMIT)
     shop_slots = shop_option_slots(payload, limit=SHOP_OPTION_SLOT_LIMIT)
 
@@ -489,7 +503,9 @@ def encode_observation(
             bucket_count=MECHANIC_TAG_BUCKETS,
         )
     )
-    positions = _position_summary(payload)
+    positions = _position_summary(
+        payload, draw_order_visible=draw_order_is_visible(payload, oracle=oracle)
+    )
     vector.extend(
         _hash_presence_features(
             _position_tokens(positions, "cards"),
@@ -537,6 +553,8 @@ def encode_observation(
 
     observation: dict[str, Any] = {
         "schema_version": _int(payload.get("schema_version")),
+        "policy_observation_schema_version": POLICY_OBSERVATION_SCHEMA_VERSION,
+        "visibility_mode": "oracle" if oracle else "visible",
         "phase": phase,
         "phase_id": PHASE_IDS.get(phase, -1),
         "vector_schema": list(OBSERVATION_VECTOR_SCHEMA),
@@ -546,11 +564,15 @@ def encode_observation(
         "combat": combat_summary,
         "map": map_summary,
         "reward": reward_summary,
+        "relic_deck_choices": _json_safe(
+            _mapping(payload.get("flags")).get("pending_relic_deck_choices", [])
+        ),
         "aggression": aggression,
         "belief": belief,
         "reward_plan": reward_plan,
         "route_plan": route_plan,
         "visibility": {
+            "draw_order_visible": draw_order_is_visible(payload, oracle=oracle),
             "player_status_atoms": player_status_atoms,
             "trigger_visibility": trigger_visibility,
             "potion_slots": potion_slots,
@@ -568,6 +590,8 @@ def encode_observation(
         },
     }
     if include_state:
+        if not oracle:
+            payload["flags"] = public_run_flags(_mapping(payload.get("flags")))
         observation["state"] = payload
     return observation
 
@@ -669,8 +693,10 @@ def _agent_memory_vector(memory_summary: Mapping[str, Any]) -> list[float]:
     return vector
 
 
-def _card_visibility_slots(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    return {
+def _card_visibility_slots(
+    payload: Mapping[str, Any], *, draw_order_visible: bool = False
+) -> dict[str, list[dict[str, Any]]]:
+    slots = {
         "hand": card_slots_from_payload(payload, zone="hand", limit=HAND_CARD_SLOT_LIMIT),
         "draw_pile": card_slots_from_payload(
             payload,
@@ -693,6 +719,10 @@ def _card_visibility_slots(payload: Mapping[str, Any]) -> dict[str, list[dict[st
             limit=MASTER_DECK_CARD_SLOT_LIMIT,
         ),
     }
+    if not draw_order_visible:
+        for slot in slots["draw_pile"]:
+            slot["position"] = 0.0
+    return slots
 
 
 def _card_slot_vectors(slots_by_zone: Mapping[str, Any]) -> list[float]:
@@ -794,12 +824,16 @@ def _target_tokens(targets: Mapping[str, Any], kind: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
-def _position_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+def _position_summary(
+    payload: Mapping[str, Any], *, draw_order_visible: bool = False
+) -> dict[str, Any]:
     combat = _mapping(payload.get("combat"))
     cards = {
         "master_deck": _card_position_list(payload.get("master_deck"), zone="master_deck"),
         "hand": _card_position_list(combat.get("hand"), zone="hand"),
-        "draw_pile": _card_position_list(combat.get("draw_pile"), zone="draw_pile"),
+        "draw_pile": _card_position_list(
+            combat.get("draw_pile"), zone="draw_pile", order_visible=draw_order_visible
+        ),
         "discard_pile": _card_position_list(combat.get("discard_pile"), zone="discard_pile"),
         "exhaust_pile": _card_position_list(combat.get("exhaust_pile"), zone="exhaust_pile"),
     }
@@ -820,14 +854,16 @@ def _position_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _card_position_list(raw_cards: object, *, zone: str) -> list[dict[str, Any]]:
+def _card_position_list(
+    raw_cards: object, *, zone: str, order_visible: bool = True
+) -> list[dict[str, Any]]:
     return [
         {
             "instance_id": str(_mapping(card).get("instance_id", "")),
             "card_id": str(_mapping(card).get("card_id", "")),
             "zone": zone,
-            "position": index,
-            "position_from_top": index if zone == "draw_pile" else None,
+            "position": index if order_visible else None,
+            "position_from_top": index if zone == "draw_pile" and order_visible else None,
         }
         for index, card in enumerate(_sequence(raw_cards))
     ]
@@ -965,6 +1001,7 @@ def _action_descriptor(
     *,
     preview: Mapping[str, Any] | None = None,
     state_payload: Mapping[str, Any] | None = None,
+    draw_order_visible: bool = False,
 ) -> dict[str, Any]:
     payload = _action_payload(action)
     descriptor = {
@@ -992,6 +1029,18 @@ def _action_descriptor(
                 if len(selected_cards) == 1
                 else _aggregate_selected_card_descriptor(selected_cards)
             )
+        option = _event_option_for_action(state, action)
+        if _mapping(getattr(option, "metadata", {})).get("source_relic_id") == "scroll_boxes":
+            package_card = dict(_mapping(descriptor.get("card")))
+            package_card["effects"] = {
+                "sequence": [dict(_mapping(selected.get("effects"))) for selected in selected_cards]
+            }
+            descriptor["card"] = package_card
+    if not draw_order_visible:
+        for draw_card in [descriptor.get("card"), *selected_cards]:
+            if isinstance(draw_card, dict) and draw_card.get("zone") == "draw_pile":
+                draw_card["position"] = 0
+                draw_card["position_from_top"] = None
     node = _action_node_descriptor(state, action)
     if node:
         descriptor["node"] = node
@@ -1094,6 +1143,10 @@ def _action_option_content_id(descriptor: Mapping[str, Any]) -> str:
 def _action_card_descriptor(state: Any, action: Action) -> dict[str, Any]:
     card_instance_id = _action_card_instance_id(action)
     if card_instance_id is not None:
+        if action.payload.get("relic_deck_choice_id"):
+            for position, card in enumerate(getattr(state, "master_deck", ())):
+                if getattr(card, "instance_id", None) == card_instance_id:
+                    return _card_descriptor(card, zone="master_deck", position=position)
         reference = _find_card_reference(state, card_instance_id)
         if reference is not None:
             card, zone, position = reference
@@ -1117,11 +1170,23 @@ def _action_card_descriptor(state: Any, action: Action) -> dict[str, Any]:
 
     reward_card_id = _reward_card_id_for_action(state, action)
     if reward_card_id is not None:
-        return _card_id_descriptor(
+        descriptor = _card_id_descriptor(
             reward_card_id,
             zone="reward",
             position=_reward_position_for_action(state, action),
         )
+        reward = getattr(state, "reward", None)
+        reward_metadata = _mapping(getattr(reward, "metadata", {}))
+        enchantment_key = "primary"
+        if action.target_id and action.target_id.startswith("reward:card_group:"):
+            enchantment_key = f"group:{action.target_id.split(':')[2]}"
+        enchantments = _mapping(reward_metadata.get("card_reward_enchantments"))
+        if not (action.target_id or "").startswith("reward:fixed_card:"):
+            card_enchantments = _sequence(enchantments.get(enchantment_key))
+            if card_enchantments:
+                descriptor["enchantments"] = [_json_safe(item) for item in card_enchantments]
+                descriptor["tags"] = list(descriptor.get("tags", ())) + ["enchant:glam"]
+        return descriptor
 
     item = _shop_item_for_action(state, action)
     if item and str(getattr(item, "kind", "")) in {"card", "colorless_card"}:
@@ -1144,6 +1209,19 @@ def _action_card_instance_id(action: Action) -> str | None:
 
 
 def _action_selected_card_descriptors(state: Any, action: Action) -> list[dict[str, Any]]:
+    if action.type == ActionType.CHOOSE_EVENT:
+        option = _event_option_for_action(state, action)
+        metadata = _mapping(getattr(option, "metadata", {}))
+        if str(metadata.get("source_relic_id", "")) == "scroll_boxes":
+            from sts2sim.engine.transitions import _card_from_spec, _reward_card_spec
+
+            return [
+                _card_descriptor(
+                    _card_from_spec(_reward_card_spec(state, str(card_id)), position + 1),
+                    zone="reward", position=position,
+                )
+                for position, card_id in enumerate(_sequence(metadata.get("card_ids")))
+            ]
     card_ids = _action_payload_card_instance_ids(action)
     if not card_ids and action.type == ActionType.CHOOSE_EVENT and action.card_instance_id:
         card_ids = (action.card_instance_id,)
@@ -1332,6 +1410,18 @@ def _action_target_descriptor(state: Any, action: Action) -> dict[str, Any]:
     target_id = action.target_id
     if target_id is None:
         return {}
+    if action.type == ActionType.MEND:
+        flags = _mapping(getattr(state, "flags", {}))
+        allies = _sequence(flags.get("allies", flags.get("ally_players")))
+        for index, raw_ally in enumerate(allies):
+            ally = _mapping(raw_ally)
+            if str(ally.get("id", f"ally:{index}")) == target_id:
+                return {
+                    "kind": "ally",
+                    "target_id": target_id,
+                    "hp": _int(ally.get("hp")),
+                    "max_hp": _int(ally.get("max_hp")),
+                }
     combat = getattr(state, "combat", None)
     if combat is None:
         return {}
@@ -1881,21 +1971,28 @@ def _potion_belt_summary(state: Any) -> dict[str, Any]:
     flags = _mapping(getattr(state, "flags", {}))
     explicit_slots = _parse_int(flags.get("potion_slots"))
     potions = tuple(str(potion_id) for potion_id in _sequence(getattr(state, "potions", ())))
-    if explicit_slots is not None:
-        capacity = max(0, explicit_slots)
-        open_slots = max(0, capacity - len(potions))
-        base_slots = capacity
-    else:
-        base_slots = _parse_int(flags.get("base_potion_slots")) or 3
-        result = potion_capacity(
-            base_slots=base_slots,
-            ascension_level=_int(getattr(state, "ascension", 0)),
-            relics=tuple(str(relic_id) for relic_id in _sequence(getattr(state, "relics", ()))),
-            bonus_slots=_parse_int(flags.get("bonus_potion_slots")) or 0,
-            current_potions=potions,
-        )
-        capacity = result.capacity
-        open_slots = result.open_slots
+    base_slots = explicit_slots
+    if base_slots is None:
+        base_slots = _parse_int(flags.get("base_potion_slots"))
+    if base_slots is None:
+        base_slots = 3
+    permanent_pickups = {
+        _normalized_content_id(relic_id)
+        for relic_id in _sequence(flags.get("potion_slot_relic_pickups"))
+    }
+    owned = tuple(
+        str(relic_id) for relic_id in _sequence(getattr(state, "relics", ()))
+        if _normalized_content_id(relic_id) not in permanent_pickups
+    )
+    result = potion_capacity(
+        base_slots=base_slots,
+        ascension_level=_int(getattr(state, "ascension", 0)),
+        relics=owned,
+        bonus_slots=_parse_int(flags.get("bonus_potion_slots")) or 0,
+        current_potions=potions,
+    )
+    capacity = result.capacity
+    open_slots = result.open_slots
     current = len(potions)
     return {
         "capacity": capacity,
@@ -2092,7 +2189,9 @@ def _normalized_content_id(value: object) -> str:
 
 def _action_relic_descriptor(state: Any, action: Action) -> dict[str, Any]:
     relic_id: object | None = None
-    if action.type == ActionType.CHOOSE_ANCIENT:
+    if action.payload.get("relic_deck_choice_id"):
+        relic_id = action.payload.get("source_relic_id")
+    elif action.type == ActionType.CHOOSE_ANCIENT:
         option = _ancient_option_for_action(state, action)
         relic_id = getattr(option, "relic_id", None) if option is not None else None
     elif action.type == ActionType.TAKE_REWARD_RELIC:
@@ -2107,6 +2206,10 @@ def _action_relic_descriptor(state: Any, action: Action) -> dict[str, Any]:
 
 
 def _action_reward_descriptor(state: Any, action: Action) -> dict[str, Any]:
+    if action.payload.get("relic_deck_choice_id"):
+        # Finishing an optional selection resumes the surrounding reward screen;
+        # it does not skip any of those still-unclaimed rewards.
+        return {}
     if action.type not in {
         ActionType.TAKE_REWARD_GOLD,
         ActionType.TAKE_REWARD_RELIC,
@@ -2550,6 +2653,8 @@ def _reward_selection_context_for_action(state: Any, action: Action) -> dict[str
 
 
 def _action_event_option_descriptor(state: Any, action: Action) -> dict[str, Any]:
+    if action.payload.get("relic_deck_choice_id"):
+        return {}
     event = getattr(state, "event", None)
     if action.type == ActionType.PROCEED and getattr(state, "phase", None) == RunPhase.EVENT:
         if event is None or getattr(event, "resolved_option_id", None) is not None:

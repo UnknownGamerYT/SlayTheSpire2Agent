@@ -41,7 +41,7 @@ def test_combat_search_values_card_specific_kill_payoff() -> None:
         (
             {
                 **_attack("FINISHING_BLOW", damage=5, cost=1),
-                "description": "Deal 5 damage.\nIf this kills an enemy, gain [energy:3].",
+                "description": "Deal 5 damage.\nIf Fatal, raise your Max HP by 3.",
             },
             _attack("PLAIN_KILL", damage=5, cost=1),
         ),

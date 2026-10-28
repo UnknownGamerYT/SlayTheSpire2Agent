@@ -17,6 +17,7 @@ class CampfireAction(str, Enum):
     DIG = "dig"
     LIFT = "lift"
     TOKE = "toke"
+    KINDLE = "kindle"
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +41,8 @@ class CampfireState:
     has_girya: bool = False
     lift_count: int = 0
     has_peace_pipe: bool = False
+    has_pumpkin_candle: bool = False
+    pumpkin_candle_charges: int = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +96,8 @@ def available_campfire_actions(
         actions.add(CampfireAction.LIFT)
     if state.has_peace_pipe and state.removable_card_ids:
         actions.add(CampfireAction.TOKE)
+    if state.has_pumpkin_candle:
+        actions.add(CampfireAction.KINDLE)
     return frozenset(actions)
 
 
@@ -166,5 +171,11 @@ def resolve_campfire_action(
             removed_card_id=choice.target_id,
             source=rules.source,
         )
+
+    if choice.action is CampfireAction.KINDLE:
+        next_state = replace(
+            state, pumpkin_candle_charges=max(0, state.pumpkin_candle_charges) + 5
+        )
+        return CampfireResult(choice=choice, state=next_state, source=rules.source)
 
     raise ValueError(f"Unsupported campfire action: {choice.action.value}")

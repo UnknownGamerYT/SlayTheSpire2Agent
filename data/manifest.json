@@ -1,88 +1,157 @@
 {
-  "generated_at": "2026-10-28T10:47:24.386121+00:00",
-  "schema_version": 1,
+  "generated_at": "2026-10-28T13:51:51.068443+00:00",
+  "schema_version": 2,
   "sources": {
     "eng/acts": {
+      "channel": "stable",
       "count": 4,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "768ccb7ab7231c8b7584eca5a0a6e4932c67dc671f0f286bb8226f2ec02a51e5",
       "source_url": "https://spire-codex.com/api/acts?lang=eng"
     },
+    "eng/afflictions": {
+      "channel": "stable",
+      "count": 7,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "b55258f2f86d28e7160bb0d3e01de035cde98c9a851ff15e65ae48ab5122e848",
+      "source_url": "https://spire-codex.com/api/afflictions?lang=eng"
+    },
     "eng/ascensions": {
+      "channel": "stable",
       "count": 11,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "f9342d130bf18981b6bc34df91da6c04379acced3e3e3105405aea1bfc0e43da",
       "source_url": "https://spire-codex.com/api/ascensions?lang=eng"
     },
     "eng/cards": {
+      "channel": "stable",
       "count": 577,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "ae1bf6a2f52d6a80327de818c2c6c93749f97faccbf1f7df0d72164539b5f0ef",
       "source_url": "https://spire-codex.com/api/cards?lang=eng"
     },
     "eng/characters": {
+      "channel": "stable",
       "count": 5,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "9be5d05020b896f438eb5356166b2e097343d0c6a842fb749ff411cf9488fe69",
       "source_url": "https://spire-codex.com/api/characters?lang=eng"
     },
+    "eng/enchantments": {
+      "channel": "stable",
+      "count": 22,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "78289bf6efb95dc7d8923563fc8f0c6aa616d09f8bac3fbdf5e742522cf5c515",
+      "source_url": "https://spire-codex.com/api/enchantments?lang=eng"
+    },
     "eng/encounters": {
+      "channel": "stable",
       "count": 87,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "a24589ba6560dc6c120d75068b46933fd7337699a0a67e7e7254582d25eb0c04",
       "source_url": "https://spire-codex.com/api/encounters?lang=eng"
     },
     "eng/events": {
+      "channel": "stable",
       "count": 66,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "37be0fc3457e3e0745f098b304b49bc95c067f222a5e0af50680d5ffec69bec0",
       "source_url": "https://spire-codex.com/api/events?lang=eng"
     },
-    "eng/mechanics_constants": {
+    "eng/intents": {
+      "channel": "stable",
+      "count": 14,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "5b2543cc0ba7bda7080ca8e50de2bf46684f67e7337ae0ce84854194f85eba07",
+      "source_url": "https://spire-codex.com/api/intents?lang=eng"
+    },
+    "eng/keywords": {
+      "channel": "stable",
       "count": 7,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "1646574b348ed66eac63bf0b9639e64664b4d61cf12ac7764bd8f9b2f6d5e48f",
+      "source_url": "https://spire-codex.com/api/keywords?lang=eng"
+    },
+    "eng/mechanics_constants": {
+      "channel": "stable",
+      "count": 7,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "5bbd658f5b7d10e7c50c883adf2f2cf454757bf69007d55983a0c38f6f1efd35",
       "source_url": "https://spire-codex.com/api/mechanics/constants"
     },
     "eng/mechanics_sections": {
+      "channel": "stable",
       "count": 27,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "33ac3898bfeca90f9061f367db7e58cff4214f92f76326809b32165257dba832",
       "source_url": "https://spire-codex.com/api/mechanics/sections"
     },
     "eng/monsters": {
+      "channel": "stable",
       "count": 115,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "7be9b2b075e09cba1f46cad387581ca2b347d31821fe9e9f22dee4a9dd4372d1",
       "source_url": "https://spire-codex.com/api/monsters?lang=eng"
     },
+    "eng/orbs": {
+      "channel": "stable",
+      "count": 5,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "dea78e4a9dcaa922cdc26c18565befcadc1264b74012469654075ebb00710923",
+      "source_url": "https://spire-codex.com/api/orbs?lang=eng"
+    },
     "eng/potions": {
+      "channel": "stable",
       "count": 63,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "b3acfc172172201470a3386b5bff37651f4476ddcb4f34b9b10661665ed1afbe",
       "source_url": "https://spire-codex.com/api/potions?lang=eng"
     },
     "eng/powers": {
+      "channel": "stable",
       "count": 257,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "58659b3f69f33a846ddfa9f36f4ccb9d2b9e6d7d4aeb45582c34c008af9348be",
       "source_url": "https://spire-codex.com/api/powers?lang=eng"
     },
     "eng/relics": {
+      "channel": "stable",
       "count": 296,
-      "fetched_at": "2026-10-28T10:47:24.386121Z",
-      "schema_version": 1,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
       "sha256": "ba7c9ce8db46c798437ce8899b9b805e7b1dd7d6d6e977a3ac6635c2f78425da",
       "source_url": "https://spire-codex.com/api/relics?lang=eng"
     }

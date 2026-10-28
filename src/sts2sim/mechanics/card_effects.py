@@ -15,6 +15,7 @@ from typing import Any
 
 from .card_specials import card_special_plan
 from .powers import normalize_power_id, power_application_effect
+from .source_card_rules import source_execution_steps, source_play_restrictions
 
 ENGINE_EFFECT_KEYS = frozenset(
     {
@@ -26,6 +27,10 @@ ENGINE_EFFECT_KEYS = frozenset(
         "block_formula",
         "damage",
         "damage_formula",
+        "repeat_damage",
+        "return_next_turn",
+        "intangible_if_exhausted",
+        "exhaust_hand",
         "destination",
         "draw",
         "draw_formula",
@@ -64,6 +69,9 @@ EXTENDED_EFFECT_KEYS = frozenset(
         "channel_orb",
         "combat_trigger",
         "choose_card",
+        "conditional",
+        "death_cost_delta",
+        "on_draw",
         "discard_choice",
         "discard_hand",
         "evoke_orb",
@@ -72,6 +80,8 @@ EXTENDED_EFFECT_KEYS = frozenset(
         "dynamic_channel_orb",
         "exhaust_choice",
         "exhaust_random",
+        "if_fatal",
+        "if_drawn_type",
         "if_kill_resource",
         "orb_slot_delta",
         "osty_action",
@@ -140,8 +150,45 @@ def card_effect_plan(
         card_library=card_library,
     )
     special_plan = card_special_plan(card_spec)
-    steps = _merged_special_steps(steps, special_plan.steps)
-    card = {
+    steps = _merged_special_steps(steps, special_plan.steps + _fatal_outcome_steps(card_spec))
+    steps = source_execution_steps(card_spec, _conditioned_source_steps(card_spec, steps))
+    if card_id == "demesne" and not card_spec.get("effects"):
+        description = str(card_spec.get("description", ""))
+        energy = re.search(r"\[energy:(\d+)\]", description)
+        draw = re.search(r"draw\s+(\d+)\s+additional\s+card", description, re.IGNORECASE)
+        if energy and draw:
+            steps = ({"combat_trigger": {
+                "trigger": "turn_start", "duration": "combat",
+                "effects": ({"energy": int(energy.group(1))}, {"draw": int(draw.group(1))}),
+            }},)
+    steps = _event_source_steps(card_spec, steps)
+    steps = _timed_source_steps(card_spec, steps)
+    stored_status = {"coolant": "coolant", "sentry_mode": "sentrymode"}.get(card_id)
+    if stored_status and any(
+        stored_status in {_normalized_id(key).replace("_", "") for key in payload}
+        for step in steps if isinstance(payload := step.get("apply_status"), Mapping)
+    ):
+        # These source powers store their recurring effect. The descriptive
+        # orb/card collectors must not also grant it immediately on play.
+        steps = tuple(step for step in steps if not (
+            card_id == "coolant" and "block_formula" in step
+            or card_id == "sentry_mode" and "add_card_to_hand" in step
+        ))
+    if card_id == "afterimage":
+        steps = tuple(step for step in steps if "combat_trigger" not in step)
+    elif card_id == "phantom_blades":
+        steps = tuple(step for step in steps if "add_card_to_hand" not in step)
+    elif card_id == "strangle":
+        kept_damage = False
+        corrected = []
+        for step in steps:
+            if "damage" in step:
+                if kept_damage:
+                    continue
+                kept_damage = True
+            corrected.append(step)
+        steps = tuple(corrected)
+    card: dict[str, Any] = {
         "card_id": card_id,
         "name": str(card_spec.get("name", card_id)),
         "type": card_type,
@@ -164,6 +211,15 @@ def card_effect_plan(
             "metadata": {"card_type": card_type, "target": target},
         },
     ) + special_plan.events
+    card["custom"].update(source_play_restrictions(card_spec))
+    if card_spec.get("is_x_cost") or card_spec.get("x_cost"):
+        card["custom"]["x_cost"] = True
+    if card_spec.get("is_x_star_cost"):
+        card["custom"]["star_cost"] = "X"
+    if (card_spec.get("is_x_cost") or card_spec.get("is_x_star_cost")) and re.search(
+        r"damage to a random enemy x", str(card_spec.get("description", "")).lower(),
+    ):
+        card["target"] = "none"
     return CardEffectPlan(card_id=card_id, card=card, steps=steps, events=events)
 
 
@@ -301,7 +357,7 @@ def _merged_special_steps(
 ) -> tuple[Mapping[str, Any], ...]:
     merged = list(steps)
     for step in special_steps:
-        if _merge_if_kill_resource_step(merged, step):
+        if _merge_on_kill_step(merged, step):
             continue
         if _merge_damage_formula_step(merged, step):
             continue
@@ -311,19 +367,343 @@ def _merged_special_steps(
     return tuple(merged)
 
 
-def _merge_if_kill_resource_step(
+def _fatal_outcome_steps(source: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+    """Fatal rewards belong to the damaging hit, never to unconditional fields."""
+    description = re.sub(
+        r"\[/?gold\]", "", _normalized_description(str(source.get("description", "") or ""))
+    )
+    outcomes: dict[str, int] = {}
+    for amount in re.findall(r"if fatal,?\s*raise your max hp by (\d+)", description):
+        outcomes["max_hp"] = int(amount)
+    for amount in re.findall(r"if fatal,?\s*gain (\d+) gold", description):
+        outcomes["gold"] = int(amount)
+    if re.search(r"if fatal,?\s*gain an additional card reward", description):
+        outcomes["card_reward"] = 1
+    return ({"if_fatal": outcomes},) if outcomes else ()
+
+
+def _conditioned_source_steps(
+    source: Mapping[str, Any],
+    steps: tuple[Mapping[str, Any], ...],
+) -> tuple[Mapping[str, Any], ...]:
+    description = re.sub(
+        r"\[/?gold\]", "", _normalized_description(str(source.get("description", "") or ""))
+    )
+
+    def conditioned(
+        condition: Mapping[str, Any],
+        effects: Sequence[Mapping[str, Any]],
+    ) -> Mapping[str, Any]:
+        return {"conditional": {"condition": dict(condition), "effects": tuple(effects)}}
+
+    def gate(
+        keys: set[str],
+        condition: Mapping[str, Any],
+    ) -> tuple[Mapping[str, Any], ...]:
+        return tuple(
+            conditioned(condition, (step,)) if keys & step.keys() else step for step in steps
+        )
+
+    if "if the enemy has poison" in description:
+        return gate({"apply_status"}, {"enemy_status": "poison"})
+    if "if the enemy intends to attack" in description:
+        return gate({"apply_status"}, {"enemy_intends_attack": True})
+    if "if the enemy is vulnerable, hits twice" in description:
+        damage = tuple(step for step in steps if "damage" in step)
+        return steps + (conditioned({"enemy_status": "vulnerable"}, damage),)
+    match = re.search(r"if you have played fewer than (\d+) cards this turn", description)
+    if match:
+        return gate({"draw"}, {"cards_played_less_than": int(match[1])})
+    if "if this is the first time this card has been played this turn" in description:
+        # Fetch's damage precedes its first-play-only draw.
+        return tuple(step for step in steps if "draw" not in step) + tuple(
+            conditioned({"first_play_this_turn": True}, (step,)) for step in steps if "draw" in step
+        )
+    if "if you have no attacks in your hand" in description:
+        return (conditioned({"hand_has_no_attacks": True}, steps),)
+    if "if your hand is empty" in description:
+        return (conditioned({"hand_empty": True}, steps),)
+    match = re.search(r"if you have (\d+) or more cards in your exhaust pile", description)
+    if match:
+        # The source cards_draw field incorrectly contains the pile threshold.
+        damage = tuple(step for step in steps if "all_damage" in step or "damage" in step)
+        return (conditioned({"exhaust_pile_at_least": int(match[1])}, damage),)
+    match = re.search(r"draw (\d+) card[^.]*\. if you draw a skill, gain (\d+) block", description)
+    if match:
+        return (
+            {
+                "draw": int(match[1]),
+                "if_drawn_type": {
+                    "card_type": "skill",
+                    "effects": ({"block": int(match[2])},),
+                },
+            },
+        )
+    if "if you exhausted a card this turn" in description:
+        return (conditioned({"exhausted_this_turn": True}, steps),)
+    match = re.search(
+        r"gain another (\d+) block if you have exhausted a card this turn",
+        description,
+    )
+    if match:
+        return steps + (conditioned({"exhausted_this_turn": True}, ({"block": int(match[1])},)),)
+    match = re.search(
+        r"if you applied doom this turn, gain block (\d+) additional times",
+        description,
+    )
+    if match:
+        block = tuple(step for step in steps if "block" in step)
+        return steps + (conditioned({"applied_doom_this_turn": True}, block * int(match[1])),)
+    return steps
+
+
+def _event_source_steps(
+    source: Mapping[str, Any],
+    steps: tuple[Mapping[str, Any], ...],
+) -> tuple[Mapping[str, Any], ...]:
+    description = re.sub(
+        r"\[/?gold\]", "", _normalized_description(str(source.get("description", "") or ""))
+    )
+
+    def trigger(name: str, effects: Sequence[Mapping[str, Any]], **extra: Any) -> Mapping[str, Any]:
+        return {
+            "combat_trigger": {
+                "trigger": name,
+                "duration": "combat",
+                "effects": tuple(effects),
+                **extra,
+            }
+        }
+
+    match = re.fullmatch(r"whenever you lose hp on your turn, gain (\d+) strength\.?", description)
+    if match:
+        return ({"apply_status": {"target": "self", "rupture": int(match[1])}},)
+    match = re.fullmatch(r"whenever you apply doom, gain (\d+) block\.?", description)
+    if match:
+        return (
+            trigger("status_applied", ({"block": int(match[1])},), condition={"status": "doom"}),
+        )
+    match = re.fullmatch(r"whenever you apply vulnerable, draw (\d+) cards?\.?", description)
+    if match:
+        return (
+            trigger(
+                "status_applied", ({"draw": int(match[1])},), condition={"status": "vulnerable"}
+            ),
+        )
+    match = re.fullmatch(r"whenever you create a card, gain (\d+) block\.?", description)
+    if match:
+        return (trigger("card_created", ({"block": int(match[1])},)),)
+    if re.fullmatch(r"whenever you create a status, channel 1 random orb\.?", description):
+        return (trigger("status_card_created", ({"channel_orb": {"orb": "random", "amount": 1}},)),)
+    match = re.fullmatch(r"whenever you draw an ethereal card, draw (\d+) cards?\.?", description)
+    if match:
+        return (
+            trigger("card_drawn", ({"draw": int(match[1])},), condition={"keyword": "ethereal"}),
+        )
+    match = re.fullmatch(
+        r"whenever you play a card this turn, apply (\d+) doom to the enemy\.?",
+        description,
+    )
+    if match:
+        return (
+            trigger(
+                "card_played",
+                (
+                    {
+                        "apply_status": {
+                            "target": "enemy",
+                            "doom": int(match[1]),
+                        }
+                    },
+                ),
+                duration="turn",
+                bind_target=True,
+                debuff={"status": "oblivion", "amount": int(match[1])},
+            ),
+        )
+    match = re.fullmatch(
+        r"deal (\d+) damage\. whenever you play a card this turn, the enemy loses (\d+) hp\.?",
+        description,
+    )
+    if match:
+        return (
+            {"damage": int(match[1])},
+            trigger(
+                "card_played",
+                (
+                    {
+                        "enemy_hp_loss": {
+                            "target": "enemy",
+                            "amount": int(match[2]),
+                        }
+                    },
+                ),
+                duration="turn",
+                bind_target=True,
+                debuff={"status": "strangle", "amount": int(match[2])},
+            ),
+        )
+    match = re.fullmatch(
+        r"if you play (\d+) or more cards in a turn, draw (\d+) cards? "
+        r"at the start of your next turn\.?",
+        description,
+    )
+    if match:
+        return (
+            trigger(
+                "turn_end",
+                ({"next_turn": {"draw": int(match[2])}},),
+                condition={"cards_played_at_least": int(match[1])},
+            ),
+        )
+    match = re.fullmatch(
+        r"lose (\d+) strength\. gain \[energy:(\d+)\] at the start of each turn\.?",
+        description,
+    )
+    if match:
+        return (
+            {"apply_status": {"target": "self", "strength": -int(match[1])}},
+            trigger("turn_start", ({"energy": int(match[2])},)),
+        )
+    match = re.search(
+        r"reduce this card.s cost by \[energy:(\d+)\] whenever anyone dies", description
+    )
+    if match:
+        return tuple(step for step in steps if "block" in step) + (
+            {"death_cost_delta": -int(match[1])},
+        )
+    match = re.fullmatch(r"whenever you draw this card, lose \[energy:(\d+)\]\.?", description)
+    if match:
+        return ({"on_draw": {"effects": ({"energy": -int(match[1])},)}},)
+    return steps
+
+
+def _timed_source_steps(
+    source: Mapping[str, Any],
+    steps: tuple[Mapping[str, Any], ...],
+) -> tuple[Mapping[str, Any], ...]:
+    """Keep source fields from turning recurring effects into immediate gains."""
+    if _card_id(source) in {"afterimage", "coolant", "demesne", "sentry_mode"}:
+        return steps
+    description = re.sub(
+        r"\[/?gold\]", "", _normalized_description(str(source.get("description", "") or ""))
+    )
+
+    def turn_start(effects: Sequence[Mapping[str, Any]], **extra: Any) -> Mapping[str, Any]:
+        return {
+            "combat_trigger": {
+                "trigger": "turn_start",
+                "duration": "combat",
+                "effects": tuple(effects),
+                **extra,
+            }
+        }
+
+    match = re.fullmatch(
+        r"at the end of (\d+) turns, deal (\d+) damage to all enemies\.?", description
+    )
+    if match:
+        return ({"combat_trigger": {
+            "trigger": "turn_end", "duration": "once", "delay": int(match[1]),
+            "effects": ({"all_damage": int(match[2])},),
+        }},)
+    if _card_id(source) == "well_laid_plans":
+        return tuple({"combat_trigger": {
+            **step["combat_trigger"],
+            "effects": tuple({"choose_card": {
+                **effect["choose_card"], "up_to": True, "retain_once": True,
+            }} if "choose_card" in effect else effect
+                             for effect in step["combat_trigger"].get("effects", ())),
+        }} if "combat_trigger" in step else step for step in steps)
+
+    match = re.fullmatch(r"at the start of your turn, gain (\d+) strength\.?", description)
+    if match:
+        return (turn_start(({"apply_status": {"target": "self", "strength": int(match[1])}},)),)
+    match = re.fullmatch(r"at the start of your turn, draw (\d+) additional cards?\.?", description)
+    if match:
+        return (turn_start(({"draw": int(match[1])},)),)
+    match = re.fullmatch(r"gain \[energy:(\d+)\] at the start of each turn\.?", description)
+    if match:
+        return (turn_start(({"energy": int(match[1])},)),)
+    if re.fullmatch(r"at the start of your turn, add \d+ [^.]+ into your hand\.?", description):
+        named_cards = tuple(step for step in steps if "add_card_to_hand" in step)
+        if named_cards:
+            return (turn_start(named_cards),)
+    match = re.fullmatch(
+        r"gain (\d+) block\. gain (\d+) block at the start of the next (\d+) turns\.?",
+        description,
+    )
+    if match:
+        return (
+            {"block": int(match[1])},
+            turn_start(
+                ({"block": int(match[2])},),
+                duration="once",
+                remaining_uses=int(match[3]),
+            ),
+        )
+
+    # A wholly triggered power has no on-play primitive effects. Source numeric
+    # fields often repeat its future effect (Poison, Draw, HP loss, or creation).
+    wholly_triggered = description.startswith(("whenever ", "when ", "at the start of "))
+    triggers = tuple(step for step in steps if "combat_trigger" in step or "timed_choice" in step)
+    if wholly_triggered and triggers:
+        steps = triggers
+    cost_match = re.search(r"costs \[energy:(\d+)\] or more", description)
+    if cost_match:
+        steps = tuple(
+            {
+                "combat_trigger": {
+                    **step["combat_trigger"],
+                    "condition": {
+                        **step["combat_trigger"].get("condition", {}),
+                        "energy_cost_at_least": int(cost_match[1]),
+                    },
+                }
+            }
+            if "combat_trigger" in step and step["combat_trigger"].get("trigger") == "card_played"
+            else step
+            for step in steps
+        )
+    if "it gains ethereal" in description:
+        updated: list[Mapping[str, Any]] = []
+        for step in steps:
+            trigger = step.get("combat_trigger")
+            if not isinstance(trigger, Mapping):
+                updated.append(step)
+                continue
+            effects = []
+            for effect in trigger.get("effects", ()):
+                payload = effect.get("add_random_card_to_hand")
+                effects.append(
+                    {
+                        "add_random_card_to_hand": {
+                            **payload,
+                            "keywords": ("ethereal",),
+                        }
+                    }
+                    if isinstance(payload, Mapping)
+                    else effect
+                )
+            updated.append({"combat_trigger": {**trigger, "effects": tuple(effects)}})
+        steps = tuple(updated)
+    return steps
+
+
+def _merge_on_kill_step(
     merged: list[Mapping[str, Any]],
     step: Mapping[str, Any],
 ) -> bool:
-    payload = step.get("if_kill_resource")
+    key = "if_fatal" if "if_fatal" in step else "if_kill_resource"
+    payload = step.get(key)
     if not isinstance(payload, Mapping):
         return False
-    for index in range(len(merged) - 1, -1, -1):
-        existing = merged[index]
+    found_damage = False
+    for index, existing in enumerate(merged):
         if not any(key in existing for key in ("damage", "all_damage", "damage_formula")):
             continue
         merged_step = dict(existing)
-        existing_payload = merged_step.get("if_kill_resource")
+        existing_payload = merged_step.get(key)
         if isinstance(existing_payload, Sequence) and not isinstance(
             existing_payload,
             (str, bytes, bytearray),
@@ -335,10 +715,10 @@ def _merge_if_kill_resource_step(
             payloads = (existing_payload, dict(payload))
         else:
             payloads = dict(payload)
-        merged_step["if_kill_resource"] = payloads
+        merged_step[key] = payloads
         merged[index] = merged_step
-        return True
-    return False
+        found_damage = True
+    return found_damage
 
 
 def _merge_damage_formula_step(
@@ -368,6 +748,22 @@ def _equivalent_effect_step(
 ) -> bool:
     if left == right:
         return True
+    left_trigger, right_trigger = left.get("combat_trigger"), right.get("combat_trigger")
+    if isinstance(left_trigger, Mapping) and isinstance(right_trigger, Mapping):
+        # Omitted amount means1 for passive-orb effects; two classifiers can
+        # recognize that same sentence with an explicit/implicit default.
+        def canonical(trigger: Mapping[str, Any]) -> dict[str, Any]:
+            normalized = {key: value for key, value in trigger.items() if key != "text"}
+            normalized["effects"] = tuple(
+                {"trigger_orb_passive": {"amount": 1, **effect["trigger_orb_passive"]}}
+                if isinstance(effect.get("trigger_orb_passive"), Mapping)
+                else effect
+                for effect in trigger.get("effects", ())
+            )
+            return normalized
+
+        if canonical(left_trigger) == canonical(right_trigger):
+            return True
     left_resource = _resource_step_signature(left)
     return left_resource is not None and left_resource == _resource_step_signature(right)
 
@@ -553,9 +949,7 @@ def _steps_from_named_effect(
     if key == "draw_cards":
         return ({"draw": _amount_from(source, "draw", default=1)},)
     if key == "add_random_free_card_to_hand":
-        return (
-            {"add_random_card_to_hand": _amount_from(source, "random_card_count", default=1)},
-        )
+        return ({"add_random_card_to_hand": _amount_from(source, "random_card_count", default=1)},)
     if key == "power_cost_reduction":
         return (
             {
@@ -815,9 +1209,7 @@ def _description_steps(source: Mapping[str, Any], *, target: str) -> tuple[Mappi
             else {"player_resource": {"resource": resource_name, "amount": int(amount)}}
         )
         condition = (
-            {"card_type": card_type_filter}
-            if card_type_filter != "card"
-            else {"card_type": "any"}
+            {"card_type": card_type_filter} if card_type_filter != "card" else {"card_type": "any"}
         )
         steps.append(
             {
@@ -974,12 +1366,17 @@ def _description_steps(source: Mapping[str, Any], *, target: str) -> tuple[Mappi
             }
         )
     if "enemy loses x" in normalized and "[gold]strength[/gold]" in normalized:
+        strength_extra = re.search(r"enemy loses x\+(\d+)", normalized)
         status_payload: dict[str, Any] = {
             "target": "enemy",
-            "strength": {"amount": 0, "per_energy": -1},
+            "strength": {"amount": -int(strength_extra[1]) if strength_extra else 0,
+                         "per_energy": -1},
         }
         if "apply x" in normalized and "[gold]weak[/gold]" in normalized:
-            status_payload["weak"] = {"amount": 0, "per_energy": 1}
+            weak_extra = re.search(r"apply x\+(\d+)", normalized)
+            status_payload["weak"] = {
+                "amount": int(weak_extra[1]) if weak_extra else 0, "per_energy": 1,
+            }
         steps.append({"apply_status": status_payload})
 
     for status_match in re.finditer(
@@ -1005,8 +1402,11 @@ def _description_steps(source: Mapping[str, Any], *, target: str) -> tuple[Mappi
             }
         )
 
-    if re.search(r"play the top x(?:\+1)? cards? of your \[gold\]draw pile", normalized):
-        steps.append({"play_top_card": {"amount": {"amount": 0, "per_energy": 1}}})
+    cascade = re.search(r"play the top x(?:\+(\d+))? cards? of your \[gold\]draw pile", normalized)
+    if cascade:
+        steps.append({"play_top_card": {"amount": {
+            "amount": int(cascade[1]) if cascade[1] else 0, "per_energy": 1,
+        }}})
 
     if "discard your [gold]hand" in normalized or "discard your hand" in normalized:
         steps.append({"discard_hand": {"mode": "all"}})
@@ -1050,9 +1450,8 @@ def _description_steps(source: Mapping[str, Any], *, target: str) -> tuple[Mappi
         steps.append(
             {"player_resource": {"resource": "forge", "amount": int(forge_match.group(1))}}
         )
-    if (
-        not _description_has_triggered_summon(source)
-        and not _description_has_dynamic_summon(source)
+    if not _description_has_triggered_summon(source) and not _description_has_dynamic_summon(
+        source
     ):
         for amount in re.findall(r"\[gold\]summon\[/gold\]\s+(\d+)", normalized):
             steps.append({"player_resource": {"resource": "summon", "amount": int(amount)}})
@@ -1072,9 +1471,7 @@ def _description_steps_without_statuses(
     target: str,
 ) -> tuple[Mapping[str, Any], ...]:
     return tuple(
-        step
-        for step in _description_steps(source, target=target)
-        if "apply_status" not in step
+        step for step in _description_steps(source, target=target) if "apply_status" not in step
     )
 
 
@@ -1124,6 +1521,7 @@ def _description_has_triggered_energy_gain(source: Mapping[str, Any]) -> bool:
         or "when this card is exhausted" in description
         or "when this is [gold]exhausted" in description
         or "when this is exhausted" in description
+        or bool(re.search(r"\bif\b[^.]*kills? an enemy[^.]*gain\s+\[energy:", description))
     )
 
 
@@ -1277,8 +1675,10 @@ def _card_spec_has_authoritative_effect_text(card_spec: Mapping[str, Any]) -> bo
 
 
 def _card_cost(card_spec: Mapping[str, Any]) -> int | None:
-    if card_spec.get("is_x_cost") or card_spec.get("is_x_star_cost"):
+    if card_spec.get("is_x_cost"):
         return -1
+    if card_spec.get("is_x_star_cost"):
+        return max(0, int(card_spec.get("cost") or 0))
     if "cost" not in card_spec:
         return 1
     value = card_spec.get("cost")
@@ -1392,14 +1792,7 @@ def _clone_jsonish(value: Any) -> Any:
 
 
 def _normalized_id(value: object) -> str:
-    return (
-        str(value or "")
-        .strip()
-        .lower()
-        .replace("'", "")
-        .replace("-", "_")
-        .replace(" ", "_")
-    )
+    return str(value or "").strip().lower().replace("'", "").replace("-", "_").replace(" ", "_")
 
 
 _CARD_TYPE_ALIASES = {
@@ -1873,14 +2266,18 @@ _ENEMY_STATUS_IDS = frozenset(
     }
 )
 
-_DIRECT_STATUS_IDS = _SELF_STATUS_IDS | _ENEMY_STATUS_IDS | frozenset(
-    {
-        "all_cost_reduction",
-        "attack_cost_reduction",
-        "card_cost_reduction",
-        "cost_reduction",
-        "skill_cost_reduction",
-    }
+_DIRECT_STATUS_IDS = (
+    _SELF_STATUS_IDS
+    | _ENEMY_STATUS_IDS
+    | frozenset(
+        {
+            "all_cost_reduction",
+            "attack_cost_reduction",
+            "card_cost_reduction",
+            "cost_reduction",
+            "skill_cost_reduction",
+        }
+    )
 )
 
 

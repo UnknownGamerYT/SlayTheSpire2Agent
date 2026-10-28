@@ -209,8 +209,39 @@ it is too short to learn useful gameplay. For small CPU experiments, setting
 Fresh runs now seed model initialization, action sampling, and minibatch order.
 PPO bootstraps time-limited rollouts from their final state and isolates interrupted
 episodes. Parallel rollout scheduling and CUDA kernels can still introduce
-variation. Avoid `--teacher-mix` for baseline experiments until its off-policy
-actor update is corrected; `--imitation-coef` provides the separate teacher loss.
+variation. Teacher-selected actions are excluded from the PPO actor and entropy
+losses. `--imitation-coef` controls the separate teacher loss; use `--teacher-mix 0`
+for an unassisted baseline (also set `--imitation-coef 0` if you previously
+enabled imitation). Policy observations hide RNG state, future draws,
+and queued enemy moves; see [the observation contract](docs/policy_visibility.md).
+
+Checkpoints record source-data hashes, model architecture, observation schema,
+and simulator logic. Resume/inference rejects incompatible, corrupt, nonfinite,
+or Git LFS pointer files before training or sending a game action. Start a fresh
+experiment after changing the simulator or its source snapshot.
+
+Evaluate a saved checkpoint on a fixed, repeatable seed suite without training:
+
+```powershell
+uv run sts2sim evaluate-ppo --checkpoint checkpoints/smoke.pt --seed heldout-v1 --runs 20 --character IRONCLAD --device cpu --output reports/smoke_eval.json
+```
+
+Keep evaluation seeds separate from your training and champion-selection seeds.
+The report records each actual episode seed and leaves checkpoint bytes unchanged.
+
+To use saved weights with the game, follow the
+[live bridge setup guide](docs/live_bridge_setup.md) to download the pinned bridge,
+apply its observation patch, and build/install it against your game. Once a
+supported Ironclad or Silent combat turn is visible:
+
+```powershell
+uv run sts2sim doctor-live-bridge --base-url http://localhost:15526
+uv run sts2sim play-live-agent --base-url http://localhost:15526 --checkpoint checkpoints/smoke.pt --device cpu --character IRONCLAD --ascension 0 --max-steps 20 --output traces/live-checkpoint.json
+```
+
+Unsupported observations stop with a diagnostic. The guide explains the explicit
+`--heuristic-fallback` option and how reports distinguish mixed policy play.
+The smoke checkpoint verifies this workflow; it has not learned useful gameplay.
 
 Single-target Act 1 boss training:
 

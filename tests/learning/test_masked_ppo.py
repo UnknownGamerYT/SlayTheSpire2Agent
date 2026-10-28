@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import re
 import queue
+import re
 from pathlib import Path
 
 import pytest

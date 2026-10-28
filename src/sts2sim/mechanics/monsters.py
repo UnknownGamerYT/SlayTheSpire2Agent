@@ -245,6 +245,18 @@ def build_encounter_definitions(raw_encounters: Sequence[Any]) -> tuple[Encounte
             )
             if monster_id
         )
+        # Source participant lists include creatures summoned or created on death.
+        opening_rosters = {
+            "fogmog_normal": ("FOGMOG",),
+            "the_obscura_normal": ("THE_OBSCURA",),
+            "gremlin_merc_normal": ("GREMLIN_MERC",),
+            "phrog_parasite_elite": ("PHROG_PARASITE",),
+        }
+        expected = opening_rosters.get(_normalized_id(encounter_id))
+        if expected is not None:
+            allowed = {_normalized_id(item) for item in expected}
+            opening = tuple(item for item in monster_ids if _normalized_id(item) in allowed)
+            monster_ids = opening or monster_ids
         if not monster_ids:
             continue
         encounters.append(
@@ -418,6 +430,14 @@ def monster_power_amount(
     *,
     ascension_level: int,
 ) -> int:
+    if (
+        _normalized_id(definition.monster_id) in {"the_lost", "the_forgotten"}
+        and _normalized_id(power.power_id) in {"strength", "dexterity"}
+        and _normalized_id(power.target) == "self"
+        and power.amount == 2 and power.amount_ascension is None
+    ):
+        # Their stat stealing is a secondary A9 change, not the A2 damage increase.
+        return 3 if ascension_level >= 9 else 2
     if _uses_ascension_damage(definition, ascension_level) and power.amount_ascension is not None:
         return max(0, power.amount_ascension)
     return max(0, power.amount)
@@ -637,18 +657,25 @@ def _source_specific_moves(
     moves: tuple[MonsterMove, ...],
 ) -> tuple[MonsterMove, ...]:
     normalized_monster_id = _normalized_id(monster_id)
-    if normalized_monster_id != "skulking_colony":
-        return moves
-
+    if normalized_monster_id == "the_forgotten":
+        return tuple(
+            replace(move, damage_normal=13, damage_ascension=15)
+            if _normalized_id(move.move_id) == "dread" and move.damage_normal == 0 else move
+            for move in moves
+        )
     patched: list[MonsterMove] = []
+    scaled_powers = {
+        ("skulking_colony", "inertia", "strength"): 3,
+        ("myte", "suck", "strength"): 3,
+        ("test_subject", "burning_growl", "strength"): 3,
+        ("infested_prism", "pulsate", "vital_spark"): 3,
+    }
     for move in moves:
-        if _normalized_id(move.move_id) != "inertia":
-            patched.append(move)
-            continue
         powers = tuple(
-            replace(power, amount_ascension=3)
-            if _normalized_id(power.power_id) == "strength"
-            and power.amount_ascension is None
+            replace(power, amount_ascension=scaled_powers[key])
+            if (key := (
+                normalized_monster_id, _normalized_id(move.move_id), _normalized_id(power.power_id)
+            )) in scaled_powers and power.amount_ascension is None
             else power
             for power in move.powers
         )
@@ -673,6 +700,10 @@ def _source_specific_innate_powers(
         and "hardened_shell" not in normalized_power_ids
     ):
         patched.append(MonsterPower("HARDENED_SHELL", 20))
+    if normalized_monster_id == "gremlin_merc" and "thievery" not in normalized_power_ids:
+        # The list endpoint omits this printed power; the public monster page
+        # records Thievery 20 (no ascension change).
+        patched.append(MonsterPower("THIEVERY", 20))
     return tuple(patched)
 
 

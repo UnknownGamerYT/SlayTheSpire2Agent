@@ -4,34 +4,33 @@ Last updated: 2026-10-28
 
 ## October 2026 Update
 
-- Refreshed all 12 stable Spire Codex datasets and the tracked manifest; cache
-  files remain local under `data/cache/eng`. New clones must run
-  `uv run sts2sim sync-data --data-dir data/cache` before tests or training.
-- Added `uv run sts2sim training-check` for offline dependency and snapshot
-  integrity checks, with a nonzero exit status for missing or mismatched inputs.
-- Repaired curriculum training's stage-completion crash and checkpoint lifecycle:
-  train/retry through mutable latest, forward champion controls, and promote the
-  verified champion into completed stage milestones.
-- PPO now bootstraps time-limited runs, isolates interrupted episodes, and seeds
-  model initialization, sampling, and minibatch shuffle for fresh experiments.
-- Added optional `sts2sim.gymnasium_adapter.GymnasiumSts2Env`, with numeric
-  observations, mask validation, seeded resets, vectorization, and default
-  learning rewards. Existing rich `Sts2Env` remains the built-in PPO interface.
-- Implemented Fishing Rod's persistent normal-combat counter and deterministic
-  random deck upgrade every third normal victory, including save/reload tests.
-- Added automated lint, type, and test checks in GitHub Actions.
+The current branch updates the simulator and the train → checkpoint → evaluate →
+live-policy workflow. See [the status report](docs/project_status_2026_10_28.md)
+for validation and remaining parity limits.
 
-See [the dated status report](docs/project_status_2026_10_28.md) for current source
-counts and fidelity limits. Stable v0.107.1 and beta v0.111.0 remain separate;
-this update uses stable sources. Registered handler counts overstate complete
-runtime parity: 36 monsters and 34 encounters are explicitly blocked.
+- The stable cache now uses schema 2 and 17 datasets. Stable and beta are separate,
+  transactional snapshots. `training-check` validates actual bytes, dependencies,
+  and channel provenance offline. Run `uv run sts2sim sync-data` after cloning.
+- All five characters use their source-defined HP, gold, starting decks and relics.
+  New runtime paths cover missing monster powers/spawns, source-linked debuffs,
+  card replays, deck identities, relic lifecycles, campfires, and unknown rooms.
+- PPO handles time-limit bootstrapping, interrupted episodes, teacher intervention,
+  deterministic CPU checkpoint continuation, and fixed independent evaluation
+  seeds. Curriculum retries and champion promotion use verified checkpoints.
+- Default observations hide seeds, RNG, hidden draw order and future enemy moves.
+  Schema 2 and source/logic hashes deliberately invalidate older checkpoints.
+- `evaluate-ppo` and reusable `MaskedPpoPolicy` run saved policies without updates.
+  Live inference validates observations and restricts actions to bridge support;
+  incomplete captures stop with a diagnostic. Heuristic fallback is opt-in.
+- The optional true Gymnasium adapter supports numeric observations and legal
+  action masks. Built-in PPO continues to use the rich simulator environment.
+- GitHub Actions runs Ruff, strict mypy, source preparation and the full test suite.
 
-Further training work: teacher-mixed actor updates remain off-policy (use the
-default `teacher_mix=0`); corrupt/LFS-pointer checkpoint resume needs clearer
-handling; benchmark seed selection should be independent of checkpoint filenames.
-Pumpkin Candle's lifecycle, Kaleidoscope's cross-character reward pools, and
-Silken Tress's first-reward Glam behavior still need work. Exact live-game RNG
-stream derivation remains unverified.
+Audit counts describe registered execution surfaces. They do not prove complete
+base/upgraded card behavior, game RNG equivalence, or live-game win rates. The
+remaining source-verification blockers include Aeonglass intensity update order,
+Kaiser Crab initial facing, exact run RNG derivation, and source details described
+in [the Fur Coat note](docs/fur_coat_runtime.md). No game process is installed here.
 
 ## Goal
 
@@ -73,7 +72,7 @@ strategy without graphics.
   - `expected_hp_loss`
   - `expected_turns_to_kill`
   - `boss_readiness`
-- Rich observations include state, action semantics, content identity vocab,
+- Rich observations include policy-visible state, action semantics, content identity vocab,
   mechanic tags, reward/path summaries, enemy traits, card/status atoms, and
   previous agent memory.
 

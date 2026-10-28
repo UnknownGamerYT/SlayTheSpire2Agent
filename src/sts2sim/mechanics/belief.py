@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+from sts2sim.policy_visibility import draw_order_is_visible
+
 BELIEF_OBSERVATION_KEYS: tuple[str, ...] = (
     "draw_attack_chance",
     "draw_block_chance",
@@ -47,7 +49,7 @@ _SETUP_TOKENS = (
 )
 
 
-def belief_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+def belief_summary(payload: Mapping[str, Any], *, oracle: bool = False) -> dict[str, Any]:
     """Return deterministic belief/probability features from serialized state.
 
     The inputs are intentionally lightweight and visible-state based. They do
@@ -62,15 +64,25 @@ def belief_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
     discard_pile = _cards(combat.get("discard_pile"))
     hand = _cards(combat.get("hand"))
     deck = _cards(payload.get("master_deck"))
-    draw_window = draw_pile[: min(draw_per_turn, len(draw_pile))]
-    if len(draw_window) < draw_per_turn and discard_pile:
-        draw_window = (*draw_window, *discard_pile[: draw_per_turn - len(draw_window)])
+    draw_count = min(draw_per_turn, len(draw_pile))
+    discard_count = min(draw_per_turn - draw_count, len(discard_pile))
+    denominator = max(1, draw_count + discard_count)
+    known_order = draw_order_is_visible(payload, oracle=oracle)
 
-    draw_denominator = max(1, min(draw_per_turn, len(draw_window)))
-    draw_attack_chance = _chance(draw_window, _is_attack_card, draw_denominator)
-    draw_block_chance = _chance(draw_window, _is_block_card, draw_denominator)
-    draw_damage_chance = _chance(draw_window, _is_damage_card, draw_denominator)
-    draw_setup_chance = _chance(draw_window, _is_setup_card, draw_denominator)
+    def draw_chance(predicate: Callable[[Mapping[str, Any]], bool]) -> float:
+        # The discard pile is shuffled before drawing even with Frozen Eye.
+        draw_matches = (
+            sum(1 for card in draw_pile[:draw_count] if predicate(card))
+            if known_order
+            else draw_count * _chance(draw_pile, predicate, len(draw_pile))
+        )
+        discard_matches = discard_count * _chance(discard_pile, predicate, len(discard_pile))
+        return _clamp((draw_matches + discard_matches) / denominator)
+
+    draw_attack_chance = draw_chance(_is_attack_card)
+    draw_block_chance = draw_chance(_is_block_card)
+    draw_damage_chance = draw_chance(_is_damage_card)
+    draw_setup_chance = draw_chance(_is_setup_card)
     deck_cycle_distance = _deck_cycle_distance(len(draw_pile), draw_per_turn)
     reshuffle_risk = _clamp((draw_per_turn - len(draw_pile)) / draw_per_turn)
 
@@ -242,9 +254,7 @@ def _turns_to_kill_estimate(
     if visible_damage >= monster_effective_hp:
         return 0.0
     average_card_damage = (
-        sum(_card_damage(card) for card in deck) / max(1, len(deck))
-        if deck
-        else 0.0
+        sum(_card_damage(card) for card in deck) / max(1, len(deck)) if deck else 0.0
     )
     expected_turn_damage = max(float(visible_damage), average_card_damage * max(1, draw_per_turn))
     if expected_turn_damage <= 0:

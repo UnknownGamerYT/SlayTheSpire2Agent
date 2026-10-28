@@ -565,8 +565,6 @@ ANCIENT_RELIC_EFFECTS: Mapping[str, AncientEffectSpec] = {
         source=NEOW_OFFERING_SOURCE,
     ),
     "scroll_boxes": AncientEffectSpec(
-        card_reward_count=1,
-        card_reward_kind="skill",
         metadata={"pickup_summary": "Choose 1 of 2 packs of cards to add to your deck."},
         source=NEOW_OFFERING_SOURCE,
     ),
