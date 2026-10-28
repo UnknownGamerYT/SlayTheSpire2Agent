@@ -88,6 +88,7 @@ def _pool(state: RunState, context: Mapping[str, Any]) -> tuple[Any, ...]:
         state, result, is_card_reward=bool(context.get('is_card_reward', True)),
         no_pool_modifications=bool(context.get('no_pool_modifications')),
         custom_pool=allowed is not None,
+        pool_ids=tuple(str(name) for name in context.get('pools', ('character',))),
     ))
     if context.get('rarity'):
         result = [card for card in result if card.rarity.value == context['rarity']]

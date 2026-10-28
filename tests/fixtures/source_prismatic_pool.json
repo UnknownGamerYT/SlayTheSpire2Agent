@@ -1,0 +1,38 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "scope": "Initial option-pool hooks, creation flags, unlocked character registry order and reroll context propagation; no whole-game parity certification.",
+  "certifies_game_parity": false,
+  "sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PrismaticGem.cs",
+      "sha256": "c247a9dae925e6cac3e4e3743470f60e8eec35e09ab605b73a6a0a4f58723196",
+      "reviewed_methods": [
+        "ModifyCardRewardCreationOptions"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DingyRug.cs",
+      "sha256": "82580893e449c598235fbbac664bf082782678f4f257506d94f95a4e9a20fb01",
+      "reviewed_methods": [
+        "ModifyCardRewardCreationOptions"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Unlocks/UnlockState.cs",
+      "sha256": "f3ff15fd9448f13808a92a2c87b50ba250a741dfd3c6b24e9619ec9e82718d4b",
+      "reviewed_methods": [
+        "Characters",
+        "CharacterCardPools"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/ModelDb.cs",
+      "sha256": "3ce833579b24f71f74fc5a5d9118ee5eec3030eae07a19de90a38dd7449273d6",
+      "reviewed_methods": [
+        "AllCharacters registry order"
+      ]
+    }
+  ]
+}

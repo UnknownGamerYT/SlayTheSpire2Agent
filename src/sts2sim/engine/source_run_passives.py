@@ -11,7 +11,9 @@ from random import Random
 from typing import Any
 
 from sts2sim.mechanics.combat_rewards import CombatRewardCard
+from sts2sim.mechanics.event_flows import EventFlowMarker, EventFlowMarkerKind
 from sts2sim.mechanics.reward_pools import build_colorless_card_pool
+from sts2sim.mechanics.source_ancients import source_unlocked_characters
 from sts2sim.mechanics.source_rng import float32, source_float
 
 from .models import CombatState, EffectEvent, RunState
@@ -22,19 +24,43 @@ from .source_enchantment_hooks import can_enchant
 def modify_reward_pool(
     state: RunState, pool: Sequence[CombatRewardCard], *, is_card_reward: bool = True,
     no_pool_modifications: bool = False, custom_pool: bool = False,
+    pool_ids: Sequence[str] | None = None,
 ) -> tuple[CombatRewardCard, ...]:
-    """Dingy Rug appends the unlocked Colorless pool before the factory's filter."""
+    """Apply source pool hooks before filtering, preserving pool registry order."""
     from . import transitions as t
 
-    if (not t._has_relic(state, 'dingy_rug') or not is_card_reward
-        or no_pool_modifications or custom_pool):
+    if not is_card_reward or no_pool_modifications or custom_pool:
         return tuple(pool)
-    rows = t._registered_reward_card_rows(state, 'colorless')
-    colorless = build_colorless_card_pool(t._raw_card_pool_items(state) if rows is None else rows)
-    seen = {card.card_id for card in pool}
-    return tuple(pool) + tuple(CombatRewardCard(
-        card.card_id, card.rarity, card.color, card.name, card.source_id,
-    ) for card in colorless if card.card_id not in seen)
+    result = tuple(pool)
+    names = tuple(t._normalized_id(name) for name in pool_ids) if pool_ids is not None else (
+        tuple(dict.fromkeys(t._normalized_id(card.color) for card in pool))
+        or (t._normalized_id(state.character_id),)
+    )
+    for raw_relic in state.relics:
+        relic = t._normalized_id(raw_relic)
+        if relic == 'dingy_rug' and 'colorless' not in names:
+            rows = t._registered_reward_card_rows(state, 'colorless')
+            colorless = build_colorless_card_pool(
+                t._raw_card_pool_items(state) if rows is None else rows)
+            result += tuple(CombatRewardCard(
+                card.card_id, card.rarity, card.color, card.name, card.source_id,
+            ) for card in colorless)
+            names += ('colorless',)
+        elif relic == 'prismatic_gem' and any(name not in {
+                'colorless', 'event', 'deprecated', 'token'} for name in names):
+            unlocked = source_unlocked_characters(state.flags)
+            expanded = tuple(card for name in unlocked for card in t._event_flow_card_pool(
+                state, EventFlowMarker(kind=EventFlowMarkerKind.CARD_REWARD, qualifier=name)))
+            # Source Union prepends unlocked character pools, then existing pools.
+            result = expanded + result
+            names = tuple(dict.fromkeys((*unlocked, *names)))
+        else:
+            continue
+        unique: dict[str, CombatRewardCard] = {}
+        for card in result:
+            unique.setdefault(card.card_id, card)
+        result = tuple(unique.values())
+    return result
 
 
 def append_lasting_candy_power(
