@@ -399,16 +399,16 @@ def test_new_leaf_chosen_transform_consumes_only_source_niche_rng_and_survives_r
     state = state.model_copy(update={"rng": capture_random_state(RunRng(
         "NEW_LEAF", derivation="sts2.v0.107.1.utf16-djb2-splitmix64")),
         "flags": {**state.flags, "cards": (
-            {"id": "CARD_A", "name": "A", "character": "IRONCLAD",
+            {"id": "ANGER", "name": "Anger", "character": "IRONCLAD",
              "rarity": "common", "type": "attack", "damage": 7},
-            {"id": "CARD_B", "name": "B", "character": "IRONCLAD",
+            {"id": "SHRUG_IT_OFF", "name": "Shrug It Off", "character": "IRONCLAD",
              "rarity": "common", "type": "skill", "block": 7},
         )}})
     state = step(state, next(a for a in legal_actions(state) if a.type == "take_reward_relic"))
     before = state.rng
     state = _choose(load_state(serialize(state)), "deck:0")
     assert next(c for c in state.master_deck if c.instance_id == "deck:0").card_id in {
-        "card_a", "card_b"}
+        "anger", "shrug_it_off"}
     changed = {key for key, value in state.rng.streams.items()
                if value != before.streams.get(key)}
     assert changed == {"niche"}

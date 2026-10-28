@@ -178,9 +178,9 @@ def test_random_upgrade_and_transform_pickup_relics_return_deck_markers() -> Non
     assert pandoras_box.markers[0].kind == "transform_deck_cards"
     assert pandoras_box.markers[0].metadata["selection"] == "matching"
     assert pandoras_box.markers[0].metadata["match_card_ids"] == ("strike", "defend")
-    assert [marker.metadata["match_card_ids"] for marker in talisman.markers] == [
-        ("strike",),
-        ("defend",),
+    assert [marker.metadata for marker in talisman.markers] == [
+        {"selection": "last", "match_source_tag": "strike", "match_basic": True},
+        {"selection": "last", "match_source_tag": "defend", "match_basic": True},
     ]
 
 
