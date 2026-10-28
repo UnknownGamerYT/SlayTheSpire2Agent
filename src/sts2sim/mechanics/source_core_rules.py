@@ -85,6 +85,8 @@ def source_core_steps(
             {"remove_status": {"target": "enemy", "statuses": ("artifact",)}},
             status("vulnerable", 3 if upgraded else 2, "enemy"),
         )
+    if card_id == "entrench":
+        return ({"block_formula": {"formula": "player_block"}, "unpowered_block": True},)
     if card_id == "accuracy":
         return (status("accuracy", 6 if upgraded else 4),)
     if card_id in {"blade_dance", "blade_of_ink", "cloak_and_dagger", "up_my_sleeve"}:

@@ -106,3 +106,20 @@ def test_hang_multiplies_once_after_additive_strength_and_before_vulnerable(
     result = _play(_reload(state), "hang")
     assert result.combat.monsters[0].hp == 100 - expected
     assert result.combat.monsters[0].statuses["hang"] == stacks * 2
+
+
+@pytest.mark.parametrize("relics,expected", [((), 15), (("vambrace",), 25)])
+def test_entrench_is_unpowered_move_block_but_keeps_unmovable_and_relics(relics, expected):
+    state = _state(_source("ENTRENCH"), statuses={
+        "dexterity": 10, "frail": 2, "no_card_block_gain": 1, "unmovable": 1,
+    }, relics=relics)
+    player = state.player.model_copy(update={"block": 5})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(update={
+        "player": player,
+    })})
+    result = _play(_reload(state), "entrench")
+    assert result.player.block == expected
+    gained = next(e for e in result.replay_log[-1].events if e.kind == "player_block")
+    assert gained.metadata["item_block_multipliers"] == (
+        ("unmovable", "vambrace") if relics else ("unmovable",)
+    )

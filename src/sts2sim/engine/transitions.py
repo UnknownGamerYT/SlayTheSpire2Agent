@@ -17678,6 +17678,7 @@ def _apply_effect_step(
             source_id=card.instance_id,
             source_card=card,
             metadata={"formula": _formula_name(effect.get("block_formula"))},
+            unpowered=bool(effect.get("unpowered_block")),
         )
         events.extend(block_events)
         player = combat.player
@@ -23198,6 +23199,7 @@ def _gain_player_block(
     source_id: str | None,
     source_card: CardInstance | None,
     metadata: Mapping[str, Any] | None = None,
+    unpowered: bool = False,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     player = combat.player
     from_card = source_card is not None and source_card.custom.get("source_kind") not in {
@@ -23205,15 +23207,16 @@ def _gain_player_block(
     }
     if amount <= 0 and not from_card:
         return combat, rng_state, ()
-    if from_card and _status_amount(player.statuses, "no_card_block_gain") > 0:
+    if from_card and not unpowered and _status_amount(player.statuses, "no_card_block_gain") > 0:
         return combat, rng_state, (EffectEvent(
             kind="card_block_prevented", source_id=source_id, target_id=PLAYER_TARGET_ID,
             amount=0, metadata={"status": "no_card_block_gain", "requested": amount},
         ),)
-    block = (
-        _modified_card_block(combat, source_card, amount)
-        if from_card and source_card is not None else Fraction(amount)
-    )
+    if from_card and source_card is not None:
+        block = (source_enchantment_hooks.block_base(combat, source_card, amount)
+                 if unpowered else _modified_card_block(combat, source_card, amount))
+    else:
+        block = Fraction(amount)
     block *= 2 ** _status_amount(player.statuses, "shadowmeld")
     owned_relics = state.relics if state is not None else tuple(
         combat.metadata.get("item_relic_ids", ())
