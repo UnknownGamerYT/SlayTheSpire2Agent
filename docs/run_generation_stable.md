@@ -16,6 +16,12 @@ the local user's installed game has not been fingerprinted or executed here.
   first-fight, treasure and last-rest rows; up to three assignment passes;
   duplicate segment pruning and count repair; centering, spreading and path
   straightening. Stable shuffles sort coordinates before Fisher-Yates.
+- `SpoilsActMap.cs` and `GoldenPathActMap.cs`: source hourglass construction
+  on the independent `spoils_map` RNG, centered treasure convergence, parent/
+  child limits, source pruning, and the fixed Golden Compass path in column 3.
+  Multiplayer removes the Golden Path's third room. Golden Compass marks the
+  act in which it was obtained. Spoils Map marks the resulting map's first
+  treasure if another map modifier replaces its hourglass.
 - The four `Models.Acts` classes and `MapPointTypeCounts.cs`: 15/15/14/13 room
   rows for Overgrowth/Underdocks/Hive/Glory, one fewer in multiplayer; actual
   Gaussian count formulas and RNG call order; 5 elites at A0 and 8 at A1+;
@@ -40,7 +46,8 @@ the local user's installed game has not been fingerprinted or executed here.
   Overgrowth combat/elite/event ordering, Neow/Orobas epoch gates and shared
   Darv allocation to at most one later act. Multiplayer skips tutorial
   encounter/discovery overrides. A10 creates and traverses two distinct final
-  bosses before completing the run.
+  bosses before completing the run. A profile without Neow starts with the
+  source's weak monster room at the starting point before row 1.
 - `RoomSet.EnsureNextEventIsValid`: consume the stored shuffled event sequence,
   skip visited or ineligible IDs and serialize the cursor. Unique eligible
   events can repeat after exhaustion. The existing eligibility layer still
@@ -70,11 +77,14 @@ run as a particular player's game profile.
 
 The source implementations require exact RNG and source-content ordering.
 Normal run streams are supplied by the companion stable RNG implementation.
+Map generation and Ancient option generation construct a fresh local model RNG
+each time, as in the source; regenerating a map restarts its sequence without
+advancing the persistent run RNG bank.
 See [stable RNG runtime](stable_rng_runtime.md) for its scope and replay
 compatibility. Ancient identity selection is source-backed here; this change
 does not independently certify every Ancient offering effect or option filter.
-Golden Compass and Spoils Map use the simulator's existing special-map paths;
-the standard-map source port does not by itself establish those special maps.
+Ancient offering effects and their profile predicates remain separate from
+the source-backed identity allocation implemented here.
 
 ## Retained validation
 
@@ -84,11 +94,14 @@ using [tckmn/sts2-seed-search at cedcb54](https://github.com/tckmn/sts2-seed-sea
 The independent C normal and elite sequences, boss selection and consumed
 samples agree with this implementation.
 
-`stable_map_source_oracle.json` contains eight complete layouts produced by
+`stable_map_source_oracle.json` contains twelve complete layouts produced by
 the external Python source port with a separately written sample-based random
 tape adapter. Expected nodes, edges and draw counts cover all four acts at A0
-and A1. A further 30 complete stable RNG seeded layouts were compared with the
-independent port during development. These are source algorithm cross-checks,
+and A1, plus four Spoils layouts across single-player and multiplayer. The
+external Spoils port shuffled assigned nodes, contrary to the pinned C#;
+the fixture adapter corrects that candidate filter before comparison. A further
+30 standard and 30 Spoils complete stable RNG seeded layouts were compared
+with the independent port during development. These are source algorithm cross-checks,
 not captured game runs; the external port's obsolete RNG was not used.
 
 Public regressions exercise late-floor first weak combats, elite/normal cursor

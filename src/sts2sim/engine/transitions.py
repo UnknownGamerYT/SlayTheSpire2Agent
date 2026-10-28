@@ -360,8 +360,20 @@ def new_run_state(
         act=_source_int(source, "act", 1), rng=rng, source={**source, **flags},
         ascension=ascension,
     )
+    map_state, flags, _ = _mark_spoils_map_site(map_state, flags)
     player = _apply_ancient_heal(player, ascension)
     ancient_state = _generate_ancient_state(act=map_state.act, rng=rng, source=flags)
+    flags["generation_started_with_neow"] = (
+        _mapping_from(flags["act_room_sets"]["1"]).get("ancient_id") is not None
+    )
+    if map_state.act == 1 and ancient_state is None:
+        start_id = map_state.current_node_id
+        map_state = map_state.model_copy(update={
+            "nodes": tuple(node.model_copy(update={"kind": RoomKind.MONSTER})
+                           if node.node_id == start_id else node for node in map_state.nodes),
+            "completed_node_ids": (),
+        })
+        flags["starting_monster_pending"] = True
     rng_state = capture_random_state(rng)
 
     return RunState(
@@ -1443,6 +1455,7 @@ def _choose_node(state: RunState, action: Action) -> tuple[RunState, tuple[Effec
     node = state.map.node_by_id[action.target_id]
     entry_events: list[EffectEvent] = []
     flags = dict(state.flags)
+    flags.pop("starting_monster_pending", None)
     ordinary = state.map.outgoing_by_id.get(state.map.current_node_id or "", ())
     if action.target_id not in ordinary and _has_relic(state, "winged_boots"):
         counters = _relic_counters_from_flags(state)
@@ -6333,11 +6346,15 @@ def _apply_relic_pickup_effects(
         events.extend(completion_events)
     if normalized == GOLDEN_COMPASS_RELIC_ID:
         flags = dict(state.flags)
-        flags["golden_compass_act2_map"] = True
+        flags["golden_compass_map_act"] = state.act
+        if state.act == 2:
+            flags["golden_compass_act2_map"] = True
         next_state = state.model_copy(update={"flags": flags})
         events.append(EffectEvent(kind="golden_compass_activated", source_id=relic_id))
-        if state.act == 2:
-            compass_map = _generate_golden_compass_map(act=2)
+        if state.map is not None:
+            compass_map = _generate_golden_compass_map(
+                act=state.act, multiplayer=_flag_int(state, "player_count", 1) > 1,
+            )
             compass_map, flags, map_events = _mark_spoils_map_site(
                 compass_map,
                 flags,
@@ -27775,7 +27792,7 @@ def _generate_ancient_state(
         return None
     context = with_generated_ancient_choices(
         MechanicsAncientContext(act=act, ancient_id=str(ancient_id) if ancient_id else None),
-        rng=random_stream(rng, str(ancient_id or "NEOW").upper()),
+        rng=model_random(rng, str(ancient_id or "NEOW").upper()),
     )
     return AncientState(
         act=act, ancient_id=context.ancient_id or "neow",
@@ -28925,6 +28942,7 @@ def _initial_flags(source: Mapping[str, Any]) -> dict[str, Any]:
         "treasure_reward_forced",
         "treasure_relic_pool",
         "golden_compass_act2_map",
+        "golden_compass_map_act",
         "spoils_map_pending_act",
         "spoils_map_source_act",
         "spoils_map_target_act",
@@ -29027,17 +29045,26 @@ def _infer_target(card_type: CardType, effects: Mapping[str, Any]) -> str:
 def _generate_act_map(
     act: int, rng: Random, source: Mapping[str, Any], *, ascension: int = 0,
 ) -> MapState:
-    if act == 2 and _source_bool(source, "golden_compass_act2_map", False):
-        return _generate_golden_compass_map(act=act)
     multiplayer = _source_int(source, "player_count", 1) > 1
+    golden_act = _source_int(
+        source, "golden_compass_map_act",
+        2 if _source_bool(source, "golden_compass_act2_map", False) else -1,
+    )
+    if act == golden_act:
+        return _generate_golden_compass_map(act=act, multiplayer=multiplayer)
     default_rooms = _default_act_floors(act) - 2 - int(multiplayer)
     rooms = max(2, _source_int(source, "map_floors", default_rooms + 2) - 2)
+    hourglass = rooms > 6 and act in {
+        _source_int(source, "spoils_map_pending_act", -1),
+        _source_int(source, "spoils_map_target_act", -1),
+    }
     layout = generate_standard_map(
-        random_stream(rng, f"act_{act}_map"), act=act,
+        model_random(rng, "spoils_map" if hourglass else f"act_{act}_map"), act=act,
         act_id=selected_act_id(act, source), ascension_level=ascension,
         room_count=rooms, width=_source_int(source, "map_width", 7),
         path_count=_source_int(source, "map_paths", 7),
         has_second_boss=act == _source_int(source, "max_acts", 3) and ascension >= 10,
+        hourglass=hourglass,
     )
     nodes = tuple(MapNodeState(
         node_id=node.node_id, act=act, floor=node.floor, lane=node.lane or 0,
@@ -29074,26 +29101,29 @@ _GOLDEN_COMPASS_PATH_KINDS = (
 )
 
 
-def _generate_golden_compass_map(act: int) -> MapState:
-    start_node_id = f"a{act}:0:0"
+def _generate_golden_compass_map(act: int, *, multiplayer: bool = False) -> MapState:
+    start_node_id = f"a{act}:0:3"
+    kinds = list(_GOLDEN_COMPASS_PATH_KINDS)
+    if multiplayer:
+        kinds.pop(2)
     nodes = [
         MapNodeState(
             node_id=start_node_id,
             act=act,
             floor=0,
-            lane=0,
+            lane=3,
             kind=RoomKind.START,
         )
     ]
     nodes.extend(
         MapNodeState(
-            node_id=f"a{act}:{floor}:0",
+            node_id=f"a{act}:{floor}:3",
             act=act,
             floor=floor,
-            lane=0,
+            lane=3,
             kind=kind,
         )
-        for floor, kind in enumerate(_GOLDEN_COMPASS_PATH_KINDS, start=1)
+        for floor, kind in enumerate(kinds, start=1)
     )
     edges = tuple(
         MapEdgeState(
@@ -29126,7 +29156,13 @@ def _mark_spoils_map_site(
     if not should_mark:
         return map_state, next_flags, ()
 
-    map_state, target = _force_map_through_spoils_treasure(map_state)
+    treasures = sorted((node for node in map_state.nodes if node.kind == RoomKind.TREASURE),
+                       key=lambda node: (node.lane, node.floor))
+    if treasures and (force or len(treasures) == 1):
+        target = treasures[0]
+    else:
+        # Synthetic short-map fixtures have no source hourglass generation.
+        map_state, target = _force_map_through_spoils_treasure(map_state)
     for key in (
         "spoils_map_pending_act",
         "spoils_map_target_act",
@@ -29624,6 +29660,8 @@ def _reachable_node_ids(state: RunState) -> tuple[str, ...]:
     if state.map is None or state.map.current_node_id is None:
         return ()
     completed = set(state.map.completed_node_ids)
+    if state.flags.get("starting_monster_pending") and state.map.current_node_id not in completed:
+        return (state.map.current_node_id,)
     outgoing = state.map.outgoing_by_id.get(state.map.current_node_id, ())
     reachable = tuple(node_id for node_id in outgoing if node_id not in completed)
     if (

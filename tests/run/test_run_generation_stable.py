@@ -55,6 +55,8 @@ def test_complete_map_matches_independent_source_port(case: dict[str, Any]) -> N
         act=case["act"],
         act_id=case["act_id"],
         ascension_level=case["ascension"],
+        room_count=case.get("room_count"),
+        hourglass=case.get("map_kind") == "spoils",
     )
     nodes = {node.node_id: node for node in layout.nodes}
     actual_nodes = sorted([node.floor, node.lane, node.kind.value] for node in layout.nodes)
@@ -227,6 +229,15 @@ def test_locked_neow_skips_ancient_and_multiplayer_removes_one_room() -> None:
         "SLIMES_WEAK",
         "SHRINKER_BEETLE_WEAK",
     ]
+    assert first.map is not None
+    assert first.map.node_by_id[first.map.current_node_id].kind == RoomKind.MONSTER
+    first = step(
+        first,
+        next(action for action in legal_actions(first) if action.type == ActionType.CHOOSE_NODE),
+    )
+    assert first.combat is not None
+    assert first.combat.monsters[0].metadata["encounter_id"] == "NIBBITS_WEAK"
+    assert first.flags["act_room_sets"]["1"]["normal_encounters_visited"] == 1
     multi = new_run("MULTI", "IRONCLAD", 0, source_data={"player_count": 2})
     assert multi.map is not None and max(node.floor for node in multi.map.nodes) == 15
     assert len(multi.flags["act_room_sets"]["1"]["normal_encounters"]) == 14
@@ -287,3 +298,70 @@ def test_public_boss_completion_uses_pregenerated_next_act_and_reload_is_identic
     assert state.ancient is not None and state.ancient.ancient_id == expected_ancient
     assert state.map is not None and state.map.act == 2
     assert state.flags["act_room_sets"]["2"] == expected_plan
+
+
+def test_spoils_map_generates_single_centered_treasure_on_every_path() -> None:
+    state = new_run(
+        "SPOILS",
+        "IRONCLAD",
+        0,
+        source_data={
+            "act": 2,
+            "spoils_map_pending_act": 2,
+        },
+    )
+    assert state.map is not None
+    treasure = [node for node in state.map.nodes if node.kind == RoomKind.TREASURE]
+    assert len(treasure) == 1 and treasure[0].lane == 3
+    assert state.flags["spoils_map_target_node_id"] == treasure[0].node_id
+    pending = [state.map.current_node_id]
+    reached: set[str] = set()
+    while pending:
+        node_id = pending.pop()
+        if node_id in reached or node_id == treasure[0].node_id:
+            continue
+        reached.add(node_id)
+        pending.extend(state.map.outgoing_by_id.get(node_id, ()))
+    assert state.map.boss_node_id not in reached
+
+
+def test_golden_path_uses_center_column_and_multiplayer_removes_third_room() -> None:
+    single = new_run(
+        "GOLDEN",
+        "IRONCLAD",
+        0,
+        source_data={
+            "act": 2,
+            "golden_compass_map_act": 2,
+        },
+    )
+    multi = new_run(
+        "GOLDEN",
+        "IRONCLAD",
+        0,
+        source_data={
+            "act": 2,
+            "golden_compass_map_act": 2,
+            "player_count": 2,
+        },
+    )
+    assert single.map is not None and multi.map is not None
+    assert {node.lane for node in single.map.nodes} == {3}
+    assert {node.lane for node in multi.map.nodes} == {3}
+    assert len(single.map.nodes) == 18
+    assert len(multi.map.nodes) == 17
+    single_kinds = [node.kind for node in single.map.nodes]
+    del single_kinds[3]
+    assert single_kinds == [node.kind for node in multi.map.nodes]
+
+
+def test_map_regeneration_restarts_its_local_rng_without_consuming_run_streams() -> None:
+    from sts2sim.engine.rng import capture_random_state
+    from sts2sim.engine.transitions import _generate_act_map
+
+    rng = RunRng("REDRAW")
+    before = capture_random_state(rng)
+    first = _generate_act_map(2, rng, {"spoils_map_pending_act": 2})
+    second = _generate_act_map(2, rng, {"spoils_map_pending_act": 2})
+    assert first == second
+    assert capture_random_state(rng) == before

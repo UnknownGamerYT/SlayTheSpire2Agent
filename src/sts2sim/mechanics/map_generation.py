@@ -47,6 +47,7 @@ def generate_standard_map(
     path_count: int = 7,
     replace_treasure: bool = False,
     has_second_boss: bool = False,
+    hourglass: bool = False,
 ) -> MapLayout:
     """Generate source topology, room assignment, pruning and layout transforms.
 
@@ -65,11 +66,53 @@ def generate_standard_map(
         MapPoint(width // 2, length + 1, "boss", can_modify=False) if has_second_boss else None
     )
     start_points: set[MapPoint] = set()
+    treasure_row = length - 7
+    if hourglass and treasure_row <= 0:
+        raise ValueError("Treasure row is out of bounds for SpoilsActMap")
 
     def get_point(col: int, row: int) -> MapPoint:
         if (col, row) not in grid:
             grid[col, row] = MapPoint(col, row)
         return grid[col, row]
+
+    def crosses(point: MapPoint, col: int) -> bool:
+        other = grid.get((col, point.row))
+        delta = col - point.col
+        return bool(
+            delta and other and any(child.col - other.col == -delta for child in other.children)
+        )
+
+    def hourglass_column(point: MapPoint) -> int:
+        row = point.row + 1
+        center = width // 2
+        radius = min(center, abs(row - treasure_row), max(0, length - 1 - row) + 1)
+        lower, upper = max(0, center - radius), min(width - 1, center + radius)
+        distance = treasure_row - point.row
+        if 0 < distance <= 3:
+            direction = (center > point.col) - (center < point.col)
+            steps = [direction, 0, -direction] if direction else [0, -1, 1]
+        else:
+            steps = [-1, 0, 1]
+            rng.shuffle(steps)
+        for step in steps:
+            col = max(0, min(width - 1, point.col + step))
+            if not lower <= col <= upper or crosses(point, col):
+                continue
+            child = grid.get((col, row))
+            if child and point not in child.parents and len(child.parents) >= 3:
+                continue
+            if len(point.children) >= 3 and (child is None or child not in point.children):
+                continue
+            return col
+        col = max(lower, min(upper, center))
+        if abs(col - point.col) > 1:
+            direction = (col > point.col) - (col < point.col)
+            col = max(lower, min(upper, point.col + direction))
+        if crosses(point, col):
+            col = max(lower, min(upper, point.col))
+        if abs(col - point.col) > 1:
+            raise ValueError("SpoilsActMap fallback step exceeds adjacency")
+        return col
 
     for iteration in range(max(1, path_count)):
         point = get_point(rng.randrange(width), 1)
@@ -78,6 +121,11 @@ def generate_standard_map(
                 point = get_point(rng.randrange(width), 1)
         start_points.add(point)
         while point.row < length - 1:
+            if hourglass:
+                child = get_point(hourglass_column(point), point.row + 1)
+                point.add_child(child)
+                point = child
+                continue
             steps = [-1, 0, 1]
             rng.shuffle(steps)
             for step in steps:
@@ -96,6 +144,21 @@ def generate_standard_map(
                 break
             else:
                 raise ValueError("No valid noncrossing map step")
+
+    if hourglass:
+        treasure = get_point(width // 2, treasure_row)
+        treasure.kind = "treasure"
+        treasure.can_modify = False
+        for (col, row), point in list(sorted(grid.items())):
+            if row != treasure_row or point is treasure:
+                continue
+            for parent in list(point.parents):
+                parent.remove_child(point)
+                parent.add_child(treasure)
+            for child in list(point.children):
+                point.remove_child(child)
+                treasure.add_child(child)
+            del grid[col, row]
 
     for (_col, row), point in sorted(grid.items()):
         if row == length - 1:
@@ -149,7 +212,8 @@ def generate_standard_map(
         if point.kind == "unassigned":
             point.kind = "monster"
     prune_and_repair(grid, start_points, start, rng, counts, is_valid)
-    grid = postprocess(grid, width, length)
+    if not hourglass:
+        grid = postprocess(grid, width, length)
     points = [start, *grid.values(), boss]
     if second_boss is not None:
         points.append(second_boss)
