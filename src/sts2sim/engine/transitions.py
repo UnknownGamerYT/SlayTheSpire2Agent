@@ -7814,10 +7814,9 @@ def _apply_sea_glass_card_selection(
                 card_id = selection_rng.choice(candidates)
                 candidates.remove(card_id)
                 chosen.append(card_id)
-                threshold = 0.0 if rarity is CardRarity.RARE else (
-                    (state.act - 1) * (0.125 if state.ascension >= 7 else 0.25)
-                )
-                upgraded_flags.append(source_float(selection_rng) <= threshold)
+                # ForNonCombatWithUniformOdds retains NoUpgradeRoll when
+                # Sea Glass ORs its additional creation flags.
+                upgraded_flags.append(False)
         else:
             rng.shuffle(candidates)
             chosen = candidates[:5]

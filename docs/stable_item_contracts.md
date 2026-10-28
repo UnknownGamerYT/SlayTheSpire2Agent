@@ -88,10 +88,10 @@ Both use the shared float32 rarity-first factory and the combat potion-generatio
 stream. Profile epochs absent from input still assume all potions unlocked.
 
 Sea Glass honors the character preselected by Orobas. On the stable RNG path it
-selects and removes each offer in source registry order and immediately performs
-its upgrade roll, retaining all fifteen per-card upgrade states through display,
-selection, and reload. Its fifteen choices consume thirty Rewards draws and no
-class reroll. Dusty Tome adds the preselected Ancient card directly, upgraded;
+selects and removes each offer in source registry order. Its factory options
+preserve NoUpgradeRoll, so fifteen choices consume fifteen Rewards draws and no
+random upgrade or class reroll. This corrects the earlier thirty-draw assumption.
+Dusty Tome adds the preselected Ancient card directly, upgraded;
 the pickup does not reroll its card or create an ordinary card reward screen.
 
 Implementation source:

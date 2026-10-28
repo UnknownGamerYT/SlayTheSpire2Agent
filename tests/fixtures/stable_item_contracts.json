@@ -445,6 +445,10 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/UnmovablePower.cs",
       "sha256": "b267db119bf6d000e1ccc146584cc1d648566a82a4ac7ef34bc2dd53ff5306a6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce"
     }
   ],
   "cached_source_rows": {
