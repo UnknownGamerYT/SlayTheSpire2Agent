@@ -4514,7 +4514,7 @@
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
-        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count.",
+        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, source-invalid single-rarity rejection and original reroll choice count.",
         "Dream Catcher outside-combat Encounter rewards and Source.Other direct uncommon odds threshold .37/.4 verified."
       ],
       "runtime_entrypoints": [
@@ -4531,7 +4531,7 @@
         "tests/rooms/test_source_rest_runtime.py"
       ],
       "notes": [
-        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count."
+        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, source-invalid single-rarity rejection and original reroll choice count."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Uncommon"

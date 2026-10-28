@@ -104,17 +104,16 @@ def test_lasting_candy_reroll_keeps_original_choice_count_then_adds_one_power():
     assert any(a['type'] == 'take_reward_card' for a in action_space(result))
 
 
-def test_lasting_candy_single_rarity_power_pool_uses_only_item_and_upgrade_draws():
+def test_lasting_candy_rejects_source_invalid_single_rarity_pool_before_rng():
     state = _candy_victory(1)
     rng = random_from_state(state.rng)
     before = capture_random_state(rng)
     pool = tuple(card for card in t._combat_card_pool(state) if card.card_id == 'inflame')
-    cards, rarities, upgrades = hooks.append_lasting_candy_power(
-        state, rng, (), (), (), pool=pool)
-    after = capture_random_state(rng)
-    assert cards == ('inflame',) and rarities == ('uncommon',) and upgrades == (False,)
-    assert after.streams['rewards'].draws - before.streams['rewards'].draws == 2
-    assert state.flags['card_rarity_offset'] == _reload(state).flags['card_rarity_offset']
+    from sts2sim.engine.errors import EngineError
+    with pytest.raises(EngineError, match='requires multiple rarities'):
+        hooks.append_lasting_candy_power(state, rng, (), (), (), pool=pool)
+    assert capture_random_state(rng) == before
+
 
 
 @pytest.mark.parametrize('unblockable,took_damage', [(False, True), (True, False)])

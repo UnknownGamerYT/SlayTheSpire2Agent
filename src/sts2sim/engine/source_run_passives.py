@@ -16,6 +16,7 @@ from sts2sim.mechanics.reward_pools import build_colorless_card_pool
 from sts2sim.mechanics.source_ancients import source_unlocked_characters
 from sts2sim.mechanics.source_rng import float32, source_float
 
+from .errors import EngineError
 from .models import CombatState, EffectEvent, RunState
 from .rng import random_stream
 from .source_enchantment_hooks import can_enchant
@@ -85,7 +86,9 @@ def append_lasting_candy_power(
         return tuple(card_ids), tuple(rarities), tuple(upgraded)
     rewards_rng = random_stream(rng, 'rewards')
     allowed = {card.rarity.value for card in candidates}
-    # CardCreationOptions.AssertUniformOddsIfSingleRarityPool replaces rarity odds.
+    # Source custom-pool constructor rejects non-Uniform single-rarity pools.
+    if len(allowed) == 1:
+        raise EngineError("Lasting Candy source custom Power pool requires multiple rarities")
     if len(allowed) > 1:
         sample = source_float(rewards_rng)
         scarce = state.ascension >= 7

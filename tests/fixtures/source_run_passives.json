@@ -65,10 +65,10 @@
     "dingy_requires_is_card_reward": true,
     "last_candy_every_completed_combats": 2,
     "candy_extra_power_source": "Other",
-    "candy_single_rarity_uses_uniform_odds": true,
     "candy_changes_future_rarity_offset": false,
     "glitter_eligible_enchantment": "Glam1",
     "lava_ignores_unblockable_damage": true,
-    "late_dispatch_owner": "source_card_reward_modifiers acquisition-order loop (separate integration leaf)"
+    "late_dispatch_owner": "source_card_reward_modifiers acquisition-order loop (separate integration leaf)",
+    "candy_nonuniform_single_rarity_custom_pool_throws": true
   }
 }
