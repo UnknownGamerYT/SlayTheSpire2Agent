@@ -646,7 +646,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -662,12 +662,15 @@
         "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy",
         "tests/rewards/test_deck_add_relics.py::test_bing_bong_duplicates_each_original_once_and_preserves_card_properties",
         "tests/rewards/test_deck_add_relics.py::test_bing_bong_copies_count_for_gold_healing_and_each_gets_one_fresnel_enchant",
-        "tests/rewards/test_deck_add_relics.py::test_transforms_upgrades_and_combat_creations_are_not_deck_additions",
+        "tests/rewards/test_deck_add_relics.py::test_upgrades_and_combat_creations_are_not_deck_additions",
         "tests/rewards/test_deck_add_relics.py::test_addition_with_reused_id_is_repaired_and_copy_ids_stay_unique_after_removal",
-        "tests/rewards/test_deck_add_relics.py::test_multiple_additions_with_the_same_legacy_id_get_separate_event_targets"
+        "tests/rewards/test_deck_add_relics.py::test_multiple_additions_with_the_same_legacy_id_get_separate_event_targets",
+        "tests/rewards/test_deck_add_relics.py::test_clone_origins_skip_bing_but_still_trigger_other_deck_observers",
+        "tests/rewards/test_source_claws.py::test_claws_replacement_enters_deck_and_bing_duplicates_it_once",
+        "tests/rewards/test_source_claws.py::test_dolly_clone_does_not_trigger_bing_but_counts_for_lucky_fysh"
       ],
       "notes": [
-        "Compared listed source gameplay methods and canonical values with shared runtime marker/consumer scope; no independent full-interaction game oracle is claimed."
+        "CardCmd.Transform replacements enter Deck with clonedBy null and receive one Bing copy; Dolly, event and campfire Clone copies retain their cloning provenance and are not copied by Bing. Copied entries still trigger the other deck-entry relics."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Event"
@@ -941,7 +944,7 @@
         "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy",
         "tests/rewards/test_deck_add_relics.py::test_bing_bong_copies_count_for_gold_healing_and_each_gets_one_fresnel_enchant",
         "tests/rewards/test_deck_add_relics.py::test_book_of_five_rings_tracks_multiple_cycles_across_save_and_load",
-        "tests/rewards/test_deck_add_relics.py::test_transforms_upgrades_and_combat_creations_are_not_deck_additions",
+        "tests/rewards/test_deck_add_relics.py::test_upgrades_and_combat_creations_are_not_deck_additions",
         "tests/rewards/test_deck_add_relics.py::test_combat_addition_keeps_current_counters_and_player_state_in_sync"
       ],
       "notes": [
@@ -3183,27 +3186,32 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_deck_add_relics",
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/transitions.py:_modify_merchant_card",
+        "src/sts2sim/engine/source_card_reward_modifiers.py:modify_generated_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_non_combat_passive_pickups_document_runtime_intent",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/run/test_run_progression.py::test_cached_event_choice_handles_fixed_potions_and_max_hp_loss",
         "tests/rewards/test_deck_add_relics.py::test_bing_bong_copies_count_for_gold_healing_and_each_gets_one_fresnel_enchant",
-        "tests/rewards/test_deck_add_relics.py::test_transforms_upgrades_and_combat_creations_are_not_deck_additions",
+        "tests/rewards/test_deck_add_relics.py::test_upgrades_and_combat_creations_are_not_deck_additions",
         "tests/rewards/test_deck_add_relics.py::test_fresnel_enchants_only_block_cards_including_nested_and_formula_effects",
         "tests/rewards/test_deck_add_relics.py::test_upgrading_fresnel_card_preserves_its_actual_nimble_block_bonus",
-        "tests/events/test_event_catalog_primitives.py::test_random_relic_potion_fixed_relic_and_fixed_potion_primitives"
+        "tests/events/test_event_catalog_primitives.py::test_random_relic_potion_fixed_relic_and_fixed_potion_primitives",
+        "tests/rooms/test_source_merchant_cards.py::test_merchant_modifiers_are_visible_and_persist_once_on_purchase",
+        "tests/rooms/test_source_merchant_cards.py::test_courier_purchase_keeps_original_card_before_restocking_its_slot",
+        "tests/rewards/test_deck_add_relics.py::test_fresnel_preserves_existing_enchantment_without_stacking_nimble"
       ],
       "notes": [
-        "Compared Nimble2 eligibility on reward options, merchant offers and cards entering deck; source enchantment eligibility/preview consumers require their own retained interaction tests."
+        "Actual Nimble.CanEnchant guards deck addition, reward option and merchant creation/update hooks. Offered merchant cards persist their Nimble2 enchantment, preview it to policies and preserve it exactly once through purchase, Courier restock and Lords Parasol."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Event"
@@ -4935,7 +4943,7 @@
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy",
         "tests/rewards/test_deck_add_relics.py::test_bing_bong_copies_count_for_gold_healing_and_each_gets_one_fresnel_enchant",
-        "tests/rewards/test_deck_add_relics.py::test_transforms_upgrades_and_combat_creations_are_not_deck_additions",
+        "tests/rewards/test_deck_add_relics.py::test_upgrades_and_combat_creations_are_not_deck_additions",
         "tests/rewards/test_deck_add_relics.py::test_all_run_addition_sources_trigger_lucky_fysh",
         "tests/rewards/test_deck_add_relics.py::test_shop_card_addition_uses_purchase_card_instance_metadata",
         "tests/rewards/test_deck_add_relics.py::test_combat_addition_keeps_current_counters_and_player_state_in_sync"

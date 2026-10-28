@@ -307,7 +307,7 @@ def test_shop_bought_card_uses_egg_relic_upgrade() -> None:
     assert bought.card_id == "shop_attack"
     assert bought.upgraded is True
     assert bought.effects["sequence"][0]["damage"] == 9
-    assert next_state.replay_log[-1].events[-1].kind == "relic_card_upgraded"
+    assert state.shop.items[0].metadata["card"]["upgraded"] is True
 
 
 def test_shop_buying_colorless_card_adds_it_to_master_deck() -> None:

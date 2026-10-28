@@ -5840,9 +5840,11 @@ def _resolve_shop_action(
 
     card_upgrade_event: EffectEvent | None = None
     if item.item.kind in {ShopItemKind.CARD, ShopItemKind.COLORLESS_CARD}:
-        card_spec = _reward_card_spec(state, item.item.item_id)
-        card_spec["instance_id"] = f"shop_{len(state.replay_log)}_{item_index}"
-        card = _card_from_spec(card_spec, len(state.master_deck) + 1)
+        # Keep the original offer when Courier has already restocked this slot.
+        offered = state.shop.items[item_index] if state.shop is not None else None
+        card = (_merchant_card_instance(state, offered) if offered is not None else
+                _card_from_spec(_reward_card_spec(state, item.item.item_id), 0))
+        card = card.model_copy(update={"instance_id": f"shop_{len(state.replay_log)}_{item_index}"})
         card = _with_unique_deck_card_id(card, state.master_deck)
         card, card_upgrade_event = _upgrade_card_for_add_relics(state, card)
         update["master_deck"] = state.master_deck + (card,)
@@ -9117,15 +9119,9 @@ def _shop_gain_all_non_service_items(
         kind = ShopItemKind(item.kind)
         if kind in {ShopItemKind.CARD, ShopItemKind.COLORLESS_CARD}:
             gained_ids.append(item.item_id)
-            source_spec = _reward_card_spec(state, item.item_id)
-            card = _card_from_spec(
-                {
-                    **source_spec,
-                    "instance_id": f"shop_free_{len(state.replay_log)}_{index}",
-                    "card_id": item.item_id,
-                },
-                len(deck) + 1,
-            )
+            card = _merchant_card_instance(state, item).model_copy(update={
+                "instance_id": f"shop_free_{len(state.replay_log)}_{index}",
+            })
             deck.append(_with_unique_deck_card_id(card, deck))
         elif kind is ShopItemKind.RELIC:
             gained_ids.append(item.item_id)
@@ -9171,15 +9167,38 @@ def _shop_item_state_from_priced(item_index: int, item: PricedShopItem) -> ShopI
     )
 
 
-def _apply_shop_price_modifiers(state: RunState, shop: ShopState) -> ShopState:
-    return shop.model_copy(
-        update={
-            "items": tuple(
-                item.model_copy(update={"price": _modified_shop_price(state, item)})
-                for item in shop.items
+def _merchant_card_instance(state: RunState, item: ShopItemState) -> CardInstance:
+    """Return the offered card, retaining merchant creation modifiers after reload."""
+    saved = item.metadata.get("card")
+    if isinstance(saved, Mapping):
+        return CardInstance.model_validate(saved)
+    card = _card_from_spec(_reward_card_spec(state, item.item_id), 0)
+    return card.model_copy(update={"instance_id": f"merchant:{item.slot_id}:{item.item_id}"})
+
+
+def _modify_merchant_card(state: RunState, item: ShopItemState) -> ShopItemState:
+    if item.kind not in {ShopItemKind.CARD.value, ShopItemKind.COLORLESS_CARD.value}:
+        return item
+    card = _merchant_card_instance(state, item)
+    # MerchantCardEntry.Populate and UpdateEntry run these four model hooks.
+    for relic in state.relics:
+        if _normalized_id(relic) in {"molten_egg", "toxic_egg", "frozen_egg"}:
+            card, _ = _upgrade_card_for_add_relics(
+                state.model_copy(update={"relics": (relic,)}), card,
             )
-        }
-    )
+        elif _normalized_id(relic) == "fresnel_lens" and can_enchant_source(card, "nimble"):
+            card = _enchant_card(card, "nimble", 2, source_id="fresnel_lens")
+    return item.model_copy(update={"metadata": {
+        **item.metadata, "card": card.model_dump(mode="json"),
+    }})
+
+
+def _apply_shop_price_modifiers(state: RunState, shop: ShopState) -> ShopState:
+    return shop.model_copy(update={"items": tuple(
+        _modify_merchant_card(state, item).model_copy(
+            update={"price": _modified_shop_price(state, item)},
+        ) for item in shop.items
+    )})
 
 
 def _modified_shop_price(state: RunState, item: ShopItemState) -> int:

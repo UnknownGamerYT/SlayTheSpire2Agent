@@ -417,7 +417,8 @@ def _shop_descriptor(item: Mapping[str, Any]) -> dict[str, Any]:
         "item": dict(item),
     }
     if kind in {"card", "colorless_card"}:
-        descriptor["card"] = {"card_id": item_id, "zone": "shop"}
+        card = _mapping(_mapping(item.get("metadata")).get("card"))
+        descriptor["card"] = {**card, "card_id": item_id, "zone": "shop"}
     elif kind == "relic":
         descriptor["relic"] = {"relic_id": item_id}
     elif kind == "potion":

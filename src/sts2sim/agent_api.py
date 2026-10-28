@@ -1204,6 +1204,17 @@ def _action_card_descriptor(state: Any, action: Action) -> dict[str, Any]:
 
     item = _shop_item_for_action(state, action)
     if item and str(getattr(item, "kind", "")) in {"card", "colorless_card"}:
+        saved = _mapping(getattr(item, "metadata", {})).get("card")
+        if isinstance(saved, Mapping):
+            from sts2sim.engine.models import CardInstance
+
+            descriptor = _card_descriptor(
+                CardInstance.model_validate(saved), zone="shop",
+                position=_shop_item_index(action.target_id or ""),
+            )
+            descriptor["enchantments"] = _json_safe(saved.get("enchantments", ()))
+            descriptor["tags"] = _json_safe(saved.get("tags", ()))
+            return descriptor
         return _card_id_descriptor(
             getattr(item, "item_id", ""),
             zone="shop",

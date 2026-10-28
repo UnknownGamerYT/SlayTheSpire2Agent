@@ -384,6 +384,7 @@ class ShopItemState(EngineModel):
     price: int
     base_price: int
     purchased: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ShopState(EngineModel):
