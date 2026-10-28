@@ -109,6 +109,7 @@ class EncounterDefinition:
     monster_ids: tuple[str, ...]
     act_number: int | None = None
     is_weak: bool = False
+    act_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -287,6 +288,7 @@ def build_encounter_definitions(raw_encounters: Sequence[Any]) -> tuple[Encounte
                 monster_ids=monster_ids,
                 act_number=_act_number(row.get("act")),
                 is_weak=bool(row.get("is_weak", False)),
+                act_id=_named_act_id(row.get("act_id", row.get("act"))),
             )
         )
     return tuple(encounters)
@@ -316,6 +318,8 @@ def choose_encounter(
     room_type: str,
     preferred_id: str | None = None,
     prefer_weak: bool = False,
+    act_id: str | None = None,
+    previous_id: str | None = None,
 ) -> EncounterDefinition | None:
     room_type = _normalized_room_type(room_type)
     if preferred_id:
@@ -323,28 +327,35 @@ def choose_encounter(
         if preferred is not None:
             return preferred
 
-    candidates = tuple(encounter for encounter in encounters if encounter.room_type == room_type)
+    from .run_encounters import encounters_for_act, shares_encounter_tags
+
+    eligible = encounters_for_act(encounters, act_id) if act_id is not None else encounters
+    candidates = tuple(encounter for encounter in eligible if encounter.room_type == room_type)
     if not candidates:
         return None
 
-    act_candidates = tuple(encounter for encounter in candidates if encounter.act_number == act)
-    if act_candidates:
-        candidates = act_candidates
+    act_candidates = tuple(
+        encounter for encounter in candidates if encounter.act_number in (None, act)
+    )
+    candidates = act_candidates
 
     weak_candidates = tuple(encounter for encounter in candidates if encounter.is_weak)
     non_weak_candidates = tuple(encounter for encounter in candidates if not encounter.is_weak)
     if prefer_weak and weak_candidates:
-        fewest_monsters = min(len(encounter.monster_ids) for encounter in weak_candidates)
-        candidates = tuple(
-            encounter
-            for encounter in weak_candidates
-            if len(encounter.monster_ids) == fewest_monsters
-        )
+        candidates = weak_candidates
     elif not prefer_weak and non_weak_candidates:
         candidates = non_weak_candidates
 
     if not candidates:
         return None
+    different_candidates = tuple(
+        encounter
+        for encounter in candidates
+        if encounter.encounter_id != previous_id
+        and not shares_encounter_tags(encounter.encounter_id, previous_id)
+    )
+    if different_candidates:
+        candidates = different_candidates
     return rng.choice(candidates)
 
 
@@ -1197,6 +1208,16 @@ def _act_number(value: Any) -> int | None:
     if match is None:
         return None
     return int(match.group(1))
+
+
+def _named_act_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().upper()
+    for act_id in ("OVERGROWTH", "UNDERDOCKS", "HIVE", "GLORY"):
+        if normalized == act_id or normalized.endswith(f"- {act_id}"):
+            return act_id
+    return None
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:

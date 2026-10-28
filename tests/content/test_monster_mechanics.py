@@ -90,7 +90,7 @@ def test_monster_source_parses_scaling_and_cycle_moves() -> None:
     assert next_move.move_id == "GUARD"
 
 
-def test_choose_weak_encounter_prefers_single_early_enemy_when_available() -> None:
+def test_choose_weak_encounter_does_not_bias_toward_fewer_enemies() -> None:
     encounters = build_encounter_definitions(
         (
             {
@@ -129,7 +129,7 @@ def test_choose_weak_encounter_prefers_single_early_enemy_when_available() -> No
     )
 
     assert encounter is not None
-    assert encounter.encounter_id == "WEAK_SINGLE"
+    assert encounter.encounter_id == "WEAK_PAIR"
 
 
 def test_spawn_monsters_suffixes_duplicate_instance_ids() -> None:

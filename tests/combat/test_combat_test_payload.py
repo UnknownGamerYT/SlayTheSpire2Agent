@@ -30,7 +30,9 @@ def test_combat_payload_starts_in_playable_combat() -> None:
     assert payload["phase"] == "combat"
     assert payload["combat"]["turn"] == 1
     assert len(payload["combat"]["hand"]) == 5
-    assert len(payload["combat"]["monsters"]) == 1
+    # Stable weak encounters are sampled without a preference for fewer enemies.
+    assert payload["combat"]["monsters"]
+    assert all(monster["hp"] > 0 for monster in payload["combat"]["monsters"])
     assert len(payload["master_deck"]) == 10
     assert "burning_blood" in payload["relics"]
     assert {card["card_id"] for card in payload["master_deck"]} == {
