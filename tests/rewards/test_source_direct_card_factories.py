@@ -101,3 +101,22 @@ def test_fried_eel_direct_factory_runs_plain_card_hooks_and_preserves_event_rng(
     assert _draws(result, 'niche') - niche == 1
     assert not result.flags.get('silver_crucible_times_used')
     assert not result.flags.get('silken_tress_reward_used')
+
+
+@pytest.mark.parametrize('relic_id', ['hefty_tablet', 'lead_paperweight'])
+def test_public_ancient_pickup_enters_direct_factory_and_restores_map(relic_id):
+    state = _state()
+    choice = t.MechanicsAncientChoice(option_id='source_factory', name='Source factory',
+        relic_id=relic_id, ancient_id='neow', act=1,
+        metadata={'source_relic_pickup': True})
+    state = state.model_copy(update={'phase': RunPhase.ANCIENT,
+        'ancient': state.ancient.model_copy(update={
+            'options': (t._ancient_option_from_choice(choice),),
+        })})
+    picked = _same_reload(state, Action(type=ActionType.CHOOSE_ANCIENT, target_id='source_factory'))
+    assert picked.phase == RunPhase.EVENT
+    assert picked.reward is None
+    assert relic_id in picked.relics
+    result = _same_reload(picked, Action(type=ActionType.CHOOSE_EVENT, target_id='factory:skip'))
+    assert result.phase == RunPhase.MAP
+    assert 'source_direct_card_factory_choice' not in result.flags
