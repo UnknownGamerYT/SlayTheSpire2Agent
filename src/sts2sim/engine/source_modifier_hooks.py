@@ -52,7 +52,7 @@ def _clear(card: CardInstance, identities: set[str]) -> CardInstance:
     if affliction_id(card) not in identities:
         return card
     custom = dict(card.custom)
-    for key in (_KEY, "affliction", *_IDS):
+    for key in (_KEY, "affliction", "source_modifier_hex_ethereal", *_IDS):
         custom.pop(key, None)
     return card.model_copy(update={"custom": custom})
 
@@ -63,11 +63,15 @@ def _cards(combat: CombatState) -> tuple[CardInstance, ...]:
 
 def current_card(combat: CombatState, card: CardInstance) -> CardInstance:
     """Refresh identity only, retaining an autoplay's captured X and effects."""
+    from . import transitions as t
+
     physical = next((item for item in _cards(combat) if item.instance_id == card.instance_id), None)
     if physical is None:
+        if affliction_id(card) == "hexed" and not t._status_amount(combat.player.statuses, "hex"):
+            return _clear(card, {"hexed"})
         return card
     custom = dict(card.custom)
-    for key in (_KEY, "affliction", *_IDS):
+    for key in (_KEY, "affliction", "source_modifier_hex_ethereal", *_IDS):
         custom.pop(key, None)
         if key in physical.custom:
             custom[key] = physical.custom[key]
@@ -153,6 +157,13 @@ def synchronize(combat: CombatState) -> tuple[CombatState, tuple[EffectEvent, ..
                 amount = sum(galvanic.values()) if initial else next(iter(galvanic.values()))
                 card = afflict(card, "galvanized", amount, stack=initial)
             after = affliction_id(card)
+            custom = dict(card.custom)
+            if after == "hexed" and active["hex"]:
+                custom["source_modifier_hex_ethereal"] = True
+            else:
+                custom.pop("source_modifier_hex_ethereal", None)
+            if custom != card.custom:
+                card = card.model_copy(update={"custom": custom})
             if before != after:
                 if before:
                     events.append(

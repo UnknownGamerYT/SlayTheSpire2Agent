@@ -17250,6 +17250,7 @@ def _apply_card_effects(
             state, combat, rng_state, card, target_id, relics,
         )
         events.extend(enchantment_events)
+        card = source_modifier_hooks.current_card(combat, card)
         combat = card_status_hooks.record_player_attack(combat, card, events)
         combat = source_class_hooks.after_play(combat, card)
     if signal_boost:
@@ -19717,10 +19718,8 @@ def _discount_rocket_punches_after_status_creation(
     for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile"):
         cards = []
         for card in _cards_in_combat_zone(combat, zone):
-            if _normalized_id(card.card_id) == "rocket_punch" and card.cost not in {None, 0}:
-                custom = dict(card.custom)
-                custom.setdefault("rocket_punch_cost_before_discount", card.cost)
-                card = card.model_copy(update={"cost": 0, "custom": custom})
+            if _normalized_id(card.card_id) == "rocket_punch":
+                card = source_cost_hooks.set_local_energy_cost(card, 0, "played")
                 events.append(EffectEvent(
                     kind="card_cost_reduced_until_played", source_id=created.instance_id,
                     target_id=card.instance_id, amount=0,
@@ -29680,6 +29679,7 @@ def _energy_cost(
     if (combat is not None and card.type == CardType.POWER
         and _has_relic_id(tuple(combat.metadata.get("item_relic_ids", ())), "spiked_gauntlets")):
         cost += 1
+    cost = source_class_hooks.late_energy_cost(card, combat, cost)
     if combat is not None and _brilliant_scarf_applies(combat):
         return 0
     return max(0, cost)
@@ -30683,6 +30683,8 @@ def _card_source_spec(card: CardInstance) -> Mapping[str, Any]:
 
 def _card_has_keyword(card: CardInstance, *keywords: str) -> bool:
     wanted = {_normalized_tag(keyword) for keyword in keywords}
+    if "ethereal" in wanted and card.custom.get("source_modifier_hex_ethereal"):
+        return True
     if any(_normalized_tag(tag) in wanted for tag in card.tags):
         return True
     if any(_truthy(card.custom.get(keyword)) for keyword in wanted):

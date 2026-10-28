@@ -43,8 +43,12 @@ def adopt_legacy(card: CardInstance) -> CardInstance:
     if _KEY in card.custom:
         return card
     custom = dict(card.custom)
-    base = custom.get("cost_before_set_hand_cost", custom.get("cost_before_randomize", card.cost))
+    base = custom.get("cost_before_set_hand_cost", custom.get("cost_before_randomize",
+                      custom.get("rocket_punch_cost_before_discount", card.cost)))
     mods: list[dict[str, Any]] = []
+    if "rocket_punch_cost_before_discount" in custom:
+        mods.append(_entry(0, True, "played", False))
+        custom.pop("rocket_punch_cost_before_discount", None)
     if custom.get("free_to_play_this_combat"):
         mods.append(_entry(0, True, "combat", False))
     if custom.get("free_to_play_this_turn") and not custom.get("free_energy_consumed"):

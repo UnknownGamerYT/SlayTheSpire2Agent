@@ -13,6 +13,7 @@ from sts2sim.mechanics.triggers import GameTrigger
 
 from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
 from .rng import capture_random_state, random_from_state
+from .source_cost_hooks import set_local_energy_cost
 
 
 def execute(
@@ -464,7 +465,7 @@ def execute(
             }
         )
         if payload.get("zero_cost"):
-            clone = clone.model_copy(update={"cost": 0})
+            clone = set_local_energy_cost(clone, 0, "combat")
         apply({"add_card_to_discard": {"card": clone.model_dump(mode="json")}})
     elif operation == "upgrade_random":
         rng = random_from_state(rng_state)
@@ -565,7 +566,7 @@ def played_updates(card: CardInstance, update: Mapping[str, Any]) -> CardInstanc
         if amount:
             card = _increase(card, field, amount)
     if "source_class_set_cost" in update:
-        card = card.model_copy(update={"cost": int(update["source_class_set_cost"])})
+        card = set_local_energy_cost(card, int(update["source_class_set_cost"]), "combat")
     return card
 
 
@@ -691,6 +692,23 @@ def energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> in
 
     if combat is None:
         return cost
+    if card.card_id.lower() == "banshees_cry":
+        cost -= 2 * t._metadata_int(combat.metadata, "source_class_ethereal_plays", 0)
+    if card.type == CardType.POWER and cost > 0:
+        cost = max(
+            0,
+            cost
+            - t._status_amount(combat.player.statuses, "curious")
+            - t._status_amount(combat.player.statuses, "power_cost_reduction"),
+        )
+    return cost + t._status_amount(combat.player.statuses, "borrowed_time")
+
+
+def late_energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> int:
+    from . import transitions as t
+
+    if combat is None:
+        return cost
     in_hand_or_play = any(item.instance_id == card.instance_id for item in combat.hand) or not any(
         item.instance_id == card.instance_id
         for zone in (combat.draw_pile, combat.discard_pile, combat.exhaust_pile)
@@ -705,9 +723,6 @@ def energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> in
             return 0
         if power == "free_ethereal" and t._card_has_keyword(card, "ethereal") and in_hand_or_play:
             return 0
-    if card.card_id.lower() == "banshees_cry":
-        cost -= 2 * t._metadata_int(combat.metadata, "source_class_ethereal_plays", 0)
-    cost += t._status_amount(combat.player.statuses, "borrowed_time")
     return cost
 
 
