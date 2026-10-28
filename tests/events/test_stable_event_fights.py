@@ -84,6 +84,19 @@ def _end(state):
     return step(state, next(a for a in legal_actions(state) if a.type == "end_turn"))
 
 
+def _with_idle_combat_command_views(expected_rng):
+    """Source command adapters materialize these streams without consuming them."""
+    rng = random_from_state(expected_rng)
+    for name in ("combat_orbs", "combat_card_selection"):
+        random_stream(rng, name)
+    result = capture_random_state(rng)
+    assert result.draws == expected_rng.draws
+    assert all(result.streams[name] == stream for name, stream in expected_rng.streams.items())
+    assert all(result.streams[name].draws == 0 for name in
+               ("combat_orbs", "combat_card_selection"))
+    return result
+
+
 @pytest.mark.parametrize(
     "event_id,roster",
     [
@@ -127,7 +140,7 @@ def test_dummy_setting_one_uniform_potion_uses_one_rewards_draw_and_no_base_rewa
     assert state.reward.gold == 0
     assert state.reward.card_options == ()
     assert state.reward.relic_ids == ()
-    assert state.rng == expected_rng
+    assert state.rng == _with_idle_combat_command_views(expected_rng)
 
 
 def test_dummy_setting_two_directly_upgrades_two_eligible_cards_including_eternal():
@@ -216,7 +229,12 @@ def test_source_dummy_relic_resume_requires_authoritative_bag():
     from sts2sim.engine import EngineError
 
     state = _fight("battleworn_dummy", setting=3, source_rng=True)
-    state = state.model_copy(update={"character_id": "IRONCLAD"})
+    # new_run now initializes the real source deque even for the TEST fixture.
+    # Remove it explicitly so this test exercises missing authority, not a
+    # legitimate populated bag created by the public constructor.
+    flags = dict(state.flags)
+    assert isinstance(flags.pop("player_relic_bag"), dict)
+    state = state.model_copy(update={"character_id": "IRONCLAD", "flags": flags})
     with pytest.raises(EngineError, match="source player relic bag"):
         _kill(state)
 
@@ -239,7 +257,7 @@ def test_dummy_potion_resume_respects_actual_revealed_epoch_profile():
     )
     state = _kill(state)
     assert state.reward.potion_id == expected
-    assert state.rng == capture_random_state(rng)
+    assert state.rng == _with_idle_combat_command_views(capture_random_state(rng))
 
 
 def test_dummy_relic_resume_preserves_stackable_circlet_fallback():
