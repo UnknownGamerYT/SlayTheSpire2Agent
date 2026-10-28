@@ -15,6 +15,7 @@ from sts2sim.content.source_card_pools import source_pool_cards
 from sts2sim.mechanics.source_core_rules import shiv_spec
 from sts2sim.mechanics.triggers import GameTrigger
 
+from . import source_attack_hooks
 from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
 from .rng import capture_random_state, random_from_state, random_stream, stable_shuffle
 
@@ -286,8 +287,7 @@ def apply_source_core(
             else sum(c.type == CardType.SKILL for c in combat.hand)
         )
         damage = (8 if up else 6) if name == "finisher" else (7 if up else 5)
-        for _ in range(count):
-            run({"damage": damage})
+        run({"repeat_damage": {"fixed_hits": count, "amount": damage}})
     elif name in {"memento_mori", "murder", "perfected_strike"}:
         if name == "memento_mori":
             count = (
@@ -318,8 +318,8 @@ def apply_source_core(
         else:
             exhaust(selected)
             if name == "fiend_fire":
-                for _ in selected:
-                    run({"damage": 10 if up else 7})
+                run({"repeat_damage": {"fixed_hits": len(selected),
+                                       "amount": 10 if up else 7}})
             elif selected:
                 run(
                     {
@@ -352,6 +352,8 @@ def apply_source_core(
             run({"add_card_to_hand": {"count": count, "card": shiv_spec(upgraded=up)}})
     elif name in {"bouncing_flask", "ricochet", "sword_boomerang"}:
         count = (5 if up else 4) if name == "ricochet" else (4 if up else 3)
+        if name != "bouncing_flask":
+            combat = source_attack_hooks.begin_attack_command(combat, card)
         for _ in range(count):
             if combat.player.hp <= 0:
                 break
@@ -364,12 +366,18 @@ def apply_source_core(
                 run({"apply_status": {"target": "enemy", "poison": 3}}, target=selected_target)
             else:
                 run({"damage": 3}, target=selected_target)
+        if name != "bouncing_flask":
+            combat, finished = source_attack_hooks.finish_attack_command(combat, card)
+            events.extend(finished)
     elif name == "echoing_slash":
+        combat = source_attack_hooks.begin_attack_command(combat, card)
         remaining = 1
         while remaining and t._alive_monsters(combat):
             remaining -= 1
             resolved = run({"all_damage": 13 if up else 10})
             remaining += sum(e.kind == "monster_defeated" for e in resolved)
+        combat, finished = source_attack_hooks.finish_attack_command(combat, card)
+        events.extend(finished)
     elif name in {"fisticuffs", "omnislice"}:
         resolved = run({"damage": (9 if up else 7) if name == "fisticuffs" else (11 if up else 8)})
         # DamageResult.TotalDamage + OverkillDamage includes Block and all
@@ -420,8 +428,8 @@ def apply_source_core(
         run({"damage": serializable_damage(9 + bonus())})
         add_damage_bonus(9 if up else 5)
     elif name == "thrash":
-        run({"damage": serializable_damage((6 if up else 4) + bonus())})
-        run({"damage": serializable_damage((6 if up else 4) + bonus())})
+        run({"repeat_damage": {"fixed_hits": 2,
+                               "amount": serializable_damage((6 if up else 4) + bonus())}})
         thrash_cards = [c for c in combat.hand if c.type == CardType.ATTACK]
         if thrash_cards:
             rng = select_rng()

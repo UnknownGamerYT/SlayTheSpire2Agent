@@ -269,10 +269,8 @@ def execute(
         else:
             value = t._metadata_int(combat.metadata, "source_class_draws_turn", 0)
         if operation == "repeat_attack":
-            for _ in range(max(0, value)):
-                if not t._alive_monsters(combat):
-                    break
-                apply({"damage": int(payload["amount"])})
+            apply({"repeat_damage": {"fixed_hits": max(0, value),
+                                     "amount": int(payload["amount"])}})
         else:
             apply({"damage": int(payload["base"]) + int(payload["extra"]) * value})
     elif operation == "no_escape":

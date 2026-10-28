@@ -230,6 +230,7 @@ from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 from . import (
     card_status_hooks,
     source_affliction_hooks,
+    source_attack_hooks,
     source_class_hooks,
     source_core_hooks,
     source_cost_hooks,
@@ -11365,9 +11366,6 @@ def _resolve_extra_card_play(
     events.extend(potion_events)
     combat, enrage_events = _apply_monster_enrage_on_skill_play(combat, card)
     events.extend(enrage_events)
-    combat, multiplier_events = _consume_next_card_damage_multiplier_after_play(combat, card)
-    combat, vigor_events = _consume_vigor_after_attack(combat, card)
-    events.extend(multiplier_events + vigor_events)
     if move_physical_card:
         destination = _card_destination(card, combat)
         combat, destination_events = _move_played_card_to_destination(
@@ -12971,11 +12969,6 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         combat = combat.model_copy(
             update={"metadata": {**combat.metadata, "replay_potions": potions}}
         )
-    combat, damage_multiplier_events = _consume_next_card_damage_multiplier_after_play(
-        combat,
-        played_card,
-    )
-    combat, vigor_events = _consume_vigor_after_attack(combat, played_card)
 
     destination = _card_destination(played_card, combat)
     combat, destination_events = _move_played_card_to_destination(combat, card, destination)
@@ -13008,8 +13001,6 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         + effect_events
         + enrage_events
         + potion_generation_events
-        + damage_multiplier_events
-        + vigor_events
         + exhaust_trigger_events
     )
 
@@ -17376,7 +17367,7 @@ def _apply_card_effects(
         effect_x = _coerce_int(card.custom.get("resolved_x_value"), default=energy_spent)
         if _has_relic_id(relics, "chemical_x"):
             effect_x += 2
-    for effect in _effect_steps(card.effects):
+    for effect in source_attack_hooks.grouped_steps(card, _effect_steps(card.effects)):
         combat, rng_state, effect_events = _apply_effect_step(
             state=state,
             combat=combat,
@@ -17550,13 +17541,30 @@ def _apply_effect_step(
             state, combat, rng_state, card, target_id, energy_spent, class_payload, relics,
         )
     if card.type == CardType.ATTACK and combat.player.hp <= 0 and any(
-        key in effect for key in ("damage", "all_damage", "damage_formula", "repeat_damage")
+        key in effect for key in ("damage", "all_damage", "damage_formula", "repeat_damage",
+                                  "attack_command")
     ):
         return combat, rng_state, ()
+    command_steps = effect.get("attack_command")
+    if isinstance(command_steps, Sequence) and not isinstance(command_steps, (str, bytes)):
+        combat = source_attack_hooks.begin_attack_command(combat, card)
+        command_events: list[EffectEvent] = []
+        for nested in command_steps:
+            if not isinstance(nested, Mapping):
+                continue
+            combat, rng_state, resolved = _apply_effect_step(
+                state=state, combat=combat, rng_state=rng_state, card=card,
+                target_id=target_id, energy_spent=energy_spent, effect=nested, relics=relics,
+            )
+            command_events.extend(resolved)
+        combat, finished = source_attack_hooks.finish_attack_command(combat, card)
+        return combat, rng_state, tuple(command_events) + finished
     repeat = effect.get("repeat_damage")
     if isinstance(repeat, Mapping):
         basis = str(repeat.get("basis", ""))
-        if basis == "energy_spent":
+        if "fixed_hits" in repeat:
+            hits = _coerce_int(repeat.get("fixed_hits"), default=0)
+        elif basis == "energy_spent":
             hits = _coerce_int(repeat.get("fixed_hits"), default=(
                 energy_spent + _coerce_int(repeat.get("extra_hits"), default=0)))
             threshold = _coerce_int(repeat.get("double_at"), default=0)
@@ -17572,6 +17580,7 @@ def _apply_effect_step(
             ) > 0 else 1
         else:
             hits = 1 + _metadata_int(combat.metadata, "hp_loss_count_this_combat", 0)
+        combat = source_attack_hooks.begin_attack_command(combat, card)
         hit_events: list[EffectEvent] = []
         for _ in range(max(0, hits)):
             if not _alive_monsters(combat):
@@ -17585,10 +17594,11 @@ def _apply_effect_step(
             combat, rng_state, resolved = _apply_effect_step(
                 state=state, combat=combat, rng_state=rng_state, card=card,
                 target_id=hit_target, energy_spent=energy_spent,
-                effect={damage_key: _coerce_int(repeat.get("amount"), default=0)}, relics=relics,
+                effect={damage_key: repeat.get("amount", 0)}, relics=relics,
             )
             hit_events.extend(resolved)
-        return combat, rng_state, tuple(hit_events)
+        combat, finished = source_attack_hooks.finish_attack_command(combat, card)
+        return combat, rng_state, tuple(hit_events) + finished
     conditional = effect.get("conditional")
     if isinstance(conditional, Mapping):
         if not _card_effect_condition_matches(
@@ -17609,6 +17619,11 @@ def _apply_effect_step(
             combat, rng_state, card, effect["enemy_hp_loss"]
         )
         events.extend(hp_loss_events)
+    started_command = (card.type == CardType.ATTACK and any(
+        key in effect for key in ("damage", "all_damage", "damage_formula")
+    ) and not source_attack_hooks.active(combat, card))
+    if started_command:
+        combat = source_attack_hooks.begin_attack_command(combat, card)
     player = combat.player
     monsters = list(combat.monsters)
 
@@ -17743,6 +17758,14 @@ def _apply_effect_step(
         )
         player = combat.player
         events.extend(kill_events)
+
+    if started_command:
+        combat, finished = source_attack_hooks.finish_attack_command(
+            combat.model_copy(update={"player": player, "monsters": tuple(monsters)}), card,
+        )
+        events.extend(finished)
+        player = combat.player
+        monsters = list(combat.monsters)
 
     if state is not None and any(event.kind == "monster_defeated" for event in events):
         combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
@@ -21483,6 +21506,8 @@ def _queued_card_modifier_matches(
 
 
 def _queued_damage_multiplier(combat: CombatState, card: CardInstance) -> int:
+    if not source_attack_hooks.allows_modifier(combat, card, "queue"):
+        return 1
     for item in _next_card_damage_multiplier_queue(combat.metadata):
         if _queued_card_modifier_matches(item, card):
             return max(1, _coerce_int(item.get("multiplier"), default=1))
@@ -30203,7 +30228,8 @@ def _modified_card_damage(
         modified += _status_amount(target_statuses or {}, "tainted")
         modified += _signed_status_amount(combat.player.statuses, "strength")
         modified += _signed_status_amount(combat.player.statuses, "temporary_strength")
-        modified += _status_amount(combat.player.statuses, "vigor")
+        if source_attack_hooks.allows_modifier(combat, card, "vigor"):
+            modified += _status_amount(combat.player.statuses, "vigor")
         modified += _coerce_int(card.custom.get("phantom_blades_damage_bonus"), default=0)
         if card.custom.get("source_core_inky"):
             modified += 1
