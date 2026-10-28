@@ -15802,6 +15802,10 @@ def _apply_effect_step(
         return source_class_hooks.execute(
             state, combat, rng_state, card, target_id, energy_spent, class_payload, relics,
         )
+    if card.type == CardType.ATTACK and combat.player.hp <= 0 and any(
+        key in effect for key in ("damage", "all_damage", "damage_formula", "repeat_damage")
+    ):
+        return combat, rng_state, ()
     repeat = effect.get("repeat_damage")
     if isinstance(repeat, Mapping):
         basis = str(repeat.get("basis", ""))
@@ -15863,21 +15867,17 @@ def _apply_effect_step(
 
     damage: int | Fraction = _effect_amount(effect, "damage", energy_spent)
     if "damage" in effect:
+        source_base_damage = int(damage)
         damage = _modified_card_damage(combat, card, damage, relics=relics)
         damage = _sovereign_blade_damage_amount(combat, card, target_id, damage)
         targets = _effect_enemy_targets(combat, card, target_id, all_enemies=False)
         damage = _tracking_modified_attack_damage(combat, card, targets, damage)
-        monsters, damage_events = _damage_monsters(
-            monsters,
-            targets,
-            damage,
-            card.instance_id,
-            relics=relics,
-            source_card_type=card.type.value,
-            source_card_id=card.card_id,
-            attacker_statuses=card_status_hooks.card_actor_statuses(combat, card),
-            source_player_id=card_status_hooks.card_actor_id(combat, card),
+        combat, damage_events = source_core_hooks.attack_damage_with_thorns(
+            combat.model_copy(update={"player": player, "monsters": tuple(monsters)}),
+            card, targets, source_base_damage, selected_target=target_id, relics=relics,
         )
+        player = combat.player
+        monsters = list(combat.monsters)
         combat, hive_events = _apply_personal_hive_from_damage_events(
             combat,
             damage_events,
@@ -15913,6 +15913,7 @@ def _apply_effect_step(
         raw_damage_formula, combat=combat, clamp_nonnegative=False,
     )
     if raw_damage_formula is not None:
+        source_base_damage = int(formula_damage)
         formula_damage = _modified_card_damage(combat, card, formula_damage, relics=relics)
         formula_damage = _sovereign_blade_damage_amount(
             combat,
@@ -15927,17 +15928,12 @@ def _apply_effect_step(
             targets,
             formula_damage,
         )
-        monsters, damage_events = _damage_monsters(
-            monsters,
-            targets,
-            formula_damage,
-            card.instance_id,
-            relics=relics,
-            source_card_type=card.type.value,
-            source_card_id=card.card_id,
-            attacker_statuses=card_status_hooks.card_actor_statuses(combat, card),
-            source_player_id=card_status_hooks.card_actor_id(combat, card),
+        combat, damage_events = source_core_hooks.attack_damage_with_thorns(
+            combat.model_copy(update={"player": player, "monsters": tuple(monsters)}),
+            card, targets, source_base_damage, selected_target=target_id, relics=relics,
         )
+        player = combat.player
+        monsters = list(combat.monsters)
         combat, hive_events = _apply_personal_hive_from_damage_events(
             combat,
             damage_events,
@@ -15965,21 +15961,17 @@ def _apply_effect_step(
 
     all_damage: int | Fraction = _effect_amount(effect, "all_damage", energy_spent)
     if "all_damage" in effect:
+        source_base_damage = int(all_damage)
         all_damage = _modified_card_damage(combat, card, all_damage, relics=relics)
         all_damage = _sovereign_blade_damage_amount(combat, card, target_id, all_damage)
         targets = tuple(monster.monster_id for monster in monsters if monster.hp > 0)
         all_damage = _tracking_modified_attack_damage(combat, card, targets, all_damage)
-        monsters, damage_events = _damage_monsters(
-            monsters,
-            targets,
-            all_damage,
-            card.instance_id,
-            relics=relics,
-            source_card_type=card.type.value,
-            source_card_id=card.card_id,
-            attacker_statuses=card_status_hooks.card_actor_statuses(combat, card),
-            source_player_id=card_status_hooks.card_actor_id(combat, card),
+        combat, damage_events = source_core_hooks.attack_damage_with_thorns(
+            combat.model_copy(update={"player": player, "monsters": tuple(monsters)}),
+            card, targets, source_base_damage, selected_target=target_id, relics=relics,
         )
+        player = combat.player
+        monsters = list(combat.monsters)
         combat, hive_events = _apply_personal_hive_from_damage_events(
             combat,
             damage_events,

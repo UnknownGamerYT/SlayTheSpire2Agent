@@ -519,3 +519,145 @@ def test_precise_cut_adds_strength_before_clamping_negative_calculation():
     others = tuple(_simple(f"held{i}") for i in range(8))
     state = _play(_state(source("precise_cut"), *others, statuses={"strength": 5}), "precise_cut")
     assert state.combat.monsters[0].hp == 98  # 13 - 2*8 + 5.
+
+
+def test_enemy_thorns_retaliates_before_each_hit_and_uses_player_block():
+    state = _state(source("twin_strike"))
+    monster = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 3}})
+    player = state.player.model_copy(update={"block": 4})
+    state = state.model_copy(
+        update={
+            "player": player,
+            "combat": state.combat.model_copy(
+                update={
+                    "player": player,
+                    "monsters": (monster,),
+                }
+            ),
+        }
+    )
+    state = _play(state, "twin_strike")
+    assert state.player.hp == 78 and state.player.block == 0
+    assert state.combat.monsters[0].hp == 90
+    damage_order = [
+        e.kind
+        for e in state.combat.last_events
+        if e.kind
+        in {
+            "player_damaged",
+            "monster_damaged",
+        }
+    ]
+    assert damage_order == ["player_damaged", "monster_damaged"] * 2
+
+
+def test_enemy_thorns_rupture_strength_applies_to_later_hit():
+    state = _state(source("twin_strike"), statuses={"rupture": 1})
+    monster = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 3}})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (monster,)})}
+    )
+    state = _play(state, "twin_strike")
+    assert state.player.hp == 74
+    assert state.combat.monsters[0].hp == 89  # 5, then 6 after the first Thorns reaction.
+
+
+def test_enemy_thorns_stops_later_hits_after_attacker_dies():
+    state = _state(source("twin_strike"))
+    player = state.player.model_copy(update={"hp": 2})
+    monster = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 3}})
+    state = state.model_copy(
+        update={
+            "player": player,
+            "combat": state.combat.model_copy(
+                update={
+                    "player": player,
+                    "monsters": (monster,),
+                }
+            ),
+        }
+    )
+    state = _play(state, "twin_strike")
+    assert state.player.hp == 0
+    assert state.combat.monsters[0].hp == 95  # The hit in progress completes; the next is skipped.
+
+
+def test_fully_blocked_attack_still_triggers_enemy_thorns():
+    state = _state(source("strike_ironclad"))
+    monster = state.combat.monsters[0].model_copy(update={"block": 10, "statuses": {"thorns": 3}})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (monster,)})}
+    )
+    state = _play(state, "strike_ironclad")
+    assert state.player.hp == 77
+    assert state.combat.monsters[0].hp == 100
+    assert state.combat.monsters[0].block == 4
+
+
+def test_omnislice_unpowered_secondary_damage_also_triggers_thorns():
+    state = _state(source("omnislice"))
+    first = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 3}})
+    second = first.model_copy(update={"monster_id": "other", "statuses": {"thorns": 4}})
+    player = state.player.model_copy(update={"block": 5})
+    state = state.model_copy(
+        update={
+            "player": player,
+            "combat": state.combat.model_copy(
+                update={
+                    "player": player,
+                    "monsters": (first, second),
+                }
+            ),
+        }
+    )
+    state = _play(state, "omnislice")
+    assert state.player.hp == 78 and state.player.block == 0
+    assert [m.hp for m in state.combat.monsters] == [92, 92]
+
+
+def test_aoe_thorns_interleaves_receivers_and_updates_next_target_strength():
+    state = _state(source("dagger_spray"), statuses={"rupture": 1})
+    first = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 1}})
+    second = first.model_copy(update={"monster_id": "other"})
+    state = state.model_copy(
+        update={"combat": state.combat.model_copy(update={"monsters": (first, second)})}
+    )
+    state = _play(state, "dagger_spray")
+    assert state.player.hp == 76
+    assert [m.hp for m in state.combat.monsters] == [90, 88]  # 4+6; 5+7.
+    order = [
+        (e.kind, e.target_id)
+        for e in state.combat.last_events
+        if e.kind in {"player_damaged", "monster_damaged"}
+    ]
+    assert (
+        order
+        == [
+            ("player_damaged", "player"),
+            ("monster_damaged", "enemy:0"),
+            ("player_damaged", "player"),
+            ("monster_damaged", "other"),
+        ]
+        * 2
+    )
+
+
+def test_thorns_death_finishes_current_aoe_batch_and_skips_next_hit():
+    state = _state(source("dagger_spray"))
+    player = state.player.model_copy(update={"hp": 1})
+    first = state.combat.monsters[0].model_copy(update={"statuses": {"thorns": 1}})
+    second = first.model_copy(update={"monster_id": "other"})
+    state = state.model_copy(
+        update={
+            "player": player,
+            "combat": state.combat.model_copy(
+                update={
+                    "player": player,
+                    "monsters": (first, second),
+                }
+            ),
+        }
+    )
+    state = _play(state, "dagger_spray")
+    assert state.player.hp == 0
+    assert [m.hp for m in state.combat.monsters] == [96, 96]

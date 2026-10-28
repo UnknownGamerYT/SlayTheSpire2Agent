@@ -3925,5 +3925,93 @@
       "CalculationBase": 13,
       "ExtraDamage": 2
     }
+  },
+  {
+    "beta_image_url": null,
+    "block": null,
+    "can_be_generated_in_combat": null,
+    "cards_draw": null,
+    "color": "ironclad",
+    "compendium_order": 22,
+    "cost": 1,
+    "damage": 5,
+    "description": "Deal 5 damage twice.",
+    "description_raw": "Deal {Damage:diff()} damage twice.",
+    "energy_gain": null,
+    "hit_count": 2,
+    "hp_loss": null,
+    "id": "TWIN_STRIKE",
+    "image_url": "/static/images/cards/twin_strike.webp",
+    "image_url_card": "https://cdn.spire-codex.com/cards-full/stable/twin_strike.webp",
+    "image_url_card_upg": "https://cdn.spire-codex.com/cards-full/stable/twin_strike_upg.webp",
+    "is_x_cost": null,
+    "is_x_star_cost": null,
+    "keywords": null,
+    "keywords_key": null,
+    "multiplayer_only": null,
+    "name": "Twin Strike",
+    "powers_applied": null,
+    "rarity": "Common",
+    "rarity_key": "Common",
+    "sources": null,
+    "spawns_cards": null,
+    "star_cost": null,
+    "tags": [
+      "Strike"
+    ],
+    "target": "AnyEnemy",
+    "type": "Attack",
+    "type_key": "Attack",
+    "type_variants": null,
+    "upgrade": {
+      "damage": "+2"
+    },
+    "upgrade_description": "Deal 7 damage twice.",
+    "vars": {
+      "Damage": 5
+    }
+  },
+  {
+    "beta_image_url": null,
+    "block": null,
+    "can_be_generated_in_combat": null,
+    "cards_draw": null,
+    "color": "silent",
+    "compendium_order": 95,
+    "cost": 1,
+    "damage": 4,
+    "description": "Deal 4 damage to ALL enemies twice.",
+    "description_raw": "Deal {Damage:diff()} damage to ALL enemies twice.",
+    "energy_gain": null,
+    "hit_count": 2,
+    "hp_loss": null,
+    "id": "DAGGER_SPRAY",
+    "image_url": "/static/images/cards/dagger_spray.webp",
+    "image_url_card": "https://cdn.spire-codex.com/cards-full/stable/dagger_spray.webp",
+    "image_url_card_upg": "https://cdn.spire-codex.com/cards-full/stable/dagger_spray_upg.webp",
+    "is_x_cost": null,
+    "is_x_star_cost": null,
+    "keywords": null,
+    "keywords_key": null,
+    "multiplayer_only": null,
+    "name": "Dagger Spray",
+    "powers_applied": null,
+    "rarity": "Common",
+    "rarity_key": "Common",
+    "sources": null,
+    "spawns_cards": null,
+    "star_cost": null,
+    "tags": null,
+    "target": "AllEnemies",
+    "type": "Attack",
+    "type_key": "Attack",
+    "type_variants": null,
+    "upgrade": {
+      "damage": "+2"
+    },
+    "upgrade_description": "Deal 6 damage to ALL enemies twice.",
+    "vars": {
+      "Damage": 4
+    }
   }
 ]

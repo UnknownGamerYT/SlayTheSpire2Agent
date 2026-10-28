@@ -294,6 +294,8 @@ def apply_source_core(
     elif name in {"bouncing_flask", "ricochet", "sword_boomerang"}:
         count = (5 if up else 4) if name == "ricochet" else (4 if up else 3)
         for _ in range(count):
+            if combat.player.hp <= 0:
+                break
             rng = select_rng("combat_targets")
             selected_target = t._random_alive_monster_id(combat, rng)
             rng_state = capture_random_state(rng)
@@ -331,6 +333,8 @@ def apply_source_core(
             others = tuple(
                 m.monster_id for m in combat.monsters if m.hp > 0 and m.monster_id != target_id
             )
+            combat, retaliation = monster_thorns(combat, card, others, relics=relics, force=True)
+            events.extend(retaliation)
             monsters, resolved = t._damage_monsters(
                 combat.monsters,
                 others,
@@ -373,8 +377,8 @@ def apply_source_core(
                 0,
             )
             value = sacrificed_damage(chosen, combat, value)
-            value = int(t._modified_card_damage(combat, chosen, value, relics=relics))
-            add_damage_bonus(int(value))
+            modified_value = t._modified_card_damage(combat, chosen, value, relics=relics)
+            add_damage_bonus(int(modified_value))
             exhaust((chosen,))
     elif name == "pillage":
         run({"damage": 9 if up else 6})
@@ -687,3 +691,100 @@ def sacrificed_damage(card: CardInstance, combat: CombatState, fallback: int) ->
     if isinstance(raw, (int, float)):
         return int(raw) + int(card.custom.get("source_core_damage_bonus", 0))
     return fallback
+
+
+def monster_thorns(
+    combat: CombatState,
+    card: CardInstance,
+    target_ids: Sequence[str],
+    *,
+    relics: Sequence[str] = (),
+    force: bool = False,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """ThornsPower.BeforeDamageReceived: unpowered, blockable retaliation.
+
+    Called after the pending hit amount is calculated, so a retaliatory Rupture
+    Strength gain affects later hits rather than the hit already in progress.
+    Omnislice's secondary unpowered damage explicitly triggers this source hook.
+    """
+    from . import transitions as t
+
+    if card.type != CardType.ATTACK and not force:
+        return combat, ()
+    events: list[EffectEvent] = []
+    for target_id in target_ids:
+        target = next((m for m in combat.monsters if m.monster_id == target_id and m.hp > 0), None)
+        if target is None or combat.player.hp <= 0:
+            continue
+        amount = t._status_amount(target.statuses, "thorns")
+        if amount <= 0:
+            continue
+        combat, retaliation = t._damage_combat_player(
+            combat,
+            amount,
+            target_id,
+            relics=relics,
+            is_attack=False,
+        )
+        events.extend(
+            event.model_copy(
+                update={
+                    "metadata": {
+                        **event.metadata,
+                        "status": "thorns",
+                        "card_id": card.card_id,
+                        "source_attack_id": card.instance_id,
+                        "unpowered": True,
+                    }
+                }
+            )
+            for event in retaliation
+        )
+    return combat, tuple(events)
+
+
+def attack_damage_with_thorns(
+    combat: CombatState,
+    card: CardInstance,
+    target_ids: Sequence[str],
+    base_damage: int,
+    *,
+    selected_target: str | None,
+    relics: Sequence[str] = (),
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """CreatureCmd.Damage evaluates modifiers and BeforeDamage per receiver.
+
+    Continue the current target batch if retaliation kills the attacker. The
+    enclosing AttackCommand skips subsequent hits, not this pending batch.
+    """
+    from . import card_status_hooks
+    from . import transitions as t
+
+    targets = set(target_ids)
+    events: list[EffectEvent] = []
+    for original in tuple(combat.monsters):
+        if original.monster_id not in targets:
+            continue
+        target = next((m for m in combat.monsters if m.monster_id == original.monster_id), None)
+        if target is None or target.hp <= 0:
+            continue
+        damage: Any = t._modified_card_damage(combat, card, base_damage, relics=relics)
+        damage = t._sovereign_blade_damage_amount(combat, card, selected_target, damage)
+        damage = t._tracking_modified_attack_damage(combat, card, (target.monster_id,), damage)
+        attacker_statuses = dict(card_status_hooks.card_actor_statuses(combat, card))
+        combat, retaliation = monster_thorns(combat, card, (target.monster_id,), relics=relics)
+        events.extend(retaliation)
+        monsters, resolved = t._damage_monsters(
+            combat.monsters,
+            (target.monster_id,),
+            damage,
+            card.instance_id,
+            relics=relics,
+            source_card_type=card.type.value,
+            source_card_id=card.card_id,
+            attacker_statuses=attacker_statuses,
+            source_player_id=card_status_hooks.card_actor_id(combat, card),
+        )
+        combat = combat.model_copy(update={"monsters": tuple(monsters)})
+        events.extend(resolved)
+    return combat, tuple(events)
