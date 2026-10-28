@@ -365,3 +365,21 @@ def test_reflections_can_downgrade_and_upgrade_eternal_cards():
     result = _choose(state, 'touch_a_mirror')
     assert result.master_deck[0].upgraded
     assert result.rng.streams['REFLECTIONS'].draws == 2
+
+
+def test_native_generated_factories_honor_card_epoch_and_character_unlock_profiles():
+    from sts2sim.content.source_card_pools import SOURCE_CARD_UNLOCK_EPOCHS
+    from sts2sim.mechanics.event_flows import EventFlowMarker, EventFlowMarkerKind
+    state = _event('BRAIN_LEECH')
+    state = state.model_copy(update={'flags': {**state.flags, 'revealed_epochs': ()}})
+    pool = e._event_flow_card_pool(state, EventFlowMarker(kind=EventFlowMarkerKind.CARD_REWARD))
+    assert not any(card.card_id in SOURCE_CARD_UNLOCK_EPOCHS for card in pool)
+    state = _choose(state, 'share_knowledge')
+    assert not set(state.event.metadata['generated_cards']) & set(SOURCE_CARD_UNLOCK_EPOCHS)
+    state = _event('COLORFUL_PHILOSOPHERS')
+    state = state.model_copy(update={'flags': {**state.flags,
+        'revealed_epochs': ('SILENT1_EPOCH',)}})
+    state = e._enter_event_room(state, state.map.nodes[0].model_copy(
+        update={'kind': RoomKind.EVENT}))[0]
+    assert [option.option_id for option in state.event.options] == ['silent']
+    assert state.rng.streams['COLORFUL_PHILOSOPHERS'].draws == 0

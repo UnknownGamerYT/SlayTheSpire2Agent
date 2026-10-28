@@ -108,3 +108,12 @@ def test_source_ancient_uses_no_global_draws_except_dusty_tome_setup() -> None:
         'options': (*state.ancient.options, locked)
     })})
     assert all(action.target_id != 'locked' for action in legal_actions(state))
+
+
+def test_character_unlock_epochs_filter_ancient_character_choices_in_registry_order():
+    from sts2sim.mechanics.source_ancients import source_unlocked_characters
+    assert source_unlocked_characters({'revealed_epochs': ()}) == ('ironclad',)
+    assert source_unlocked_characters({'revealed_epochs': (
+        'SILENT1_EPOCH', 'DEFECT1_EPOCH')}) == ('ironclad', 'silent', 'defect')
+    assert source_unlocked_characters({'unlocked_character_ids': ('DEFECT', 'IRONCLAD')}) == (
+        'ironclad', 'defect')

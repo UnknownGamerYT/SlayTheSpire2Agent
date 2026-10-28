@@ -182,9 +182,9 @@ from sts2sim.mechanics.shops import (
     ShopItemKind,
 )
 from sts2sim.mechanics.source_ancients import (
-    CHARACTERS,
     AncientFacts,
     generate_source_ancient_offers,
+    source_unlocked_characters,
 )
 from sts2sim.mechanics.source_card_factory import source_noncombat_cards
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
@@ -281,6 +281,7 @@ from .source_enchantment_hooks import can_enchant as can_enchant_source
 from .source_enchantment_hooks import can_enchant as source_can_enchant
 from .source_enchantment_hooks import refresh_properties as refresh_enchantment_properties
 from .source_event_offers import native_dynamic_offers
+from .source_event_pools import source_event_card_rows, source_transform_ids
 
 ActionInput = Action | Mapping[str, Any]
 SourceData = Mapping[str, Any] | None
@@ -4488,6 +4489,13 @@ def _event_flow_card_pool(
     marker: EventFlowMarker,
 ) -> tuple[Any, ...]:
     qualifier = _normalized_id(str(marker.qualifier or ""))
+    if is_source_rng(state.rng) and qualifier != "other_character":
+        pool_id = (qualifier if qualifier in {"colorless", "ironclad", "silent", "defect",
+                   "necrobinder", "regent"} else _normalized_id(state.character_id))
+        registered_rows = source_event_card_rows(state, _raw_card_pool_items(state), pool_id)
+        if registered_rows is not None:
+            return (build_colorless_card_pool(registered_rows) if pool_id == "colorless" else
+                    build_combat_card_pool(registered_rows, character_id=pool_id))
     if qualifier == "other_character":
         return _other_character_card_reward_pool(state)
     if qualifier in {"ironclad", "silent", "defect", "necrobinder", "regent"}:
@@ -4573,7 +4581,7 @@ def _draw_transformed_card_id(
             color = "colorless"
         if color in {"shared", ""}:
             color = _normalized_id(state.character_id)
-        identifiers = STABLE_CARD_POOL_ORDER.get(color, ())
+        identifiers = source_transform_ids(state, color)
         library = _card_library({"cards": (
             *_cached_source_rows(state, "cards"), *_raw_card_pool_items(state)
         )})
@@ -29945,7 +29953,11 @@ def _generate_source_ancient_state(
                      or default_ancient_id_for_act(act))
     character = _normalized_id(character_id)
     raw_cards = _source_items(flags.get("cards")) or _initial_cached_source_rows(source, "cards")
-    card_pool = build_combat_card_pool(raw_cards, character_id=character)
+    registered_rows = source_card_pool_rows(raw_cards, character,
+        unlocked_epochs=_string_items(flags.get("revealed_epochs"))
+            if "revealed_epochs" in flags else None,
+        multiplayer=_coerce_int(flags.get("player_count"), default=1) > 1)
+    card_pool = build_combat_card_pool(registered_rows or raw_cards, character_id=character)
     enchantable = tuple(card for card in deck if card.type in {
         CardType.ATTACK, CardType.SKILL, CardType.POWER
     } and not card.enchantments and not _card_has_keyword(card, "unplayable"))
@@ -29954,9 +29966,7 @@ def _generate_source_ancient_state(
             _normalized_id(card.card_id) == tag
             or _normalized_id(card.card_id).startswith(tag + "_")
         )
-    unlocked = _string_items(flags.get("unlocked_character_ids")) or CHARACTERS
-    count = _coerce_int(flags.get("unlocked_character_count"), default=len(unlocked))
-    unlocked = tuple(_normalized_id(value) for value in unlocked[:count])
+    unlocked = source_unlocked_characters(flags)
     ancient_cards = tuple(
         card_id for card_id in STABLE_CARD_POOL_ORDER.get(character, ())
         if card_id not in {"break", "suppress", "protector", "meteor_shower", "quadcast"}

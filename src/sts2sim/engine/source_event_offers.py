@@ -11,6 +11,7 @@ from sts2sim.mechanics.relic_bag_runtime import (
     has_source_relic_bag,
     source_relic_rarity,
 )
+from sts2sim.mechanics.source_ancients import source_unlocked_characters
 from sts2sim.mechanics.source_rng import float32, source_float
 
 from .models import EventOptionState, EventState, RunState
@@ -93,8 +94,7 @@ def native_dynamic_offers(
                                                       'source_native_rule': rule}})
             metadata['source_startup_flags'] = flags
     elif event_id == 'COLORFUL_PHILOSOPHERS':
-        unlocked = state.flags.get('unlocked_character_ids',
-                                   ('IRONCLAD', 'SILENT', 'DEFECT', 'NECROBINDER', 'REGENT'))
+        unlocked = {character.upper() for character in source_unlocked_characters(state.flags)}
         colors = [color for color in ('NECROBINDER', 'IRONCLAD', 'REGENT', 'SILENT', 'DEFECT')
                   if color != state.character_id.upper() and color in unlocked]
         while len(colors) > 3:

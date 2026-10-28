@@ -6,12 +6,27 @@ Models.Events/{Neow,Orobas,Pael,Tezcatara,Nonupeipe,Tanx,Vakuu,Darv}.cs.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from random import Random
+from typing import Any
 
 from .source_rng import float32, source_float
 
 CHARACTERS = ("ironclad", "silent", "regent", "necrobinder", "defect")
+
+
+def source_unlocked_characters(flags: Mapping[str, Any]) -> tuple[str, ...]:
+    explicit = flags.get("unlocked_character_ids")
+    if isinstance(explicit, Iterable) and not isinstance(explicit, str | bytes | Mapping):
+        values = {str(value).lower() for value in explicit}
+        return tuple(character for character in CHARACTERS if character in values)
+    if "revealed_epochs" in flags:
+        epochs = {str(epoch).upper() for epoch in flags["revealed_epochs"]}
+        return tuple(character for character in CHARACTERS if character == "ironclad"
+                     or f"{character.upper()}1_EPOCH" in epochs)
+    count = int(flags.get("unlocked_character_count", len(CHARACTERS)))
+    return CHARACTERS[:max(1, count)]
 
 
 @dataclass(frozen=True)
