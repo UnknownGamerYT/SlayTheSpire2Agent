@@ -206,7 +206,7 @@ from sts2sim.mechanics.triggers import (
 )
 from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
-from . import card_status_hooks, source_class_hooks, source_core_hooks
+from . import card_status_hooks, source_affliction_hooks, source_class_hooks, source_core_hooks
 from .errors import EngineError, IllegalActionError
 from .models import (
     PLAYER_TARGET_ID,
@@ -8717,6 +8717,8 @@ def _start_combat_for_node(
         }.get(node.kind)
         if key is not None and _act_room_set(state):
             state = _with_room_set_values(state, {key: int(_act_room_set(state).get(key, 0)) + 1})
+    combat, vital_start_events = source_affliction_hooks.synchronize(combat)
+    innate_events += vital_start_events
     fur_coat_events: tuple[EffectEvent, ...] = ()
     if _fur_coat_room_is_marked(state, node):
         combat = combat.model_copy(
@@ -9712,7 +9714,8 @@ def _apply_card_created_relics_from_events(
     rng_state: RngState,
     source_events: Sequence[EffectEvent],
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
-    events: list[EffectEvent] = []
+    combat, vital_events = source_affliction_hooks.synchronize(combat)
+    events: list[EffectEvent] = list(vital_events)
     for source_event in source_events:
         if source_event.metadata.get("card_play_hooks_resolved"):
             continue
@@ -10153,6 +10156,11 @@ def _resolve_extra_card_play(
     physical_card: CardInstance | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     """Resolve a cost-free card play, moving its physical card only once."""
+    combat, vital_play_events = source_affliction_hooks.synchronize(combat)
+    combat, card, vital_play_card_events = source_affliction_hooks.prepare_play(combat, card)
+    vital_play_events += vital_play_card_events
+    if physical_card is not None:
+        physical_card = source_affliction_hooks.copy_affliction(card, physical_card)
     target_missing = (
         card.target in {TargetType.ENEMY, TargetType.ANY}
         and target_id is not None
@@ -10210,6 +10218,7 @@ def _resolve_extra_card_play(
             },
         )
     ]
+    events.extend(vital_play_events)
     events.extend(effect_events)
     current_potions = combat.metadata.get("replay_potions", state.potions)
     potion_state = state.model_copy(update={"potions": tuple(current_potions)})
@@ -11742,7 +11751,7 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
     if state.combat is None or action.card_instance_id is None:
         return state, ()
 
-    combat = state.combat
+    combat, vital_entry_events = source_affliction_hooks.synchronize(state.combat)
     card = _find_card(combat.hand, action.card_instance_id)
     if card is None:
         return state, ()
@@ -11845,6 +11854,7 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
                 },
             ),
         )
+        + vital_entry_events
         + destination_events
         + resource_events
         + resource_spent_relic_events
@@ -12704,8 +12714,9 @@ def _begin_next_player_turn(
     combat: CombatState,
     rng_state: RngState,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    combat, vital_turn_events = source_affliction_hooks.synchronize(combat)
     rng = random_from_state(rng_state)
-    events: list[EffectEvent] = []
+    events: list[EffectEvent] = list(vital_turn_events)
     # HatchPower.AfterSideTurnEnd sees the enemy-side roster after summons.
     # Eggs created during that side receive 2, then display 1 until they hatch.
     hatch_monsters = []
@@ -15557,24 +15568,7 @@ def _apply_monster_skill_afflictions(
         return combat, tuple(event.model_copy(update={"metadata": {
             **event.metadata, "trigger": "galvanic", "card_id": card.card_id,
         }}) for event in damage_events)
-    if card.type != CardType.SKILL:
-        return combat, ()
-    events: list[EffectEvent] = []
-    player = combat.player
-    for monster in combat.monsters:
-        amount = _status_amount(monster.statuses, "vital_spark")
-        if monster.hp <= 0 or amount <= 0:
-            continue
-        statuses, event = _apply_status_value(
-            player.statuses, "tainted", amount,
-            source_id=monster.monster_id, target_id=PLAYER_TARGET_ID,
-        )
-        player = player.model_copy(update={"statuses": statuses})
-        if event is not None:
-            events.append(event.model_copy(update={"metadata": {
-                **event.metadata, "trigger": "vital_spark", "card_id": card.card_id,
-            }}))
-    return combat.model_copy(update={"player": player}), tuple(events)
+    return source_affliction_hooks.after_play(combat, card)
 
 
 def _apply_withering_presence(
@@ -15901,6 +15895,8 @@ def _apply_card_effects(
             relics=relics,
         )
         events.extend(effect_events)
+        combat, vital_events = source_affliction_hooks.synchronize(combat)
+        events.extend(vital_events)
         if state is not None:
             effect_rng = random_from_state(rng_state)
             combat, spawn_events = _apply_monster_death_spawns(state, combat, effect_rng)
@@ -18370,7 +18366,8 @@ def _draw_cards(
         drawn_card = draw_pile.pop(0)
         drawn_card, mutation_events = _card_after_source_draw_mutation(drawn_card)
         events.extend(mutation_events)
-        if drawn_this_turn < bound_draw_limit:
+        if (drawn_this_turn < bound_draw_limit
+                and not source_affliction_hooks.affliction_id(drawn_card)):
             drawn_card = drawn_card.model_copy(update={
                 "custom": {**drawn_card.custom, "bound": True},
             })
