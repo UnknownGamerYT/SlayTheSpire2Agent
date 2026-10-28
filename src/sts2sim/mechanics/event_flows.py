@@ -333,19 +333,28 @@ def is_event_flow_terminal(state: EventFlowState) -> bool:
 def resolve_event_flow_option(
     state: EventFlowState,
     option_id: str,
+    *,
+    damage_hp_loss: int | None = None,
 ) -> EventFlowResolution:
-    """Apply a visible event-flow option and return the next pure state."""
+    """Apply an option, optionally using damage resolved by the engine's hooks.
+
+    ``damage_hp_loss`` applies only to a negative HP delta representing Damage;
+    explicit death markers and max-HP costs retain their own semantics.
+    """
 
     option = _option_by_id(current_event_flow_page(state).options, option_id)
     if option.option_id not in legal_event_flow_option_ids(state):
         raise ValueError(f"Event flow option is not legal: {option_id}")
 
     next_max_hp, hp_after_max = _apply_max_hp(state, option)
-    hp_after_delta = min(max(0, hp_after_max + option.hp_delta), next_max_hp)
+    hp_delta = (-max(0, damage_hp_loss)
+                if damage_hp_loss is not None and option.hp_delta < 0 else option.hp_delta)
+    hp_after_delta = min(max(0, hp_after_max + hp_delta), next_max_hp)
     hp_after_heal = min(next_max_hp, hp_after_delta + option.heal_amount)
     heal_amount = hp_after_heal - hp_after_delta
     next_gold = max(0, state.gold + option.gold_delta)
-    next_page_id = _next_page_id(state, option)
+    next_page_id = _next_page_id(state, option, damage_hp_after=hp_after_heal
+                               if damage_hp_loss is not None else None)
     next_counters = _next_counters(state, option, next_page_id)
     next_data = _next_data(state, option)
     markers = _resolution_markers(state, option, hp_after_heal)
@@ -658,9 +667,11 @@ def _hp_after_max_hp_change(hp: int, max_hp: int, next_max_hp: int) -> int:
     return min(max(0, hp), next_max_hp)
 
 
-def _next_page_id(state: EventFlowState, option: EventFlowOption) -> str:
+def _next_page_id(
+    state: EventFlowState, option: EventFlowOption, *, damage_hp_after: int | None = None,
+) -> str:
     if state.event_id == "ABYSSAL_BATHS" and option.option_id in {"IMMERSE", "LINGER"}:
-        return _abyssal_linger_next_page(state, option)
+        return _abyssal_linger_next_page(state, option, damage_hp_after=damage_hp_after)
     if state.event_id == "TRIAL" and option.option_id == "ACCEPT":
         return _trial_accept_next_page(state)
     return option.next_page_id or state.page_id
@@ -738,12 +749,15 @@ def _resolution_markers(
 def _abyssal_linger_next_page(
     state: EventFlowState,
     option: EventFlowOption,
+    *,
+    damage_hp_after: int | None = None,
 ) -> str:
     if state.data.get("source_runtime"):
         if option.option_id == "IMMERSE":
             return "IMMERSE"
         soaks = state.counters.get("abyssal_baths_soaks", 0) + 1
-        next_hp = state.hp + option.max_hp_delta + option.hp_delta
+        next_hp = (state.hp + option.max_hp_delta + option.hp_delta
+                   if damage_hp_after is None else damage_hp_after)
         return "DEATH_WARNING" if next_hp <= 3 + soaks - 2 else f"LINGER{min(9, soaks - 1)}"
     if state.page_id == "DEATH_WARNING":
         return "DEATH_WARNING"

@@ -1,0 +1,155 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "scope": "Ordinary event Damage calls are Unblockable | Unpowered. Public fixtures verify hook application and Abyssal/Colossal progression. This is not a whole-event parity certification.",
+  "certifies_game_parity": false,
+  "damage_call_sites": 17,
+  "sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/AbyssalBaths.cs",
+      "sha256": "0ae1cb161845adea747b933add5924b0b8e134f2a007c0cc9f0adf3a843de0a3",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "OnImmerse"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/BrainLeech.cs",
+      "sha256": "1dba57b437c1f0ea9d0e2fec3039cd523dd3bb0bb735602c46db81eec4794b42",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "Rip"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/ColossalFlower.cs",
+      "sha256": "ca0ee1f25d200ea85ddfe301965370d20e7930606409956c22c2317b2622c0d3",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "DealReachDeeperDamage"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/DenseVegetation.cs",
+      "sha256": "07bfcb3131b1f4cf006fd8d6e1ba2d76aa4cd4385ff60d55015ca59a0764d9f0",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "TrudgeOn"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/DollRoom.cs",
+      "sha256": "a58e5ffacb30272fbf9c24e1896992f3521de150826141c759adbb44ca0d8982",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "TakeSomeTime",
+        "Examine"
+      ],
+      "damage_call_sites": 2
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/JungleMazeAdventure.cs",
+      "sha256": "dad4ecfc2fdb435fbfd66a0d0daf65f6726dfc921952221f634233c52c0e4ec6",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "DontNeedHelp"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/RoomFullOfCheese.cs",
+      "sha256": "0c91915b25b5a71b817d32f1ef51d487c10ff23323c8b53c65072785b4d1515f",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "Search"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/RoundTeaParty.cs",
+      "sha256": "f62d7fd9690aaff9930a9aedbebc6a76b493ca98f207701158247e6820f49940",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "ContinueFight"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/SlipperyBridge.cs",
+      "sha256": "fde2aa8f227c512622958a84f9efed8740714c8b6b02cfe7c7e31cca410962ef",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "HoldOn"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/SpiritGrafter.cs",
+      "sha256": "3be1eb82235e62924fb5437399610e2d73e5550da31d3c373627cf9ff5e05098",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "Rejection"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/StoneOfAllTime.cs",
+      "sha256": "5725e802cf17d74c454d5f539614b22739059f535028057522ad7d7f03de2a4a",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "Push"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/SunkenStatue.cs",
+      "sha256": "e1e7d4b55d3b57fb327c1d47f130d64e19b36f5a94595b851095e57f5c515143",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "DiveIntoWater"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheLegendsWereTrue.cs",
+      "sha256": "7583ad0ce5091b2b0001dbe089ae5623bd97b530d0a46032b64e4e129c9f01b0",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "SlowlyFindAnExit"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/ThisOrThat.cs",
+      "sha256": "776b18464b827050c85182198171ed54091641d50ba34446365bbcbf7748d330",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "Plain"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TrashHeap.cs",
+      "sha256": "a523afae4ea419efd533887815ad761a1239ece2a1c94247bb256c185cedf2cd",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "DiveIn"
+      ],
+      "damage_call_sites": 1
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/WhisperingHollow.cs",
+      "sha256": "5bab48d3218d2f58b9fe90948391bdf944edc8c63aecee198cd3c8e159a249f5",
+      "reviewed_scope": "CreatureCmd.Damage value props (explicit or DynamicVar), numeric amount and callback effect order",
+      "damage_callback_methods": [
+        "Hug"
+      ],
+      "damage_call_sites": 1
+    }
+  ]
+}

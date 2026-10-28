@@ -3673,7 +3673,22 @@ def _choose_event_flow_option(
         flow_state = replace(flow_state, data={**flow_state.data,
             "trial_case": rng.choice(("MERCHANT", "NOBLE", "NONDESCRIPT"))})
     resolution = resolve_event_flow_option(flow_state, action.target_id)
-    player = state.player.model_copy(
+    damage_event: EffectEvent | None = None
+    player = state.player
+    if (is_source_rng(rng) and flow_state.event_id in {"ABYSSAL_BATHS", "COLOSSAL_FLOWER"}
+            and resolution.option.hp_delta < 0):
+        # Both callbacks use Damage(Unblockable | Unpowered), after GainMaxHp
+        # for the baths. Feed actual HP loss back into death and warning logic.
+        if resolution.max_hp_delta:
+            player = _change_player_max_hp(player, resolution.max_hp_delta)
+        player, damage_event = _damage_player(
+            player, -resolution.option.hp_delta, state.event.event_id,
+            relics=state.relics, unblockable=True,
+        )
+        resolution = resolve_event_flow_option(
+            flow_state, action.target_id, damage_hp_loss=int(damage_event.amount or 0),
+        )
+    player = player.model_copy(
         update={
             "hp": resolution.state.hp,
             "max_hp": resolution.state.max_hp,
@@ -3689,6 +3704,15 @@ def _choose_event_flow_option(
         metadata={"title": option.title, "flow_page_id": flow_state.page_id},
     )
     effect_events = _event_flow_resolution_events(state, resolution)
+    if damage_event is not None:
+        # The resolution's HP delta includes max-HP healing, while Damage has
+        # its own HP-loss notification and hook metadata.
+        effect_events = tuple(event for event in effect_events
+                              if event.kind not in {"event_hp_lost", "event_healed"})
+        effect_events += (damage_event, EffectEvent(
+            kind="event_hp_lost", amount=damage_event.amount,
+            metadata=damage_event.metadata,
+        ))
     next_state, marker_events = _apply_event_flow_markers(
         next_state,
         resolution.markers,
@@ -5225,9 +5249,14 @@ def _apply_event_option_immediate_effects(
             native_events.append(EffectEvent(kind="event_max_hp_gained" if max_delta > 0
                                       else "event_max_hp_lost", amount=abs(max_delta)))
         if hp_loss:
-            lost = min(player.hp, hp_loss)
-            player = player.model_copy(update={"hp": player.hp - lost})
-            native_events.append(EffectEvent(kind="event_hp_lost", amount=lost))
+            player, damage_event = _damage_player(
+                player, hp_loss, state.event.event_id if state.event else option.option_id,
+                relics=state.relics, unblockable=True,
+            )
+            native_events.extend((damage_event, EffectEvent(
+                kind="event_hp_lost", amount=damage_event.amount,
+                metadata=damage_event.metadata,
+            )))
         if heal and player.hp > 0:
             gained = min(player.max_hp - player.hp, heal)
             player = player.model_copy(update={"hp": player.hp + gained})
