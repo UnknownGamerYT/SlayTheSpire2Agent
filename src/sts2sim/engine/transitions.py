@@ -186,7 +186,14 @@ from .models import (
     ShopState,
     TargetType,
 )
-from .rng import capture_random_state, random_from_seed, random_from_state
+from .rng import (
+    PYTHON_RANDOM_ALGORITHM,
+    XOSHIRO256STARSTAR_ALGORITHM,
+    capture_random_state,
+    random_from_state,
+    random_stream,
+    run_random_from_seed,
+)
 from .serialization import SerializedState, load_state, state_digest
 
 ActionInput = Action | Mapping[str, Any]
@@ -287,9 +294,18 @@ def new_run_state(
     character_id: str,
     ascension: int,
     source_data: SourceData = None,
+    *,
+    rng_algorithm: str | None = None,
 ) -> RunState:
     source = _with_character_starter_defaults(character_id, dict(source_data or {}))
-    rng = random_from_seed(seed)
+    configured_algorithm = rng_algorithm or source.get("rng_algorithm") or _mapping_from(
+        source.get("flags")
+    ).get("rng_algorithm")
+    algorithm = str(configured_algorithm or (
+        PYTHON_RANDOM_ALGORITHM if character_id.upper() == "TEST"
+        else XOSHIRO256STARSTAR_ALGORITHM
+    ))
+    rng = run_random_from_seed(seed, algorithm=algorithm)
     deck = _starter_deck(character_id, source)
     player = _initial_player(character_id, ascension, source)
     map_state = _generate_act_map(act=_source_int(source, "act", 1), rng=rng, source=source)
@@ -1178,6 +1194,7 @@ def _draw_ancient_card_reward_group(
     card_count: int,
     pity_state: RewardPityState,
 ) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
+    rng = random_stream(rng, "rewards")
     reward_kind = _normalized_id(str(resolution.choice.card_reward_kind or ""))
     pool = _ancient_card_reward_pool(state, reward_kind)
     fixed_rarity = _card_rarity_qualifier(reward_kind)
@@ -1421,7 +1438,7 @@ def _resolve_unknown_node(
         or _has_immediate_event_reward_flags(state)
     ):
         return state, node, ()
-    rng = random_from_state(state.rng)
+    rng = random_stream(random_from_state(state.rng), "unknown_map_point")
     previous = (
         _mapping_from(state.flags.get("unknown_room_odds", {}))
         if state.flags.get("unknown_room_odds_act") == state.act else {}
@@ -3593,6 +3610,7 @@ def _draw_event_flow_card_ids(
     *,
     count: int,
 ) -> tuple[str, ...]:
+    rng = random_stream(rng, "rewards")
     pool = _event_flow_card_pool(state, marker)
     rarity = _event_flow_card_rarity_qualifier(marker)
     if rarity is not None:
@@ -3664,6 +3682,7 @@ def _draw_transformed_card_id(
     *,
     excluded_card_ids: Sequence[str] = (),
 ) -> str | None:
+    rng = random_stream(rng, "transformations")
     fixed = marker.metadata.get("target_card_id")
     if fixed:
         return _normalized_id(str(fixed))
@@ -3763,6 +3782,7 @@ def _draw_event_flow_potion_ids(
     rng: Random,
     marker: EventFlowMarker,
 ) -> tuple[str, ...]:
+    rng = random_stream(rng, "rewards")
     pool = _reward_potion_pool(state, "event_reward_potion_pool") or (
         "fire_potion",
         "skill_potion",
@@ -4449,6 +4469,7 @@ def _event_reward_potion_ids(
     text: str,
     rng: Random,
 ) -> tuple[str, ...]:
+    rng = random_stream(rng, "rewards")
     count = _event_random_count(
         text,
         r"\b(?:Procure|Obtain|Receive)\s+(?:(\d+)\s+)?(?:a\s+)?random\s+Potions?\b",
@@ -4656,7 +4677,7 @@ def _apply_event_reward_card_costs(
 def _enter_shop_room(
     state: RunState, node: MapNodeState
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    rng = random_from_state(state.rng)
+    rng = random_stream(random_from_state(state.rng), "shops")
     inventory = build_basic_shop_inventory(
         rng,
         card_pool=_shop_item_pool(state, "shop_card_pool", _default_shop_card_pool()),
@@ -4779,7 +4800,7 @@ def _resolve_shop_action(
         _has_relic(state, "the_courier", "courier")
         and item.item.kind is not ShopItemKind.CARD_REMOVAL
     ):
-        rng = random_from_state(state.rng)
+        rng = random_stream(random_from_state(state.rng), "shops")
         shop, restocked_item_id = _restock_shop_slot(state, shop, item_index, item.item.kind, rng)
         rng_state = capture_random_state(rng)
 
@@ -8641,6 +8662,7 @@ def _opening_draw_pile(
     master_deck: Sequence[CardInstance],
     rng: Random,
 ) -> tuple[tuple[CardInstance, ...], tuple[EffectEvent, ...]]:
+    rng = random_stream(rng, "shuffle")
     innate_cards = tuple(card for card in master_deck if _card_is_innate(card))
     other_cards = [card for card in master_deck if not _card_is_innate(card)]
     rng.shuffle(other_cards)
@@ -11131,7 +11153,7 @@ def _transformed_combat_card(
     if isinstance(target_card_id, str) and target_card_id.strip():
         card_spec = _combat_card_spec_for_target(state, target_card_id)
     elif _truthy(pending_choice.metadata.get("random_transform")):
-        rng = random_from_state(rng_state)
+        rng = random_stream(random_from_state(rng_state), "transformations")
         card_spec = _random_transform_combat_card_spec(state, rng, old_card)
         next_rng_state = capture_random_state(rng)
     else:
@@ -11156,6 +11178,7 @@ def _random_transform_combat_card_spec(
     rng: Random,
     old_card: CardInstance,
 ) -> dict[str, Any] | None:
+    rng = random_stream(rng, "transformations")
     old_card_id = _normalized_id(old_card.card_id)
     character_pool = _normalized_id(state.character_id)
     candidates: list[str] = []
@@ -11440,7 +11463,7 @@ def _apply_card_random_potion_effects(
     if not pool:
         pool = ("fire_potion", "skill_potion", "essence_of_darkness")
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_potion_generation")
     generated: list[str] = []
     for _ in range(min(count, open_slots)):
         generated.append(_normalized_id(rng.choice(tuple(pool))))
@@ -13842,6 +13865,7 @@ def _add_generated_status_cards_to_draw_pile_shuffled(
     source_id: str,
     reason: str,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    rng = random_stream(rng, "combat_card_selection")
     cards = _generated_status_cards(combat, card_id, count)
     if not cards:
         return combat, ()
@@ -14570,7 +14594,7 @@ def _card_status_damage(
     alive = _alive_monsters(combat)
     if amount <= 0 or not alive:
         return combat, rng_state, ()
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_targets")
     targets = tuple(monster.monster_id for monster in alive) if all_enemies else (
         rng.choice(alive).monster_id,
     )
@@ -15984,7 +16008,7 @@ def _apply_random_card_keyword_effect(
             ),
         )
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
     index = rng.choice(candidates)
     amount = max(1, _coerce_int(payload.get("amount"), default=1))
     updated = _card_with_added_keyword(
@@ -16633,6 +16657,7 @@ def _osty_target_ids(
     target: str,
     rng: Random,
 ) -> tuple[str, ...]:
+    rng = random_stream(rng, "combat_targets")
     alive = _alive_monsters(combat)
     if target == "all_enemies":
         return tuple(monster.monster_id for monster in alive)
@@ -17119,6 +17144,7 @@ def _damage_all_monsters(
 
 
 def _channel_orb_requests(payload: Any, rng: Random) -> tuple[tuple[str, int], ...]:
+    rng = random_stream(rng, "combat_orbs")
     if payload is None:
         return ()
     if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray, Mapping)):
@@ -17178,6 +17204,7 @@ def _new_orb(orb_id: str) -> OrbState:
 
 
 def _random_alive_monster_id(combat: CombatState, rng: Random) -> str | None:
+    rng = random_stream(rng, "combat_targets")
     alive = [monster.monster_id for monster in combat.monsters if monster.hp > 0]
     return rng.choice(alive) if alive else None
 
@@ -17493,7 +17520,7 @@ def _draw_cards(
             ),
         )
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "shuffle")
     draw_pile = list(combat.draw_pile)
     discard_pile = list(combat.discard_pile)
     hand = list(combat.hand)
@@ -17589,7 +17616,7 @@ def _add_random_free_cards_to_hand(
     source_card: CardInstance,
     amount: int,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_generation")
     hand = list(combat.hand)
     discard_pile = list(combat.discard_pile)
     events: list[EffectEvent] = []
@@ -18031,7 +18058,7 @@ def _apply_hand_manipulation_effects(
     *,
     relics: Sequence[str] = (),
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
     hand = list(combat.hand)
     discard_pile = list(combat.discard_pile)
     exhaust_pile = list(combat.exhaust_pile)
@@ -18351,7 +18378,7 @@ def _apply_choose_card_effects(
     if not payloads:
         return combat, rng_state, ()
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
     events: list[EffectEvent] = []
     for payload in payloads:
         combat, choice_events = _set_pending_card_action_choice(
@@ -18373,6 +18400,7 @@ def _set_pending_card_action_choice(
     source_card: CardInstance,
     payload: Mapping[str, Any],
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    rng = random_stream(rng, "combat_card_selection")
     action = _normalized_choice_action(payload.get("action"))
     zone = _normalized_choice_zone(payload.get("zone"))
     count = max(0, _int_from_mapping(payload, "count", 1))
@@ -18543,6 +18571,7 @@ def _generated_choice_cards(
     source_card: CardInstance,
     payload: Mapping[str, Any],
 ) -> tuple[CardInstance, ...]:
+    rng = random_stream(rng, "combat_card_generation")
     choices = max(1, _int_from_mapping(payload, "choices", 3))
     raw_items = _raw_card_pool_items(state)
     card_library = _card_library({"cards": raw_items})
@@ -19027,6 +19056,7 @@ def _add_biiig_hug_soot(
     rng: Random,
     relics: Sequence[str],
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    rng = random_stream(rng, "combat_card_selection")
     if not _has_relic_id(relics, "biiig_hug"):
         return combat, ()
     metadata = dict(combat.metadata)
@@ -19068,7 +19098,7 @@ def _apply_shuffle_all_cards_to_draw_effect(
         return combat, rng_state, ()
 
     cards = list(combat.draw_pile) + list(combat.hand) + list(combat.discard_pile)
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "shuffle")
     rng.shuffle(cards)
     combat = combat.model_copy(
         update={
@@ -19103,7 +19133,7 @@ def _apply_randomize_hand_costs_effect(
     if not combat.hand:
         return combat, rng_state, ()
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_energy_costs")
     hand: list[CardInstance] = []
     changed_ids: list[str] = []
     costs: dict[str, int] = {}
@@ -20153,7 +20183,7 @@ def _apply_enemy_hp_loss_effect(
         return combat, rng_state, ()
 
     target_mode = _normalized_id(str(payload.get("target", "enemy")))
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_targets")
     alive_ids = [monster.monster_id for monster in combat.monsters if monster.hp > 0]
     if target_mode == "all_enemies":
         target_ids = tuple(alive_ids)
@@ -20285,7 +20315,7 @@ def _move_random_card_from_trigger(
             ),
         )
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
     index = rng.choice(candidates)
     card = cards.pop(index)
     if _truthy(payload.get("upgrade")):
@@ -20385,7 +20415,7 @@ def _play_random_hand_card_from_trigger(
                 ),
             ),
         )
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
     card = rng.choice(candidates)
     return _play_combat_card_from_zone_by_trigger(
         state,
@@ -21021,7 +21051,7 @@ def _add_random_pool_cards_to_hand(
         free_this_turn = False
         free_this_combat = False
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_card_generation")
     card_library = _card_library({"cards": _raw_card_pool_items(state)})
     candidates: list[Mapping[str, Any]] = []
     character = _normalized_id(state.character_id)
@@ -21788,7 +21818,7 @@ def _apply_stored_turn_powers(
         )
         events.extend(block_events)
 
-    rng = random_from_state(rng_state)
+    rng = random_stream(random_from_state(rng_state), "combat_targets")
     countdown = _status_amount(combat.player.statuses, "countdown")
     alive = _alive_monsters(combat)
     if countdown and alive:
@@ -25432,6 +25462,7 @@ def _combat_reward_state(
     state: RunState,
     rng: Random,
 ) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
+    rng = random_stream(rng, "rewards")
     encounter = _combat_reward_encounter(state)
     base_card_count = _combat_reward_card_count(state, encounter)
     base_relic_count = _combat_reward_relic_count(state, encounter)
@@ -26423,6 +26454,7 @@ def _reward_potion_id(
     chance_key: str,
     default_chance: int,
 ) -> str | None:
+    rng = random_stream(rng, "rewards")
     explicit = state.flags.get(explicit_key)
     if explicit is not None:
         return str(explicit)
@@ -26446,6 +26478,7 @@ def _reward_potion_ids(
     pool_key: str,
     minimum_count: int = 0,
 ) -> tuple[str, ...]:
+    rng = random_stream(rng, "rewards")
     explicit = _flag_str_sequence(state, explicit_key)
     if explicit:
         return tuple(_normalized_id(potion_id) for potion_id in explicit)

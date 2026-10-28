@@ -384,6 +384,7 @@ class RunRng(random.Random):
                 if self.derivation == STS2_SOURCE_PORT_DERIVATION
                 else "simulator_seeded"
             ),
+            routing="partial_source_singleplayer",
             gauss_next=self.gauss_next,
             streams={
                 name: RngStreamState(internal_state=rng.getstate().state, draws=rng.draws)
@@ -408,15 +409,20 @@ class RunRng(random.Random):
         if len(state) != 3 or state[0] != 100:
             raise ValueError("RunRng.setstate requires a complete xoshiro runtime snapshot")
         restored = self.from_snapshot(RngState.model_validate(state[1]))
+        active_stream = str(state[2])
+        if active_stream not in restored._streams:
+            raise ValueError("restored active stream is missing from the stream bank")
+        if (restored.run_seed, restored.derivation) != (self.run_seed, self.derivation):
+            raise ValueError(
+                "cannot replace a shared RNG bank with a different run seed or derivation"
+            )
         # Preserve the bank identity for existing stream views.
         self._streams.clear()
         self._streams.update(restored._streams)
         self.run_seed = restored.run_seed
         self.derivation = restored.derivation
         self.gauss_next = restored.gauss_next
-        self._active_stream = str(state[2])
-        if self._active_stream not in self._streams:
-            raise ValueError("restored active stream is missing from the stream bank")
+        self._active_stream = active_stream
 
 
 def random_stream(rng: random.Random, stream: str) -> random.Random:
@@ -554,18 +560,25 @@ def random_from_state(state: RngState) -> random.Random: ...
 
 
 @overload
-def random_from_state(state: Xoshiro256StarStarState | Mapping[str, object]) -> GameRng: ...
+def random_from_state(state: Xoshiro256StarStarState) -> GameRng: ...
+
+
+@overload
+def random_from_state(state: Mapping[str, object]) -> random.Random | GameRng: ...
 
 
 def random_from_state(
     state: RngState | Xoshiro256StarStarState | Mapping[str, object],
 ) -> random.Random | GameRng:
-    if _state_algorithm(state) == XOSHIRO256STARSTAR_ALGORITHM:
+    algorithm = _state_algorithm(state)
+    if algorithm == XOSHIRO256STARSTAR_ALGORITHM:
         if isinstance(state, RngState):
             return RunRng.from_snapshot(state)
         if isinstance(state, Mapping) and "internal_state" in state:
             return RunRng.from_snapshot(RngState.model_validate(state))
         return game_rng_from_state(state)
+    if algorithm != PYTHON_RANDOM_ALGORITHM:
+        raise ValueError(f"unsupported RNG algorithm: {algorithm!r}")
 
     rng = random.Random()
     rng.setstate(

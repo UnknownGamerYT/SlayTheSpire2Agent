@@ -3,7 +3,14 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 ENGINE_SCHEMA_VERSION = 1
 PLAYER_TARGET_ID = "player"
@@ -112,8 +119,19 @@ class RngState(EngineModel):
     seed: int | str | None = None
     derivation: str | None = None
     fidelity: Literal["legacy", "simulator_seeded", "source_port", "source_decompiled"] = "legacy"
+    routing: Literal["legacy_single_stream", "partial_source_singleplayer"] = "legacy_single_stream"
     draws: int = Field(default=0, ge=0)
     streams: dict[str, RngStreamState] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def serialize_rng(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        payload: dict[str, Any] = handler(self)
+        if self.algorithm == "python.random.MT19937":
+            # Preserve legacy serialized payloads and their replay digests.
+            return {key: payload[key] for key in (
+                "algorithm", "version", "internal_state", "gauss_next"
+            )}
+        return payload
 
     @model_validator(mode="after")
     def validate_algorithm_state(self) -> RngState:
