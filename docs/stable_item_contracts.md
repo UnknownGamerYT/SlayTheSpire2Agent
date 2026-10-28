@@ -178,3 +178,14 @@ path: it counts positive BlockGainedEntry records from other CardPlays this turn
 not distinct cards. Every Block command of the current qualifying play doubles,
 while all of those entries count toward later plays' threshold. History includes
 Block gained before Unmovable was applied and resets on the next owner turn.
+
+
+Card reward factory callbacks now keep per-option enchantments and actual upgrade
+states in both the offered action descriptors and selected permanent cards. The
+shared modifier applies Silver Crucible's first three CardReward batches, Wing
+Charm's single eligible Swift target with Niche RNG, Silken Tress's first batch,
+Fresnel Lens and the three Egg modifiers in acquisition order. NoModifyHooks is
+separate from NoCardModelModifications; the latter permits the source's manual
+CardReward upgrade hooks. New relic acquisition rechecks only the new modifier;
+ordinary reward actions do not repeat old hooks. Driftwood rerolls explicitly
+repopulate their one group and run its factory callbacks again.

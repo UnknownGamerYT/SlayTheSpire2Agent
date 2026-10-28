@@ -1170,35 +1170,37 @@ def _action_card_descriptor(state: Any, action: Action) -> dict[str, Any]:
 
     reward_card_id = _reward_card_id_for_action(state, action)
     if reward_card_id is not None:
-        descriptor = _card_id_descriptor(
-            reward_card_id,
-            zone="reward",
-            position=_reward_position_for_action(state, action),
-        )
+        from sts2sim.engine.source_card_reward_modifiers import apply_option_modifiers
+        from sts2sim.engine.transitions import _card_from_spec, _enchant_card, _reward_card_spec
+
         reward = getattr(state, "reward", None)
         reward_metadata = _mapping(getattr(reward, "metadata", {}))
-        if (action.target_id or "").startswith("reward:fixed_card:"):
-            fixed_position = _reward_position_for_action(state, action)
-            upgraded = _sequence(reward_metadata.get("fixed_card_upgraded"))
-            if (isinstance(fixed_position, int) and fixed_position < len(upgraded)
-                    and upgraded[fixed_position]):
-                from sts2sim.engine.transitions import _card_from_spec, _reward_card_spec
-
-                spec = {**_reward_card_spec(state, reward_card_id), "upgraded": True}
-                descriptor = _card_descriptor(
-                    _card_from_spec(spec, fixed_position + 1),
-                    zone="reward", position=fixed_position,
-                )
-        enchantment_key = "primary"
-        if action.target_id and action.target_id.startswith("reward:card_group:"):
-            enchantment_key = f"group:{action.target_id.split(':')[2]}"
+        target = action.target_id or ""
+        reward_position = _reward_position_for_action(state, action)
+        index = _parse_int(target.rsplit(":", 1)[-1]) or 0
+        group_key = "primary"
+        if target.startswith("reward:fixed_card:"):
+            group_key = "fixed"
+            upgrades = _sequence(reward_metadata.get("fixed_card_upgraded"))
+        elif target.startswith("reward:card_group:"):
+            group_index = int(target.split(":")[2])
+            group_key = f"group:{group_index}"
+            groups = _sequence(reward_metadata.get("card_option_group_upgraded"))
+            upgrades = _sequence(groups[group_index]) if group_index < len(groups) else ()
+        else:
+            upgrades = _sequence(reward_metadata.get("card_option_upgraded"))
+        spec = _reward_card_spec(state, reward_card_id)
+        if index < len(upgrades) and upgrades[index]:
+            spec = {**spec, "upgraded": True}
+        card = _card_from_spec(spec, index + 1)
         enchantments = _mapping(reward_metadata.get("card_reward_enchantments"))
-        if not (action.target_id or "").startswith("reward:fixed_card:"):
-            card_enchantments = _sequence(enchantments.get(enchantment_key))
-            if card_enchantments:
-                descriptor["enchantments"] = [_json_safe(item) for item in card_enchantments]
-                descriptor["tags"] = list(descriptor.get("tags", ())) + ["enchant:glam"]
-        return descriptor
+        for raw in _sequence(enchantments.get(group_key)):
+            entry = _mapping(raw)
+            card = _enchant_card(card, str(entry.get("keyword", "")),
+                int(entry.get("amount", 1)), source_id=str(entry.get("source_id", "reward")))
+        if reward is not None:
+            card = apply_option_modifiers(card, reward, group_key, index)
+        return _card_descriptor(card, zone="reward", position=reward_position)
 
     item = _shop_item_for_action(state, action)
     if item and str(getattr(item, "kind", "")) in {"card", "colorless_card"}:
@@ -1343,6 +1345,10 @@ def _card_descriptor(
         "effect_keys": sorted(str(key) for key in _effect_keys(effects)),
         "effect_amounts": _effect_amounts(effects),
         "effects": _json_safe(effects),
+        "tags": list(getattr(card, "tags", ())),
+        "enchantments": [
+            item.model_dump(mode="json") for item in getattr(card, "enchantments", ())
+        ],
     }
     if zone is not None:
         descriptor["zone"] = zone

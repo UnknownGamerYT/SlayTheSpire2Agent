@@ -724,7 +724,9 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         })
         next_state, forced_end_events = _end_turn(next_state)
         events += forced_end_events
-    next_state, enchant_events = _apply_silken_tress_reward(next_state)
+    from .source_card_reward_modifiers import apply_card_reward_modifiers
+
+    next_state, enchant_events = apply_card_reward_modifiers(next_state)
     events += enchant_events
     next_state, events = _apply_deck_add_relics(state, next_state, action, events)
     next_state, events = _apply_run_progression_relics(state, next_state, events)
@@ -8329,6 +8331,11 @@ def _take_reward_card(
                 _coerce_int(spec.get("amount"), default=1),
                 source_id=str(spec.get("source_id", "silken_tress")),
             )
+    from .source_card_reward_modifiers import apply_option_modifiers
+
+    card = apply_option_modifiers(
+        card, state.reward, enchantment_key if fixed_index is None else "fixed", option_index,
+    )
     reward_upgrade_event: EffectEvent | None = None
     if _truthy(state.reward.metadata.get("upgrade_card_rewards")):
         upgraded_card = _upgrade_card_instance(card)

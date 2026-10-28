@@ -1,0 +1,49 @@
+{
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "scope": "Actual late hook predicates, per-factory callback boundaries, acquire-order option mutations, OnRelicObtained and reroll; not full hook scheduler parity.",
+  "certifies_game_parity": false,
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SilverCrucible.cs",
+      "sha256": "f7495185bb9bedb4a90257a61520f36130af70a01374a2a4c5950febd767aaee"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WingCharm.cs",
+      "sha256": "a1d90342e86af4edc76c48d513683d1561b72a141ccbaf8dd45504ea39942ef2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SilkenTress.cs",
+      "sha256": "f045974dee1b42bf18fb678bd11b4f60b529f3d272866dfad3c266884d099139"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FresnelLens.cs",
+      "sha256": "05b7cf19010bdf4beffc4d45a3d374ef160a89f8d8a98739de2609c597880b34"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MoltenEgg.cs",
+      "sha256": "b706622e797a32ba54e62bc05f71c67d7ace9f29254ba5111f49dbf14ac04571"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ToxicEgg.cs",
+      "sha256": "5199ee81e31f3273550d0fddf884df69a6d876df34c3b94f5105c5e946701d60"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FrozenEgg.cs",
+      "sha256": "09fdd62baaf545bfb544722d07a921db4cf406726cf327e636db96706efb7ceb"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationFlags.cs",
+      "sha256": "1e43d3793d138f8ede4db48e429d03ef515105f547ee8ced0dd3438cd613bc11"
+    }
+  ]
+}

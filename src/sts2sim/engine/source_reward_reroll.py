@@ -158,6 +158,12 @@ def reroll_card_reward(state: RunState, action: Action) -> tuple[RunState, tuple
             'card_option_groups': tuple(groups), 'metadata': metadata})
     next_state = state.model_copy(update={'reward': reward, 'flags': flags,
                                          'rng': capture_random_state(rng)})
+    from .source_card_reward_modifiers import apply_card_reward_modifiers
+
+    next_state, modifier_events = apply_card_reward_modifiers(
+        next_state, force=True, group_keys=(key,),
+    )
     return next_state, (EffectEvent(kind='card_reward_rerolled', source_id='driftwood',
         target_id=key, amount=len(cards), metadata={'previous_card_ids': previous,
-            'card_ids': cards, 'card_rarities': rarities, 'card_upgraded': upgraded}),)
+            'card_ids': cards, 'card_rarities': rarities, 'card_upgraded': upgraded}),
+    ) + modifier_events
