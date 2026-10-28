@@ -3658,6 +3658,31 @@ def play_live_agent(
         raise typer.Exit(1)
 
 
+@app.command("inspect-game-installation")
+def inspect_installed_game(
+    game_dir: Annotated[Path, typer.Option(help="Installed Steam game directory.")],
+    steam_manifest: Annotated[
+        Path | None, typer.Option(help="Override appmanifest_2868840.acf location.")
+    ] = None,
+    output_path: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the installation fingerprint.")
+    ] = None,
+) -> None:
+    """Read game build identifiers and hash local DLLs without executing them."""
+    try:
+        backend = _resolve_backend(
+            "inspect-game-installation", ("sts2sim.game_installation",),
+            ("inspect_game_installation",),
+        )
+        result = _call_backend(backend, game_dir=game_dir, steam_manifest=steam_manifest)
+    except (BackendUnavailable, ValueError, RuntimeError, OSError) as exc:
+        _backend_error(exc)
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+    if not payload.get("matches_target_metadata", False):
+        raise typer.Exit(1)
+
+
 @app.command("sync-live-bridges")
 def sync_live_bridge_packages(
     bridge: Annotated[
