@@ -9,11 +9,14 @@ models plus DeprecatedEnchantment, not 32 distinct enchantment models.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from fractions import Fraction
+from random import Random
 from typing import Any
 
 from sts2sim.content.source_card_tags import SOURCE_CARD_TAGS
 
-from .models import CardInstance
+from .models import CardInstance, CombatState, EffectEvent, RngState, RunState
+from .rng import random_stream
 
 SOURCE_ENCHANTMENTS = frozenset(
     {
@@ -217,6 +220,7 @@ def refresh_properties(card: CardInstance) -> CardInstance:
     custom = dict(card.custom)
     cost = card.cost
     exhausts = card.exhausts
+    effects = dict(card.effects)
     tags = card.tags
     for enchantment in card.enchantments:
         name = enchantment_id(enchantment.keyword)
@@ -228,6 +232,7 @@ def refresh_properties(card: CardInstance) -> CardInstance:
             exhausts = True
         if name == "souls_power":
             exhausts = False
+            effects.pop("exhaust_on_play", None)
             tags = tuple(
                 tag for tag in tags if str(tag).lower() not in {"exhaust", "keyword_exhaust"}
             )
@@ -245,5 +250,221 @@ def refresh_properties(card: CardInstance) -> CardInstance:
             if not custom.get("x_cost"):
                 cost = 0
     return card.model_copy(
-        update={"custom": custom, "cost": cost, "exhausts": exhausts, "tags": tags}
+        update={"custom": custom, "cost": cost, "exhausts": exhausts, "tags": tags,
+                "effects": effects}
     )
+
+
+def has(card: CardInstance, name: str) -> bool:
+    return any(enchantment_id(e.keyword) == name for e in card.enchantments)
+
+
+def _values(combat: CombatState, key: str) -> dict[str, int]:
+    raw = combat.metadata.get(key, {})
+    return {str(k): int(v) for k, v in raw.items()} if isinstance(raw, Mapping) else {}
+
+
+def damage_base(combat: CombatState, card: CardInstance, amount: int | Fraction) -> Fraction:
+    """Card-local enchantment arithmetic precedes Strength and other hooks."""
+    value = Fraction(amount)
+    disabled = _values(combat, "source_enchantment_disabled")
+    momentum = _values(combat, "source_enchantment_momentum")
+    for enchantment in card.enchantments:
+        name = enchantment_id(enchantment.keyword)
+        if name == "sharp" or (name == "vigorous" and not disabled.get(card.instance_id)):
+            value += enchantment.amount
+        elif name == "inky":
+            value += 1
+        elif name == "tezcataras_ember":
+            value += 3
+        elif name == "momentum":
+            value += momentum.get(card.instance_id, 0)
+        if name == "corrupted":
+            value *= Fraction(3, 2)
+        elif name == "instinct":
+            value *= 2
+    return value
+
+
+def block_base(combat: CombatState, card: CardInstance, amount: int | Fraction) -> Fraction:
+    value = Fraction(amount)
+    growth = _values(combat, "source_enchantment_goopy")
+    for enchantment in card.enchantments:
+        name = enchantment_id(enchantment.keyword)
+        if name == "nimble":
+            value += enchantment.amount
+        elif name == "goopy":
+            value += growth.get(card.instance_id, enchantment.amount) - 1
+    return value
+
+
+def after_play(
+    state: RunState | None,
+    combat: CombatState,
+    rng_state: RngState,
+    card: CardInstance,
+    target_id: str | None,
+    relics: Sequence[str],
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    """OnPlay runs after the card's main effects, then AfterCardPlayed mutates it."""
+    from . import transitions as t
+
+    events: list[EffectEvent] = []
+    for enchantment in card.enchantments:
+        if combat.player.hp <= 0:
+            break
+        name = enchantment_id(enchantment.keyword)
+        disabled = _values(combat, "source_enchantment_disabled")
+        effect: dict[str, Any] = {}
+        if name == "adroit":
+            effect = {"block": enchantment.amount}
+        elif name == "corrupted":
+            # CreatureCmd.Damage is unpowered and unblockable; it still passes
+            # through incoming damage caps, Buffer, and HP-loss hooks.
+            block = combat.player.block
+            combat = combat.model_copy(update={"player": combat.player.model_copy(
+                update={"block": 0},
+            )})
+            combat, emitted = t._damage_combat_player(
+                combat, 2, card.instance_id, relics=relics, is_attack=False,
+            )
+            combat = combat.model_copy(update={"player": combat.player.model_copy(
+                update={"block": combat.player.block + block},
+            )})
+            events.extend(event.model_copy(update={"metadata": {
+                **event.metadata, "unblockable": True, "unpowered": True,
+                "enchantment": "corrupted",
+            }}) for event in emitted)
+        elif name == "inky":
+            effect = {"apply_status": {
+                "weak": 1,
+                "target": "all_enemies" if card.target.value == "all_enemies" else "enemy",
+            }}
+        elif name in {"swift", "sown"} and not disabled.get(card.instance_id):
+            disabled[card.instance_id] = 1
+            combat = combat.model_copy(update={"metadata": {
+                **combat.metadata, "source_enchantment_disabled": disabled,
+            }})
+            effect = {"draw" if name == "swift" else "energy": enchantment.amount}
+        elif name == "momentum":
+            values = _values(combat, "source_enchantment_momentum")
+            values[card.instance_id] = values.get(card.instance_id, 0) + enchantment.amount
+            combat = combat.model_copy(update={"metadata": {
+                **combat.metadata, "source_enchantment_momentum": values,
+            }})
+        if effect:
+            combat, rng_state, emitted = t._apply_effect_step(
+                state=state, combat=combat, rng_state=rng_state, card=card,
+                target_id=target_id, energy_spent=0, effect=effect, relics=relics,
+            )
+            events.extend(emitted)
+        if name == "vigorous":
+            disabled[card.instance_id] = 1
+            combat = combat.model_copy(update={"metadata": {
+                **combat.metadata, "source_enchantment_disabled": disabled,
+            }})
+        elif name == "goopy":
+            values = _values(combat, "source_enchantment_goopy")
+            values[card.instance_id] = values.get(card.instance_id, enchantment.amount) + 1
+            combat = combat.model_copy(update={"metadata": {
+                **combat.metadata, "source_enchantment_goopy": values,
+            }})
+    return combat, rng_state, tuple(events)
+
+
+def played_card(combat: CombatState, card: CardInstance) -> CardInstance:
+    custom = dict(card.custom)
+    custom.pop("source_enchantment_slumber_discount", None)
+    growth = _values(combat, "source_enchantment_goopy")
+    enchantments = tuple(
+        e.model_copy(update={"amount": growth[card.instance_id]})
+        if enchantment_id(e.keyword) == "goopy" and card.instance_id in growth else e
+        for e in card.enchantments
+    )
+    return card.model_copy(update={"custom": custom, "enchantments": enchantments})
+
+
+def preserve_changes(card: CardInstance, updated: CardInstance) -> CardInstance:
+    """Upgrade/downgrade modifies base fields without discarding local modifiers."""
+    custom = {**updated.custom, **{
+        key: value for key, value in card.custom.items() if key.startswith("source_enchantment_")
+    }}
+    if (not card.upgraded and updated.upgraded and card.cost is not None
+            and updated.cost is not None and updated.cost < card.cost
+            and "source_enchantment_slither_cost" in custom):
+        custom["source_enchantment_slither_cost"] = min(
+            int(custom["source_enchantment_slither_cost"]), updated.cost,
+        )
+    return refresh_properties(updated.model_copy(update={"custom": custom}))
+
+
+def sync_master_deck(state: RunState, combat: CombatState) -> RunState:
+    growth = _values(combat, "source_enchantment_goopy")
+    if not growth:
+        return state
+    return state.model_copy(update={"master_deck": tuple(
+        card.model_copy(update={"enchantments": tuple(
+            e.model_copy(update={"amount": growth[card.instance_id]})
+            if enchantment_id(e.keyword) == "goopy" else e
+            for e in card.enchantments
+        )}) if card.instance_id in growth else card
+        for card in state.master_deck
+    )})
+
+
+def after_draw(card: CardInstance, rng: Random) -> CardInstance:
+    if not has(card, "slither"):
+        return card
+    cost = random_stream(rng, "combat_energy_costs").randrange(4)
+    return card.model_copy(update={"custom": {
+        **card.custom, "source_enchantment_slither_cost": cost,
+    }})
+
+
+def energy_cost(card: CardInstance, cost: int) -> int:
+    cost = int(card.custom.get("source_enchantment_slither_cost", cost))
+    return cost - int(card.custom.get("source_enchantment_slumber_discount", 0))
+
+
+def before_flush(combat: CombatState) -> CombatState:
+    if combat.metadata.get("source_enchantment_flush_turn") == combat.turn:
+        return combat
+    hand = tuple(
+        card.model_copy(update={"custom": {
+            **card.custom, "source_enchantment_slumber_discount": (
+                int(card.custom.get("source_enchantment_slumber_discount", 0)) + 1
+            ),
+        }}) if has(card, "slumbering_essence") else card
+        for card in combat.hand
+    )
+    return combat.model_copy(update={"hand": hand, "metadata": {
+        **combat.metadata, "source_enchantment_flush_turn": combat.turn,
+    }})
+
+
+def shuffle_order(cards: Sequence[CardInstance], *, initial: bool) -> tuple[CardInstance, ...]:
+    if initial:
+        return tuple(c for c in cards if not has(c, "imbued")) + tuple(
+            c for c in cards if has(c, "imbued")
+        )
+    ordered = list(cards)
+    for card in cards:
+        if has(card, "perfect_fit"):
+            ordered.remove(card)
+            ordered.insert(0, card)
+    return tuple(ordered)
+
+
+def opening_autoplay(
+    state: RunState, combat: CombatState, rng_state: RngState,
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    from . import transitions as t
+
+    requests = tuple({
+        "card": card.model_dump(mode="json"), "autoplay_from_zone": "draw_pile",
+        "target_mode": "random_enemy", "event_kind": "imbued_card_triggered",
+        "metadata": {"enchantment": "imbued"},
+    } for card in combat.draw_pile if has(card, "imbued"))
+    if not requests:
+        return combat, rng_state, ()
+    return t._resolve_queued_autoplays(state, combat, rng_state, requests)

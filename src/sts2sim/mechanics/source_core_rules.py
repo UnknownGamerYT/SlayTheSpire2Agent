@@ -251,8 +251,7 @@ def shiv_spec(*, upgraded: bool = False, inky: bool = False) -> dict[str, Any]:
         "damage": 4,
         "upgrade": {"damage": 2},
         "upgraded": upgraded,
-        "powers_applied": ({"power_key": "Weak", "amount": 1},) if inky else (),
+        "enchantments": ({"keyword": "inky", "amount": 1},) if inky else (),
         "exhausts": True,
         "tags": ("shiv",),
-        "custom": {"source_core_inky": inky},
     }

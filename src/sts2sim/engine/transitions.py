@@ -222,7 +222,7 @@ from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
 from . import (
     card_status_hooks, source_affliction_hooks, source_class_hooks, source_core_hooks,
-    source_modifier_hooks,
+    source_enchantment_hooks, source_modifier_hooks,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -4829,28 +4829,19 @@ def _enchant_card(
     source_id: str | None,
 ) -> CardInstance:
     normalized_keyword = _normalized_id(keyword)
-    cost = card.cost
-    if normalized_keyword == "swift" and cost is not None and cost >= 0:
-        cost = max(0, cost - amount)
-
-    return card.model_copy(
+    updated = card.model_copy(
         update={
-            "cost": cost,
             "effects": _enchant_card_effects(card.effects, normalized_keyword, amount),
-            "tags": tuple(
-                dict.fromkeys(card.tags + (f"enchant:{normalized_keyword}",))
-            ),
-            "enchantments": card.enchantments
-            + (
+            "tags": tuple(dict.fromkeys(card.tags + (f"enchant:{normalized_keyword}",))),
+            "enchantments": card.enchantments + (
                 CardEnchantment(
-                    keyword=keyword,
-                    amount=amount,
-                    source_id=source_id,
+                    keyword=keyword, amount=amount, source_id=source_id,
                     metadata={"normalized_keyword": normalized_keyword},
                 ),
             ),
         }
     )
+    return source_enchantment_hooks.refresh_properties(updated)
 
 
 def _enchant_card_effects(
@@ -4858,6 +4849,10 @@ def _enchant_card_effects(
     normalized_keyword: str,
     amount: int,
 ) -> dict[str, Any]:
+    if source_enchantment_hooks.enchantment_id(normalized_keyword) in (
+        source_enchantment_hooks.SOURCE_ENCHANTMENTS
+    ):
+        return dict(effects)
     if amount <= 0:
         return dict(effects)
     if "sequence" in effects and isinstance(effects["sequence"], Sequence):
@@ -9387,6 +9382,9 @@ def _start_combat_for_node(
     combat, monster_turn_start_events = _apply_monster_player_turn_start(combat)
     combat, bonus_draw, bonus_draw_events = _pop_pending_relic_draw(combat)
     rng_state = capture_random_state(rng)
+    combat, rng_state, imbued_events = source_enchantment_hooks.opening_autoplay(
+        state, combat, rng_state,
+    )
     combat, rng_state, draw_events = _draw_opening_hand(
         combat,
         rng_state,
@@ -9410,6 +9408,7 @@ def _start_combat_for_node(
             + turn_relic_events
             + monster_turn_start_events
             + bonus_draw_events
+            + imbued_events
             + draw_events
             + start_post_draw_relic_events
         }
@@ -13054,6 +13053,7 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         rng = random_from_state(rng_state)
         player = combat.player
 
+    combat = source_enchantment_hooks.before_flush(combat)
     retained_hand: tuple[CardInstance, ...]
     discarded_hand: tuple[CardInstance, ...]
     end_turn_hand_size = len(combat.hand)
@@ -16799,6 +16799,10 @@ def _apply_card_effects(
             combat, burrow_events = _resolve_burrowed_monsters(state, combat)
             events.extend(burrow_events)
     if is_card_play:
+        combat, rng_state, enchantment_events = source_enchantment_hooks.after_play(
+            state, combat, rng_state, card, target_id, relics,
+        )
+        events.extend(enchantment_events)
         combat = card_status_hooks.record_player_attack(combat, card, events)
         combat = source_class_hooks.after_play(combat, card)
     if signal_boost:
@@ -16827,6 +16831,8 @@ def _apply_card_effects(
             if _normalized_id(enchantment.keyword) == "replay"
         )
         replay_count = max(replay_count, enchantment_replays)
+        if source_enchantment_hooks.has(card, "spiral"):
+            replay_count += 1
         if not replay_count and _card_has_keyword(card, "replay"):
             replay_count = 1
         replay_count += max(0, _custom_int(card.custom, "base_replay_bonus", 0))
@@ -19134,6 +19140,7 @@ def _move_played_card_to_destination(
 
 
 def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardInstance:
+    card = source_enchantment_hooks.played_card(combat, card)
     if card.custom.get("free_to_play_this_turn"):
         card = card.model_copy(update={"custom": {**card.custom, "free_energy_consumed": True}})
     if "cost_before_randomize" in card.custom:
@@ -19314,7 +19321,7 @@ def _draw_cards(
             if not discard_pile:
                 break
             rng.shuffle(discard_pile)
-            draw_pile = discard_pile
+            draw_pile = list(source_enchantment_hooks.shuffle_order(discard_pile, initial=False))
             discard_pile = []
             events.append(EffectEvent(kind="discard_shuffled", amount=len(draw_pile)))
             events.append(
@@ -19337,6 +19344,7 @@ def _draw_cards(
         if not draw_pile:
             break
         drawn_card = draw_pile.pop(0)
+        drawn_card = source_enchantment_hooks.after_draw(drawn_card, rng)
         drawn_card, mutation_events = _card_after_source_draw_mutation(drawn_card)
         events.extend(mutation_events)
         bound_card = source_modifier_hooks.after_draw(drawn_card, combat, drawn_this_turn)
@@ -27434,6 +27442,7 @@ def _apply_monster_death_power_triggers(
 
 
 def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngState) -> RunState:
+    state = source_enchantment_hooks.sync_master_deck(state, combat)
     stolen_ids = set(_string_tuple(combat.metadata.get("stolen_master_card_instance_ids")))
     if stolen_ids:
         state = state.model_copy(update={"master_deck": tuple(
@@ -29010,7 +29019,7 @@ def _energy_cost(
         return 0
     if combat is not None and _card_costs_zero_after_osty_attack(card, combat):
         return 0
-    cost = card.cost or 0
+    cost = source_enchantment_hooks.energy_cost(card, card.cost or 0)
     if combat is not None and source_modifier_hooks.affliction_id(
         source_modifier_hooks.current_card(combat, card)
     ) == "entangled":
@@ -29285,7 +29294,7 @@ def _modified_card_damage(
     *,
     relics: Sequence[str] = (),
 ) -> Fraction:
-    modified = Fraction(amount)
+    modified = source_enchantment_hooks.damage_base(combat, card, amount)
     if card.type == CardType.ATTACK:
         modified += _signed_status_amount(combat.player.statuses, "strength")
         modified += _signed_status_amount(combat.player.statuses, "temporary_strength")
@@ -29338,7 +29347,7 @@ def _modified_card_block(
 ) -> Fraction:
     if card.custom.get("source_kind") in {"potion", "power"}:
         return Fraction(amount)
-    modified = Fraction(amount)
+    modified = source_enchantment_hooks.block_base(combat, card, amount)
     if card.type in {CardType.SKILL, CardType.ATTACK, CardType.POWER}:
         modified += _signed_status_amount(combat.player.statuses, "dexterity")
         modified += _signed_status_amount(combat.player.statuses, "temporary_dexterity")
@@ -29940,7 +29949,7 @@ def _card_from_spec(
     raw_tags = spec.get("tags", ())
     tags = tuple(str(tag) for tag in raw_tags) if raw_tags is not None else ()
     tags = tuple(dict.fromkeys((*tags, *SOURCE_CARD_TAGS.get(_normalized_id(card_id), ()))))
-    return CardInstance(
+    return source_enchantment_hooks.refresh_properties(CardInstance(
         instance_id=str(spec.get("instance_id", f"card_{instance_counter:03d}")),
         card_id=card_id,
         name=str(spec.get("name", card_id)),
@@ -29958,7 +29967,7 @@ def _card_from_spec(
             for enchantment in spec.get("enchantments", ())
         ),
         custom=_card_custom_metadata(custom, source_spec),
-    )
+    ))
 
 
 def _card_custom_metadata(
@@ -30336,14 +30345,14 @@ def _upgrade_card_instance(card: CardInstance) -> CardInstance:
             upgraded = _enchant_card(
                 upgraded, enchantment.keyword, enchantment.amount, source_id=enchantment.source_id
             )
-        return upgraded.model_copy(
+        return source_enchantment_hooks.preserve_changes(card, upgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
                 "custom": {**upgraded.custom, **{k: v for k, v in card.custom.items()
                     if k.startswith("source_core_")}},
                 "tags": tuple(sorted(set(upgraded.tags + card.tags))),
             }
-        )
+        ))
     return card.model_copy(update={"upgraded": True})
 
 
@@ -30357,14 +30366,14 @@ def _downgrade_card_instance(card: CardInstance) -> CardInstance:
         downgraded_spec["upgraded"] = False
         downgraded_spec["instance_id"] = card.instance_id
         downgraded = _card_from_spec(downgraded_spec, 1)
-        return downgraded.model_copy(
+        return source_enchantment_hooks.preserve_changes(card, downgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
                 "custom": {**downgraded.custom, **{k: v for k, v in card.custom.items()
                     if k.startswith("source_core_")}},
                 "tags": tuple(sorted(set(downgraded.tags + card.tags))),
             }
-        )
+        ))
     return card.model_copy(update={"upgraded": False})
 
 
