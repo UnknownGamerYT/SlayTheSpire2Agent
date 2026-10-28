@@ -1,0 +1,41 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "entries": [
+    {
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DeprecatedRelic.cs",
+      "source_sha256": "a7370dc72c028948b0669728d4bb46a2ee78d469cad582e2777aad1134a9ddb2",
+      "registry_status": "deprecated_registry",
+      "review_status": "reviewed",
+      "notes": [
+        "Registered in DeprecatedRelicPool; RarityNone and stackable; history/save placeholder, not live reward item."
+      ]
+    },
+    {
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/DeprecatedPotion.cs",
+      "source_sha256": "cf6cd38f5771d2dde7c68dffe4061309782bfd4d564c32852779e9e3b7f4386d",
+      "registry_status": "deprecated_registry",
+      "review_status": "reviewed",
+      "notes": [
+        "Registered in DeprecatedPotionPool; RarityNone, CombatOnly/AnyEnemy; history/save placeholder, not live reward item."
+      ]
+    },
+    {
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions.Mocks/MockDiscardAndAddShivsPotion.cs",
+      "source_sha256": "202039dd7660f7570b203496b010428efdb4359cb8167e4d96430c5d2e82f64e",
+      "registry_status": "test_only_registry",
+      "review_status": "reviewed",
+      "notes": [
+        "Registered only through test-only MockPotionPool; not included in live cached potion catalog."
+      ]
+    },
+    {
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/VakuuCardSelector.cs",
+      "source_sha256": "9a0cf2e8800326e52a8a829b5f6c8991241f3092adc3d0fb88d4e66651608948",
+      "registry_status": "helper_not_item",
+      "review_status": "reviewed",
+      "notes": [
+        "Implements ICardSelector; chooses row-major first eligible options; used by WhisperingEarring autoplay, not a RelicModel."
+      ]
+    }
+  ]
+}
