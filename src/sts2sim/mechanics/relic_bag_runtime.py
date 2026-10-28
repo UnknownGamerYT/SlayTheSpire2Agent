@@ -33,6 +33,11 @@ def _bag(flags: Mapping[str, Any], key: str) -> dict[str, tuple[str, ...]]:
 
 
 def has_source_relic_bag(state: RunState, *, shared: bool = False) -> bool:
+    if state.character_id.upper() == "TEST":
+        return False
+    override_keys = ("relic_pool", "treasure_relic_pool") if shared else ("relic_pool",)
+    if any(state.flags.get(name) for name in override_keys):
+        return False
     key = "shared_relic_bag" if shared else "player_relic_bag"
     return isinstance(state.flags.get(key), Mapping)
 
