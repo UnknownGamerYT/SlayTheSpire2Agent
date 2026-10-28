@@ -16,6 +16,7 @@ from typing import Any
 from .card_specials import card_special_plan
 from .powers import normalize_power_id, power_application_effect
 from .source_card_rules import source_execution_steps, source_play_restrictions
+from .source_resource_rules import source_resource_steps
 
 ENGINE_EFFECT_KEYS = frozenset(
     {
@@ -161,6 +162,7 @@ def card_effect_plan(
                 "trigger": "turn_start", "duration": "combat",
                 "effects": ({"energy": int(energy.group(1))}, {"draw": int(draw.group(1))}),
             }},)
+    steps = source_resource_steps(card_spec, steps)
     steps = _event_source_steps(card_spec, steps)
     steps = _timed_source_steps(card_spec, steps)
     stored_status = {"coolant": "coolant", "sentry_mode": "sentrymode"}.get(card_id)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from typing import Any
 
 import pytest
@@ -10,16 +11,18 @@ from sts2sim.engine import RewardState, RunPhase, RunState
 
 CARD_POOL: tuple[dict[str, Any], ...] = tuple(
     {
-        "id": f"{color.upper()}_CARD_{index}",
+        "id": f"{color.upper()}_{rarity.upper()}_{index}",
         "color": color,
-        "rarity": "Common",
+        "rarity": rarity,
         "type": "Skill",
         "target": "Self",
         "block": 5,
     }
     for color in ("ironclad", "silent", "defect")
-    for index in range(20)
+    for rarity in ("Common", "Uncommon", "Rare")
+    for index in range(8)
 )
+CARD_RARITIES = {str(card["id"]).lower(): str(card["rarity"]).lower() for card in CARD_POOL}
 
 
 def _before_pickup(*, cards: tuple[dict[str, Any], ...] = CARD_POOL) -> RunState:
@@ -61,7 +64,13 @@ def test_sea_glass_offers_fifteen_cards_from_one_other_character_and_allows_any_
     source_color = state.reward.metadata["sea_glass_character_id"]
     assert source_color in {"silent", "defect"}
     assert len(offered) == len(set(offered)) == 15
-    assert all(card_id.startswith(f"{source_color}_card_") for card_id in offered)
+    assert all(card_id.startswith(f"{source_color}_") for card_id in offered)
+    # Public behavior: five cards of each rarity from another character.
+    # https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Sea_Glass
+    assert Counter(CARD_RARITIES[card_id] for card_id in offered) == {
+        "common": 5, "uncommon": 5, "rare": 5,
+    }
+    assert state.reward.metadata["sea_glass_missing_rarity_counts"] == {}
     assert state.reward.card_options == state.reward.card_option_groups == ()
     assert state.reward.gold == 7
 
@@ -84,7 +93,7 @@ def test_sea_glass_stays_optional_inside_forced_rewards_without_skipping_mandato
                 update={
                     "forced": True,
                     "gold": 0,
-                    "card_ids": ("IRONCLAD_CARD_0",),
+                    "card_ids": ("IRONCLAD_COMMON_0",),
                 }
             )
         }
@@ -93,7 +102,7 @@ def test_sea_glass_stays_optional_inside_forced_rewards_without_skipping_mandato
     assert not any(a.type == "proceed" for a in legal_actions(state))
 
     state = _take_fixed_card(state)
-    assert state.master_deck[-1].card_id == "IRONCLAD_CARD_0"
+    assert state.master_deck[-1].card_id == "IRONCLAD_COMMON_0"
     assert any(a.type == "proceed" for a in legal_actions(state))
     assert sum(a.type == "take_reward_card" for a in legal_actions(state)) == 15
 
@@ -121,8 +130,34 @@ def test_sea_glass_keeps_an_unavailable_other_character_pool_explicit() -> None:
     )
 
 
-def test_sea_glass_uses_available_distinct_cards_when_a_custom_source_has_fewer_than_fifteen() -> (
-    None
-):
-    state = _pickup(_before_pickup(cards=CARD_POOL[20:23]))
-    assert len(state.reward.card_ids) == len(set(state.reward.card_ids)) == 3
+def test_sea_glass_reports_missing_rarities_without_filling_with_other_rarities() -> None:
+    cards = tuple(
+        card for card in CARD_POOL
+        if card["color"] == "silent"
+        and (card["rarity"] == "Common" or (
+            card["rarity"] == "Uncommon" and str(card["id"]).endswith(("_0", "_1"))
+        ))
+    )
+    state = _pickup(_before_pickup(cards=cards + cards))
+    offered = state.reward.card_ids
+    assert len(offered) == len(set(offered)) == 7
+    assert Counter(CARD_RARITIES[card_id] for card_id in offered) == {
+        "common": 5, "uncommon": 2,
+    }
+    assert state.reward.metadata["sea_glass_missing_rarity_counts"] == {
+        "uncommon": 3, "rare": 5,
+    }
+    generated = next(
+        event for event in state.replay_log[-1].events
+        if event.kind == "relic_card_selection_generated"
+    )
+    assert generated.metadata["missing_rarity_counts"] == {"uncommon": 3, "rare": 5}
+    restored = load_state(json.loads(json.dumps(serialize(state))))
+    assert serialize(restored) == serialize(state)
+
+
+def test_sea_glass_fixed_rarity_sampling_is_independent_of_source_order_and_duplicates() -> None:
+    state = _pickup(_before_pickup())
+    reordered = _pickup(_before_pickup(cards=tuple(reversed(CARD_POOL)) + CARD_POOL))
+    assert state.reward.card_ids == reordered.reward.card_ids
+    assert state.reward.metadata == reordered.reward.metadata

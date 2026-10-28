@@ -1,0 +1,22 @@
+[
+  {
+    "allow_negative": null,
+    "description": "You cannot gain [gold]Block[/gold] from cards for [blue]2[/blue] turns.",
+    "description_raw": "You cannot gain [gold]Block[/gold] from cards for {Amount:plural:[blue]{}[/blue] turn|[blue]{}[/blue] turns}.",
+    "id": "NO_BLOCK",
+    "image_url": "/static/images/powers/no_block_power.webp",
+    "name": "No Block",
+    "stack_type": "Counter",
+    "type": "Debuff"
+  },
+  {
+    "allow_negative": null,
+    "description": "You cannot gain additional [energy:1] this turn.",
+    "description_raw": "You cannot gain additional {energyPrefix:energyIcons(1)} this turn.",
+    "id": "NO_ENERGY_GAIN",
+    "image_url": "/static/images/powers/no_energy_gain_power.webp",
+    "name": "No Energy Gain",
+    "stack_type": "Single",
+    "type": "Debuff"
+  }
+]

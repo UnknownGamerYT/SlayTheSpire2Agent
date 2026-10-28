@@ -7,6 +7,10 @@ This repository focuses on local simulation and developer tools. Graphics and
 game assets are out of scope. Implementation notes and current project direction
 live in [HANDOFF.md](HANDOFF.md).
 
+The simulator is still undergoing game-fidelity validation. See the
+[current stable parity review](docs/stable_game_parity_review.md) for confirmed
+source-rule corrections and remaining equivalence gaps.
+
 The [October 2026 status report](docs/project_status_2026_10_28.md) records the
 stable data refresh and remaining fidelity gaps. The simulator targets stable
 v0.107.1; the v0.111.0 beta is a separate data/game channel.

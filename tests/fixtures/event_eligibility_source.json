@@ -1,0 +1,551 @@
+{
+  "events": [
+    {
+      "id": "ABYSSAL_BATHS",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "AMALGAMATOR",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": [
+        "Requires 2+ Strikes in deck",
+        "Requires 2+ Defends in deck"
+      ]
+    },
+    {
+      "id": "AROMA_OF_CHAOS",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "BATTLEWORN_DUMMY",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "BRAIN_LEECH",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 1–2 only"
+      ]
+    },
+    {
+      "id": "BUGSLAYER",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "BYRDONIS_NEST",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": [
+        "Cannot have an event pet"
+      ]
+    },
+    {
+      "id": "COLORFUL_PHILOSOPHERS",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": [
+        "Requires more than one character unlocked"
+      ]
+    },
+    {
+      "id": "COLOSSAL_FLOWER",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": [
+        "Requires 19+ HP"
+      ]
+    },
+    {
+      "id": "CRYSTAL_SPHERE",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Requires 100+ gold",
+        "Act 2+"
+      ]
+    },
+    {
+      "id": "DARV",
+      "act": null,
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "DENSE_VEGETATION",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "DOLL_ROOM",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2 only"
+      ]
+    },
+    {
+      "id": "DOORS_OF_LIGHT_AND_DARK",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "DROWNING_BEACON",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "ENDLESS_CONVEYOR",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": [
+        "Requires 120+ gold"
+      ]
+    },
+    {
+      "id": "FAKE_MERCHANT",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2+",
+        "Single player only",
+        "Requires 100+ gold or a Foul Potion"
+      ]
+    },
+    {
+      "id": "FIELD_OF_MAN_SIZED_HOLES",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "GRAVE_OF_THE_FORGOTTEN",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "HUNGRY_FOR_MUSHROOMS",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "INFESTED_AUTOMATON",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "JUNGLE_MAZE_ADVENTURE",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "LOST_WISP",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "LUMINOUS_CHOIR",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": [
+        "Requires 100-149 gold"
+      ]
+    },
+    {
+      "id": "MORPHIC_GROVE",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": [
+        "Requires 100+ gold"
+      ]
+    },
+    {
+      "id": "NEOW",
+      "act": "Act 1 - Overgrowth / Underdocks",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "NONUPEIPE",
+      "act": "Act 3 - Glory",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "OROBAS",
+      "act": "Act 2 - Hive",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "PAEL",
+      "act": "Act 2 - Hive",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "POTION_COURIER",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2+"
+      ]
+    },
+    {
+      "id": "PUNCH_OFF",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "RANWID_THE_ELDER",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2+",
+        "Requires at least one potion"
+      ]
+    },
+    {
+      "id": "REFLECTIONS",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "RELIC_TRADER",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2+",
+        "Requires 5+ tradeable relics"
+      ]
+    },
+    {
+      "id": "ROOM_FULL_OF_CHEESE",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 1–2 only"
+      ]
+    },
+    {
+      "id": "ROUND_TEA_PARTY",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": [
+        "Requires 12+ HP"
+      ]
+    },
+    {
+      "id": "SAPPHIRE_SEED",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "SELF_HELP_BOOK",
+      "act": null,
+      "type": "Shared",
+      "preconditions": null
+    },
+    {
+      "id": "SLIPPERY_BRIDGE",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Floor 7+",
+        "Requires removable cards in deck"
+      ]
+    },
+    {
+      "id": "SPIRALING_WHIRLPOOL",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "SPIRIT_GRAFTER",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "STONE_OF_ALL_TIME",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2 only",
+        "Requires at least one potion"
+      ]
+    },
+    {
+      "id": "SUNKEN_STATUE",
+      "act": "Act 1 - Overgrowth / Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "SUNKEN_TREASURY",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "SYMBIOTE",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Act 2+"
+      ]
+    },
+    {
+      "id": "TABLET_OF_TRUTH",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "TANX",
+      "act": "Act 3 - Glory",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "TEA_MASTER",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Requires 150+ gold",
+        "Act 1–2 only"
+      ]
+    },
+    {
+      "id": "TEZCATARA",
+      "act": "Act 2 - Hive",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "THE_ARCHITECT",
+      "act": null,
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "THE_FUTURE_OF_POTIONS",
+      "act": null,
+      "type": "Shared",
+      "preconditions": null
+    },
+    {
+      "id": "THE_LANTERN_KEY",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "THE_LEGENDS_WERE_TRUE",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Requires 10+ HP",
+        "Act 1 only"
+      ]
+    },
+    {
+      "id": "THIS_OR_THAT",
+      "act": null,
+      "type": "Shared",
+      "preconditions": null
+    },
+    {
+      "id": "TINKER_TIME",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "TRASH_HEAP",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "TRIAL",
+      "act": "Act 3 - Glory",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "UNREST_SITE",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": [
+        "Requires ≤70% HP"
+      ]
+    },
+    {
+      "id": "VAKUU",
+      "act": "Act 3 - Glory",
+      "type": "Ancient",
+      "preconditions": null
+    },
+    {
+      "id": "WAR_HISTORIAN_REPY",
+      "act": null,
+      "type": "Shared",
+      "preconditions": null
+    },
+    {
+      "id": "WATERLOGGED_SCRIPTORIUM",
+      "act": "Underdocks",
+      "type": "Event",
+      "preconditions": [
+        "Requires 55+ gold"
+      ]
+    },
+    {
+      "id": "WELCOME_TO_WONGOS",
+      "act": null,
+      "type": "Shared",
+      "preconditions": [
+        "Requires 100+ gold",
+        "Act 2 only"
+      ]
+    },
+    {
+      "id": "WELLSPRING",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": null
+    },
+    {
+      "id": "WHISPERING_HOLLOW",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": [
+        "Requires 44+ gold"
+      ]
+    },
+    {
+      "id": "WOOD_CARVINGS",
+      "act": "Act 1 - Overgrowth",
+      "type": "Event",
+      "preconditions": [
+        "Requires a removable basic card"
+      ]
+    },
+    {
+      "id": "ZEN_WEAVER",
+      "act": "Act 2 - Hive",
+      "type": "Event",
+      "preconditions": [
+        "Requires 125+ gold"
+      ]
+    }
+  ],
+  "acts": [
+    {
+      "id": "OVERGROWTH",
+      "index": 0,
+      "events": [
+        "AROMA_OF_CHAOS",
+        "BYRDONIS_NEST",
+        "DENSE_VEGETATION",
+        "JUNGLE_MAZE_ADVENTURE",
+        "LUMINOUS_CHOIR",
+        "MORPHIC_GROVE",
+        "SAPPHIRE_SEED",
+        "SUNKEN_STATUE",
+        "TABLET_OF_TRUTH",
+        "UNREST_SITE",
+        "WELLSPRING",
+        "WHISPERING_HOLLOW",
+        "WOOD_CARVINGS"
+      ]
+    },
+    {
+      "id": "UNDERDOCKS",
+      "index": 0,
+      "events": [
+        "ABYSSAL_BATHS",
+        "DROWNING_BEACON",
+        "ENDLESS_CONVEYOR",
+        "PUNCH_OFF",
+        "SPIRALING_WHIRLPOOL",
+        "SUNKEN_STATUE",
+        "SUNKEN_TREASURY",
+        "DOORS_OF_LIGHT_AND_DARK",
+        "TRASH_HEAP",
+        "WATERLOGGED_SCRIPTORIUM"
+      ]
+    },
+    {
+      "id": "HIVE",
+      "index": 1,
+      "events": [
+        "AMALGAMATOR",
+        "BUGSLAYER",
+        "COLORFUL_PHILOSOPHERS",
+        "COLOSSAL_FLOWER",
+        "FIELD_OF_MAN_SIZED_HOLES",
+        "INFESTED_AUTOMATON",
+        "LOST_WISP",
+        "SPIRIT_GRAFTER",
+        "THE_LANTERN_KEY",
+        "ZEN_WEAVER"
+      ]
+    },
+    {
+      "id": "GLORY",
+      "index": 2,
+      "events": [
+        "BATTLEWORN_DUMMY",
+        "GRAVE_OF_THE_FORGOTTEN",
+        "HUNGRY_FOR_MUSHROOMS",
+        "REFLECTIONS",
+        "ROUND_TEA_PARTY",
+        "TRIAL",
+        "TINKER_TIME"
+      ]
+    }
+  ],
+  "sources": {
+    "eng/events": {
+      "channel": "stable",
+      "count": 66,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "37be0fc3457e3e0745f098b304b49bc95c067f222a5e0af50680d5ffec69bec0",
+      "source_url": "https://spire-codex.com/api/events?lang=eng"
+    },
+    "eng/acts": {
+      "channel": "stable",
+      "count": 4,
+      "fetched_at": "2026-10-28T13:51:51.068443Z",
+      "game_version": null,
+      "schema_version": 2,
+      "sha256": "768ccb7ab7231c8b7584eca5a0a6e4932c67dc671f0f286bb8226f2ec02a51e5",
+      "source_url": "https://spire-codex.com/api/acts?lang=eng"
+    }
+  }
+}

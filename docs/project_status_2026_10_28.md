@@ -1,5 +1,9 @@
 # Project status — 28 October 2026
 
+The training-readiness baseline below is supplemented by the later
+[stable game parity review](stable_game_parity_review.md). That review found
+additional rule mismatches and explicitly does not certify game equivalence.
+
 The training pipeline is runnable and now checks source and checkpoint compatibility.
 This is a headless simulator for agent development. Simulator scores have not been
 validated as live-game win rates, and this update does not supply a trained champion.
@@ -102,7 +106,7 @@ predicates, spot checks and the remaining external verification questions.
 The test suite includes legal actions, save/reload determinism, source-backed
 mechanics, safe policy observations, PPO loss/checkpoint behavior, Gymnasium checks,
 and recorded/fake bridge integration. Ruff and strict mypy are required by CI.
-Final local results: 1,901 tests passed with one expected missing-dependency-path
+Training-readiness baseline at `8f538ec`: 1,901 tests passed with one expected missing-dependency-path
 skip, Ruff passed, strict mypy passed across 118 source files, and source/wheel
 builds succeeded. The CPU smoke resumed from 12 to 24 training steps and matched
 an independent uninterrupted two-batch run exactly, including optimizer and RNG
@@ -126,13 +130,15 @@ Remaining verification boundaries:
 
 - Aeonglass's first Increasing Intensity application/update order needs a runtime
   trace. Crusher/Rocket initial facing needs a verified encounter trace.
-- The mapping from displayed run seeds to the game's xoshiro streams is unverified.
-  Simulator determinism does not imply identical maps, draws or rewards in the game.
+- Normal runs still use MT19937; the separate xoshiro adapter is not integrated
+  and its seed/stream derivation is simulator-specific. Displayed game seeds
+  cannot currently imply identical maps, draws or rewards.
 - Exact Fur Coat mark eligibility/RNG and unmodeled Axebot replacement waves need
   live/source confirmation; see [the bounded Fur Coat implementation](fur_coat_runtime.md).
 - Co-op modeling covers supplied ally state; a complete multi-agent game protocol
-  has not been verified. Exact Sea Glass rarity odds and branch interactions need
-  source evidence or traces.
+  has not been verified. Sea Glass now uses the public five-per-rarity profile;
+  its class-selection weights, branch interactions and exact game RNG order
+  remain unverified; see [the bounded Sea Glass correction](sea_glass_runtime.md).
 - No game executable or running bridge is available in this workspace. Public
   bridge source schemas omit fields needed for lossless checkpoint inference.
   Live inference stops on incomplete states; heuristic fallback is explicit.

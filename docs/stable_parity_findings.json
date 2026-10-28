@@ -1,0 +1,106 @@
+{
+  "target": {
+    "channel": "stable",
+    "game_version": "0.107.1",
+    "selection": "user-confirmed",
+    "installed_build_verified": false
+  },
+  "reviewed_base_revision": "8f538ec7963a0f1aca068ee4fcd9fe6fc958eecb",
+  "conclusion": {
+    "certifies_game_parity": false,
+    "nearly_identical_confirmed": false,
+    "overall_fidelity_percentage": null
+  },
+  "online_snapshot_check": {
+    "checked_at_utc": "2026-10-28T16:02:04.663381+00:00",
+    "endpoints": 17,
+    "all_match_cached_hashes": true,
+    "scope": "Live stable payload byte-equivalence to cached snapshot; not behavioral or executable-build parity"
+  },
+  "card_findings": [
+    {
+      "id": "PRECISE_CUT",
+      "verified_correction_scope": "hand-count penalty and upgraded calculation base",
+      "regression_path": "tests/combat/test_source_damage_fidelity.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "ASHEN_STRIKE",
+      "verified_correction_scope": "exhaust-pile scaling",
+      "regression_path": "tests/combat/test_source_damage_fidelity.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "HELIX_DRILL",
+      "verified_correction_scope": "hit count per Energy spent this turn",
+      "regression_path": "tests/combat/test_source_damage_fidelity.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "BULLY",
+      "verified_correction_scope": "Vulnerable-stack scaling",
+      "regression_path": "tests/combat/test_source_debuff_damage.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "REND",
+      "verified_correction_scope": "unique-debuff taxonomy and stable upgrades",
+      "regression_path": "tests/combat/test_source_debuff_damage.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "RADIATE",
+      "verified_correction_scope": "hit count per actual positive Star gain",
+      "regression_path": "tests/combat/test_source_radiate_fidelity.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "CONVERGENCE",
+      "verified_correction_scope": "delayed Energy/Stars and current hand retention",
+      "regression_path": "tests/combat/test_source_resource_fidelity.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "EXPECT_A_FIGHT",
+      "verified_correction_scope": "Attack-count Energy gain and additional-gain restriction",
+      "regression_path": "tests/combat/test_source_resource_fidelity.py",
+      "status": "source_contract_regression_added"
+    },
+    {
+      "id": "PANIC_BUTTON",
+      "verified_correction_scope": "card Block restriction, Power exceptions, Artifact and timing",
+      "regression_path": "tests/combat/test_source_resource_fidelity.py",
+      "status": "source_contract_regression_added"
+    }
+  ],
+  "other_corrections": [
+    {
+      "id": "event_entry_eligibility",
+      "scope": "66 source rows,26 distinct precondition strings; actual game distribution and unknown profile facts remain unverified",
+      "tests": "tests/events/test_event_eligibility.py"
+    },
+    {
+      "id": "sea_glass",
+      "scope": "five Common, five Uncommon, five Rare from one other character; exact game RNG/class weights not verified",
+      "tests": "tests/rewards/test_sea_glass.py"
+    }
+  ],
+  "remaining_boundaries": [
+    "Normal run RNG is MT19937; separate xoshiro adapter not integrated and uses simulator-specific seed derivation",
+    "Map/encounter/event distributions and complete act variants not independently verified",
+    "Axebot replacement-wave Stock/victory rules absent",
+    "Aeonglass initial counter ordering and Kaiser initial facing not verified",
+    "Fur Coat exact room eligibility and game RNG not verified",
+    "Complete co-op and all item interaction contracts not verified",
+    "No complete stable game action trace validated in this workspace"
+  ],
+  "sources": [
+    "https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2868840&count=50&maxlength=1500&format=json",
+    "https://spire-codex.com/developers",
+    "https://sts2.untapped.gg/en/cards/colorless/rend",
+    "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Panic_Button#Notes",
+    "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Radiate#Notes",
+    "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Sea_Glass",
+    "https://spire-codex.com/mechanics/card-rarity"
+  ]
+}

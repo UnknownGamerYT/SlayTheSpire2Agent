@@ -47,6 +47,10 @@ from sts2sim.mechanics.combat_rewards import (
     draw_combat_reward,
     fake_merchant_reward_relic_ids,
 )
+from sts2sim.mechanics.event_eligibility import (
+    EventEligibilityContext,
+    evaluate_event_eligibility,
+)
 from sts2sim.mechanics.event_flows import (
     EventFlowMarker,
     EventFlowMarkerKind,
@@ -132,6 +136,8 @@ from sts2sim.mechanics.shops import (
     ShopItem,
     ShopItemKind,
 )
+from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
+from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.treasure import (
     TreasureContext,
     TreasureRelic,
@@ -2143,6 +2149,20 @@ def _event_state_for_node(
     rng: Random,
 ) -> EventState:
     event = _event_source_for_room(state, rng)
+    result = _event_state_from_room_source(state, node, event)
+    diagnostics = event.get("eligibility_diagnostics")
+    if diagnostics:
+        result = result.model_copy(update={
+            "metadata": {**result.metadata, "eligibility_diagnostics": diagnostics},
+        })
+    return result
+
+
+def _event_state_from_room_source(
+    state: RunState,
+    node: MapNodeState,
+    event: Mapping[str, Any],
+) -> EventState:
     event_id = str(event.get("id", f"EVENT_{node.act}_{node.floor}_{node.lane}"))
     if _event_uses_flow(event_id):
         flow_state = event_flow_state(
@@ -2198,27 +2218,74 @@ def _event_source_for_room(state: RunState, rng: Random) -> Mapping[str, Any]:
                 return event
 
     configured_pool = _flag_str_sequence(state, "event_pool")
-    candidates = [
-        event
-        for event in events
-        if (not configured_pool or _normalized_id(str(event.get("id", ""))) in configured_pool)
-        and _event_is_available_in_act(event, state.act)
-    ]
-    if not candidates:
-        candidates = list(events)
+    context = _event_eligibility_context(state)
+    acts = tuple(_mapping_from(row) for row in (
+        _source_items(state.flags.get("acts")) or _cached_source_rows(state, "acts")
+    ))
+    candidates: list[Mapping[str, Any]] = []
+    unknown: dict[str, tuple[str, ...]] = {}
+    for event in events:
+        event_id = _normalized_id(str(event.get("id", "")))
+        if configured_pool and event_id not in configured_pool:
+            continue
+        eligibility = evaluate_event_eligibility(event, context, acts)
+        if eligibility.eligible:
+            candidates.append(event)
+            if eligibility.unknown:
+                unknown[str(event.get("id", ""))] = eligibility.unknown
     if candidates:
-        return rng.choice(candidates)
-    return {"id": "UNKNOWN_EVENT", "name": "Unknown Event", "options": []}
+        chosen = rng.choice(candidates)
+        if unknown:
+            return {**chosen, "eligibility_diagnostics": {"unknown_requirements": unknown}}
+        return chosen
+    return {
+        "id": "UNKNOWN_EVENT", "name": "Unknown Event", "options": [],
+        "eligibility_diagnostics": {"reason": "no_eligible_event"},
+    }
+
+
+def _event_eligibility_context(state: RunState) -> EventEligibilityContext:
+    removable = tuple(card for card in state.master_deck if not _deck_card_mutation_blocked(card))
+    act_ids = _mapping_from(state.flags.get("act_ids"))
+    act_id = act_ids.get(str(state.act))
+    if act_id is None:
+        configured = str(state.flags.get("act_id", ""))
+        known_act = {"overgrowth": 1, "underdocks": 1, "hive": 2, "glory": 3}
+        if known_act.get(configured.lower()) == state.act:
+            act_id = configured
+    allies = _ally_states_from_source(state.flags.get("allies", state.flags.get("ally_players")))
+    return EventEligibilityContext(
+        act=state.act, floor=state.floor, gold=state.player.gold,
+        hp=state.player.hp, max_hp=state.player.max_hp,
+        act_id=str(act_id) if act_id is not None else None,
+        removable_cards=len(removable),
+        removable_basic_cards=sum(
+            _normalized_id(str(_card_source_spec(card).get(
+                "rarity", _card_source_spec(card).get("rarity_key", "")
+            ))) == "basic"
+            for card in removable
+        ),
+        strikes=sum(_normalized_id(card.name) == "strike" for card in state.master_deck),
+        defends=sum(_normalized_id(card.name) == "defend" for card in state.master_deck),
+        potions=state.potions,
+        player_count=max(1 + len(allies), _flag_int(state, "player_count", 1)),
+        has_event_pet=(
+            _truthy(state.flags["has_event_pet"]) if "has_event_pet" in state.flags else None
+        ),
+        unlocked_character_count=(
+            _flag_int(state, "unlocked_character_count", 0)
+            if "unlocked_character_count" in state.flags else None
+        ),
+        tradeable_relic_count=(
+            _flag_int(state, "tradeable_relic_count", 0)
+            if "tradeable_relic_count" in state.flags else None
+        ),
+    )
 
 
 def _event_source_rows(state: RunState) -> tuple[Mapping[str, Any], ...]:
     raw_events = _source_items(state.flags.get("events")) or _cached_source_rows(state, "events")
     return tuple(event for event in (_mapping_from(item) for item in raw_events) if event)
-
-
-def _event_is_available_in_act(event: Mapping[str, Any], act: int) -> bool:
-    raw_act = str(event.get("act") or "").lower()
-    return not raw_act or f"act {act}" in raw_act
 
 
 def _event_uses_flow(event_id: str) -> bool:
@@ -4855,6 +4922,7 @@ def _use_potion(
             target=_potion_target_type(potion_id),
             effects=effects,
             exhausts=True,
+            custom={"source_kind": "potion"},
         )
         combat, rng_state, effect_events = _apply_card_effects(
             state=state,
@@ -4945,8 +5013,9 @@ def _apply_potion_use_trigger_result(
         )
     if result.block_delta:
         player = player.model_copy(update={"block": max(0, player.block + result.block_delta)})
-    if result.energy_delta:
-        player = player.model_copy(update={"energy": max(0, player.energy + result.energy_delta)})
+    energy_delta = permitted_energy_delta(player.statuses, result.energy_delta)
+    if energy_delta:
+        player = player.model_copy(update={"energy": max(0, player.energy + energy_delta)})
     if player is not combat.player:
         combat = combat.model_copy(update={"player": player})
     return combat, _trigger_effect_events(result.effects)
@@ -6460,7 +6529,7 @@ def _apply_relic_card_reward_marker(
     if count <= 0:
         return state, ()
     if _normalized_id(relic_id) == "sea_glass":
-        return _apply_sea_glass_card_selection(state, rng, count)
+        return _apply_sea_glass_card_selection(state, rng)
 
     event_marker = _relic_event_flow_marker(marker, EventFlowMarkerKind.CARD_REWARD, count)
     next_state, reward_events = _add_event_flow_card_rewards(state, rng, event_marker)
@@ -6481,7 +6550,6 @@ def _apply_relic_card_reward_marker(
 def _apply_sea_glass_card_selection(
     state: RunState,
     rng: Random,
-    count: int,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     pool = _other_character_card_reward_pool(state)
     colors = tuple(sorted({card.color for card in pool}))
@@ -6494,9 +6562,26 @@ def _apply_sea_glass_card_selection(
             ),
         )
     color = rng.choice(colors)
-    candidates = list(dict.fromkeys(card.card_id for card in pool if card.color == color))
-    rng.shuffle(candidates)
-    selected = tuple(candidates[:max(0, count)])
+    # Sea Glass has fixed rarity slots, not a roll over the entire color pool:
+    # https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Sea_Glass
+    # Canonical candidates make source payload order irrelevant to our RNG.
+    selected_ids: list[str] = []
+    rarity_counts: dict[str, int] = {}
+    missing_rarity_counts: dict[str, int] = {}
+    for rarity in (CardRarity.COMMON, CardRarity.UNCOMMON, CardRarity.RARE):
+        candidates = sorted({
+            card.card_id
+            for card in pool
+            if card.color == color and card.rarity is rarity
+            and card.card_id not in selected_ids
+        })
+        rng.shuffle(candidates)
+        chosen = candidates[:5]
+        selected_ids.extend(chosen)
+        rarity_counts[rarity.value] = len(chosen)
+        if len(chosen) < 5:
+            missing_rarity_counts[rarity.value] = 5 - len(chosen)
+    selected = tuple(selected_ids)
     reward = state.reward or RewardState(reward_id="sea_glass", source="other")
     first_index = len(reward.card_ids)
     metadata = dict(reward.metadata)
@@ -6504,6 +6589,8 @@ def _apply_sea_glass_card_selection(
     metadata.update({
         "sea_glass_character_id": color,
         "sea_glass_card_ids": selected,
+        "sea_glass_rarity_counts": rarity_counts,
+        "sea_glass_missing_rarity_counts": missing_rarity_counts,
         "optional_fixed_card_indices": optional_indices
         + tuple(range(first_index, first_index + len(selected))),
     })
@@ -6516,7 +6603,13 @@ def _apply_sea_glass_card_selection(
             kind="relic_card_selection_generated",
             source_id="sea_glass",
             amount=len(selected),
-            metadata={"character_id": color, "card_ids": selected, "selection": "choose_any"},
+            metadata={
+                "character_id": color,
+                "card_ids": selected,
+                "selection": "choose_any",
+                "rarity_counts": rarity_counts,
+                "missing_rarity_counts": missing_rarity_counts,
+            },
         ),
     )
 
@@ -11129,6 +11222,9 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
             "metadata": {
                 **combat.metadata,
                 "cards_played_this_combat": cards_played_this_combat,
+                "energy_spent_this_turn": _metadata_int(
+                    combat.metadata, "energy_spent_this_turn", 0
+                ) + energy_spent,
             },
         }
     )
@@ -12018,6 +12114,15 @@ def _begin_next_player_turn(
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = []
+    statuses = dict(combat.player.statuses)
+    if statuses.pop("no_energy_gain_this_turn", 0):
+        events.append(EffectEvent(
+            kind="temporary_status_expired", target_id=PLAYER_TARGET_ID, amount=-1,
+            metadata={"status": "no_energy_gain_this_turn"},
+        ))
+        combat = combat.model_copy(update={
+            "player": combat.player.model_copy(update={"statuses": statuses}),
+        })
     combat = combat.model_copy(update={"metadata": {
         **combat.metadata, "turn_start_draws": True,
     }})
@@ -15144,6 +15249,10 @@ def _apply_effect_step(
             threshold = _coerce_int(repeat.get("double_at"), default=0)
             if threshold and hits >= threshold:
                 hits *= 2
+        elif basis == "energy_spent_this_turn":
+            hits = _metadata_int(combat.metadata, "energy_spent_this_turn", 0)
+        elif basis == "stars_gained_this_turn":
+            hits = _metadata_int(combat.metadata, "stars_gained_this_turn", 0)
         elif basis == "lost_hp_this_turn":
             hits = _coerce_int(repeat.get("hits"), default=2) if _metadata_int(
                 combat.metadata, "hp_loss_count_this_turn", 0
@@ -15380,7 +15489,9 @@ def _apply_effect_step(
         player = combat.player
         monsters = list(combat.monsters)
 
-    energy = _effect_amount(effect, "energy", energy_spent)
+    energy = permitted_energy_delta(
+        player.statuses, _effect_amount(effect, "energy", energy_spent),
+    )
     if energy:
         player = player.model_copy(update={"energy": max(0, player.energy + energy)})
         events.append(
@@ -15392,7 +15503,9 @@ def _apply_effect_step(
             )
         )
 
-    energy_formula = _formula_amount(effect.get("energy_formula"), combat=combat)
+    energy_formula = permitted_energy_delta(
+        player.statuses, _formula_amount(effect.get("energy_formula"), combat=combat),
+    )
     if energy_formula:
         player = player.model_copy(update={"energy": max(0, player.energy + energy_formula)})
         events.append(
@@ -15456,6 +15569,7 @@ def _apply_effect_step(
     events.extend(resource_events)
 
     combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
+    combat = _record_star_gains(combat, resource_events)
     combat, summon_events = _apply_osty_summon_from_resource_events(combat, resource_events)
     events.extend(summon_events)
     if state is not None and resource_events:
@@ -16920,7 +17034,8 @@ def _apply_orb_evoke(
             ),
         )
     if orb.orb_id == "plasma":
-        player = combat.player.model_copy(update={"energy": combat.player.energy + 2})
+        amount = permitted_energy_delta(combat.player.statuses, 2)
+        player = combat.player.model_copy(update={"energy": combat.player.energy + amount})
         return (
             combat.model_copy(update={"player": player}),
             (
@@ -16928,7 +17043,7 @@ def _apply_orb_evoke(
                     kind="energy_changed",
                     source_id=source_id,
                     target_id=PLAYER_TARGET_ID,
-                    amount=2,
+                    amount=amount,
                     metadata=base_metadata,
                 ),
             ),
@@ -18649,6 +18764,9 @@ def _apply_next_turn_effects(
             ("block", "next_turn_block"),
         ):
             raw_amount = next_turn.get(key, 0)
+            if (key == "block" and not isinstance(raw_amount, Mapping)
+                    and _status_amount(statuses, "no_card_block_gain") > 0):
+                continue
             amount = (
                 _formula_amount(raw_amount, combat=combat)
                 if isinstance(raw_amount, Mapping)
@@ -19087,20 +19205,26 @@ def _formula_amount(raw_formula: Any, *, combat: CombatState) -> int:
     bonus = 0
     if isinstance(raw_formula, Mapping):
         base = _coerce_int(raw_formula.get("base"), default=0)
-        multiplier = max(0, _coerce_int(raw_formula.get("multiplier"), default=1))
+        multiplier = _coerce_int(raw_formula.get("multiplier"), default=1)
         bonus = _coerce_int(raw_formula.get("bonus"), default=0)
     amount = 0
     if formula == "player_block":
         amount = combat.player.block
     elif formula == "current_energy":
         amount = combat.player.energy
+    elif formula == "hand_attack_count":
+        amount = sum(card.type == CardType.ATTACK for card in combat.hand)
     elif formula == "hand_space":
         amount = max(0, MAX_HAND_SIZE - len(combat.hand))
+    elif formula == "hand_count":
+        amount = len(combat.hand)
+    elif formula == "exhaust_pile_count":
+        amount = len(combat.exhaust_pile)
     elif formula == "draw_pile_count":
         amount = len(combat.draw_pile)
     elif formula == "all_enemy_poison":
         amount = sum(_status_amount(monster.statuses, "poison") for monster in combat.monsters)
-    elif formula == "target_doom":
+    elif formula in {"target_doom", "target_vulnerable", "target_unique_debuffs"}:
         target_id = (
             str(raw_formula.get("target_id", "")) if isinstance(raw_formula, Mapping) else ""
         )
@@ -19111,7 +19235,13 @@ def _formula_amount(raw_formula: Any, *, combat: CombatState) -> int:
         if target is None:
             alive = _alive_monsters(combat)
             target = alive[0] if alive else None
-        amount = _status_amount(target.statuses, "doom") if target is not None else 0
+        if target is not None:
+            if formula == "target_unique_debuffs":
+                amount = unique_debuff_count(target.statuses)
+            else:
+                amount = _status_amount(
+                    target.statuses, "doom" if formula == "target_doom" else "vulnerable",
+                )
     elif formula == "discard_pile_count":
         amount = len(combat.discard_pile)
     elif formula == "cards_played_this_combat":
@@ -19386,6 +19516,9 @@ def _timed_trigger_source_card(timed_trigger: Mapping[str, Any]) -> CardInstance
         cost=0,
         target=_enum_value(TargetType, timed_trigger.get("source_target", TargetType.SELF.value)),
         effects={},
+        custom={"source_kind": "power"} if _enum_value(
+            CardType, timed_trigger.get("source_type", CardType.POWER.value),
+        ) == CardType.POWER else {},
         upgraded=bool(timed_trigger.get("source_upgraded", False)),
     )
 
@@ -19832,7 +19965,9 @@ def _apply_combat_trigger_effect_step(
             0,
             combat=combat,
         )
-        combat = combat.model_copy(update={"player": player})
+        combat = _record_star_gains(
+            combat.model_copy(update={"player": player}), resource_events,
+        )
         combat, summon_events = _apply_osty_summon_from_resource_events(
             combat,
             resource_events,
@@ -20627,6 +20762,12 @@ def _gain_player_block(
         return combat, rng_state, ()
 
     player = combat.player
+    if (source_card is not None and source_card.custom.get("source_kind") not in {"potion", "power"}
+            and _status_amount(player.statuses, "no_card_block_gain") > 0):
+        return combat, rng_state, (EffectEvent(
+            kind="card_block_prevented", source_id=source_id, target_id=PLAYER_TARGET_ID,
+            amount=0, metadata={"status": "no_card_block_gain", "requested": amount},
+        ),)
     block = amount
     event_metadata = dict(metadata or {})
     if source_card is not None:
@@ -20750,6 +20891,9 @@ def _combat_trigger_source_card(combat_trigger: Mapping[str, Any]) -> CardInstan
             combat_trigger.get("source_target", TargetType.SELF.value),
         ),
         effects={},
+        custom={"source_kind": "power"} if _enum_value(
+            CardType, combat_trigger.get("source_type", CardType.POWER.value),
+        ) == CardType.POWER else {},
         upgraded=bool(combat_trigger.get("source_upgraded", False)),
     )
 
@@ -21095,6 +21239,25 @@ def _apply_card_drawn_triggers_from_events(
     return combat, rng_state, tuple(events)
 
 
+def _record_star_gains(combat: CombatState, events: Sequence[EffectEvent]) -> CombatState:
+    """Record positive applied gains once, at mutation sites rather than callbacks."""
+    gained = sum(
+        max(0, event.amount or 0)
+        for event in events
+        if event.kind == "player_resource_changed"
+        and _normalized_resource_id(str(event.metadata.get("resource", ""))) == "star"
+        and event.target_id == PLAYER_TARGET_ID
+    )
+    if not gained:
+        return combat
+    return combat.model_copy(update={"metadata": {
+        **combat.metadata,
+        "stars_gained_this_turn": (
+            _metadata_int(combat.metadata, "stars_gained_this_turn", 0) + gained
+        ),
+    }})
+
+
 def _apply_player_resource_changed_triggers(
     state: RunState,
     combat: CombatState,
@@ -21318,6 +21481,7 @@ def _apply_card_kill_outcomes(
         if not resource or amount == 0:
             continue
         if resource == "energy":
+            amount = permitted_energy_delta(player.statuses, amount)
             player = player.model_copy(update={"energy": max(0, player.energy + amount)})
             value = player.energy
         else:
@@ -21364,7 +21528,10 @@ def _apply_card_kill_outcomes(
                     kind="card_reward_added", source_id=source_card.instance_id,
                     target_id=PLAYER_TARGET_ID, amount=rewards, metadata=trigger,
                 ))
-    return combat.model_copy(update={"player": player, "metadata": metadata}), tuple(events)
+    combat = _record_star_gains(
+        combat.model_copy(update={"player": player, "metadata": metadata}), events,
+    )
+    return combat, tuple(events)
 
 
 def _if_kill_resource_payloads(raw: Any) -> tuple[Mapping[str, Any], ...]:
@@ -21402,6 +21569,7 @@ def _apply_player_stance_status(
     if target_stance == "stance_divinity":
         energy_delta += 3
 
+    energy_delta = permitted_energy_delta(player.statuses, energy_delta)
     if energy_delta:
         player = player.model_copy(update={"energy": player.energy + energy_delta})
         events.append(
@@ -21754,7 +21922,9 @@ def _apply_player_turn_start_effects(
 
     player = player.model_copy(update={"statuses": statuses})
     return (
-        combat.model_copy(update={"player": player, "metadata": metadata}),
+        _record_star_gains(
+            combat.model_copy(update={"player": player, "metadata": metadata}), events,
+        ),
         tuple(events),
         extra_draw,
     )
@@ -21878,7 +22048,8 @@ def _tick_status_map(
 ) -> tuple[PlayerState | MonsterState, tuple[EffectEvent, ...]]:
     statuses = dict(combatant.statuses)
     events: list[EffectEvent] = []
-    for status in ("weak", "vulnerable", "frail", "intangible", "retain_hand", "debilitate"):
+    for status in ("weak", "vulnerable", "frail", "intangible", "retain_hand", "debilitate",
+                   "no_card_block_gain"):
         amount = statuses.get(status, 0)
         if amount <= 0:
             continue
@@ -22978,7 +23149,7 @@ def _apply_combat_relic_marker(
         player = player.model_copy(update={"block": player.block + amount})
         events.append(_combat_relic_event(marker, "player_block", amount))
     elif marker.kind == "gain_energy" and _marker_targets_player(marker):
-        amount = marker.amount or 0
+        amount = permitted_energy_delta(player.statuses, marker.amount or 0)
         player = player.model_copy(update={"energy": max(0, player.energy + amount)})
         events.append(_combat_relic_event(marker, "energy_changed", amount))
     elif marker.kind == "gold_delta" and _marker_targets_player(marker):
@@ -23562,16 +23733,12 @@ def _apply_combat_relic_marker(
             )
         )
 
-    return (
-        combat.model_copy(
-            update={
-                "player": player,
-                "monsters": tuple(monsters),
-                "metadata": metadata,
-            }
-        ),
-        tuple(events),
+    combat = combat.model_copy(
+        update={"player": player, "monsters": tuple(monsters), "metadata": metadata},
     )
+    if marker.kind == "player_resource":
+        combat = _record_star_gains(combat, events)
+    return combat, tuple(events)
 
 
 def _apply_combat_relic_status(
@@ -23907,6 +24074,8 @@ def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     updated["attacks_played_this_turn"] = 0
     updated["skills_played_this_turn"] = 0
     updated["powers_played_this_turn"] = 0
+    updated["energy_spent_this_turn"] = 0
+    updated["stars_gained_this_turn"] = 0
     updated["hp_lost_this_turn"] = 0
     updated["hp_loss_count_this_turn"] = 0
     updated["osty_attacks_this_turn"] = 0
@@ -27973,6 +28142,13 @@ def _initial_flags(source: Mapping[str, Any]) -> dict[str, Any]:
     flags = dict(source.get("flags", {})) if isinstance(source.get("flags", {}), Mapping) else {}
     for key in (
         "max_acts",
+        "acts",
+        "act_id",
+        "act_ids",
+        "has_event_pet",
+        "unlocked_character_count",
+        "tradeable_relic_count",
+        "player_count",
         "map_floors",
         "map_width",
         "draw_per_turn",
@@ -29430,6 +29606,8 @@ _ARTIFACT_BLOCKED_STATUSES = frozenset(
         "wraithform",
         "wraith_form",
         "neurosurge",
+        "no_card_block_gain",
+        "no_energy_gain_this_turn",
         "mindrot",
         "mind_rot",
         "wasteaway",

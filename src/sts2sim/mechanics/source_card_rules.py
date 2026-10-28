@@ -16,6 +16,54 @@ def source_execution_steps(
     if not text:
         return steps
     damage = next((step["damage"] for step in steps if "damage" in step), 0)
+    if card_id == "BULLY":
+        extra = re.search(r"deals (\d+) additional damage for each vulnerable", text)
+        if extra:
+            return ({"damage_formula": {
+                "formula": "target_vulnerable", "base": damage, "multiplier": int(extra[1]),
+            }},)
+    if card_id == "REND":
+        extra = re.search(r"deals (\d+) additional damage for each unique debuff", text)
+        if extra:
+            # Stable Rend+ is 18 + 8 per debuff (Untapped corroborates the
+            # CalculationBase upgrade); Codex's upgraded first sentence is stale.
+            upgrade = source.get("upgrade")
+            if source.get("upgraded") and isinstance(upgrade, Mapping):
+                damage += int(upgrade.get("calculationbase", 0))
+            return ({"damage_formula": {
+                "formula": "target_unique_debuffs", "base": damage,
+                "multiplier": int(extra[1]),
+            }},)
+    if card_id == "ASHEN_STRIKE":
+        extra = re.search(r"deals (\d+) additional damage for each card", text)
+        if extra:
+            return ({"damage_formula": {
+                "formula": "exhaust_pile_count", "base": damage,
+                "multiplier": int(extra[1]),
+            }},)
+    if card_id == "PRECISE_CUT":
+        penalty = re.search(r"deals (\d+) less damage for each other card", text)
+        if penalty:
+            # This source upgrade changes CalculationBase, not a generic Damage
+            # field. Its stable row has no upgraded description to replace it.
+            upgrade = source.get("upgrade")
+            if source.get("upgraded") and not source.get("upgrade_description") and isinstance(
+                upgrade, Mapping
+            ):
+                damage += int(upgrade.get("calculationbase", 0))
+            return ({"damage_formula": {
+                "formula": "hand_count", "base": damage,
+                "multiplier": -int(penalty[1]),
+            }},)
+    if card_id == "HELIX_DRILL":
+        return ({"repeat_damage": {
+            "amount": damage, "basis": "energy_spent_this_turn",
+        }},)
+    if card_id == "RADIATE":
+        amount = next((step["all_damage"] for step in steps if "all_damage" in step), damage)
+        return ({"repeat_damage": {
+            "amount": amount, "basis": "stars_gained_this_turn", "target": "all enemies",
+        }},)
     x_damage = re.fullmatch(
         r"deal (\d+) damage(?: to (a random enemy|all enemies))? x(?:\+(\d+))? times\.?", text,
     )

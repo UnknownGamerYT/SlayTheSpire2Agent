@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-28
 
+## Current fidelity status
+
+Target: latest stable v0.107.1. Game equivalence is not confirmed. The
+[independent stable parity review](docs/stable_game_parity_review.md) records
+new source-contract corrections and explicit remaining gaps. Normal runs still
+use MT19937; the separate xoshiro adapter is not integrated.
+
 ## October 2026 Update
 
 The current branch updates the simulator and the train → checkpoint → evaluate →
