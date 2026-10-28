@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -534,22 +535,24 @@ def test_stage_summary_prefers_actual_resume_checkpoint(tmp_path: Path) -> None:
 def test_train_ppo_curriculum_help_lists_stage_and_comfort_controls() -> None:
     result = CliRunner().invoke(app, ["train-ppo-curriculum", "--help"])
 
+    output = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+
     assert result.exit_code == 0
-    assert "--stages" in result.output
-    assert "--until-stopped" in result.output
-    assert "comfortable" in result.output.lower()
-    assert "consecutive" in result.output.lower()
-    assert "--report-output" in result.output
-    assert "--hidden-layers" in result.output
-    assert "--head-hidden" in result.output
-    assert "--activation" in result.output
-    assert "--planning-coef" in result.output
-    assert "--teacher-mix" in result.output
-    assert "--imitation-coef" in result.output
-    assert "--target-succes" in result.output
-    assert "--device" in result.output
-    assert "rollout" in result.output.lower()
-    assert "inference" in result.output.lower()
-    assert "terminal" in result.output.lower()
-    assert "--resume" in result.output
-    assert "--no-resume" in result.output
+    assert "--stages" in output
+    assert "--until-stopped" in output
+    assert "comfortable" in output.lower()
+    assert "consecutive" in output.lower()
+    assert "--report-output" in output
+    assert "--hidden-layers" in output
+    assert "--head-hidden" in output
+    assert "--activation" in output
+    assert "--planning-coef" in output
+    assert "--teacher-mix" in output
+    assert "--imitation-coef" in output
+    assert "--target-succes" in output
+    assert "--device" in output
+    assert "rollout" in output.lower()
+    assert "inference" in output.lower()
+    assert "terminal" in output.lower()
+    assert "--resume" in output
+    assert "--no-resume" in output

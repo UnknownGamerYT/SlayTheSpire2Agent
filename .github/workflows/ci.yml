@@ -17,10 +17,10 @@ jobs:
       OMP_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           lfs: false
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: "3.12"
       - name: Install locked development and training dependencies
