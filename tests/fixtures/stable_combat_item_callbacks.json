@@ -1,0 +1,135 @@
+{
+  "target_version": "v0.107.1",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "scope": "Source-reviewed single-player callback ordering and pre-application modifier outcomes. Independently implemented projections; no bundled game source and no live executable equivalence claim.",
+  "facts": {
+    "PaelsEye": "Completed manual card plays disqualify the extra turn; automatic/replayed cards do not. WhisperingEarring disqualifies only turn one. Exhaust a snapshot of the hand in Early before orb passives/hand effects.",
+    "ToastyMittens": "Shuffle an empty draw pile if possible, then choose first non-Innate on turn one (fallback first), exhaust with callbacks, apply one Strength.",
+    "UnceasingTop": "Check after complete card or potion execution, outside parent effects. AutoPrePlay/Play/AutoPostPlay are valid phases; Start/End are invalid.",
+    "UnsettlingLamp": "First attempted visible enemy debuff with owner giver and card source locks that card. Double that first play\u2019s remaining debuff applications on every target before Artifact. Flattened temporary stat representation applies its debuff once, avoiding internal quadrupling.",
+    "RuinedHelmet": "Double first positive received Strength independent of giver, before storage cap; consume once per combat.",
+    "SneckoSkull": "Owner-given Poison receives additive one before multiplicative Lamp and Artifact.",
+    "Imbued": "Opening normal hand draw precedes AutoPrePlay; no energy is spent for its autoplay.",
+    "DiamondDiadem": "All completed owner card plays, including AutoPost, count before its regular BeforeSideTurnEnd check.",
+    "ConsumingShadow": "AfterSideTurnEnd follows normal orb passives and hand flush; Hailstorm is regular BeforeSideTurnEnd and requires at least one Frost orb."
+  },
+  "files": {
+    "MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs": {
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e",
+      "methods": [
+        "AnyCardsPlayedThisTurn",
+        "BeforeSideTurnEndEarly",
+        "ShouldTakeExtraTurn",
+        "AfterTakingExtraTurn"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/WhisperingEarring.cs": {
+      "sha256": "4d4a67823048a590d8d7984dd328fe44973da1c945277e262c6d722acc564bba",
+      "methods": [
+        "AfterAutoPrePlayPhaseEnteredLate"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/ToastyMittens.cs": {
+      "sha256": "301a6bfc9942466f7533e2b73f1aded24f37b1aa6eb3c39e0fdd2903bda27ddc",
+      "methods": [
+        "BeforeHandDraw"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/UnceasingTop.cs": {
+      "sha256": "a00ca92b089176e93f9377585333323848fc7f7b50781397621a55ec54e3d323",
+      "methods": [
+        "AfterHandEmptied",
+        "IsValidPhase"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/UnsettlingLamp.cs": {
+      "sha256": "f4d772296f344ba05eedcc2131f60435a9bd4afe1166bab435e13bce517cf9b3",
+      "methods": [
+        "BeforePowerAmountChanged",
+        "ModifyPowerAmountGivenMultiplicative",
+        "AfterCardPlayed",
+        "HasDoubledTemporaryPowerSource"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/RuinedHelmet.cs": {
+      "sha256": "a88f33545295ad4025ad3c95e7e5bed4f32f892309eb3c10246010e3d8b32ff3",
+      "methods": [
+        "TryModifyPowerAmountReceived",
+        "AfterModifyingPowerAmountReceived"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/SneckoSkull.cs": {
+      "sha256": "6aedb8cd861eb8870e9aa934b8d37ab9697382fcfc01faa972b7908fe8610b3e",
+      "methods": [
+        "ModifyPowerAmountGivenAdditive"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/DiamondDiadem.cs": {
+      "sha256": "e7091c2d07a1689dde9693988dd0ab23875147c5379252c9fb9301d86c670c49",
+      "methods": [
+        "BeforeSideTurnEnd",
+        "AfterCardPlayed"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Enchantments/Imbued.cs": {
+      "sha256": "46444d4f929ca036a9aec3ce332e04cf53c04671be3362de4939043669d7cb71",
+      "methods": [
+        "AfterAutoPrePlayPhaseEntered"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Combat/CombatManager.cs": {
+      "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+      "methods": [
+        "CheckForEmptyHand",
+        "EndPlayerTurnPhaseOneInternal",
+        "DoTurnEnd",
+        "EndPlayerTurnPhaseTwoInternal"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Combat/PlayerTurnPhase.cs": {
+      "sha256": "33cda99dd8304176d76e668ebbab28741030c00dcfa5c1f34e177b39a75b8009",
+      "methods": [
+        "AutoPrePlay",
+        "Play",
+        "AutoPostPlay"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Combat/CombatState.cs": {
+      "sha256": "b3150c69fae0c33b48b7957c3a67bc4e5867d1641e05062cd3f5edd0a9d9f2e2",
+      "methods": [
+        "IterateHookListeners"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models/CardModel.cs": {
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+      "methods": [
+        "OnPlayWrapper"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models/PotionModel.cs": {
+      "sha256": "78b161c2e578894935b57bc17a99349aeefd7509a094cc3534b406c40258b8a9",
+      "methods": [
+        "OnUseWrapper"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Commands/PowerCmd.cs": {
+      "sha256": "d344a2ecdd846e26a02fcd14d3ebf48f6c99056fa3b3e0ccbaa43fe9901dc993",
+      "methods": [
+        "Apply",
+        "ModifyAmount"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/ConsumingShadowPower.cs": {
+      "sha256": "fa492bb03e7083d13f64ae47472383221e1a650d9ad8e90fd3a31ba0f9f4d1d6",
+      "methods": [
+        "AfterSideTurnEnd"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/HailstormPower.cs": {
+      "sha256": "71b92124c304ea7e2ab779ae88dc4524d37634a7d5603d94f8bddb9fb0de1a09",
+      "methods": [
+        "BeforeSideTurnEnd"
+      ]
+    }
+  }
+}

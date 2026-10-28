@@ -81,3 +81,49 @@ def test_pet_rider_source_predicates_and_total_damage_include_block(artifact, do
     assert monster.statuses.get("temporary_strength", 0) == 0
     assert monster.statuses.get("poison", 0) == 0
     assert monster.statuses.get("artifact", 0) == 0
+
+
+def test_pet_uses_dealer_vulnerable_scaling_without_owner_paper_phrog_or_cruelty():
+    state = _pet_state(_attack(), statuses={"cruelty": 3}, relics=("paper_phrog",),
+                       target_statuses={"vulnerable": 1})
+    assert _play(_reload(state), "pet_attack").combat.monsters[0].hp == 85
+
+
+def test_direct_pet_command_boundaries_include_all_hits_but_not_next_command():
+    from sts2sim.engine.transitions import _apply_osty_action_effect
+
+    card = _attack(damage=4)
+    state = _pet_state(card, statuses={"vigor": 50}, pet_statuses={"vigor": 2})
+    combat = state.combat.model_copy(update={"metadata": {**state.combat.metadata,
+        "next_card_damage_multiplier": ({"card_type": "attack", "multiplier": 3},),
+    }})
+    combat = combat.model_copy(update={"metadata": {**combat.metadata,
+        "osty_attacks_this_turn": 1,
+        "osty": {**combat.metadata["osty"], "attacks_this_turn": 1},
+    }})
+    payload = {"osty_action": [
+        {"action": "damage", "amount": 4, "extra_hits": "attacks_this_turn"},
+        {"action": "damage", "amount": 4, "extra_hits": "attacks_this_turn"},
+    ]}
+    combat, _, _ = _apply_osty_action_effect(combat, state.rng, card, payload)
+    assert combat.monsters[0].hp == 52  # (4+2)*3*2, then 4*3.
+    assert combat.player.statuses["vigor"] == 50
+    assert not combat.metadata["osty"]["statuses"].get("vigor")
+    assert not combat.metadata.get("next_card_damage_multiplier")
+    assert not combat.metadata.get("source_attack_commands")
+
+
+def test_missing_pet_does_not_consume_queued_command_or_owner_vigor():
+    from sts2sim.engine.transitions import _apply_osty_action_effect
+
+    card = _attack()
+    state = _pet_state(card, statuses={"vigor": 8})
+    combat = state.combat.model_copy(update={"metadata": {**state.combat.metadata,
+        "osty": {"alive": False, "hp": 0, "max_hp": 20},
+        "next_card_damage_multiplier": ({"card_type": "attack", "multiplier": 3},),
+    }})
+    combat, _, _ = _apply_osty_action_effect(combat, state.rng, card, card.effects)
+    assert combat.monsters[0].hp == 100
+    assert combat.player.statuses["vigor"] == 8
+    assert combat.metadata.get("next_card_damage_multiplier")
+    assert not combat.metadata.get("source_attack_commands")

@@ -1121,7 +1121,7 @@ def test_runtime_relic_surfaces_apply_real_hook_effects() -> None:
     assert state.combat.player.resources["star"] == 0
     assert state.combat.player.statuses["strength"] == 1
     assert state.combat.player.block == 19
-    assert state.combat.monsters[0].statuses["poison"] == 6
+    assert state.combat.monsters[0].statuses["poison"] == 9  # First (2+1)*2, replay 2+1.
     assert [card.card_id for card in state.combat.hand] == ["created_card", "created_card"]
     assert len({card.instance_id for card in state.combat.hand}) == 2
     assert any(

@@ -170,7 +170,7 @@ def test_source_retain_properties_survive_end_turn(name):
     assert state.combat.hand[0].instance_id == name
 
 
-def test_source_imbued_autoplays_before_opening_hand_draw_and_uses_no_energy():
+def test_source_imbued_autoplays_after_opening_hand_draw_and_uses_no_energy():
     state = _enter_combat((
         {"card_id": "imbued", "type": "skill", "target": "self", "cost": 2,
          "effects": {"block": 4}, "enchantments": ({"keyword": "imbued", "amount": 1},)},
@@ -183,7 +183,7 @@ def test_source_imbued_autoplays_before_opening_hand_draw_and_uses_no_energy():
     events = state.combat.last_events
     auto = next(i for i, e in enumerate(events) if e.kind == "imbued_card_triggered")
     draw = next(i for i, e in enumerate(events) if e.kind == "cards_drawn")
-    assert auto < draw
+    assert draw < auto
 
 
 def test_source_blade_of_ink_creates_actual_enchanted_shivs():
