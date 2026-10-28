@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sts2sim import legal_actions, new_run, step
+from sts2sim import legal_actions, load_state, new_run, serialize, step
 from sts2sim.engine import RunPhase
 from sts2sim.mechanics.campfire import rest_heal_amount
 
@@ -190,10 +190,10 @@ def test_campfire_toke_requires_peace_pipe_and_removes_target_card() -> None:
     assert next_state.replay_log[-1].events[0].kind == "card_removed"
 
 
-def test_eternal_cards_are_not_peace_pipe_or_smith_targets() -> None:
+def test_eternal_cards_allow_smithing_but_not_peace_pipe_removal() -> None:
     state = _enter_campfire()
     defend = _card(state, "defend_1")
-    eternal = defend.model_copy(update={"custom": {**defend.custom, "eternal": True}})
+    eternal = defend.model_copy(update={"tags": (*defend.tags, "eternal")})
     state = state.model_copy(
         update={
             "master_deck": tuple(
@@ -208,7 +208,11 @@ def test_eternal_cards_are_not_peace_pipe_or_smith_targets() -> None:
         action.type == "toke" and action.target_id == "defend_1"
         for action in legal_actions(state)
     )
-    assert not any(
-        action.type == "smith" and action.target_id == "defend_1"
-        for action in legal_actions(state)
-    )
+    smith = next(action for action in legal_actions(state)
+                 if action.type == "smith" and action.target_id == "defend_1")
+    restored = load_state(serialize(state))
+    result = step(restored, smith)
+    upgraded = next(card for card in result.master_deck if card.instance_id == "defend_1")
+    assert upgraded.upgraded
+    assert "eternal" in upgraded.tags
+    assert serialize(result) == serialize(step(state, smith))

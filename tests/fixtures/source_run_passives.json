@@ -1,0 +1,74 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "certifies_game_parity": false,
+  "reviewed_methods": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DarkstonePeriapt.cs",
+      "sha256": "0fa9543b7048eaad65a5420c0a2b91df94415a5e6434a8a39ca7d831eb4b112a",
+      "methods": [
+        "AfterCardChangedPiles"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DingyRug.cs",
+      "sha256": "82580893e449c598235fbbac664bf082782678f4f257506d94f95a4e9a20fb01",
+      "methods": [
+        "ModifyCardRewardCreationOptions"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Glitter.cs",
+      "sha256": "e2394bb75b61ac2ab906a4031f28e3127ecea186d6c932847c4de6b5c5001acb",
+      "methods": [
+        "TryModifyCardRewardOptionsLate"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/LastingCandy.cs",
+      "sha256": "66b57fa6350bd39c568093feeeb220d2be09e01826d43ea3b16f8e00e3dbb530",
+      "methods": [
+        "AfterCombatEnd",
+        "TryModifyCardRewardOptions"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/LavaLamp.cs",
+      "sha256": "ffe3a17d65b89b10d9f6750ef2aa6273fccfe6adac2ea3412a5187af61baf242",
+      "methods": [
+        "AfterRoomEntered",
+        "AfterDamageReceived",
+        "TryModifyCardRewardOptionsLate"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd",
+      "methods": [
+        "CreateForReward",
+        "RollForRarity",
+        "RollForUpgrade"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce",
+      "methods": [
+        "AssertUniformOddsIfSingleRarityPool",
+        "WithCardPools"
+      ]
+    }
+  ],
+  "contracts": {
+    "darkstone_curse_entry_max_hp": 6,
+    "dingy_requires_is_card_reward": true,
+    "last_candy_every_completed_combats": 2,
+    "candy_extra_power_source": "Other",
+    "candy_single_rarity_uses_uniform_odds": true,
+    "candy_changes_future_rarity_offset": false,
+    "glitter_eligible_enchantment": "Glam1",
+    "lava_ignores_unblockable_damage": true,
+    "late_dispatch_owner": "source_card_reward_modifiers acquisition-order loop (separate integration leaf)"
+  }
+}

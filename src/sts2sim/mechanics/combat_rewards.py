@@ -254,6 +254,10 @@ def draw_combat_reward(
     relic_selector: Callable[[str], str] | None = None,
     rules: CombatRewardRules = DEFAULT_COMBAT_REWARD_RULES,
     potion_rarities: Mapping[str, str] | None = None,
+    card_options_modifier: Callable[
+        [Random, tuple[str, ...], tuple[str, ...], tuple[bool, ...]],
+        tuple[tuple[str, ...], tuple[str, ...], tuple[bool, ...]],
+    ] | None = None,
 ) -> CombatRewardBundle:
     """Generate the default reward bundle for a completed combat."""
 
@@ -278,6 +282,11 @@ def draw_combat_reward(
         rules=rules,
         upgraded_flags=upgrades,
     )
+    if card_options_modifier is not None:
+        cards, card_rarities, modified_upgrades = card_options_modifier(
+            rng, cards, card_rarities, tuple(upgrades),
+        )
+        upgrades = list(modified_upgrades)
     if potion_roll is None:
         potion_roll = roll_combat_potion_drop(rng, next_pity, context, rules=rules)
         potion_id = rng.choice(tuple(potion_pool)) if potion_roll.dropped and potion_pool else None

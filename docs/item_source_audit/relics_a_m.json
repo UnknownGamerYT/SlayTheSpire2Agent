@@ -1929,21 +1929,26 @@
       "review_status": "gap",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Curse deck additions, each Bing Bong copy, actual max HP +6; public reward actions and reloads."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker",
+        "src/sts2sim/engine/source_run_passives.py"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_reward_and_rule_relics_return_bounded_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_run_passives.py"
       ],
       "notes": [
-        "Source gains six maximum HP for each Curse entering the deck. The generic pickup passive marker has no matching deck-add runtime consumer."
+        "Curse deck additions, each Bing Bong copy, actual max HP +6; public reward actions and reloads.",
+        "Transformed Curse entries rely on the shared transform pile-hook follow-up."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Event"
+      "source_rarity": "Event",
+      "remaining_known_gap": "Transformed Curse entries rely on the shared transform pile-hook follow-up."
     },
     {
       "id": "DATA_DISK",
@@ -2132,20 +2137,25 @@
       "review_status": "gap",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Ordered unlocked Colorless append for normal combat/event/Ancient CardReward pools and rerolls; filter exclusions retained."
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/source_run_passives.py"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_run_passives.py"
       ],
       "notes": [
-        "Source adds the unlocked Colorless pool to eligible card reward creation options; registered class reward selection currently does not consume this passive marker."
+        "Ordered unlocked Colorless append for normal combat/event/Ancient CardReward pools and rerolls; filter exclusions retained.",
+        "Other native CardReward constructors must use the same shared pool modifier at construction."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Shop"
+      "source_rarity": "Shop",
+      "remaining_known_gap": "Other native CardReward constructors must use the same shared pool modifier at construction."
     },
     {
       "id": "DISTINGUISHED_CAPE",
@@ -3521,22 +3531,27 @@
       "review_status": "gap",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Late per-option Glam1 helper checks eligibility and previously applied enchantments, supports acquisition-order dispatch."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/source_run_passives.py"
       ],
       "retained_tests": [
         "tests/content/test_source_ancient_offers.py::test_pael_nonupiepe_and_vakuu_match_independent_c_reference",
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_run_passives.py"
       ],
       "notes": [
-        "Source enchants each valid card reward option with Glam1 before display. Current generic passive marker has no source-specific reward-option consumer."
+        "Late per-option Glam1 helper checks eligibility and previously applied enchantments, supports acquisition-order dispatch.",
+        "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Ancient"
+      "source_rarity": "Ancient",
+      "remaining_known_gap": "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
     },
     {
       "id": "GNARLED_HAMMER",
@@ -4482,22 +4497,27 @@
       "review_status": "gap",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed"
+        "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed",
+        "src/sts2sim/engine/source_run_passives.py"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_relic_bags_stable.py::test_lasting_candy_first_run_ironclad_and_obtained_removal"
+        "tests/rewards/test_relic_bags_stable.py::test_lasting_candy_first_run_ironclad_and_obtained_removal",
+        "tests/rewards/test_source_run_passives.py"
       ],
       "notes": [
-        "Source saved combat counter adds a Power card option to Encounter card rewards on every second combat; the generic passive marker needs the reward-generation consumer."
+        "Saved completed-combat counter; extra Power on even counts, including duplicate fallback, single-rarity Uniform and original reroll choice count.",
+        "Dream Catcher uses Encounter source outside combat; shared rest integration follows."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Uncommon"
+      "source_rarity": "Uncommon",
+      "remaining_known_gap": "Dream Catcher uses Encounter source outside combat; shared rest integration follows."
     },
     {
       "id": "LAVA_LAMP",
@@ -4516,21 +4536,26 @@
       "review_status": "gap",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Records positive surviving blockable HP loss, ignores unblockable loss; source late upgradability helper."
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/mechanics/relic_combat.py:_resolve_combat_end_dynamic"
+        "src/sts2sim/mechanics/relic_combat.py:_resolve_combat_end_dynamic",
+        "src/sts2sim/engine/source_run_passives.py"
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_remaining_unknown_start_turn_and_end_relic_markers",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
-        "tests/rewards/test_remaining_relic_reward_interactions.py::test_lava_lamp_upgrades_combat_card_reward_after_no_damage_fight"
+        "tests/rewards/test_remaining_relic_reward_interactions.py::test_lava_lamp_upgrades_combat_card_reward_after_no_damage_fight",
+        "tests/rewards/test_source_run_passives.py"
       ],
       "notes": [
-        "Source tracks nonzero damage that is not Unblockable, and upgrades all valid combat reward options only if none occurred. Shared HP-loss metadata needs this damage-property distinction verified."
+        "Records positive surviving blockable HP loss, ignores unblockable loss; source late upgradability helper.",
+        "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Shop"
+      "source_rarity": "Shop",
+      "remaining_known_gap": "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
     },
     {
       "id": "LAVA_ROCK",

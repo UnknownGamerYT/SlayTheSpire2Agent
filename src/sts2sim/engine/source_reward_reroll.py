@@ -83,6 +83,12 @@ def _pool(state: RunState, context: Mapping[str, Any]) -> tuple[Any, ...]:
         from sts2sim.mechanics.combat_rewards import build_combat_card_pool
         result = list(build_combat_card_pool(tuple({**row, 'color': 'shared', 'pool': 'shared'}
             for row in raw), character_id=state.character_id))
+    from . import source_run_passives
+    result = list(source_run_passives.modify_reward_pool(
+        state, result, is_card_reward=bool(context.get('is_card_reward', True)),
+        no_pool_modifications=bool(context.get('no_pool_modifications')),
+        custom_pool=allowed is not None,
+    ))
     if context.get('rarity'):
         result = [card for card in result if card.rarity.value == context['rarity']]
     if context.get('card_type'):
@@ -92,6 +98,7 @@ def _pool(state: RunState, context: Mapping[str, Any]) -> tuple[Any, ...]:
         result = [card for card in result if e._reward_card_spec(state, card.card_id).get(
             'cost') == context['card_cost']]
     return tuple(result)
+
 
 
 def reroll_card_reward(state: RunState, action: Action) -> tuple[RunState, tuple[EffectEvent, ...]]:
@@ -118,7 +125,11 @@ def reroll_card_reward(state: RunState, action: Action) -> tuple[RunState, tuple
         flags['card_non_rare_count'] = pity.card_non_rare_count
         if pity.card_rarity_offset is not None:
             flags['card_rarity_offset'] = pity.card_rarity_offset
-        upgraded = tuple(upgrades)
+        from . import source_run_passives
+        cards, rarities, upgraded = source_run_passives.append_lasting_candy_power(
+            state, rng, cards, rarities, upgrades, pool=_pool(state, context),
+            encounter=encounter.value,
+        )
     else:
         cards, rarities, upgraded = source_noncombat_cards(rng, _pool(state, context), count,
             uniform=bool(context.get('uniform')), no_upgrade_roll=bool(context.get(

@@ -237,6 +237,7 @@ from . import (
     source_item_selection,
     source_keyword_hooks,
     source_modifier_hooks,
+    source_run_passives,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -1425,7 +1426,9 @@ def _draw_ancient_card_reward_group(
 ) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
     rng = random_stream(rng, "rewards")
     reward_kind = _normalized_id(str(resolution.choice.card_reward_kind or ""))
-    pool = _ancient_card_reward_pool(state, reward_kind)
+    pool = source_run_passives.modify_reward_pool(
+        state, _ancient_card_reward_pool(state, reward_kind),
+    )
     fixed_rarity = _card_rarity_qualifier(reward_kind)
     if fixed_rarity is not None:
         candidates = [card for card in pool if card.rarity is fixed_rarity]
@@ -4494,7 +4497,7 @@ def _draw_event_flow_card_reward_group(
     pity_state: RewardPityState,
 ) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
     if is_source_rng(rng):
-        pool = _event_flow_card_pool(state, marker)
+        pool = source_run_passives.modify_reward_pool(state, _event_flow_card_pool(state, marker))
         rarity_filter = _event_flow_card_rarity_qualifier(marker)
         if rarity_filter is not None:
             pool = tuple(card for card in pool if card.rarity is rarity_filter)
@@ -4508,7 +4511,9 @@ def _draw_event_flow_card_reward_group(
 
     cards, rarities, next_pity = draw_card_reward_options(
         rng,
-        card_pool=_event_flow_card_pool(state, marker),
+        card_pool=source_run_passives.modify_reward_pool(
+            state, _event_flow_card_pool(state, marker),
+        ),
         context=CombatRewardContext(
             character_id=state.character_id,
             encounter=EncounterType.NORMAL,
@@ -27637,6 +27642,7 @@ def _finalize_state_after_combat(
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     combat, events = _register_player_duration_skips(combat, events)
+    combat = source_run_passives.observe_lava_damage(combat, events)
     combat, modifier_events = source_modifier_hooks.synchronize(combat)
     events = tuple(events) + modifier_events
     state, combat = source_class_hooks.persist_growth(state, combat)
@@ -28158,6 +28164,8 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
             combat = combat.model_copy(update={
                 "last_events": combat.last_events + improvement_events,
             })
+        combat, passive_end_events = source_run_passives.after_combat_end(state, combat)
+        combat = combat.model_copy(update={"last_events": combat.last_events + passive_end_events})
         combat, events_rng_state, combat_end_trigger_events = _apply_combat_triggers(
             state.model_copy(update={"combat": combat, "player": combat.player}),
             combat,
@@ -28170,7 +28178,7 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
             )
         combat_end_relics = _resolve_combat_relic_trigger(
             GameTrigger.COMBAT_END,
-            state.relics,
+            tuple(relic for relic in state.relics if _normalized_id(relic) != "lava_lamp"),
             player_hp=combat.player.hp,
             player_max_hp=combat.player.max_hp,
             player_block=combat.player.block,
@@ -28415,7 +28423,14 @@ def _combat_reward_state(
         flags["lava_rock_triggered"] = True
     bundle = draw_combat_reward(
         rng,
-        card_pool=_combat_card_pool(state),
+        card_pool=source_run_passives.modify_reward_pool(state, _combat_card_pool(state)),
+        card_options_modifier=lambda factory_rng, ids, rarities, upgrades: (
+            source_run_passives.append_lasting_candy_power(
+                state, factory_rng, ids, rarities, upgrades,
+                pool=source_run_passives.modify_reward_pool(state, _combat_card_pool(state)),
+                encounter=encounter.value,
+            )
+        ),
         potion_pool=_combat_potion_pool(state),
         potion_rarities=_combat_potion_rarities(state),
         relic_pool=_treasure_relic_pool(state),
@@ -28501,7 +28516,7 @@ def _combat_reward_state(
             "card_reroll_contexts": {
                 "primary" if index == 0 else f"group:{index - 1}": card_reroll_context(
                     mode="combat", pools=(_normalized_id(state.character_id),),
-                    count=len(group), encounter=encounter.value)
+                    count=reward_trigger.card_choice_count, encounter=encounter.value)
                 for index, group in enumerate((card_options, *card_option_groups))
             },
             "base_gold": bundle.base_gold,
@@ -28678,7 +28693,7 @@ def _combat_extra_card_option_groups(
         upgrades: list[bool] = []
         cards, rarities, current_pity = draw_card_reward_options(
             rng,
-            card_pool=_combat_card_pool(state),
+            card_pool=source_run_passives.modify_reward_pool(state, _combat_card_pool(state)),
             context=CombatRewardContext(
                 character_id=state.character_id,
                 encounter=encounter,
@@ -28691,6 +28706,12 @@ def _combat_extra_card_option_groups(
             card_count=card_count,
             upgraded_flags=upgrades,
         )
+        cards, rarities, modified_upgrades = source_run_passives.append_lasting_candy_power(
+            state, rng, cards, rarities, upgrades,
+            pool=source_run_passives.modify_reward_pool(state, _combat_card_pool(state)),
+            encounter=encounter.value,
+        )
+        upgrades = list(modified_upgrades)
         if cards:
             groups.append(cards)
             group_rarities.append(rarities)
@@ -30859,7 +30880,9 @@ def _apply_deck_add_relics(
     extra copy, while those copies still count for the other addition relics.
     """
 
-    relevant = ("bing_bong", "book_of_five_rings", "lucky_fysh", "fresnel_lens")
+    relevant = (
+        "bing_bong", "book_of_five_rings", "lucky_fysh", "fresnel_lens", "darkstone_periapt",
+    )
     if not any(_has_relic(after, relic_id) for relic_id in relevant):
         return after, tuple(events)
     addition_kinds = {
@@ -30959,6 +30982,12 @@ def _apply_deck_add_relics(
     player = after.player
     for index in added_indices:
         card = deck[index]
+        if _has_relic(after, "darkstone_periapt") and card.type == CardType.CURSE:
+            player = _change_player_max_hp(player, 6)
+            result_events.append(EffectEvent(
+                kind="player_max_hp_changed", source_id="darkstone_periapt", amount=6,
+                target_id=PLAYER_TARGET_ID, metadata={"card_instance_id": card.instance_id},
+            ))
         if _has_relic(after, "fresnel_lens") and _card_effects_gain_block(card.effects):
             card = _enchant_card(card, "Nimble", 2, source_id="fresnel_lens")
             deck[index] = card
