@@ -31,7 +31,7 @@ def _force_next_room(state, room_kind: RoomKind):
     return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
 
 
-def _enter_combat(deck, *, player=None, relics=None, flags=None):
+def _enter_combat(deck, *, player=None, relics=None, flags=None, osty=None):
     state = new_run(
         seed=5100,
         character_id="TEST",
@@ -49,7 +49,12 @@ def _enter_combat(deck, *, player=None, relics=None, flags=None):
         state = state.model_copy(update={"relics": tuple(relics)})
     state = _force_next_room(state, RoomKind.MONSTER)
     action = next(action for action in legal_actions(state) if action.type == "choose_node")
-    return step(state, action)
+    state = step(state, action)
+    if osty is not None:
+        state = state.model_copy(update={"combat": state.combat.model_copy(update={
+            "metadata": {**state.combat.metadata, "osty": osty},
+        })})
+    return state
 
 
 def _play_card(state, card_id: str):
@@ -1735,6 +1740,7 @@ def test_osty_action_card_uses_companion_state_to_damage_enemy() -> None:
             },
         ),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -1762,6 +1768,7 @@ def test_osty_attack_source_damage_is_not_applied_twice() -> None:
             },
         ),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -1796,6 +1803,7 @@ def test_calcify_adds_persistent_osty_attack_damage() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     state = _play_card(state, "calcify")
@@ -1827,6 +1835,7 @@ def test_bone_shards_damage_block_and_death_are_gated_by_osty_state() -> None:
             },
         ),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -1898,6 +1907,7 @@ def test_flatten_costs_zero_after_osty_has_attacked_this_turn() -> None:
         ),
         player={"hp": 80, "max_hp": 80, "energy": 1, "max_energy": 1},
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
 
     assert state.combat is not None
@@ -1949,6 +1959,7 @@ def test_rattle_hits_once_plus_previous_osty_attacks_this_turn() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     state = _play_card(state, "poke")
@@ -1958,7 +1969,7 @@ def test_rattle_hits_once_plus_previous_osty_attacks_this_turn() -> None:
 
     assert state.combat is not None
     assert state.combat.monsters[0].hp == monster_hp - 14
-    assert state.combat.metadata["osty_attacks_this_turn"] == 3
+    assert state.combat.metadata["osty_attacks_this_turn"] == 2
 
 
 def test_sic_em_grants_summon_when_osty_hits_marked_enemy() -> None:
@@ -1985,6 +1996,7 @@ def test_sic_em_grants_summon_when_osty_hits_marked_enemy() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
 
     state = _play_card(state, "sic_em")
@@ -2028,6 +2040,7 @@ def test_necro_mastery_mirrors_osty_hp_loss_to_enemies() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -2069,11 +2082,11 @@ def test_summon_restores_osty_and_raises_max_hp_when_overfilled() -> None:
     assert state.combat.player.resources["summon"] == 6
     assert state.combat.metadata["osty"]["alive"] is True
     assert state.combat.metadata["osty"]["hp"] == 24
-    assert state.combat.metadata["osty"]["max_hp"] == 24
+    assert state.combat.metadata["osty"]["max_hp"] == 26
     assert any(
         event.kind == "osty_summoned"
         and event.amount == 6
-        and event.metadata["max_hp_gained"] == 4
+        and event.metadata["max_hp_gained"] == 6
         for event in state.combat.last_events
     )
 
@@ -2094,6 +2107,7 @@ def test_bone_flute_blocks_when_osty_attacks() -> None:
         ),
         relics=("BONE_FLUTE",),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
 
     state = _play_card(state, "poke")

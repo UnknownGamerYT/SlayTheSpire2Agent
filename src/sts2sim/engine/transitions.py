@@ -8791,8 +8791,6 @@ def _start_combat_for_node(
     allies = _ally_states_from_source(state.flags.get("allies", state.flags.get("ally_players")))
     if allies:
         metadata["allies"] = allies
-    if _run_has_osty(state):
-        metadata["osty"] = _initial_osty_state()
     rest_energy = _flag_int(state, "rest_site_next_combat_energy", 0)
     if rest_energy:
         flags = dict(state.flags)
@@ -12949,6 +12947,17 @@ def _begin_next_player_turn(
         turn_start_relics,
         {"play_card_copy"},
     )
+    bound_markers = tuple(
+        marker for marker in turn_start_relics.markers
+        if _normalized_id(marker.relic_id) == "bound_phylactery"
+    )
+    turn_start_relics = CombatRelicResolution(
+        hook=turn_start_relics.hook,
+        markers=tuple(
+            marker for marker in turn_start_relics.markers if marker not in bound_markers
+        ),
+        blockers=turn_start_relics.blockers,
+    )
     combat, turn_start_relic_events = _apply_combat_relic_resolution(combat, turn_start_relics)
     events.extend(turn_start_relic_events)
     combat, rng_state, turn_start_copy_events = _apply_play_card_copy_relic_markers(
@@ -12961,6 +12970,10 @@ def _begin_next_player_turn(
     rng = random_from_state(rng_state)
     combat, turn_start_events, extra_draw = _apply_player_turn_start_effects(combat)
     events.extend(turn_start_events)
+    # BoundPhylactery uses AfterEnergyResetLate, after earlier energy checks.
+    for marker in bound_markers:
+        combat, bound_events = _apply_combat_relic_marker(combat, marker)
+        events.extend(bound_events)
     combat, black_hole_events = card_status_hooks.black_hole_resource_events(
         combat, turn_start_events, relics=state.relics,
     )
@@ -16663,6 +16676,8 @@ def _apply_effect_step(
         card,
         effect,
         relics=relics,
+        state=state,
+        target_id=target_id,
     )
     events.extend(osty_events)
 
@@ -17277,6 +17292,8 @@ def _apply_osty_action_effect(
     effect: Mapping[str, Any],
     *,
     relics: Sequence[str] = (),
+    state: RunState | None = None,
+    target_id: str | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     payload = effect.get("osty_action")
     if payload is None:
@@ -17288,7 +17305,7 @@ def _apply_osty_action_effect(
 
     for action_payload in _osty_action_payloads(payload):
         action = _normalized_id(str(action_payload.get("action", "damage")))
-        if action in {"damage", "block", "die"} and not _truthy(osty.get("alive", True)):
+        if action in {"damage", "block", "die", "heal"} and not osty["alive"]:
             events.append(
                 EffectEvent(
                     kind="osty_action_blocked",
@@ -17309,53 +17326,76 @@ def _apply_osty_action_effect(
                 continue
             target = _normalized_id(str(action_payload.get("target", "enemy")))
             hits = _osty_hit_count(combat, source_card, action_payload)
+            fixed_target_id = target_id or next(
+                (m.monster_id for m in _alive_monsters(combat)), None,
+            )
             for hit_index in range(hits):
-                target_ids = _osty_target_ids(combat, target, rng)
+                if not _osty_state(combat)["alive"]:
+                    break
+                target_ids = _osty_target_ids(
+                    combat, target, random_stream(rng, "combat_targets"),
+                    target_id=fixed_target_id,
+                )
                 if not target_ids:
                     break
-                monsters, damage_events = _damage_monsters(
-                    combat.monsters,
-                    target_ids,
-                    amount,
-                    source_card.instance_id,
-                    relics=relics,
-                    source_card_type=source_card.type.value,
-                    source_player_id="osty",
-                )
-                monsters, rider_events = _apply_attack_damage_riders(
-                    combat.player, monsters, damage_events, source_card,
-                )
-                combat = combat.model_copy(update={"monsters": tuple(monsters)})
-                events.append(
-                    EffectEvent(
-                        kind="osty_damaged_enemies",
-                        source_id=source_card.instance_id,
-                        amount=amount,
-                        metadata={
-                            "card_id": source_card.card_id,
-                            "target": target,
-                            "target_ids": list(target_ids),
-                            "hit_index": hit_index + 1,
-                            "hit_count": hits,
-                        },
+                for current_target_id in target_ids:
+                    enemy = next((m for m in combat.monsters
+                                  if m.monster_id == current_target_id and m.hp > 0), None)
+                    if enemy is None:
+                        continue
+                    thorns = _status_amount(enemy.statuses, "thorns")
+                    thorns_events: tuple[EffectEvent, ...] = ()
+                    if thorns > 0:
+                        combat, thorns_events = _damage_osty(
+                            combat, thorns, enemy.monster_id, relics=relics,
+                        )
+                        events.extend(thorns_events)
+                    monsters, damage_events = _damage_monsters(
+                        combat.monsters, (current_target_id,), amount, source_card.instance_id,
+                        relics=relics, source_card_type=source_card.type.value,
+                        source_player_id="osty",
                     )
-                )
-                events.extend(damage_events)
-                events.extend(rider_events)
-                combat, hit_events = _apply_osty_hit_triggers(
-                    combat,
-                    source_card,
-                    target_ids,
-                    relics=relics,
-                )
-                events.extend(hit_events)
+                    monsters, rider_events = _apply_attack_damage_riders(
+                        combat.player, monsters, damage_events, source_card,
+                    )
+                    combat = combat.model_copy(update={"monsters": tuple(monsters)})
+                    events.extend(damage_events)
+                    events.extend(rider_events)
+                    combat, hit_events = _apply_osty_hit_triggers(
+                        combat, source_card, (current_target_id,), relics=relics,
+                    )
+                    events.extend(hit_events)
+                    if state is not None:
+                        combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
+                        combat = _sort_monsters_by_slots(combat)
+                        combat, death_power_events = _apply_monster_death_power_triggers(
+                            combat, tuple(damage_events) + thorns_events,
+                        )
+                        events.extend(spawn_events + death_power_events)
+                events.append(EffectEvent(
+                    kind="osty_damaged_enemies", source_id=source_card.instance_id,
+                    amount=amount, metadata={
+                        "card_id": source_card.card_id, "target": target,
+                        "target_ids": list(target_ids), "hit_index": hit_index + 1,
+                        "hit_count": hits,
+                    },
+                ))
             osty = _osty_state(combat)
             osty = {
                 **osty,
                 "attacks_this_turn": _coerce_int(osty.get("attacks_this_turn"), default=0)
-                + hits,
+                + 1,
             }
             combat = _set_osty_state(combat, osty)
+            if _has_relic_id(relics, "bone_flute"):
+                combat = combat.model_copy(update={"player": combat.player.model_copy(update={
+                    "block": combat.player.block + 2,
+                })})
+                events.append(EffectEvent(
+                    kind="player_block", source_id=source_card.instance_id,
+                    target_id=PLAYER_TARGET_ID, amount=2,
+                    metadata={"card_id": source_card.card_id, "relic_id": "bone_flute"},
+                ))
             continue
 
         if action == "block":
@@ -17377,7 +17417,7 @@ def _apply_osty_action_effect(
 
         if action == "heal":
             amount = _coerce_positive_int(action_payload.get("amount"), default=0)
-            max_hp = _coerce_positive_int(osty.get("max_hp"), default=20)
+            max_hp = _coerce_positive_int(osty.get("max_hp"), default=0)
             old_hp = _coerce_positive_int(osty.get("hp"), default=max_hp)
             osty = {**osty, "max_hp": max_hp, "hp": min(max_hp, old_hp + amount), "alive": True}
             events.append(
@@ -17412,7 +17452,10 @@ def _apply_osty_action_effect(
             continue
 
         if action == "enable_loss_damage":
-            osty = {**osty, "loss_damage_enabled": True}
+            prior = _coerce_int(osty.get("loss_damage_multiplier"), default=(
+                1 if osty.get("loss_damage_enabled") else 0
+            ))
+            osty = {**osty, "loss_damage_enabled": True, "loss_damage_multiplier": prior + 1}
             events.append(
                 EffectEvent(
                     kind="osty_loss_damage_enabled",
@@ -17423,7 +17466,7 @@ def _apply_osty_action_effect(
             continue
 
         if action == "die":
-            old_hp = _coerce_positive_int(osty.get("hp"), default=20)
+            old_hp = _coerce_positive_int(osty.get("hp"), default=0)
             osty = {**osty, "hp": 0, "alive": False}
             events.append(
                 EffectEvent(
@@ -17457,11 +17500,11 @@ def _osty_action_payloads(payload: Any) -> tuple[Mapping[str, Any], ...]:
 def _osty_state_amount(value: Any, osty: Mapping[str, Any]) -> int:
     normalized = _normalized_id(str(value))
     if normalized == "double_max_hp":
-        return _coerce_positive_int(osty.get("max_hp"), default=20) * 2
+        return _coerce_positive_int(osty.get("max_hp"), default=0) * 2
     if normalized in {"max_hp", "osty_max_hp"}:
-        return _coerce_positive_int(osty.get("max_hp"), default=20)
+        return _coerce_positive_int(osty.get("max_hp"), default=0)
     if normalized in {"current_hp", "hp", "osty_current_hp"}:
-        return _coerce_positive_int(osty.get("hp"), default=20)
+        return _coerce_positive_int(osty.get("hp"), default=0)
     return _coerce_positive_int(value, default=0)
 
 
@@ -17475,9 +17518,9 @@ def _osty_damage_amount(
     comparable_text = text.replace("'", "")
     amount = base_amount + _coerce_int(osty.get("damage_bonus"), default=0)
     if "additional damage equal to ostys max hp" in comparable_text:
-        amount += _coerce_positive_int(osty.get("max_hp"), default=20)
+        amount += _coerce_positive_int(osty.get("max_hp"), default=0)
     if "additional damage equal to ostys current hp" in comparable_text:
-        amount += _coerce_positive_int(osty.get("hp"), default=20)
+        amount += _coerce_positive_int(osty.get("hp"), default=0)
     if "for all your other osty attacks" in comparable_text:
         amount += _osty_other_attack_bonus(source_card, combat)
     return max(0, amount)
@@ -17527,18 +17570,6 @@ def _apply_osty_hit_triggers(
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     events: list[EffectEvent] = []
     player = combat.player
-    if _has_relic_id(relics, "bone_flute"):
-        player = player.model_copy(update={"block": player.block + 2})
-        events.append(
-            EffectEvent(
-                kind="player_block",
-                source_id=source_card.instance_id,
-                target_id=PLAYER_TARGET_ID,
-                amount=2,
-                metadata={"card_id": source_card.card_id, "relic_id": "bone_flute"},
-            )
-        )
-
     summon = 0
     for monster in combat.monsters:
         if monster.monster_id in target_ids:
@@ -17608,11 +17639,18 @@ def _apply_osty_summon(
     if amount <= 0:
         return combat, ()
     osty = _osty_state(combat)
-    old_hp = _coerce_positive_int(osty.get("hp"), default=20)
-    old_max_hp = _coerce_positive_int(osty.get("max_hp"), default=20)
-    new_hp = old_hp + amount
-    new_max_hp = max(old_max_hp, new_hp)
-    osty = {**osty, "alive": True, "hp": new_hp, "max_hp": new_max_hp}
+    old_hp = int(osty["hp"])
+    old_max_hp = int(osty["max_hp"])
+    was_alive = bool(osty["alive"])
+    was_created = bool(osty["created"])
+    # OstyCmd.Summon grows max HP AND heals by the amount while alive.
+    # A first summon or revival instead sets max/current HP to the amount.
+    new_max_hp = min(999_999_999, old_max_hp + amount if was_alive else amount)
+    new_hp = old_hp + new_max_hp - old_max_hp if was_alive else new_max_hp
+    osty = {
+        **osty, "alive": True, "created": True, "hp": new_hp,
+        "max_hp": new_max_hp, "die_for_you": True,
+    }
     combat = _set_osty_state(combat, osty)
     return (
         combat,
@@ -17628,10 +17666,49 @@ def _apply_osty_summon(
                     "max_hp_before": old_max_hp,
                     "max_hp_after": new_max_hp,
                     "max_hp_gained": new_max_hp - old_max_hp,
+                    "created": not was_created,
+                    "revived": was_created and not was_alive,
                 },
             ),
         ),
     )
+
+
+def _damage_osty(
+    combat: CombatState,
+    amount: int,
+    source_id: str,
+    *,
+    relics: Sequence[str] = (),
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Unpowered damage targeting Osty uses owner Block, with no owner spill."""
+    osty = _osty_state(combat)
+    if amount <= 0 or not osty["alive"]:
+        return combat, ()
+    blocked = min(combat.player.block, amount)
+    hp_loss = amount - blocked
+    statuses = _mapping_from(osty.get("statuses"))
+    if _status_amount(statuses, "intangible") > 0:
+        hp_loss = min(1, hp_loss)
+    hp_loss = min(int(osty["hp"]), hp_loss)
+    osty = {**osty, "hp": int(osty["hp"]) - hp_loss}
+    osty["alive"] = osty["hp"] > 0
+    combat = _set_osty_state(combat, osty)
+    combat = combat.model_copy(update={"player": combat.player.model_copy(update={
+        "block": combat.player.block - blocked,
+    })})
+    events = [EffectEvent(
+        kind="osty_damaged", source_id=source_id, target_id="osty", amount=hp_loss,
+        metadata={"incoming": amount, "blocked": blocked, "hp_after": osty["hp"]},
+    )]
+    if not osty["alive"]:
+        events.append(EffectEvent(
+            kind="osty_died", source_id=source_id, target_id="osty", amount=-hp_loss,
+        ))
+    combat, echo_events = _apply_osty_hp_loss_triggers(
+        combat, source_id, hp_loss, relics=relics,
+    )
+    return combat, tuple(events) + echo_events
 
 
 def _apply_osty_hp_loss_triggers(
@@ -17645,24 +17722,28 @@ def _apply_osty_hp_loss_triggers(
     if hp_loss <= 0:
         return combat, ()
     osty = _osty_state(combat)
-    if not _truthy(osty.get("loss_damage_enabled", False)) and _status_amount(
-        combat.player.statuses,
-        "necro_mastery",
-    ) <= 0:
+    multiplier = max(
+        _status_amount(combat.player.statuses, "necro_mastery"),
+        _coerce_int(osty.get("loss_damage_multiplier"), default=(
+            1 if osty.get("loss_damage_enabled") else 0
+        )),
+    )
+    if multiplier <= 0:
         return combat, ()
     target_ids = tuple(monster.monster_id for monster in _alive_monsters(combat))
     monsters, damage_events = _damage_monsters(
         combat.monsters,
         target_ids,
-        hp_loss,
+        hp_loss * multiplier,
         source_id,
         relics=relics,
         source_player_id=card_status_hooks.local_player_id(combat),
+        unblockable=True,
     )
     event = EffectEvent(
         kind="osty_hp_loss_damaged_enemies",
         source_id=source_id,
-        amount=hp_loss,
+        amount=hp_loss * multiplier,
         metadata={"card_id": source_card_id, "target_ids": list(target_ids)},
     )
     return combat.model_copy(update={"monsters": tuple(monsters)}), (event,) + damage_events
@@ -17672,6 +17753,8 @@ def _osty_target_ids(
     combat: CombatState,
     target: str,
     rng: Random,
+    *,
+    target_id: str | None = None,
 ) -> tuple[str, ...]:
     rng = random_stream(rng, "combat_targets")
     alive = _alive_monsters(combat)
@@ -17679,17 +17762,11 @@ def _osty_target_ids(
         return tuple(monster.monster_id for monster in alive)
     if not alive:
         return ()
-    if target == "random_enemy" and len(alive) > 1:
+    if target == "random_enemy":
         return (rng.choice(alive).monster_id,)
+    if target_id is not None:
+        return tuple(monster.monster_id for monster in alive if monster.monster_id == target_id)
     return (alive[0].monster_id,)
-
-
-def _run_has_osty(state: RunState) -> bool:
-    return _normalized_id(state.character_id) == "necrobinder" or _has_relic(
-        state,
-        "bound_phylactery",
-        "phylactery_unbound",
-    )
 
 
 def _combat_has_osty(combat: CombatState) -> bool:
@@ -17698,9 +17775,11 @@ def _combat_has_osty(combat: CombatState) -> bool:
 
 def _initial_osty_state() -> dict[str, Any]:
     return {
-        "alive": True,
-        "hp": 20,
-        "max_hp": 20,
+        "alive": False,
+        "created": False,
+        "hp": 0,
+        "max_hp": 0,
+        "die_for_you": False,
         "damage_bonus": 0,
         "attacks_this_turn": 0,
         "loss_damage_enabled": False,
@@ -17710,31 +17789,34 @@ def _initial_osty_state() -> dict[str, Any]:
 def _osty_state(combat: CombatState) -> dict[str, Any]:
     raw = combat.metadata.get("osty")
     if isinstance(raw, Mapping):
+        hp = _coerce_positive_int(raw.get("hp"), default=0)
+        max_hp = _coerce_positive_int(raw.get("max_hp"), default=hp)
+        created = _truthy(raw.get("created", hp > 0 or max_hp > 0))
         return {
-            "alive": _truthy(raw.get("alive", True)),
-            "hp": _coerce_positive_int(raw.get("hp"), default=20),
-            "max_hp": _coerce_positive_int(raw.get("max_hp"), default=20),
+            **raw,
+            "alive": hp > 0 and _truthy(raw.get("alive", True)),
+            "created": created,
+            "hp": hp,
+            "max_hp": max_hp,
+            "die_for_you": _truthy(raw.get("die_for_you", created)),
             "damage_bonus": _coerce_int(raw.get("damage_bonus"), default=0),
             "attacks_this_turn": _coerce_int(raw.get("attacks_this_turn"), default=0),
             "loss_damage_enabled": _truthy(raw.get("loss_damage_enabled", False)),
         }
-    return {
-        "alive": True,
-        "hp": 20,
-        "max_hp": 20,
-        "damage_bonus": 0,
-        "attacks_this_turn": _metadata_int(combat.metadata, "osty_attacks_this_turn", 0),
-        "loss_damage_enabled": False,
-    }
+    return _initial_osty_state()
 
 
 def _set_osty_state(combat: CombatState, osty: Mapping[str, Any]) -> CombatState:
     metadata = dict(combat.metadata)
     attacks_this_turn = _coerce_int(osty.get("attacks_this_turn"), default=0)
+    hp = _coerce_positive_int(osty.get("hp"), default=0)
+    max_hp = _coerce_positive_int(osty.get("max_hp"), default=hp)
     metadata["osty"] = {
-        "alive": bool(osty.get("alive", True)),
-        "hp": _coerce_positive_int(osty.get("hp"), default=20),
-        "max_hp": _coerce_positive_int(osty.get("max_hp"), default=20),
+        **osty,
+        "alive": hp > 0 and bool(osty.get("alive", True)),
+        "created": _truthy(osty.get("created", hp > 0 or max_hp > 0)),
+        "hp": hp,
+        "max_hp": max_hp,
         "damage_bonus": _coerce_int(osty.get("damage_bonus"), default=0),
         "attacks_this_turn": attacks_this_turn,
         "loss_damage_enabled": _truthy(osty.get("loss_damage_enabled", False)),
@@ -23416,8 +23498,8 @@ def _damage_combat_player(
 
     if unblocked > 0 and is_attack and _combat_has_osty(combat):
         osty = _osty_state(combat)
-        osty_hp = _coerce_positive_int(osty.get("hp"), default=20)
-        if _truthy(osty.get("alive", True)) and osty_hp > 0:
+        osty_hp = _coerce_positive_int(osty.get("hp"), default=0)
+        if osty["alive"] and osty["die_for_you"] and osty_hp > 0:
             osty_absorbed = min(osty_hp, unblocked)
             next_osty_hp = osty_hp - osty_absorbed
             osty_died = next_osty_hp <= 0
@@ -24988,6 +25070,8 @@ def _apply_combat_relic_marker(
     )
     if marker.kind == "player_resource":
         combat = _record_star_gains(combat, events)
+        combat, summon_events = _apply_osty_summon_from_resource_events(combat, events)
+        events.extend(summon_events)
     return combat, tuple(events)
 
 

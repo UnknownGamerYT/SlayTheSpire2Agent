@@ -1430,6 +1430,14 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                     ),
                 ),
             ),
+            "bound_phylactery": RelicHookRule(
+                markers=(
+                    RelicMarkerSpec(
+                        "player_resource", amount=1, target_id="player",
+                        metadata={"resource": "summon"},
+                    ),
+                ),
+            ),
             "phylactery_unbound": RelicHookRule(
                 markers=(
                     RelicMarkerSpec(

@@ -435,6 +435,9 @@ def _resolve_supported_relic(
     *,
     hp: int | None,
 ) -> tuple[CombatRelicMarker, ...]:
+    if (relic_id == "bound_phylactery" and hook is CombatRelicHook.TURN_START
+            and context.turn_number == 1):
+        return ()
     specs = _STATIC_MARKERS_BY_HOOK.get(hook, {}).get(relic_id, ())
     if specs:
         return tuple(_marker_from_spec(relic_id, hook, spec, context, hp=hp) for spec in specs)
@@ -3261,6 +3264,7 @@ _STATIC_MARKERS_BY_HOOK: Mapping[
                 metadata={"status": "strength"},
             ),
         ),
+        "bound_phylactery": (_resource_spec("summon", 1),),
         "phylactery_unbound": (_resource_spec("summon", 5),),
         "petrified_toad": (
             CombatRelicMarkerSpec(

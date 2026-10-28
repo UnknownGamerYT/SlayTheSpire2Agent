@@ -91,6 +91,21 @@ Confirmed corrections:
   five after Spike Explosion. Living Fog creates one Gas Bomb before each
   Bloat attack; the source does not increase that summon count.
 
+- `OstyCmd.Summon`, `BoundPhylactery`, `PhylacteryUnbound` and `DieForYouPower`:
+  missing pets have zero HP and cannot attack, block, heal or die again. A
+  character ID alone does not create a pet. Bound opens at 1 HP and summons 1
+  after later energy resets. Unbound opens at 5, then summons 2 on every turn,
+  including the first (7 HP at the first action). A living summon adds the
+  full amount to both maximum and current HP. A dead pet stays in combat and
+  revives with maximum/current HP equal to the new summon amount.
+- Pet attacks preserve selected target identity, refresh AoE/random targets
+  between hits, resolve replacement deaths immediately, and use CombatTargets
+  even for a singleton random target. Rattle counts attack commands and Bone
+  Flute triggers once after each command. Thorns consumes shared owner Block
+  and pet HP before each target's damage; a pet death finishes that AoE batch
+  and stops later hits. Necro Mastery stacks, bypasses enemy Block, and echoes
+  actual pet HP loss. These outcomes include missing pets and save/reload.
+
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
 power interaction, multiplayer HP scaling,

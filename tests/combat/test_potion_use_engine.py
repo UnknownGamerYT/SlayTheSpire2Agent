@@ -721,7 +721,7 @@ def test_resource_and_status_potions_apply_combat_state() -> None:
     state = step(state, _use_potion_action(state, "potion:0"))
     assert state.combat is not None
     assert state.combat.player.resources["summon"] == 15
-    assert state.combat.metadata["osty"]["hp"] == 35
+    assert state.combat.metadata["osty"]["hp"] == 15
 
     state = step(state, _use_potion_action(state, "potion:0"))
     assert state.combat is not None
