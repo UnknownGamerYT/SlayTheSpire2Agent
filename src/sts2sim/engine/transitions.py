@@ -13669,6 +13669,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     combat = combat.model_copy(update={"metadata": {
         **combat.metadata, "player_turn_phase": "end",
     }})
+    combat, early_rng, plating_events = _apply_player_plating_early(
+        state, combat, capture_random_state(rng),
+    )
+    events.extend(plating_events)
+    rng = random_from_state(early_rng)
     combat, early_rng, eye_events = source_combat_item_hooks.exhaust_paels_eye(
         state, combat, capture_random_state(rng),
     )
@@ -13700,11 +13705,6 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         })
         if diadem_event is not None:
             events.append(diadem_event)
-    combat, early_rng, plating_events = _apply_player_plating_early(
-        state, combat, capture_random_state(rng),
-    )
-    events.extend(plating_events)
-    rng = random_from_state(early_rng)
     combat, hand_rng, hand_effect_events = source_keyword_hooks.resolve_end_hand(
         state, combat, capture_random_state(rng),
     )
