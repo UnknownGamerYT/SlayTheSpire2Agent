@@ -7,6 +7,7 @@ from typing import Any
 
 from sts2sim.agent_api import action_space, encode_observation
 from sts2sim.api import serialize
+from sts2sim.policy_visibility import policy_state
 
 from .campfire_planner import CampfirePlanner
 from .combat_search import CombatSearchConfig, CombatSearchPlanner
@@ -33,6 +34,7 @@ class StrategicAgent:
     def choose_action(self, state: Any) -> AgentDecision:
         """Choose one legal action for the current simulator state."""
 
+        state = policy_state(state)
         legal = tuple(action_space(state))
         state_summary = serialize(state)
         observation = encode_observation(state, include_state=False)
