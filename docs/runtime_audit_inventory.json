@@ -979,7 +979,13 @@
       "detail": "The public API omits Increasing Intensity's numeric effect payload.",
       "evidence": [
         "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Aeonglass"
-      ]
+      ],
+      "followup_status": "source_contract_implemented_installed_game_comparison_pending",
+      "followup_evidence": [
+        "docs/stable_enemy_source_contracts.md",
+        "tests/combat/test_stable_enemy_lifecycle.py"
+      ],
+      "source_reference": "zhiyue/sts2-rl-agent@5d874e855ae1d0550d5c30416fadd7dbb0d133b7"
     },
     {
       "monster_id": "CRUSHER",
@@ -988,7 +994,13 @@
       "detail": "Targeted cards and potions turn the player; Back Attack is executable.",
       "evidence": [
         "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Kaiser_Crab"
-      ]
+      ],
+      "followup_status": "source_contract_implemented_installed_game_comparison_pending",
+      "followup_evidence": [
+        "docs/stable_enemy_source_contracts.md",
+        "tests/combat/test_stable_enemy_lifecycle.py"
+      ],
+      "source_reference": "zhiyue/sts2-rl-agent@5d874e855ae1d0550d5c30416fadd7dbb0d133b7"
     },
     {
       "monster_id": "ROCKET",
@@ -997,7 +1009,13 @@
       "detail": "Targeted cards and potions turn the player; Back Attack is executable.",
       "evidence": [
         "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Kaiser_Crab"
-      ]
+      ],
+      "followup_status": "source_contract_implemented_installed_game_comparison_pending",
+      "followup_evidence": [
+        "docs/stable_enemy_source_contracts.md",
+        "tests/combat/test_stable_enemy_lifecycle.py"
+      ],
+      "source_reference": "zhiyue/sts2-rl-agent@5d874e855ae1d0550d5c30416fadd7dbb0d133b7"
     }
   ],
   "relic_marker_dispatch_audit": {

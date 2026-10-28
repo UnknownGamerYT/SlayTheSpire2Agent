@@ -41,10 +41,13 @@ published checkout, together with source snapshot hashes and URLs. The
 publishing workflow records the final public revision and validated tree hash
 outside this inventory in its deliverable or PR validation log.
 
-Three monster source verification questions remain separate from implemented
-runtime hooks: Aeonglass's first Increasing Intensity counter order, and the
-player's initial facing against Crusher and Rocket. Their exact reasons and
-source links are in the inventory. A bounded relic marker sweep exercised 45
-kinds across 168 relic-hook outputs. Seven apparent dispatcher omissions were
-traced to external handlers or existing damage/reward code; the sweep found no
-additional proven unhandled kind. It does not certify all relic behavior.
+The earlier Aeonglass intensity and Crusher/Rocket initial-facing questions now
+have pinned source contracts and targeted runtime fixtures; see
+[enemy contracts](stable_enemy_source_contracts.md). Their historical inventory
+rows remain as provenance, with follow-up status recorded. Installed-game action
+comparisons remain pending. A bounded marker dispatcher sweep describes only its
+45 kinds/168 sampled outputs; it is not evidence for complete relic behavior.
+
+The later [item method review](item_source_audit/README.md), card/modifier audits
+and source fixtures supersede earlier handler-count completion statements. Each
+review covers its listed predicates and methods, not every possible interaction.

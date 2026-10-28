@@ -1,156 +1,75 @@
-# Stable v0.107.1 fidelity review
+# Stable v0.107.1 simulator fidelity
 
-Target selected by the user: **latest stable v0.107.1**. Reviewed 28 October 2026.
+The target is the user-selected **stable v0.107.1**, Steam public build
+**23811903**. The simulator is usable for local training experiments. It is not
+certified identical or nearly identical to an installed game, and simulator
+results are not established live-game win rates.
 
-**The simulator is not certified identical or nearly identical to the game.**
-Its training and replay pipeline works in the tested flows. Passing its own
-regressions, importing all source IDs, and deterministic replay do not establish
-that those flows match the game. No meaningful overall fidelity percentage is
-currently available.
+## Evidence and version binding
 
-## Version evidence
+The implementation uses the public [version-qualified source snapshot](https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/GAME_VERSIONS.md)
+at commit `5d874e855ae1d0550d5c30416fadd7dbb0d133b7`. It reports release commit
+`59260271` and internal `main_assembly_hash` `-1555940892`. That integer is not a
+SHA-256 digest. The third-party source label does not authenticate an installed
+executable. The repository retains functional implementations, compact source
+contracts, paths and hashes; game assemblies, assets and the full decompilation
+are not included.
 
-A live fetch of the [official Steam announcement feed](https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2868840&count=50&maxlength=1500&format=json)
-still identifies [Major Update #2, v0.107.1](https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1835871199305790)
-as the newest announced main-branch patch, published 19 June 2026 UTC. The newest
-announced beta is [v0.111.0](https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1840944183778277),
-14 August 2026 UTC. A September newsletter describes the next patch as still in
-internal testing. These statements verify the publicly announced target, not an
-installed executable or Steam depot.
+The 17 checksum-pinned stable API datasets contain 577 cards, 296 live relics,
+63 live potions, 115 monsters, 87 encounters and 66 events. Their manifest
+`game_version` remains null because the API does not establish a binary build.
+Source registry placeholders, abstract helpers and test models are distinguished
+from live content. Stable and beta caches remain separate.
 
-The 17 local datasets are checksum-pinned to the stable channel. Their
-`game_version` fields remain `null`: the API payloads are not independently tied
-to an exact executable build. Current wiki pages may describe beta mechanics;
-they must be checked against stable data, version histories, and other sources.
-A fresh read-only fetch of all 17 stable endpoints matched the cached canonical
-JSON hashes during this review. That verifies snapshot freshness; it does not
-verify the runtime implementation.
+Three types of evidence have different meanings: source-derived expected
+outcomes check a rule, regression and replay tests check the implementation,
+and installed-game before/action/after captures check actual game agreement.
+A handler count or a passing test total is not a fidelity percentage.
 
-## What the previous checks established
+## Implemented source contracts
 
-At published revision `8f538ec`, 1,901 tests passed. Normal random-policy runs
-exercised 1,662 actions and 109 reload comparisons; synthetic-HP runs exercised
-3,000 actions and 180 reload comparisons. They tested internal invariants and
-repeatability. The synthetic starting HP was changed deliberately, so those
-runs did not establish normal-game win rates.
+| Area | Implementation and retained evidence |
+| --- | --- |
+| RNG | Normal playable characters use xoshiro256**, UTF-16 displayed-seed hashing, named/player/model streams, float32 draws, source sampling and .NET 9 duplicate-card sorting. Independent C vectors and serialized counters are retained. See [RNG](stable_rng_runtime.md). |
+| Runs | Source map pruning/post-processing, named act variants, profile gates, encounter bags, opening rosters, event history, Ancient offers and front/back relic queues persist across reloads. See [run generation](run_generation_stable.md) and [relic queues](relic_queues_stable.md). |
+| Cards | Base/upgraded metadata crosswalks cover all 577 source rows. Stateful action tests cover targeted card rules, physical-card replay, Forge/Osty/orbs, conditional damage, resource timing and ordered cost modifiers. See [core audit](source_core_card_audit.json) and [class audit](stable_class_card_audit.md). |
+| Modifiers | All seven afflictions and the source keyword set have finite lifecycle audits. All 22 live enchantments have source-method scope records and public-action fixtures. Power taxonomy is separate from power behavior. See [modifiers](../tests/fixtures/source_modifier_audit.json) and [enchantments](source_enchantment_audit.json). |
+| Enemies | Source HP/ascension values, state edges, initial states, numeric attacks/Block, encounter opening rosters and targeted lifecycle rules include Axebot waves, Aeonglass, Kaiser facing, summons, Osty and side timing. See [enemy contracts](stable_enemy_source_contracts.md). |
+| Items | All 296 live relics and 63 live potions have finite source-method review records. Implemented corrections include pickup choices, duration/cost rules, procurement, Energy/Block/HP modifiers, source RNG and reward hooks. Each ledger states the reviewed and tested scope. See [item audit](item_source_audit/README.md) and [runtime contracts](stable_item_contracts.md). |
+| Events and rewards | Native startup/model RNG, eligibility, typed choices, generated grids, recurring flows, Crystal Sphere, event fights and per-reward rerolls have retained source fixtures. Unknown or unsupported source edges remain explicit. |
+| Training | Legal action masks, hidden-information policy observations, deterministic CPU checkpoint continuation, fixed-seed inference/evaluation and source/logic compatibility checks are retained. See [policy visibility](policy_visibility.md). |
 
-The source registry contained 577 cards, 296 relics, 63 potions, 115 monsters,
-87 encounters and 66 events. A registered handler means some execution surface
-is present. It does not mean every clause, upgrade, trigger, condition, ordering
-rule and interaction has been validated. The earlier finite predicate audit
-closed its recorded findings, not every printed rule on all 577 cards.
+The reserved `TEST` character is a controlled synthetic fixture. It keeps legacy
+setup RNG and offering behavior where needed by isolated tests. It does not
+represent a playable character or game-equivalence mode. Explicit MT19937 saves
+and diagnostic runs remain supported; they do not establish game seed parity.
 
-The parity comparator is available, but its synthetic regression fixtures are
-not independent game results. No complete v0.107.1 game action trace has been
-validated against the simulator in this workspace.
+## Validation boundaries
 
-## Confirmed discrepancies and follow-up corrections
+Whole-run RNG consumption and every card/relic/power ordering combination have
+not been independently compared to the executable. Source contracts and
+arithmetic fixes reduce concrete differences but cannot establish complete
+behavioral equivalence. Source helpers, API descriptions and third-party ports
+can disagree; retained fixtures identify the rule used by each correction.
 
-An independent source-contract review reproduced these failures through the
-public action API before the follow-up changes:
+Complete multiplayer synchronization, co-op targeting and all player-count
+interactions are outside the verified single-player scope. A known source edge
+is Kaleidoscope plus Driftwood: its recorded reroll options contain an empty
+custom pool. The source appears to throw; the simulator preserves that context
+and masks the unsupported reroll for training instead of inventing replacement
+cards. An installed-game trace is needed to establish the actual UI outcome.
 
-| Mechanic | Source contract | Previous behavior |
-| --- | --- | --- |
-| Precise Cut | Damage falls for each other card in hand; upgraded calculation base changes | Static damage |
-| Ashen Strike | Additional damage per exhausted card, with upgraded scaling | Static base damage |
-| Helix Drill | One hit per Energy spent this turn; zero previous spending means zero hits | One unconditional hit |
-| Bully | Extra damage per Vulnerable stack | Static base damage |
-| Rend | Extra damage per unique debuff, with stable upgraded base/scaling | Static base damage |
-| Radiate | One AoE hit per Star actually gained this turn | One unconditional hit |
-| Convergence | Next-turn Energy and Stars; retain the current hand | Immediate Energy, incomplete delayed resources, no retention |
-| Expect a Fight | Energy per Attack in hand, then no more Energy gain that turn | Flat Energy and no restriction |
-| Panic Button | Card-origin Block restriction over the printed duration | Later Block cards still granted Block |
-| Event entry | Source act/floor/gold/deck and other entry clauses | Numeric-act-only selection admitted ineligible events |
-| Sea Glass | Fifteen other-character offers: five Common, five Uncommon, five Rare | Uniform selection across rarities |
+The current bridge exports a limited combat schema. It does not provide a
+lossless game checkpoint, every RNG counter or every class/item interaction.
+Bridge package/source preparation and mocked tests are distinct from compiling,
+loading and exercising the bridge against the selected game build.
 
-The follow-up adds retained public-action regressions and exact source
-projections for these rules. See `tests/combat/test_source_damage_fidelity.py`,
-`tests/combat/test_source_resource_fidelity.py`,
-`tests/combat/test_source_debuff_damage.py`,
-`tests/combat/test_source_radiate_fidelity.py`,
-`tests/events/test_event_eligibility.py`, and
-`tests/rewards/test_sea_glass.py`. See also [event eligibility](event_eligibility.md)
-and [Sea Glass source qualifications](sea_glass_runtime.md).
+The user's final verification machine is **Windows with Steam installed**.
+Follow [Windows stable validation](windows_stable_validation.md) to fingerprint
+that installation and prepare actual comparison captures. A successful metadata
+fingerprint alone is not binary authentication or a behavioral match. No game
+process has been run in this cloud workspace.
 
-Panic Button regressions distinguish direct-card Block from Power triggers,
-relics and potions, cover Artifact preventing the source-classified debuffs,
-and check future Block timing. Radiate covers actual positive gains from cards,
-potions, relics, combat opening and turn start; retained Stars and spending do
-not count again.
-
-Stable Rend upgrade values are cross-checked against
-[Untapped's stable card page](https://sts2.untapped.gg/en/cards/colorless/rend):
-18 base and 8 extra per debuff. The cached upgrade delta agrees, while its
-rendered upgrade description retains a stale base value. The current wiki Rend
-page shows beta values and must not replace the stable specification.
-
-Event prerequisites with missing profile facts or ambiguous source grouping
-remain visible as unknown diagnostics. The named-act selector governs event
-eligibility; it does not implement complete variant-specific maps or encounter
-pools. Fixed rules and unknown rules must remain distinct.
-
-## Follow-up validation
-
-After these corrections, the full local suite passed **2,060 tests**, with one
-expected missing-PyTorch-path skip in an environment where PyTorch is installed.
-Ruff, strict mypy (121 source files), source and wheel builds passed. The added
-source fixtures and tests cover nine card corrections, event entry predicates
-and Sea Glass's rarity split.
-
-A fresh CPU checkpoint smoke resumed from 12 to 24 steps and matched an
-independent uninterrupted run exactly, including model, optimizer, RNG, rewards
-and seeds. Repeated fixed-seed evaluation preserved checkpoint bytes; all 12
-inference actions were legal. A prior checkpoint was correctly rejected after
-the game logic changed. These checks establish pipeline consistency only.
-
-Updated normal random-policy QA exercised five characters over 25 runs,
-1,738 actions and 113 reload comparisons with zero internal invariant findings.
-All runs ended in random-policy deaths; the maximum reached floor was 11.
-These are simulator consistency results, not independent game comparisons.
-
-## Remaining barriers to an equivalence claim
-
-- **Normal runs use MT19937.** `new_run_state` calls the default Python RNG, and
-  serialized normal run state uses that algorithm. The separate xoshiro256**
-  adapter is not wired into normal runs; its seed/stream derivation is explicitly
-  simulator-specific. Matching the game's displayed seed cannot currently imply
-  matching maps, shuffles, encounters, rewards or random effects.
-- Map construction and encounter selection are not established as the game's
-  exact generators or distributions. Event weights, history rules and complete
-  act-variant selection also remain unverified.
-- Axebot replacement waves are not implemented. Public notes describe several
-  timings, but the exact stable Stock depletion and encounter-victory rules
-  were not established by this review.
-- Aeonglass's initial Increasing Intensity counter/update order and Kaiser
-  Crab's initial facing remain unverified. Executable handlers are present;
-  their existence does not validate the provisional initial assumptions.
-- [Fur Coat](fur_coat_runtime.md) normal-room eligibility and exact RNG are
-  unverified. Sea Glass's rarity profile has source evidence; class-selection
-  weights, display order and exact RNG consumption still need independent checks.
-- Supplied ally metadata supports individual effects, not a complete networked
-  multiplayer game. This review does not certify co-op behavior.
-- Complete base/upgraded card contracts, potions, relics, enemy moves, events and
-  cross-effect ordering still need systematic independent validation. The
-  source-contract failures found here show why test totals cannot replace it.
-
-## Route to stronger verification
-
-1. Maintain one stable version/build target and distinguish stable rules from
-   beta rules and conflicting source renderings.
-2. Record each item's base/upgraded behavior, costs, target rules, conditions,
-   trigger timing and ordering, with independent expected outcomes and both
-   positive and negative cases. Track verified scopes, not a handler percentage.
-3. Implement and serialize the actual RNG streams and run generation only from
-   verified engine evidence; compare known seeded checkpoints.
-4. Capture matching initial states and action sequences from the stable game,
-   compare after each action, and retain the first divergence as a regression.
-5. Exercise all five characters and three acts, including targeted interaction
-   fixtures and full runs. Report exact mismatches and untested scopes.
-
-One candidate oracle is [wuhao21/sts2-cli](https://github.com/wuhao21/sts2-cli):
-its code calls the installed game's `RunManager`, `PlayCardAction` and
-`PlayerCmd.EndTurn` through a headless adapter. It requires the user's installed
-game DLLs and .NET 9. Its README reports testing beta v0.111.0, not this stable
-version. Its async patches and fallback paths also need review: some failure
-paths force a game-over result or discard a potion. It is a research candidate,
-not a validated stable oracle or an integrated backend in this project.
+Latest integrated validation is recorded in the pull request and delivered
+validation reports. A short PPO smoke checks the training pipeline; it does not
+produce a capable agent. Start fresh checkpoints after this logic update.

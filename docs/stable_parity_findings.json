@@ -5,7 +5,7 @@
     "selection": "user-confirmed",
     "installed_build_verified": false
   },
-  "reviewed_base_revision": "8f538ec7963a0f1aca068ee4fcd9fe6fc958eecb",
+  "reviewed_base_revision": "source_implementation_followup",
   "conclusion": {
     "certifies_game_parity": false,
     "nearly_identical_confirmed": false,
@@ -86,13 +86,11 @@
     }
   ],
   "remaining_boundaries": [
-    "Normal run RNG is MT19937; separate xoshiro adapter not integrated and uses simulator-specific seed derivation",
-    "Map/encounter/event distributions and complete act variants not independently verified",
-    "Axebot replacement-wave Stock/victory rules absent",
-    "Aeonglass initial counter ordering and Kaiser initial facing not verified",
-    "Fur Coat exact room eligibility and game RNG not verified",
-    "Complete co-op and all item interaction contracts not verified",
-    "No complete stable game action trace validated in this workspace"
+    "No installed Windows game fingerprint or complete stable game action trace validated in cloud",
+    "Whole-run source RNG routing/consumption and all nested effect ordering not exhaustively compared to executable",
+    "Complete multiplayer protocol and co-op interactions not certified",
+    "Kaleidoscope/Driftwood empty custom reroll is explicit unsupported source edge, masked for training",
+    "Finite method/metadata/fixture review is not complete behavioral or interaction certification"
   ],
   "sources": [
     "https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2868840&count=50&maxlength=1500&format=json",
@@ -102,5 +100,24 @@
     "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Radiate#Notes",
     "https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Sea_Glass",
     "https://spire-codex.com/mechanics/card-rarity"
-  ]
+  ],
+  "source_implementation_reference": {
+    "repository": "https://github.com/zhiyue/sts2-rl-agent",
+    "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+    "reported_version": "0.107.1",
+    "reported_steam_build": "23811903",
+    "installed_binary_authenticated": false
+  },
+  "implemented_followup_evidence": [
+    "docs/stable_rng_runtime.md",
+    "docs/run_generation_stable.md",
+    "docs/stable_enemy_source_contracts.md",
+    "docs/item_source_audit/README.md",
+    "docs/source_core_card_audit.json",
+    "docs/stable_class_card_audit.md",
+    "docs/source_enchantment_audit.json",
+    "tests/fixtures/source_modifier_audit.json",
+    "tests/fixtures/stable_ascension_source.json"
+  ],
+  "validation_machine": "Windows with Steam installed, supplied by user"
 }

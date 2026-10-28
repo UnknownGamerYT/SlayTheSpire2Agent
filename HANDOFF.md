@@ -4,40 +4,29 @@ Last updated: 2026-10-28
 
 ## Current fidelity status
 
-Target: latest stable v0.107.1. Game equivalence is not confirmed. The
-[independent stable parity review](docs/stable_game_parity_review.md) records
-new source-contract corrections and explicit remaining gaps. Normal runs still
-use MT19937; the separate xoshiro adapter is not integrated.
+Target: stable v0.107.1, public Steam build23811903. Normal playable characters
+now use the source xoshiro256** seed/stream contracts and source run generation.
+The [current fidelity review](docs/stable_game_parity_review.md) links retained
+card, modifier, enemy, item, event and RNG evidence. Source review is separate
+from installed-game equivalence; no overall fidelity percentage is claimed.
 
-## October 2026 Update
+All source-available corrections are being verified through public actions,
+reloads and training checks. Per-ID audits state finite method and test scope,
+including remaining interaction and multiplayer qualifications. `TEST` is an
+explicit synthetic fixture, and saved MT19937 states remain compatible.
 
-The current branch updates the simulator and the train → checkpoint → evaluate →
-live-policy workflow. See [the status report](docs/project_status_2026_10_28.md)
-for validation and remaining parity limits.
+The training pipeline uses legal masks and policy-visible observations, validates
+source/logic/architecture provenance, supports deterministic CPU continuation,
+and evaluates checkpoints without updating them. Older checkpoints must start a
+new experiment after the simulator logic changes. Source data remains excluded
+from Git: run `uv sync --locked --extra dev --extra rl`, `uv run sts2sim sync-data`
+and `uv run sts2sim training-check` after cloning.
 
-- The stable cache now uses schema 2 and 17 datasets. Stable and beta are separate,
-  transactional snapshots. `training-check` validates actual bytes, dependencies,
-  and channel provenance offline. Run `uv run sts2sim sync-data` after cloning.
-- All five characters use their source-defined HP, gold, starting decks and relics.
-  New runtime paths cover missing monster powers/spawns, source-linked debuffs,
-  card replays, deck identities, relic lifecycles, campfires, and unknown rooms.
-- PPO handles time-limit bootstrapping, interrupted episodes, teacher intervention,
-  deterministic CPU checkpoint continuation, and fixed independent evaluation
-  seeds. Curriculum retries and champion promotion use verified checkpoints.
-- Default observations hide seeds, RNG, hidden draw order and future enemy moves.
-  Schema 2 and source/logic hashes deliberately invalidate older checkpoints.
-- `evaluate-ppo` and reusable `MaskedPpoPolicy` run saved policies without updates.
-  Live inference validates observations and restricts actions to bridge support;
-  incomplete captures stop with a diagnostic. Heuristic fallback is opt-in.
-- The optional true Gymnasium adapter supports numeric observations and legal
-  action masks. Built-in PPO continues to use the rich simulator environment.
-- GitHub Actions runs Ruff, strict mypy, source preparation and the full test suite.
-
-Audit counts describe registered execution surfaces. They do not prove complete
-base/upgraded card behavior, game RNG equivalence, or live-game win rates. The
-remaining source-verification blockers include Aeonglass intensity update order,
-Kaiser Crab initial facing, exact run RNG derivation, and source details described
-in [the Fur Coat note](docs/fur_coat_runtime.md). No game process is installed here.
+The user has a Windows Steam installation for external validation. The
+[Windows guide](docs/windows_stable_validation.md) identifies the exact target
+metadata and bridge steps. The cloud has no game assemblies or running game;
+bridge compilation and real before/action/after comparisons remain external.
+Do not interpret internal replay consistency or smoke training as game win rate.
 
 ## Goal
 

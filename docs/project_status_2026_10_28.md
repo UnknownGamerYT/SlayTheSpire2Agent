@@ -73,77 +73,36 @@ training/evaluation budgets. Keep final evaluation seeds separate from training
 and champion-selection suites. Reports distinguish truncations, deaths and wins;
 a successful short smoke run does not establish gameplay skill.
 
-## Simulator corrections
+## Source implementation follow-up
 
-All five characters now use their source-defined HP, 99 starting gold, starter
-cards and relics. Card identity allocation preserves permanent cards across
-rewards, shop purchases, transformations, duplication and serialization.
+The implementation now follows the pinned public stable source snapshot rather
+than inferring behavior solely from card descriptions. Normal playable runs use
+source RNG primitives/streams, maps, act variants, encounter bags and relic queues.
+All 577 card metadata variants, all 22 live enchantments and seven afflictions have
+finite source crosswalks; enemy numeric/state/roster contracts and the complete
+live relic/potion inventory have retained review records. The
+[current fidelity review](stable_game_parity_review.md) links their actual scope.
 
-The expanded runtime covers innate monster powers, source-linked debuffs, movement
-and reinforcements, temporary death/respawn behavior, attack-only damage modifiers,
-Buffer, physical card replay/autoplay, conditional/Fatal card outcomes, Bound,
-correct combat cleanup, and additional card turn/draw/play/status triggers.
-Installed Powers leave the combat piles rather than being drawn and installed
-again. All 11 stable X-cost cards distinguish payment from effect scaling,
-including free autoplay, replay, zero X and Chemical X for Energy or Stars.
-Source upgrades apply absolute costs, keyword changes and explicit field aliases;
-conditional damage upgrades no longer inflate the immediate base damage.
-
-Run mechanics include adaptive unknown-room probabilities, Winged Boots charges,
-Maw Bank/Bowler/Dragon Fruit gold hooks, Planisphere, source-backed campfire
-choices, Tea Sets, Pumpkin Candle/Kindle, Fishing Rod, Toy Box, Wongo's ticket,
-Scroll Boxes, starter relic replacement, chosen deck mutations and Fur Coat.
-
-Coverage audits describe recognized execution surfaces. They are not proof that
-all 577 base/upgraded cards, 296 relics, 63 potions and their interactions exactly
-match the game. Bounded audits found parsed effects with missing consumers; those
-findings drove explicit runtime fixes and action-based regression tests. The
-[bounded evidence inventory](runtime_coverage_scope.md) distinguishes verified
-predicates, spot checks and the remaining external verification questions.
+Corrections include damage rounding/value props, source power classification,
+ordered Energy costs, physical-card and Osty lifecycles, card pool profiles,
+item pickups and trigger timing, native event flows and reward generation. The
+source Ascension table is A0–A10: Tight Belt at A4 and Ascender's Bane at A5.
+These records describe source implementation and checks, not full interaction
+certification or installed-game parity.
 
 ## Validation and limits
 
-The test suite includes legal actions, save/reload determinism, source-backed
-mechanics, safe policy observations, PPO loss/checkpoint behavior, Gymnasium checks,
-and recorded/fake bridge integration. Ruff and strict mypy are required by CI.
-Training-readiness baseline at `8f538ec`: 1,901 tests passed with one expected missing-dependency-path
-skip, Ruff passed, strict mypy passed across 118 source files, and source/wheel
-builds succeeded. The CPU smoke resumed from 12 to 24 training steps and matched
-an independent uninterrupted two-batch run exactly, including optimizer and RNG
-state. Repeated fixed-seed evaluation left the checkpoint unchanged; 12 loaded
-policy actions were legal and masked. These runs are deliberately too short to
-learn useful gameplay. Publication/tree checks and hosted CI results are recorded
-in the pull request and delivered validation log.
+The latest integrated test, lint, type, build, training and rollout results belong
+in the pull request and delivered validation reports, with the revision tested.
+Earlier 1901/2060-test baselines predate the source follow-up and must not be used
+as validation of the new runtime. Checkpoint smoke and random-policy consistency
+checks do not establish a useful agent or normal-game win rate.
 
-A multi-character random-policy check exercised all five characters, 25 runs,
-1,662 legal actions and 109 serialized reload comparisons without invariant or
-transition-divergence findings after the final generated-ID fix. Random deaths were
-expected; this is a correctness check rather than a strength benchmark.
-
-A separate deeper check used one explicit test-only initial HP/max-HP boost to
-10,000 per character, seed 1 and a 600-action cap. All five characters completed
-3,000 actions and 180 reload comparisons with zero invariant findings; the
-Defect run reached Act 3. This modifies the starting state and measures transition
-consistency only, never normal-game survival or policy strength.
-
-Remaining verification boundaries:
-
-- Aeonglass's first Increasing Intensity application/update order needs a runtime
-  trace. Crusher/Rocket initial facing needs a verified encounter trace.
-- Normal runs still use MT19937; the separate xoshiro adapter is not integrated
-  and its seed/stream derivation is simulator-specific. Displayed game seeds
-  cannot currently imply identical maps, draws or rewards.
-- Exact Fur Coat mark eligibility/RNG and unmodeled Axebot replacement waves need
-  live/source confirmation; see [the bounded Fur Coat implementation](fur_coat_runtime.md).
-- Co-op modeling covers supplied ally state; a complete multi-agent game protocol
-  has not been verified. Sea Glass now uses the public five-per-rarity profile;
-  its class-selection weights, branch interactions and exact game RNG order
-  remain unverified; see [the bounded Sea Glass correction](sea_glass_runtime.md).
-- No game executable or running bridge is available in this workspace. Public
-  bridge source schemas omit fields needed for lossless checkpoint inference.
-  Live inference stops on incomplete states; heuristic fallback is explicit.
-  Bridge setup and source-patch validation are distinct from an actual game test.
-
-Do not remove these limits solely because a source ID has a registered handler.
-Capture the installed game version/channel and compare recorded traces before
-interpreting simulator training as live-game performance.
+Default observations hide RNG, future room/relic queues, draw order and future
+enemy moves. Checkpoints bind to source bytes and game logic; use fresh training
+outputs after this update. The cloud has no installed game or .NET/game assembly
+build evidence. The user's Windows Steam machine can run the
+[installation fingerprint and bridge capture steps](windows_stable_validation.md).
+Exact whole-run comparisons, exhaustive interactions and full multiplayer remain
+outside the established evidence. Unsupported source edge cases are explicit;
+the simulator does not silently manufacture a successful game outcome.

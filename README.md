@@ -15,6 +15,11 @@ The [October 2026 status report](docs/project_status_2026_10_28.md) records the
 stable data refresh and remaining fidelity gaps. The simulator targets stable
 v0.107.1; the v0.111.0 beta is a separate data/game channel.
 
+Normal runs use the source xoshiro256** RNG streams and stable run-generation
+rules. [Per-item source reviews](docs/item_source_audit/README.md) and action
+regressions record what was checked. For your Windows Steam installation, use
+[the stable game validation guide](docs/windows_stable_validation.md).
+
 ## Requirements
 
 - Windows or Linux with Python 3.12 or newer.
