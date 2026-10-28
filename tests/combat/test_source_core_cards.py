@@ -507,3 +507,15 @@ def test_thrash_absorbs_calculated_damage_before_exhaust_and_preserves_growth():
     )
     state = _play(_reload(state), "thrash")
     assert state.combat.monsters[0].hp == 74
+
+
+@pytest.mark.parametrize("name", ["body_slam", "gold_axe"])
+def test_source_zero_base_attacks_still_gain_strength(name):
+    state = _play(_state(source(name), statuses={"strength": 3}), name)
+    assert state.combat.monsters[0].hp == 97
+
+
+def test_precise_cut_adds_strength_before_clamping_negative_calculation():
+    others = tuple(_simple(f"held{i}") for i in range(8))
+    state = _play(_state(source("precise_cut"), *others, statuses={"strength": 5}), "precise_cut")
+    assert state.combat.monsters[0].hp == 98  # 13 - 2*8 + 5.
