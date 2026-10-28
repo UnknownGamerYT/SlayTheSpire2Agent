@@ -8,6 +8,7 @@ import pytest
 
 from sts2sim import legal_actions, load_state, new_run, serialize, step
 from sts2sim.engine import RewardState, RunPhase, RunState
+from sts2sim.engine.rng import RunRng, capture_random_state
 
 CARD_POOL: tuple[dict[str, Any], ...] = tuple(
     {
@@ -161,3 +162,31 @@ def test_sea_glass_fixed_rarity_sampling_is_independent_of_source_order_and_dupl
     reordered = _pickup(_before_pickup(cards=tuple(reversed(CARD_POOL)) + CARD_POOL))
     assert state.reward.card_ids == reordered.reward.card_ids
     assert state.reward.metadata == reordered.reward.metadata
+
+
+def test_source_sea_glass_preserves_preselected_character_and_interleaves_upgrade_rolls():
+    from sts2sim.agent_api import action_space
+
+    before = _before_pickup()
+    before = before.model_copy(update={
+        "act": 3, "rng": capture_random_state(RunRng("SEAGLASS")),
+        "flags": {**before.flags, "sea_glass_character_id": "silent"},
+    })
+    state = _pickup(before)
+    assert state.flags["sea_glass_character_id"] == "silent"
+    assert state.reward.metadata["sea_glass_character_id"] == "silent"
+    assert all(card.startswith("silent_") for card in state.reward.card_ids)
+    flags = state.reward.metadata["fixed_card_upgraded"]
+    assert len(flags) == 15
+    assert any(flags[:10])
+    assert not any(flags[10:])
+    assert state.rng.draws == before.rng.draws
+    assert state.rng.streams["rewards"].draws == 30  # NextItem then NextFloat for each card.
+    actions = [a for a in action_space(state) if a["type"] == "take_reward_card"]
+    for index, upgraded in enumerate(flags):
+        descriptor = next(a for a in actions if a["target_id"] == f"reward:fixed_card:{index}")
+        assert bool(descriptor["card"].get("upgraded")) == upgraded
+    index = next(index for index, upgraded in enumerate(flags) if upgraded)
+    action = next(a for a in legal_actions(state) if a.target_id == f"reward:fixed_card:{index}")
+    state = step(load_state(serialize(state)), action)
+    assert state.master_deck[-1].upgraded

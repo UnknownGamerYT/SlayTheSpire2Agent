@@ -1177,6 +1177,18 @@ def _action_card_descriptor(state: Any, action: Action) -> dict[str, Any]:
         )
         reward = getattr(state, "reward", None)
         reward_metadata = _mapping(getattr(reward, "metadata", {}))
+        if (action.target_id or "").startswith("reward:fixed_card:"):
+            fixed_position = _reward_position_for_action(state, action)
+            upgraded = _sequence(reward_metadata.get("fixed_card_upgraded"))
+            if (isinstance(fixed_position, int) and fixed_position < len(upgraded)
+                    and upgraded[fixed_position]):
+                from sts2sim.engine.transitions import _card_from_spec, _reward_card_spec
+
+                spec = {**_reward_card_spec(state, reward_card_id), "upgraded": True}
+                descriptor = _card_descriptor(
+                    _card_from_spec(spec, fixed_position + 1),
+                    zone="reward", position=fixed_position,
+                )
         enchantment_key = "primary"
         if action.target_id and action.target_id.startswith("reward:card_group:"):
             enchantment_key = f"group:{action.target_id.split(':')[2]}"

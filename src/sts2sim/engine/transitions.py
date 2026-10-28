@@ -17,6 +17,11 @@ from sts2sim.content.source_card_pools import (
     SOURCE_CARD_POOLS,
     source_pool_cards,
 )
+from sts2sim.content.source_potion_pools import (
+    COMBAT_POTION_EXCLUSIONS,
+    SOURCE_POTION_RARITIES,
+    source_potion_options,
+)
 from sts2sim.content.sources import STS1_COMPAT_SOURCE
 from sts2sim.data import load_cached_json
 from sts2sim.mechanics.ancients import (
@@ -167,7 +172,12 @@ from sts2sim.mechanics.shops import (
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
-from sts2sim.mechanics.source_rng import is_source_rng, source_sample
+from sts2sim.mechanics.source_rng import (
+    draw_source_potion,
+    is_source_rng,
+    source_float,
+    source_sample,
+)
 from sts2sim.mechanics.stable_pool_order import (
     STABLE_CARD_POOL_ORDER,
     STABLE_POTION_POOL_ORDER,
@@ -835,15 +845,16 @@ def _fill_empty_potion_slots(
             ),
         )
 
-    pool = _reward_potion_pool(state, "potion_pool")
+    pool, rarities = _item_potion_generation_pool(state, in_combat=False)
     if not pool:
         pool = ("fire_potion", "skill_potion", "essence_of_steel")
 
     rng = random_from_state(rng_state)
+    generation_rng = random_stream(rng, "combat_potion_generation")
     potions = list(state.potions)
     events: list[EffectEvent] = []
     for _ in range(open_slots):
-        potion_id = _normalized_id(rng.choice(tuple(pool)))
+        potion_id = _normalized_id(draw_source_potion(generation_rng, pool, rarities))
         potions.append(potion_id)
         events.append(
             EffectEvent(
@@ -6763,6 +6774,31 @@ def _apply_relic_card_reward_marker(
         return state, ()
     if _normalized_id(relic_id) == "sea_glass":
         return _apply_sea_glass_card_selection(state, rng)
+    if _normalized_id(relic_id) == "dusty_tome":
+        selected = state.flags.get("dusty_tome_card_id")
+        if not isinstance(selected, str):
+            source_order = SOURCE_CARD_POOLS.get(_normalized_id(state.character_id), ())
+            candidates = [
+                card_id for card_id in source_order
+                if _normalized_id(str(
+                    _reward_card_spec(state, card_id).get("rarity", ""),
+                )) == "ancient" and card_id not in {
+                    "break", "suppress", "protector", "meteor_shower", "quadcast",
+                }
+            ]
+            if not candidates:
+                return _blocked_lifecycle_relic(state, "dusty_tome", "ancient_card_not_preselected")
+            selected = random_stream(rng, "rewards").choice(candidates)
+        selected = _normalized_id(selected)
+        spec = {**_reward_card_spec(state, selected), "upgraded": True}
+        card = _card_from_spec(spec, len(state.master_deck) + 1)
+        card = _with_unique_deck_card_id(card, state.master_deck)
+        return state.model_copy(update={
+            "master_deck": state.master_deck + (card,),
+            "flags": {**state.flags, "dusty_tome_card_id": selected},
+        }), (EffectEvent(kind="relic_deck_card_added", source_id="dusty_tome",
+                         target_id=card.instance_id, amount=1,
+                         metadata={"card_id": selected, "upgraded": True}),)
 
     event_marker = _relic_event_flow_marker(marker, EventFlowMarkerKind.CARD_REWARD, count)
     next_state, reward_events = _add_event_flow_card_rewards(state, rng, event_marker)
@@ -6784,7 +6820,13 @@ def _apply_sea_glass_card_selection(
     state: RunState,
     rng: Random,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    pool = _other_character_card_reward_pool(state)
+    source_rng = is_source_rng(rng)
+    preset = state.flags.get("sea_glass_character_id")
+    color = _normalized_id(preset) if isinstance(preset, str) else "ironclad" if source_rng else ""
+    pool = (
+        build_character_card_pool(_raw_card_pool_items(state), character_id=color)
+        if color else _other_character_card_reward_pool(state)
+    )
     colors = tuple(sorted({card.color for card in pool}))
     if not colors:
         return state, (
@@ -6794,13 +6836,15 @@ def _apply_sea_glass_card_selection(
                 metadata={"reason": "empty_other_character_card_pool"},
             ),
         )
-    color = rng.choice(colors)
+    color = color or rng.choice(colors)
+    selection_rng = random_stream(rng, "rewards") if source_rng else rng
     # Sea Glass has fixed rarity slots, not a roll over the entire color pool:
     # https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Sea_Glass
     # Canonical candidates make source payload order irrelevant to our RNG.
     selected_ids: list[str] = []
     rarity_counts: dict[str, int] = {}
     missing_rarity_counts: dict[str, int] = {}
+    upgraded_flags: list[bool] = []
     for rarity in (CardRarity.COMMON, CardRarity.UNCOMMON, CardRarity.RARE):
         candidates = sorted({
             card.card_id
@@ -6808,8 +6852,24 @@ def _apply_sea_glass_card_selection(
             if card.color == color and card.rarity is rarity
             and card.card_id not in selected_ids
         })
-        rng.shuffle(candidates)
-        chosen = candidates[:5]
+        if source_rng:
+            source_order = {card_id: index for index, card_id in enumerate(
+                SOURCE_CARD_POOLS.get(color, ()),
+            )}
+            candidates.sort(key=lambda card_id: source_order.get(card_id, len(source_order)))
+            chosen = []
+            for _ in range(min(5, len(candidates))):
+                card_id = selection_rng.choice(candidates)
+                candidates.remove(card_id)
+                chosen.append(card_id)
+                threshold = 0.0 if rarity is CardRarity.RARE else (
+                    (state.act - 1) * (0.125 if state.ascension >= 7 else 0.25)
+                )
+                upgraded_flags.append(source_float(selection_rng) <= threshold)
+        else:
+            rng.shuffle(candidates)
+            chosen = candidates[:5]
+            upgraded_flags.extend(False for _ in chosen)
         selected_ids.extend(chosen)
         rarity_counts[rarity.value] = len(chosen)
         if len(chosen) < 5:
@@ -6818,12 +6878,15 @@ def _apply_sea_glass_card_selection(
     reward = state.reward or RewardState(reward_id="sea_glass", source="other")
     first_index = len(reward.card_ids)
     metadata = dict(reward.metadata)
+    prior_upgrades = tuple(_source_sequence(metadata.get("fixed_card_upgraded")))
+    prior_upgrades += (False,) * max(0, first_index - len(prior_upgrades))
     optional_indices = _source_sequence(metadata.get("optional_fixed_card_indices"))
     metadata.update({
         "sea_glass_character_id": color,
         "sea_glass_card_ids": selected,
         "sea_glass_rarity_counts": rarity_counts,
         "sea_glass_missing_rarity_counts": missing_rarity_counts,
+        "fixed_card_upgraded": prior_upgrades + tuple(upgraded_flags),
         "optional_fixed_card_indices": optional_indices
         + tuple(range(first_index, first_index + len(selected))),
     })
@@ -6831,7 +6894,9 @@ def _apply_sea_glass_card_selection(
         "card_ids": reward.card_ids + selected,
         "metadata": metadata,
     })
-    return state.model_copy(update={"reward": reward}), (
+    return state.model_copy(update={"reward": reward, "flags": {
+        **state.flags, "sea_glass_character_id": color,
+    }}), (
         EffectEvent(
             kind="relic_card_selection_generated",
             source_id="sea_glass",
@@ -7198,6 +7263,10 @@ def _take_reward_card(
     returned_specs = _mapping_from(state.reward.metadata.get("returned_card_option_specs"))
     returned_spec = _mapping_from(returned_specs.get(str(group_index)))
     card_spec = dict(returned_spec) if returned_spec else _reward_card_spec(state, card_id)
+    fixed_upgrades = _source_sequence(state.reward.metadata.get("fixed_card_upgraded"))
+    if (fixed_index is not None and fixed_index < len(fixed_upgrades)
+            and fixed_upgrades[fixed_index]):
+        card_spec["upgraded"] = True
     card_spec.pop("instance_id", None)
     card = _card_from_spec(card_spec, len(state.master_deck) + 1)
     card = _with_unique_deck_card_id(card, state.master_deck)
@@ -11770,14 +11839,15 @@ def _apply_card_random_potion_effects(
             ),
         )
 
-    pool = _reward_potion_pool(state, "potion_pool")
+    pool, rarities = _item_potion_generation_pool(state, in_combat=True)
     if not pool:
         pool = ("fire_potion", "skill_potion", "essence_of_darkness")
 
-    rng = random_stream(random_from_state(rng_state), "combat_potion_generation")
+    rng = random_from_state(rng_state)
+    generation_rng = random_stream(rng, "combat_potion_generation")
     generated: list[str] = []
     for _ in range(min(count, open_slots)):
-        generated.append(_normalized_id(rng.choice(tuple(pool))))
+        generated.append(_normalized_id(draw_source_potion(generation_rng, pool, rarities)))
 
     potions = tuple(state.potions) + tuple(generated)
     events = tuple(
@@ -27340,6 +27410,34 @@ def _reward_potion_pool(state: RunState, pool_key: str) -> tuple[str, ...]:
         or _cached_source_rows(state, "potions")
     )
     return build_combat_potion_pool(raw_pool, character_id=state.character_id)
+
+
+def _item_potion_generation_pool(
+    state: RunState, *, in_combat: bool,
+) -> tuple[tuple[str, ...], Mapping[str, str]]:
+    """PotionFactory options, with explicit custom libraries retained for tests."""
+    epochs = state.flags.get("revealed_epochs", state.flags.get("unlocked_epochs"))
+    unlocked = None if epochs is None else _string_items(epochs)
+    source_options = source_potion_options(
+        state.character_id, unlocked_epochs=unlocked, in_combat=in_combat,
+    )
+    raw = _source_items(state.flags.get("potion_pool"))
+    options = _reward_potion_pool(state, "potion_pool") if raw else source_options
+    if in_combat:
+        options = tuple(potion for potion in options if potion not in COMBAT_POTION_EXCLUSIONS)
+    # Source IDs follow the character pool, then SharedPotionPool order.
+    order = {potion: index for index, potion in enumerate(source_options)}
+    options = tuple(sorted(
+        dict.fromkeys(options), key=lambda potion: order.get(potion, len(order)),
+    ))
+    rarities = dict(SOURCE_POTION_RARITIES)
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        potion_id = _normalized_id(str(item.get("id", item.get("potion_id", ""))))
+        if item.get("rarity_key", item.get("rarity")) is not None:
+            rarities[potion_id] = str(item.get("rarity_key", item.get("rarity"))).lower()
+    return options, rarities
 
 
 def _alive_monsters(combat: CombatState) -> tuple[MonsterState, ...]:

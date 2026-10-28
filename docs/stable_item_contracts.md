@@ -80,6 +80,20 @@ unpowered/unblockable damage paths; it does not classify arbitrary payment costs
 as attacks. Tests cover source counter reset/preservation, active consumers after
 reset, once-per-turn activation, and repeated small resource spends through saves.
 
+Source potion generation now has the exact five class pools, Shared pool order,
+twenty-one epoch-gated potions, source rarity metadata, and the three in-combat
+generation exclusions (Fairy, Fruit Juice, Regen). Alchemize uses those exclusions;
+Entropic Brew deliberately uses the out-of-combat factory even during combat.
+Both use the shared float32 rarity-first factory and the combat potion-generation
+stream. Profile epochs absent from input still assume all potions unlocked.
+
+Sea Glass honors the character preselected by Orobas. On the stable RNG path it
+selects and removes each offer in source registry order and immediately performs
+its upgrade roll, retaining all fifteen per-card upgrade states through display,
+selection, and reload. Its fifteen choices consume thirty Rewards draws and no
+class reroll. Dusty Tome adds the preselected Ancient card directly, upgraded;
+the pickup does not reroll its card or create an ordinary card reward screen.
+
 Implementation source:
 [pinned repository](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7),
 `Models.Potions/{GlowwaterPotion,LiquidMemories,GigantificationPotion,BeetleJuice,PowderedDemise}.cs`,

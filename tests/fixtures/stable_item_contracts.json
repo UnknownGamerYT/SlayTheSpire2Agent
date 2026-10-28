@@ -221,6 +221,70 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Offering.cs",
       "sha256": "fa615e1a41ee749779ce89dab2d542ac3e4c8d2cb7b0d3d196b83ad64a218534"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/IroncladPotionPool.cs",
+      "sha256": "4594ab398b7199a81f61b423e4a12f8b5e5832edfa450b864511c9e542e7c187"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/SilentPotionPool.cs",
+      "sha256": "82087e8002478846db5991b1d21d92df117c08f9f2129ef64dadefd5a375d917"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/RegentPotionPool.cs",
+      "sha256": "cc5ffe9d0f5b09d65bff530d8193667d1d149c183e1e49ae586ea3b6945f4d44"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/NecrobinderPotionPool.cs",
+      "sha256": "3611bc6b6b9ba00ddc8961e10e39d3d800ca3db79075a014e769beec5f7f5ecf"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/DefectPotionPool.cs",
+      "sha256": "68f4abaf6a78b0eb33ec57b24acaee0195842f5b963bd64c240dd72726d9e6ce"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/SharedPotionPool.cs",
+      "sha256": "2e2d2d53b81772047dc6fd22e6f55d69a2792ac8d22fffd46977eb508b8b6c52"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Ironclad4Epoch.cs",
+      "sha256": "5e446a42280f58a283ad36dd0e6d98b3828b5151725011f142c1765f3dfdb421"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Silent4Epoch.cs",
+      "sha256": "76b5af7bb858a3cc5a47d2d40b96a22501ae9346afe9aad0c09215483394644f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Regent4Epoch.cs",
+      "sha256": "35c881e1c57f177414f4ae4561ddb779e247d94dbe773687396806f502692fc0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Necrobinder4Epoch.cs",
+      "sha256": "ff41e4b73300c9afa5ee25594854cc39a06bb1e7b1da0238ebb0bbe501912c89"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Defect4Epoch.cs",
+      "sha256": "6647376b4bd62272c4647e96fa371c6049f1d509075a5aa3f8e839d2765225c1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Potion1Epoch.cs",
+      "sha256": "9b52e661073d104f6236617cbfe617b32cdeb52cbf2b77c4bf8e09f699d63b31"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Potion2Epoch.cs",
+      "sha256": "74dbfce7772e5e591840e6907516b2fb57877999e3c47d1ada146519f1fdb3f4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/PotionFactory.cs",
+      "sha256": "1687ca4ceedeb04089122f8ff673cc33639873e98f210e5b6cd0dbc40c5b3aa3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DustyTome.cs",
+      "sha256": "077a4d84772a1c4f6a98bd3e43112a69d2caa7cbc48e8e28dc1b45aab53bf4b5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SeaGlass.cs",
+      "sha256": "6833f9402cf40a44b2844589ef2b8391519c8181ad557ac8af2d9a1ebaa32665"
     }
   ],
   "cached_source_rows": {

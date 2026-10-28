@@ -11,7 +11,8 @@ from combat.test_relic_engine_integration import _card_spec, _enter_combat
 
 from sts2sim import legal_actions, serialize, step
 from sts2sim.agent_api import action_space
-from sts2sim.engine import RunPhase
+from sts2sim.engine import RewardState, RunPhase
+from sts2sim.engine.rng import RunRng, capture_random_state
 from sts2sim.mechanics.relic_lifecycle import COMBAT_ONLY_RELIC_COUNTERS
 
 
@@ -436,4 +437,32 @@ def test_mini_regent_activates_once_per_turn_and_galactic_dust_accumulates_small
     assert state.player.statuses["strength"] == 2
     assert state.player.block == 10
     assert state.combat.metadata["relic_counters"]["galactic_dust"] == 1
+
+
+def test_dusty_tome_adds_the_preselected_ancient_card_upgraded_without_reroll():
+    state = _state(_simple("unused"))
+    state = state.model_copy(update={
+        "combat": None, "phase": RunPhase.REWARD,
+        "reward": RewardState(reward_id="tome", relic_id="dusty_tome"),
+        "rng": capture_random_state(RunRng("TOME")),
+        "flags": {**state.flags, "dusty_tome_card_id": "corruption"},
+    })
+    before = state.rng
+    action = next(a for a in legal_actions(state) if a.type == "take_reward_relic")
+    state = step(_reload(state), action)
+    assert state.master_deck[-1].card_id == "corruption"
+    assert state.master_deck[-1].upgraded
+    assert state.rng == before
+
+
+def test_source_alchemize_excludes_combat_restricted_potions_and_uses_own_rng_stream():
+    generate = _simple("alchemize", effects={"add_random_potion": 3})
+    state = _state(generate)
+    state = state.model_copy(update={"rng": capture_random_state(RunRng("ALCHEMIZE")),
+                                     "character_id": "IRONCLAD"})
+    state = _play(_reload(state), "alchemize")
+    assert len(state.potions) == 3
+    assert not {"fairy_in_a_bottle", "fruit_juice", "regen_potion"}.intersection(state.potions)
+    assert state.rng.draws == 0
+    assert state.rng.streams["combat_potion_generation"].draws == 6
 
