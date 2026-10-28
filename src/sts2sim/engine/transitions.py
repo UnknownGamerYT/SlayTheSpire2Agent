@@ -6040,7 +6040,8 @@ def _apply_potion_use_trigger_result(
             update={"hp": min(player.max_hp, max(0, player.hp + result.hp_delta))}
         )
     if result.block_delta:
-        player = player.model_copy(update={"block": max(0, player.block + result.block_delta)})
+        gain = _unpowered_player_block_gain(player, result.block_delta)
+        player = player.model_copy(update={"block": min(999_999_999, player.block + gain)})
     energy_delta = permitted_energy_delta(player.statuses, result.energy_delta)
     if energy_delta:
         player = player.model_copy(update={"energy": max(0, player.energy + energy_delta)})
@@ -6086,8 +6087,8 @@ def _apply_direct_potion_effects(
             )
         )
     elif normalized == "fortifier":
-        gained = min(player.block * 2, max(0, 999_999_999 - player.block))
-        player = player.model_copy(update={"block": player.block + gained})
+        gained = _unpowered_player_block_gain(player, player.block * 2)
+        player = player.model_copy(update={"block": min(999_999_999, player.block + gained)})
         events.append(
             EffectEvent(
                 kind="player_block",
@@ -6994,6 +6995,11 @@ def _apply_relic_pickup_effects(
     if normalized in {"scroll_boxes", "touch_of_orobas", "toy_box", "wongos_mystery_ticket"}:
         return _apply_lifecycle_relic_pickup(state, normalized)
     pickup = resolve_relic_pickup(normalized, hp=state.player.hp, max_hp=state.player.max_hp)
+    if normalized == "precarious_shears" and apply_table_effects:
+        state = state.model_copy(update={"flags": {
+            **state.flags, "source_precarious_shears_damage_pending": True,
+        }})
+        pickup = replace(pickup, hp_delta=0)
     events: list[EffectEvent] = []
     if apply_table_effects and not pickup.unsupported:
         player = state.player
@@ -7200,6 +7206,8 @@ def _apply_relic_pickup_effects(
     if _pending_relic_deck_choices(state):
         state, completion_events = _finish_empty_relic_deck_choices(state)
         events.extend(completion_events)
+    state, pickup_damage_events = _finish_source_pickup_damage(state)
+    events.extend(pickup_damage_events)
     if normalized == GOLDEN_COMPASS_RELIC_ID:
         flags = dict(state.flags)
         flags["golden_compass_map_act"] = state.act
@@ -8006,6 +8014,28 @@ def _legal_relic_deck_choice_actions(state: RunState) -> tuple[Action, ...]:
     return tuple(actions)
 
 
+def _finish_source_pickup_damage(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    if not state.flags.get("source_precarious_shears_damage_pending") or any(
+        _normalized_id(str(choice["relic_id"])) == "precarious_shears"
+        for choice in _pending_relic_deck_choices(state)
+    ):
+        return state, ()
+    flags = dict(state.flags)
+    flags.pop("source_precarious_shears_damage_pending", None)
+    state = state.model_copy(update={"flags": flags})
+    if state.phase == RunPhase.COMBAT and state.combat is not None:
+        combat, events = _damage_combat_player(
+            state.combat, 16, "precarious_shears", relics=state.relics,
+        )
+        state = state.model_copy(update={"combat": combat, "player": combat.player})
+    else:
+        player, event = _damage_player(state.player, 16, "precarious_shears", relics=state.relics)
+        state, events = state.model_copy(update={"player": player}), (event,)
+    if state.player.hp <= 0:
+        state = state.model_copy(update={"phase": RunPhase.FAILED})
+    return state, events
+
+
 def _finish_empty_relic_deck_choices(
     state: RunState,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
@@ -8022,7 +8052,8 @@ def _finish_empty_relic_deck_choices(
         flags["pending_relic_deck_choices"] = choices
     else:
         flags.pop("pending_relic_deck_choices", None)
-    return state.model_copy(update={"flags": flags}), tuple(events)
+    state, damage_events = _finish_source_pickup_damage(state.model_copy(update={"flags": flags}))
+    return state, tuple(events) + damage_events
 
 
 def _resolve_relic_deck_choice(
@@ -13502,6 +13533,16 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     )
     rng = random_from_state(joss_rng_state)
     events.extend(joss_events)
+    statuses = dict(combat.player.statuses)
+    shadowmeld = statuses.pop("shadowmeld", 0)
+    if shadowmeld:
+        combat = combat.model_copy(update={"player": combat.player.model_copy(
+            update={"statuses": statuses},
+        )})
+        events.append(EffectEvent(
+            kind="temporary_status_expired", source_id="shadowmeld", target_id=PLAYER_TARGET_ID,
+            amount=-shadowmeld, metadata={"status": "shadowmeld"},
+        ))
     player = combat.player
     monster_definitions = _monster_definitions(state)
     # v0.107.1 resets Skulking Colony's budget at both turn starts, so Poison
@@ -16680,7 +16721,8 @@ def _apply_after_card_play_hooks(
     events: list[EffectEvent] = []
     afterimage = _status_amount(player.statuses, "afterimage")
     if afterimage > 0:
-        player = player.model_copy(update={"block": player.block + afterimage})
+        afterimage = _unpowered_player_block_gain(player, afterimage)
+        player = player.model_copy(update={"block": min(999_999_999, player.block + afterimage)})
         events.append(
             EffectEvent(
                 kind="player_block",
@@ -18380,12 +18422,13 @@ def _apply_osty_action_effect(
             }
             combat = _set_osty_state(combat, osty)
             if _has_relic_id(relics, "bone_flute"):
+                bone_block = _unpowered_player_block_gain(combat.player, 2)
                 combat = combat.model_copy(update={"player": combat.player.model_copy(update={
-                    "block": combat.player.block + 2,
+                    "block": min(999_999_999, combat.player.block + bone_block),
                 })})
                 events.append(EffectEvent(
                     kind="player_block", source_id=source_card.instance_id,
-                    target_id=PLAYER_TARGET_ID, amount=2,
+                    target_id=PLAYER_TARGET_ID, amount=bone_block,
                     metadata={"card_id": source_card.card_id, "relic_id": "bone_flute"},
                 ))
             continue
@@ -19019,8 +19062,10 @@ def _apply_orb_passive(
         )
         return combat, events, orb
     if orb.orb_id == "frost":
-        amount = _orb_amount(2, focus)
-        player = combat.player.model_copy(update={"block": combat.player.block + amount})
+        amount = _unpowered_player_block_gain(combat.player, _orb_amount(2, focus))
+        player = combat.player.model_copy(update={
+            "block": min(999_999_999, combat.player.block + amount),
+        })
         return (
             combat.model_copy(update={"player": player}),
             (
@@ -19118,8 +19163,10 @@ def _apply_orb_evoke(
             }}) for event in thunder_events)
         return combat, lightning_events
     if orb.orb_id == "frost":
-        amount = _orb_amount(5, focus)
-        player = combat.player.model_copy(update={"block": combat.player.block + amount})
+        amount = _unpowered_player_block_gain(combat.player, _orb_amount(5, focus))
+        player = combat.player.model_copy(update={
+            "block": min(999_999_999, combat.player.block + amount),
+        })
         return (
             combat.model_copy(update={"player": player}),
             (
@@ -23017,6 +23064,10 @@ def _play_top_draw_card_from_trigger(
         from_zone="draw_pile", target_mode="",    )
 
 
+def _unpowered_player_block_gain(player: PlayerState, amount: int) -> int:
+    return max(0, amount) * 2 ** _status_amount(player.statuses, "shadowmeld")
+
+
 def _gain_player_block(
     state: RunState | None,
     combat: CombatState,
@@ -23042,6 +23093,13 @@ def _gain_player_block(
         _modified_card_block(combat, source_card, amount)
         if from_card and source_card is not None else Fraction(amount)
     )
+    block *= 2 ** _status_amount(player.statuses, "shadowmeld")
+    owned_relics = state.relics if state is not None else tuple(
+        combat.metadata.get("item_relic_ids", ())
+    )
+    if (source_card is not None and _has_relic_id(owned_relics, "vitruvian_minion")
+        and _has_source_card_tag(source_card, "minion")):
+        block *= 2
     event_metadata = dict(metadata or {})
     if from_card and source_card is not None:
         if _status_amount(player.statuses, "double_block_gain_this_turn") > 0:
@@ -24081,17 +24139,10 @@ def _apply_stored_turn_powers(
             continue
         key = f"{power.replace('_', '')}_self_damage"
         loss = _metadata_int(combat.metadata, key, 1)
-        player, event = _lose_player_hp(combat.player, loss, power, relics=state.relics)
-        combat = _record_player_hp_loss(
-            combat.model_copy(update={"player": player}), event.amount or 0,
+        combat, damage_events = _damage_combat_player(
+            combat, loss, power, relics=state.relics, unblockable=True,
         )
-        events.append(event)
-        combat, loss_events = _apply_player_turn_hp_loss_powers(
-            combat, event.amount or 0, relics=state.relics,
-        )
-        events.extend(loss_events)
-        combat, fairy_events = _restore_fairy_after_damage(combat, relics=state.relics)
-        events.extend(fairy_events)
+        events.extend(damage_events)
         if power == "crimson_mantle" and combat.player.hp > 0:
             combat, rng_state, block_events = _gain_player_block(
                 state, combat, rng_state, amount,
@@ -24234,8 +24285,8 @@ def _apply_player_turn_start_effects(
 
     block = max(0, int(statuses.pop("next_turn_block", 0)))
     if block:
-        block = min(block, max(0, 999_999_999 - player.block))
-        player = player.model_copy(update={"block": player.block + block})
+        block = _unpowered_player_block_gain(player, block)
+        player = player.model_copy(update={"block": min(999_999_999, player.block + block)})
         events.append(EffectEvent(kind="player_block", target_id=PLAYER_TARGET_ID, amount=block))
 
     star = max(0, int(statuses.pop("next_turn_star", 0)))
@@ -24292,11 +24343,14 @@ def _apply_player_end_turn_status_block(
         ("metallicize", _status_amount(player.statuses, "metallicize")),
         ("plated_armor", _status_amount(player.statuses, "plated_armor")),
     )
+    block_sources = tuple(
+        (status, _unpowered_player_block_gain(player, amount)) for status, amount in block_sources
+    )
     total_block = sum(amount for _status, amount in block_sources if amount > 0)
     if total_block <= 0:
         return player, tuple(events)
 
-    player = player.model_copy(update={"block": player.block + total_block})
+    player = player.model_copy(update={"block": min(999_999_999, player.block + total_block)})
     for status, amount in block_sources:
         if amount <= 0:
             continue
@@ -25639,8 +25693,8 @@ def _apply_combat_relic_marker(
         player = player.model_copy(update={"hp": min(player.max_hp, player.hp + heal)})
         events.append(_combat_relic_event(marker, "player_healed", player.hp - old_hp))
     elif marker.kind == "gain_block" and _marker_targets_player(marker):
-        amount = max(0, marker.amount or 0)
-        player = player.model_copy(update={"block": player.block + amount})
+        amount = _unpowered_player_block_gain(player, marker.amount or 0)
+        player = player.model_copy(update={"block": min(999_999_999, player.block + amount)})
         events.append(_combat_relic_event(marker, "player_block", amount))
     elif marker.kind == "gain_energy" and _marker_targets_player(marker):
         if (_normalized_id(marker.relic_id) in SOURCE_MAX_ENERGY_RELIC_IDS
@@ -25662,34 +25716,17 @@ def _apply_combat_relic_marker(
             player = player.model_copy(update={"gold": max(0, player.gold + amount)})
             events.append(_combat_relic_event(marker, "gold_changed", amount))
     elif marker.kind == "lose_hp" and _marker_targets_player(marker):
-        player, event = _lose_player_hp(
-            player,
-            max(0, marker.amount or 0),
-            marker.source_id or marker.relic_id,
-            relics=tuple(combat.metadata.get("item_relic_ids", ())),
+        combat, damage_events = _damage_combat_player(
+            combat.model_copy(update={
+                "player": player, "monsters": tuple(monsters), "metadata": metadata,
+            }), max(0, marker.amount or 0), marker.source_id or marker.relic_id,
+            relics=tuple(combat.metadata.get("item_relic_ids", ())), unblockable=True,
         )
-        events.append(
-            event.model_copy(
-                update={
-                    "metadata": {
-                        **event.metadata,
-                        "hook": marker.hook.value,
-                        "relic_id": marker.relic_id,
-                        "marker_kind": marker.kind,
-                    }
-                }
-            )
-        )
-        combat = _record_player_hp_loss(
-            combat.model_copy(update={"player": player}), event.amount or 0,
-        )
-        combat, loss_events = _apply_player_turn_hp_loss_powers(combat, event.amount or 0)
-        events.extend(loss_events)
-        combat, fairy_events = _restore_fairy_after_damage(combat)
-        events.extend(fairy_events)
-        player = combat.player
-        monsters = list(combat.monsters)
-        metadata = dict(combat.metadata)
+        events.extend(event.model_copy(update={"metadata": {
+            **event.metadata, "hook": marker.hook.value, "relic_id": marker.relic_id,
+            "marker_kind": marker.kind,
+        }}) for event in damage_events)
+        player, monsters, metadata = combat.player, list(combat.monsters), dict(combat.metadata)
     elif marker.kind == "draw_cards" and _marker_targets_player(marker):
         amount = marker.amount or 0
         if amount:
@@ -29788,15 +29825,9 @@ def _modified_card_damage(
             modified += 1
         if _is_shiv_card(card):
             modified += _status_amount(combat.player.statuses, "accuracy")
-        if _has_relic_id(relics, "strike_dummy") and _card_contains_normalized_text(
-            card,
-            "strike",
-        ):
+        if _has_relic_id(relics, "strike_dummy") and _has_source_card_tag(card, "strike"):
             modified += 3
-        if _has_relic_id(relics, "fake_strike_dummy") and _card_contains_normalized_text(
-            card,
-            "strike",
-        ):
+        if _has_relic_id(relics, "fake_strike_dummy") and _has_source_card_tag(card, "strike"):
             modified += 1
         if _has_relic_id(relics, "miniature_cannon") and card.upgraded:
             modified += 3
@@ -29822,6 +29853,8 @@ def _modified_card_damage(
         if (_signed_status_amount(combat.player.statuses, "shrink") != 0
             and not _card_is_osty_attack(card)):
             modified *= Fraction(7, 10)
+    if _has_relic_id(relics, "vitruvian_minion") and _has_source_card_tag(card, "minion"):
+        modified *= 2
     return max(Fraction(0), modified)
 
 

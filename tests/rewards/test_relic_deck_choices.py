@@ -300,8 +300,10 @@ def test_eternal_does_not_block_upgrade_duplicate_or_enchantment_choices() -> No
 
 def test_precarious_shears_does_not_repeat_pickup_hp_loss_for_each_selection() -> None:
     state = _pickup("precarious_shears")
-    assert state.player.hp == 44
-    state = _choose(_choose(state))
+    assert state.player.hp == 60
+    state = _choose(state)
+    assert state.player.hp == 60
+    state = _choose(load_state(serialize(state)))
     assert state.player.hp == 44
     assert not state.flags.get("pending_relic_deck_choices")
 

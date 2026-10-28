@@ -126,7 +126,7 @@ def source_core_steps(
     if card_id in {"equilibrium", "salvo"}:
         return steps + ({"retain_hand": True},)
     if card_id == "shadowmeld":
-        return (status("double_block_gain_this_turn", 1),)
+        return (status("shadowmeld", 1),)
     if card_id == "shadow_step":
         return (
             {"discard_hand": {"mode": "all"}},
