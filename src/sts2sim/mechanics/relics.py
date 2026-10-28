@@ -117,7 +117,8 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "card_reward",
                         amount=1,
                         target_id="player",
-                        metadata={"rarity": "rare", "selection": "random"},
+                        metadata={"rarity": "rare", "selection": "random",
+                                  "direct_add": True, "no_upgrade_roll": True},
                     ),
                 ),
             ),
@@ -241,10 +242,10 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
             "byrdpip": RelicHookRule(
                 markers=(
                     RelicMarkerSpec(
-                        "add_deck_cards",
-                        amount=1,
+                        "transform_eggs",
                         target_id="player",
-                        metadata={"card_id": "byrd_swoop"},
+                        metadata={"from_card_id": "byrdonis_egg", "to_card_id": "byrd_swoop",
+                                  "all_owned": True},
                     ),
                 ),
             ),

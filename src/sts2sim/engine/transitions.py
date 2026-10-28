@@ -276,6 +276,7 @@ from .rng import (
     random_stream,
     reset_random_stream,
     run_random_from_seed,
+    stable_shuffle,
 )
 from .serialization import SerializedState, load_state, state_digest
 from .source_crystal_sphere import choose_sphere
@@ -6969,6 +6970,8 @@ def _apply_relic_pickup_effects(
     pickup_rng: Random | None = None,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     normalized = _normalized_id(relic_id)
+    if normalized == "byrdpip" and _normalized_id(state.character_id) != "test":
+        return _apply_byrdpip_pickup(state)
     state = remove_obtained_source_relic(state, normalized)
     if normalized == "neows_talisman":
         deck = list(state.master_deck)
@@ -7010,7 +7013,19 @@ def _apply_relic_pickup_effects(
                     metadata={"max_hp": player.max_hp},
                 )
             )
-        if pickup.hp_delta:
+        if normalized == "fragrant_mushroom" and _normalized_id(state.character_id) != "test":
+            # This source damage is unpowered and unblockable, rather than a
+            # raw HP subtraction. Keep the shared damage modifiers and retain
+            # existing Block across the out-of-combat command.
+            previous_block = player.block
+            player, damage_event = _damage_player(
+                player.model_copy(update={"block": 0}), 15, relic_id, relics=state.relics,
+            )
+            player = player.model_copy(update={"block": previous_block})
+            events.append(damage_event.model_copy(update={"metadata": {
+                **damage_event.metadata, "unpowered": True, "unblockable": True,
+            }}))
+        elif pickup.hp_delta:
             old_hp = player.hp
             player = player.model_copy(
                 update={"hp": min(player.max_hp, max(0, player.hp + pickup.hp_delta))}
@@ -7082,6 +7097,9 @@ def _apply_relic_pickup_effects(
             elif marker.kind == "add_deck_cards":
                 state, add_events = _apply_relic_add_deck_cards_marker(state, relic_id, marker)
                 events.extend(add_events)
+            elif marker.kind == "transform_eggs":
+                state, egg_events = _apply_byrdpip_pickup(state)
+                events.extend(egg_events)
             elif marker.kind == "duplicate_deck_card":
                 state, duplicate_events = _apply_relic_duplicate_deck_card_marker(
                     state,
@@ -7416,7 +7434,18 @@ def _apply_relic_upgrade_deck_cards_marker(
         if _card_is_upgradable(card)
         and _relic_marker_matches_deck_card(card, marker.metadata)
     ]
-    rng.shuffle(candidates)
+    if (
+        _normalized_id(relic_id) == "fragrant_mushroom"
+        and _normalized_id(state.character_id) != "test"
+    ):
+        candidates = [index for index, card in enumerate(deck)
+                      if not card.upgraded and card.card_id not in NON_UPGRADABLE_CARD_IDS]
+        candidates = stable_shuffle(
+            candidates, random_stream(rng, "niche"),
+            key=lambda index: (deck[index].card_id.upper(), deck[index].upgraded),
+        )
+    else:
+        rng.shuffle(candidates)
     events: list[EffectEvent] = []
     for index in candidates[: max(0, marker.amount or 0)]:
         card = deck[index]
@@ -7498,6 +7527,10 @@ def _apply_relic_transform_deck_cards_marker(
         return state, ()
 
     event_marker = _relic_event_flow_marker(marker, EventFlowMarkerKind.CARD_TRANSFORM, count)
+    if _normalized_id(relic_id) == "astrolabe" and _normalized_id(state.character_id) != "test":
+        rng = random_stream(rng, "niche")
+    else:
+        rng = random_stream(rng, "transformations")
     next_state, transform_events, transformed_count = _transform_deck_cards(
         state,
         random_stream(rng, "niche") if _normalized_id(relic_id) == "new_leaf" else rng,
@@ -7550,6 +7583,22 @@ def _apply_relic_card_reward_marker(
         return state, ()
     if _normalized_id(relic_id) == "sea_glass":
         return _apply_sea_glass_card_selection(state, rng)
+    if _normalized_id(relic_id) == "arcane_scroll" and _normalized_id(state.character_id) != "test":
+        candidates = [card.card_id for card in _combat_card_pool(state)
+                      if card.rarity is CardRarity.RARE
+                      and _normalized_id(card.color) == _normalized_id(state.character_id)]
+        if not candidates:
+            return state, ()
+        selected = random_stream(rng, "rewards").choice(candidates)
+        card = _card_from_spec(_reward_card_spec(state, selected), len(state.master_deck) + 1)
+        card = _with_unique_deck_card_id(card, state.master_deck)
+        card, upgrade_event = _upgrade_card_for_add_relics(state, card)
+        event = EffectEvent(kind="relic_deck_card_added", source_id="arcane_scroll",
+                            target_id=card.instance_id, amount=1,
+                            metadata={"card_id": selected, "no_upgrade_roll": True})
+        return state.model_copy(update={"master_deck": state.master_deck + (card,)}), (
+            (event,) + ((upgrade_event,) if upgrade_event is not None else ())
+        )
     if _normalized_id(relic_id) == "glass_eye" and _normalized_id(state.character_id) != "test":
         return _apply_glass_eye_rewards(state, rng)
     if _normalized_id(relic_id) == "dusty_tome":
@@ -7592,6 +7641,31 @@ def _apply_relic_card_reward_marker(
         )
         for event in reward_events
     )
+
+
+def _apply_byrdpip_pickup(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    events: list[EffectEvent] = []
+
+    def transform(cards: tuple[CardInstance, ...]) -> tuple[CardInstance, ...]:
+        transformed = []
+        for card in cards:
+            if _normalized_id(card.card_id) != "byrdonis_egg":
+                transformed.append(card)
+                continue
+            spec = {**_reward_card_spec(state, "byrd_swoop"), "instance_id": card.instance_id}
+            transformed.append(_card_from_spec(spec, len(transformed) + 1))
+            events.append(EffectEvent(kind="byrdonis_egg_hatched", source_id="byrdpip",
+                                      target_id=card.instance_id,
+                                      metadata={"card_id": "byrd_swoop"}))
+        return tuple(transformed)
+
+    deck = transform(state.master_deck)
+    combat = state.combat
+    if combat is not None and state.phase == RunPhase.COMBAT:
+        combat = combat.model_copy(update={zone: transform(getattr(combat, zone))
+                                           for zone in ("hand", "draw_pile", "discard_pile",
+                                                        "exhaust_pile")})
+    return state.model_copy(update={"master_deck": deck, "combat": combat}), tuple(events)
 
 
 def _apply_glass_eye_rewards(
@@ -9079,8 +9153,8 @@ def _source_shop_relic_selector(
 ) -> Callable[[str], ShopItem] | None:
     if (
         not has_source_relic_bag(state)
-        or _normalized_id(state.character_id) == "test"
-        or _source_items(state.flags.get("shop_relic_pool"))
+        or (state.flags.get("source_relic_bag_mode") != "source"
+            and _source_items(state.flags.get("shop_relic_pool")))
     ):
         return None
     rows = {
@@ -11095,7 +11169,7 @@ def _resolve_extra_card_play(
     events.extend(kill_events)
     marker_rng = random_from_state(rng_state)
     combat, hook_events = _apply_after_card_play_hooks(
-        combat, card, state.relics, energy_spent=0, rng=marker_rng, state=state,
+        combat, card, state.relics, energy_spent=0, rng=marker_rng, state=state, is_auto_play=True,
     )
     rng_state = capture_random_state(marker_rng)
     combat, rng_state, status_events = _apply_card_play_status_triggers(
@@ -12609,6 +12683,14 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
             },
         }
     )
+    if _has_relic(state, "intimidating_helmet") and energy_spent >= 2:
+        combat = combat.model_copy(update={"player": combat.player.model_copy(update={
+            "block": combat.player.block + 4,
+        })})
+        resource_events += (EffectEvent(
+            kind="player_block", source_id="intimidating_helmet", target_id=PLAYER_TARGET_ID,
+            amount=4, metadata={"relic_id": "intimidating_helmet", "energy_spent": energy_spent},
+        ),)
     combat, rng_state, resource_spent_relic_events = (
         _apply_player_resource_spent_relics_from_events(
             state.model_copy(update={"combat": combat, "player": combat.player}),
@@ -16429,9 +16511,19 @@ def _void_form_applies(combat: CombatState) -> bool:
 
 
 def _card_for_void_form_cost(combat: CombatState, card: CardInstance) -> CardInstance:
-    if not _void_form_applies(combat):
-        return card
-    return card.model_copy(update={"custom": {**card.custom, "void_form_free": True}})
+    custom = dict(card.custom)
+    if _void_form_applies(combat):
+        custom["void_form_free"] = True
+    if _brilliant_scarf_applies(combat):
+        custom["brilliant_scarf_free"] = True
+    return card.model_copy(update={"custom": custom}) if custom != card.custom else card
+
+
+def _brilliant_scarf_applies(combat: CombatState) -> bool:
+    return (
+        "brilliant_scarf" in combat.metadata.get("item_relic_ids", ())
+        and _turn_power_count(combat, "brilliant_scarf_manual") == 4
+    )
 
 
 def _reserve_card_status_play(
@@ -16581,6 +16673,7 @@ def _apply_after_card_play_hooks(
     energy_spent: int = 0,
     rng: Random | None = None,
     state: RunState | None = None,
+    is_auto_play: bool = False,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     combat = source_cost_hooks.after_play(combat, card)
     player = combat.player
@@ -16605,7 +16698,7 @@ def _apply_after_card_play_hooks(
     generic_card_play_relics = tuple(
         relic
         for relic in relics
-        if _normalized_id(str(relic)) not in {"throwing_axe"}
+        if _normalized_id(str(relic)) not in {"throwing_axe", "intimidating_helmet"}
     )
     relic_result = _resolve_combat_relic_trigger(
         GameTrigger.CARD_PLAYED,
@@ -16623,12 +16716,19 @@ def _apply_after_card_play_hooks(
             "powers_played_this_turn": power_count,
             "cards_played_this_turn": cards_played_count,
             "card_cost": card.cost if card.cost is not None else -1,
+            "energy_spent": energy_spent,
+            "combat_in_progress": bool(_alive_monsters(combat)) and combat.player.hp > 0,
             "played_card_instance_id": card.instance_id,
         },
     )
     combat, relic_events = _apply_combat_relic_resolution(
         combat, relic_result, rng=rng, state=state,
     )
+    if not is_auto_play and _has_relic_id(relics, "brilliant_scarf"):
+        combat = _set_turn_power_count(
+            combat, "brilliant_scarf_manual",
+            _turn_power_count(combat, "brilliant_scarf_manual") + 1,
+        )
     metadata = dict(combat.metadata)
     if card.type == CardType.ATTACK:
         metadata["attacks_played_this_turn"] = attack_count + 1
@@ -29387,6 +29487,8 @@ def _energy_cost(
     if (combat is not None and card.type == CardType.POWER
         and _has_relic_id(tuple(combat.metadata.get("item_relic_ids", ())), "spiked_gauntlets")):
         cost += 1
+    if combat is not None and _brilliant_scarf_applies(combat):
+        return 0
     return max(0, cost)
 
 
@@ -29457,6 +29559,8 @@ def _pay_card_resource_costs(
 
 def _card_resource_costs(card: CardInstance, *, available_star: int) -> dict[str, int]:
     raw_star_cost = card.custom.get("star_cost", 0)
+    if card.custom.get("brilliant_scarf_free") and str(raw_star_cost).lower() != "x":
+        return {}
     if (_truthy(card.custom.get("free_to_play_this_turn"))
             or _truthy(card.custom.get("free_to_play_this_combat"))):
         return {}

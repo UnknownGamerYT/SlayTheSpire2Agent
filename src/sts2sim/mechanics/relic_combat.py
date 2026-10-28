@@ -1308,7 +1308,6 @@ def _resolve_card_played_dynamic(
 ) -> tuple[CombatRelicMarker, ...]:
     card_type = _normalized_id(context.card_type or "")
     card_id = _normalized_id(context.card_id or "")
-    cards_played_next = _int_context_value(context, "cards_played_this_turn") + 1
 
     if relic_id == "chemical_x":
         cost = _normalized_id(str(_first_present(context.metadata, "card_cost", "cost") or ""))
@@ -1441,31 +1440,23 @@ def _resolve_card_played_dynamic(
             ),
         )
     if relic_id == "brilliant_scarf":
-        if cards_played_next != 5:
-            return ()
-        return (
-            CombatRelicMarker(
-                kind="make_random_card_free_this_turn",
-                relic_id=relic_id,
-                hook=hook,
-                amount=1,
-                target_id="player",
-                metadata={"condition": "fifth_card_played", "card_count": cards_played_next},
-            ),
-        )
+        # A late cost modifier on the fifth manual card, applied before play.
+        return ()
     if relic_id == "iron_club":
-        if cards_played_next % 4 != 0:
-            return ()
-        return (
+        next_counter = context.relic_counters.get(relic_id, 0) + 1
+        counter_marker = _counter_marker(
+            relic_id, hook, next_counter=next_counter, period=4, source=PROVISIONAL_STS2_SOURCE,
+        )
+        return (counter_marker,) + ((
             CombatRelicMarker(
                 kind="draw_cards",
                 relic_id=relic_id,
                 hook=hook,
                 amount=1,
                 target_id="player",
-                metadata={"card_count": cards_played_next, "period": 4},
+                metadata={"card_count": next_counter, "period": 4},
             ),
-        )
+        ) if next_counter % 4 == 0 and context.metadata.get("combat_in_progress", True) else ())
     if relic_id == "helical_dart" and card_id == "shiv":
         return (
             CombatRelicMarker(
@@ -1499,7 +1490,8 @@ def _resolve_card_played_dynamic(
             ),
         )
     if relic_id == "ivory_tile":
-        if _coerce_int(context.metadata.get("card_cost"), default=0) < 3:
+        paid = context.metadata.get("energy_spent", context.metadata.get("card_cost", 0))
+        if _coerce_int(paid, default=0) < 3:
             return ()
         return (
             CombatRelicMarker(

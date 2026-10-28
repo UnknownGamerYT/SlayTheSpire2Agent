@@ -177,7 +177,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -189,10 +189,12 @@
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_reward_and_rule_relics_return_bounded_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_relic_pickup_contracts.py::test_arcane_scroll_adds_one_rare_directly_without_upgrade_roll_or_choice",
+        "tests/rewards/test_source_relic_pickup_contracts.py::test_arcane_scroll_still_allows_egg_upgrade_hooks_without_random_upgrade_draw"
       ],
       "notes": [
-        "Source directly adds one uniformly random Rare card with NoUpgradeRoll; the generic card_reward path currently offers a three-card reward. Source-specific direct pickup is pending."
+        "Corrected direct single uniformly random class Rare pickup, without an upgrade roll or reward choice; Egg upgrades still apply."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -282,7 +284,7 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -295,10 +297,11 @@
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_deck_mutation_relics_return_integration_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_relic_deck_choices.py::test_selected_transform_replays_identically_and_keeps_astrolabe_upgrades"
+        "tests/rewards/test_relic_deck_choices.py::test_selected_transform_replays_identically_and_keeps_astrolabe_upgrades",
+        "tests/rewards/test_source_relic_pickup_contracts.py::test_astrolabe_chosen_transform_uses_niche_and_preserves_public_reload"
       ],
       "notes": [
-        "Source creates each chosen transformation with RunState.Rng.Niche, then upgrades. The generic transform caller needs this relic-specific stream."
+        "Corrected selected transformation creation to Niche, followed by upgrade; public chosen/reload test retains stream count."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -1130,7 +1133,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -1149,7 +1152,7 @@
         "tests/rewards/test_relic_bags_stable.py::test_lasting_candy_first_run_ironclad_and_obtained_removal"
       ],
       "notes": [
-        "Source modifies maximum Energy by one after turn one, and loses two current Energy on turn one. Current dynamic gain marker does not expose the maximum-Energy modifier."
+        "Common max-Energy helper source_max_energy_bonus (items leaf e368203) implements first-turn max3/current1 and later max4/current4, preserving other modifiers."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Shop"
@@ -1172,7 +1175,7 @@
         "DisplayAmount",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -1185,10 +1188,12 @@
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn",
         "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules",
-        "tests/content/test_source_ancient_offers.py::test_pael_nonupiepe_and_vakuu_match_independent_c_reference"
+        "tests/content/test_source_ancient_offers.py::test_pael_nonupiepe_and_vakuu_match_independent_c_reference",
+        "tests/combat/test_source_relic_play_costs.py::test_brilliant_scarf_frees_fifth_manual_card_without_randomizing_other_cards",
+        "tests/combat/test_source_relic_play_costs.py::test_brilliant_scarf_does_not_count_autoplays_or_reduce_x_payments"
       ],
       "notes": [
-        "Source fifth manual card itself has zero Energy and Star cost before play. The current generic marker incorrectly frees a random remaining card after the fifth play."
+        "Corrected late Energy and Star cost0 for the fifth manual card itself; autoplays do not advance its counter and X payments bypass global modifiers as in source."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -1345,7 +1350,7 @@
         "HasUponPickupEffect",
         "SpawnsPets"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -1361,10 +1366,11 @@
         "tests/content/test_relic_handlers.py::test_more_fixed_card_and_reward_pickups_return_source_backed_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
         "tests/rooms/test_hatch_mend_tea.py::test_hatch_transforms_every_egg_into_swoop_and_grants_byrdpip",
-        "tests/events/test_stable_event_entry.py::test_runtime_adapter_derives_pets_tradeability_and_relic_availability"
+        "tests/events/test_stable_event_entry.py::test_runtime_adapter_derives_pets_tradeability_and_relic_availability",
+        "tests/rewards/test_source_relic_pickup_contracts.py::test_byrdpip_transforms_every_deck_and_combat_egg_and_does_not_add_extra_swoop"
       ],
       "notes": [
-        "Source AfterObtained transforms every owned ByrdonisEgg in deck and combat into ByrdSwoop. Generic pickup adds one Swoop; campfire hatching alone does not cover direct obtain."
+        "Corrected direct obtain to transform every owned ByrdonisEgg in deck and active combat zones; it does not add an extra Swoop."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Event"
@@ -3124,7 +3130,7 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -3135,10 +3141,12 @@
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_random_upgrade_and_transform_pickup_relics_return_deck_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_relic_pickup_contracts.py::test_fragrant_mushroom_damage_is_unblockable_and_uses_damage_relic_modifiers",
+        "tests/rewards/test_source_relic_pickup_contracts.py::test_fragrant_mushroom_stable_shuffle_is_permutation_invariant_and_consumes_niche"
       ],
       "notes": [
-        "Source deals unpowered unblockable Damage15, then StableShuffle(upgradable deck,Niche).Take(2). Generic HP delta/upgrade stream needs source-specific handling."
+        "Corrected unpowered unblockable Damage15 through shared damage modifiers, then stable sorted Niche shuffle and first two upgradable deck cards."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Event"
@@ -4007,7 +4015,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -4016,10 +4024,11 @@
         "src/sts2sim/mechanics/relic_combat.py:_resolve_card_played_dynamic"
       ],
       "retained_tests": [
-        "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules"
+        "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules",
+        "tests/combat/test_source_relic_play_costs.py::test_payment_relics_use_actual_energy_and_helmet_block_precedes_card_effect"
       ],
       "notes": [
-        "Source checks CardPlay.Resources.EnergyValue>=2 before the card resolves. Current after-card hook checks printed cost and resolves too late."
+        "Corrected actual Energy payment>=2 and Block4 before the card effect; printed cost or a free play does not qualify."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Rare"
@@ -4038,7 +4047,7 @@
         "DisplayAmount",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -4050,10 +4059,11 @@
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn",
-        "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules"
+        "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules",
+        "tests/combat/test_source_relic_play_costs.py::test_iron_club_saved_counter_survives_turn_boundary"
       ],
       "notes": [
-        "Source saved CardsPlayed counter persists across turns and combats; every fourth play draws one. Current helper uses the turn-local count."
+        "Corrected saved CardsPlayed counter across turns/combats and one draw on each fourth in-progress play."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -4071,7 +4081,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -4081,10 +4091,11 @@
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
       ],
       "retained_tests": [
-        "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules"
+        "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules",
+        "tests/combat/test_source_relic_play_costs.py::test_payment_relics_use_actual_energy_and_helmet_block_precedes_card_effect"
       ],
       "notes": [
-        "Source checks CardPlay.Resources.EnergyValue>=3 after the card resolves. Current helper checks printed cost."
+        "Corrected actual Energy payment>=3 after the card effect, including captured X payment; printed cost alone does not qualify."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Rare"

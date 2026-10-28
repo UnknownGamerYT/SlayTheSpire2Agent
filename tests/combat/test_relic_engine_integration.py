@@ -616,7 +616,7 @@ def test_power_play_relics_draw_and_make_a_hand_card_free() -> None:
     assert any(event.kind == "card_made_free_this_turn" for event in state.combat.last_events)
 
 
-def test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn() -> None:
+def test_iron_club_counter_draws_and_brilliant_scarf_frees_fifth_manual_card() -> None:
     state = _enter_combat((), relics=("iron_club", "brilliant_scarf"), draw_per_turn=0)
     assert state.combat is not None
     played_cards = tuple(_direct_card(f"play_{index}") for index in range(5))
@@ -644,12 +644,13 @@ def test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn() -> Non
         for event in state.combat.last_events
     )
 
-    state = _play_card(state, "play_4")
+    state = _play_card(state, "costly_skill")
 
     assert state.combat is not None
     hand_by_id = {card.card_id: card for card in state.combat.hand}
-    assert hand_by_id["costly_skill"].custom["free_to_play_this_turn"] is True
-    assert any(event.kind == "card_made_free_this_turn" for event in state.combat.last_events)
+    assert state.combat.player.energy == 3
+    assert not hand_by_id["play_4"].custom.get("free_to_play_this_turn")
+    assert not any(event.kind == "card_made_free_this_turn" for event in state.combat.last_events)
 
 
 def test_nunchaku_counter_grants_energy_on_tenth_attack() -> None:

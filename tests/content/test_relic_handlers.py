@@ -94,7 +94,9 @@ def test_pickup_reward_and_rule_relics_return_bounded_markers() -> None:
 
     assert arcane_scroll.markers[0].kind == "card_reward"
     assert arcane_scroll.markers[0].amount == 1
-    assert arcane_scroll.markers[0].metadata == {"rarity": "rare", "selection": "random"}
+    assert arcane_scroll.markers[0].metadata == {
+        "rarity": "rare", "selection": "random", "direct_add": True, "no_upgrade_roll": True,
+    }
     assert cauldron.markers[0].kind == "random_potions_gained"
     assert cauldron.markers[0].amount == 5
     assert darkstone.markers[0].kind == "curse_obtained_max_hp_delta_enabled"
@@ -142,7 +144,10 @@ def test_more_fixed_card_and_reward_pickups_return_source_backed_markers() -> No
     orrery = resolve_relic_pickup("ORRERY")
 
     assert rose.markers[0].metadata == {"card_id": "enthralled"}
-    assert byrdpip.markers[0].metadata == {"card_id": "byrd_swoop"}
+    assert byrdpip.markers[0].kind == "transform_eggs"
+    assert byrdpip.markers[0].metadata == {
+        "from_card_id": "byrdonis_egg", "to_card_id": "byrd_swoop", "all_owned": True,
+    }
     assert [(marker.kind, marker.amount) for marker in bell.markers] == [
         ("add_deck_cards", 1),
         ("random_relics_gained", 3),

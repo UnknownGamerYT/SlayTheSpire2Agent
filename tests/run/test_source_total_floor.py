@@ -8,6 +8,7 @@ from sts2sim import new_run
 from sts2sim.engine import MapNodeState, MapState, RoomKind, load_state, serialize_state
 from sts2sim.engine.transitions import _source_total_floor
 from sts2sim.mechanics.relic_bag_runtime import draw_source_relic
+from sts2sim.mechanics.relic_bag_runtime import has_source_relic_bag as source_bag_available
 from sts2sim.mechanics.run_progress import source_total_floor
 
 
@@ -48,3 +49,11 @@ def test_bag_and_event_eligibility_agree_at_late_treasure_boundary(entered, expe
     assert draw_source_relic(state, flags, "common") == expected
     if entered:
         assert "AMETHYST_AUBERGINE" not in flags["player_relic_bag"]["Common"]
+
+
+def test_explicit_source_bag_fixture_mode_overrides_only_the_legacy_pool_guard() -> None:
+    state = new_run(3, "TEST", 0, source_data={"relic_pool": ["custom"]})
+    assert not source_bag_available(state)
+    forced = state.model_copy(update={"flags": {**state.flags, "source_relic_bag_mode": "source"}})
+    assert source_bag_available(forced)
+    assert source_bag_available(forced, shared=True)

@@ -556,7 +556,7 @@ def test_card_played_relics_cover_type_cost_and_threshold_rules() -> None:
     fourth_card = card_played(
         ("IRON_CLUB",),
         card_type="skill",
-        metadata={"cards_played_this_turn": 3},
+        relic_counters={"iron_club": 3},
     )
     fifth_card = card_played(
         ("BRILLIANT_SCARF",),
@@ -584,10 +584,11 @@ def test_card_played_relics_cover_type_cost_and_threshold_rules() -> None:
     assert nunchaku.markers[0].kind == "gain_energy"
     assert nunchaku.markers[0].amount == 1
     assert nunchaku.markers[0].metadata["next_counter"] == 0
-    assert fourth_card.markers[0].kind == "draw_cards"
-    assert fourth_card.markers[0].metadata == {"card_count": 4, "period": 4}
-    assert fifth_card.markers[0].kind == "make_random_card_free_this_turn"
-    assert fifth_card.markers[0].metadata == {"condition": "fifth_card_played", "card_count": 5}
+    assert fourth_card.markers[0].kind == "relic_counter_changed"
+    assert fourth_card.markers[0].metadata["counter"] == 4
+    assert fourth_card.markers[1].kind == "draw_cards"
+    assert fourth_card.markers[1].metadata == {"card_count": 4, "period": 4}
+    assert fifth_card.markers == ()  # Source modifies the fifth manual card's cost before play.
 
 
 def test_more_card_played_relics_cover_osty_first_power_and_type_set() -> None:
