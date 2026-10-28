@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
+from fractions import Fraction
 from functools import lru_cache
 from itertools import combinations
 from pathlib import Path
@@ -12530,10 +12531,10 @@ def _execute_monster_turn(
         relics=state.relics,
     )
     if _is_waterfall_giant_pressure_gun(definition, move):
-        per_hit_damage = _waterfall_giant_pressure_gun_damage(
+        per_hit_damage = Fraction(_waterfall_giant_pressure_gun_damage(
             state.ascension,
             _monster_move_counts(monster),
-        )
+        ))
     if per_hit_damage or "attack" in str(move.intent or "").lower():
         thievery = _status_amount(monster.statuses, "thievery")
         if thievery > 0:
@@ -12852,10 +12853,11 @@ def _refresh_monster_intent_from_metadata(
         statuses=monster.statuses, relics=relics,
     )
     if damage > 0:
-        damage += _status_amount(player.statuses, "tainted")
-    if _status_amount(player.statuses, "vulnerable") > 0:
-        damage = int(damage * 1.5)
-    return monster.model_copy(update={"intent_damage": damage * monster.hit_count})
+        damage += _status_amount(player.statuses, "tainted") * _monster_attack_multiplier(
+            monster.statuses, relics,
+        )
+    damage = Fraction(_incoming_player_damage(player, damage, relics=relics))
+    return monster.model_copy(update={"intent_damage": int(damage) * monster.hit_count})
 
 
 def _apply_monster_player_turn_start(
@@ -13347,7 +13349,7 @@ def _apply_monster_special_move_effects(
         monster = combat.monsters[monster_index]
         metadata = dict(monster.metadata)
         metadata["waterfall_giant_exploded"] = True
-        metadata["waterfall_giant_explosion_damage"] = damage
+        metadata["waterfall_giant_explosion_damage"] = _damage_amount_for_metadata(damage)
         metadata.pop("waterfall_giant_about_to_blow", None)
         statuses = dict(monster.statuses)
         statuses.pop("steam_eruption", None)
@@ -13373,7 +13375,7 @@ def _apply_monster_special_move_effects(
                     kind="waterfall_giant_exploded",
                     source_id=monster.monster_id,
                     target_id=PLAYER_TARGET_ID,
-                    amount=damage,
+                    amount=int(damage),
                     metadata={"steam_eruption": steam, "move_id": move.move_id},
                 ),
                 EffectEvent(
@@ -15299,8 +15301,8 @@ def _apply_effect_step(
     player = combat.player
     monsters = list(combat.monsters)
 
-    damage = _effect_amount(effect, "damage", energy_spent)
-    if damage:
+    damage: int | Fraction = _effect_amount(effect, "damage", energy_spent)
+    if "damage" in effect:
         damage = _modified_card_damage(combat, card, damage, relics=relics)
         damage = _sovereign_blade_damage_amount(combat, card, target_id, damage)
         targets = _effect_enemy_targets(combat, card, target_id, all_enemies=False)
@@ -15346,8 +15348,8 @@ def _apply_effect_step(
             **dict(raw_damage_formula), "target_id": target_id,
             "source_player_id": card_status_hooks.card_actor_id(combat, card),
         }
-    formula_damage = _formula_amount(raw_damage_formula, combat=combat)
-    if formula_damage:
+    formula_damage: int | Fraction = _formula_amount(raw_damage_formula, combat=combat)
+    if raw_damage_formula is not None:
         formula_damage = _modified_card_damage(combat, card, formula_damage, relics=relics)
         formula_damage = _sovereign_blade_damage_amount(
             combat,
@@ -15397,8 +15399,8 @@ def _apply_effect_step(
         player = combat.player
         events.extend(kill_events)
 
-    all_damage = _effect_amount(effect, "all_damage", energy_spent)
-    if all_damage:
+    all_damage: int | Fraction = _effect_amount(effect, "all_damage", energy_spent)
+    if "all_damage" in effect:
         all_damage = _modified_card_damage(combat, card, all_damage, relics=relics)
         all_damage = _sovereign_blade_damage_amount(combat, card, target_id, all_damage)
         targets = tuple(monster.monster_id for monster in monsters if monster.hp > 0)
@@ -18007,8 +18009,8 @@ def _sovereign_blade_damage_amount(
     combat: CombatState,
     card: CardInstance,
     target_id: str | None,
-    amount: int,
-) -> int:
+    amount: int | Fraction,
+) -> int | Fraction:
     if amount <= 0 or not _is_sovereign_blade_card(card):
         return amount
     marked_turn = _coerce_int(card.custom.get("sovereign_blade_double_damage_turn"), default=0)
@@ -22157,7 +22159,7 @@ def _apply_monster_poison_once(
 
 def _damage_combat_player(
     combat: CombatState,
-    amount: int,
+    amount: int | Fraction,
     source_id: str,
     *,
     relics: Sequence[str] = (),
@@ -22166,22 +22168,38 @@ def _damage_combat_player(
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     player = combat.player
     tainted = _status_amount(player.statuses, "tainted") if is_attack and amount > 0 else 0
-    incoming = _incoming_player_damage(
-        player, amount + tainted, relics=relics, is_attack=is_attack,
+    source_monster = next((m for m in combat.monsters if m.monster_id == source_id), None)
+    tainted_multiplier = (
+        _monster_attack_multiplier(source_monster.statuses, relics)
+        if is_attack and isinstance(amount, Fraction) and source_monster is not None
+        else Fraction(1)
     )
-    if is_attack:
-        incoming = int(incoming * attack_multiplier)
+    multiplier = Fraction(str(attack_multiplier)) if is_attack else Fraction(1)
+    if (
+        is_attack and source_monster is not None
+        and _status_amount(player.statuses, "source_core_colossus") > 0
+        and _status_amount(source_monster.statuses, "vulnerable") > 0
+    ):
+        multiplier *= Fraction(1, 2)
     diamond_diadem_applied = False
     diamond_diadem_reduction = 0
     if (
-        incoming > 0
+        amount > 0
         and _has_relic_id(relics, "diamond_diadem")
         and len(combat.cards_played_this_turn) <= 2
     ):
-        before_diadem = incoming
-        incoming = max(0, int(incoming * 0.5))
-        diamond_diadem_reduction = before_diadem - incoming
+        multiplier *= Fraction(1, 2)
         diamond_diadem_applied = True
+    incoming = _incoming_player_damage(
+        player, amount + tainted * tainted_multiplier, relics=relics, is_attack=is_attack,
+        extra_multiplier=multiplier,
+    )
+    if diamond_diadem_applied:
+        without_diadem = _incoming_player_damage(
+            player, amount + tainted * tainted_multiplier, relics=relics, is_attack=is_attack,
+            extra_multiplier=multiplier * 2,
+        )
+        diamond_diadem_reduction = without_diadem - incoming
     blocked = min(player.block, incoming)
     unblocked = max(0, incoming - blocked)
     osty_absorbed = 0
@@ -22233,7 +22251,7 @@ def _damage_combat_player(
 
     player = combat.player
     hp_loss = max(0, unblocked - osty_absorbed)
-    intangible_applied = False
+    intangible_applied = _status_amount(player.statuses, "intangible") > 0 and amount > 1
     if hp_loss > 1 and _status_amount(player.statuses, "intangible") > 0:
         hp_loss = 1
         intangible_applied = True
@@ -22302,7 +22320,7 @@ def _damage_combat_player(
             amount=hp_loss,
             metadata={
                 "incoming": incoming,
-                "base": amount,
+                "base": _damage_amount_for_metadata(amount),
                 "tainted": tainted,
                 "blocked": blocked,
                 "diamond_diadem": diamond_diadem_applied,
@@ -22323,7 +22341,7 @@ def _damage_combat_player(
 
 def _damage_player(
     player: PlayerState,
-    amount: int,
+    amount: int | Fraction,
     source_id: str,
     *,
     relics: Sequence[str] = (),
@@ -22363,7 +22381,7 @@ def _damage_player(
             amount=hp_loss,
             metadata={
                 "incoming": incoming,
-                "base": amount,
+                "base": _damage_amount_for_metadata(amount),
                 "blocked": blocked,
                 "intangible": intangible_applied,
                 "tungsten_rod_reduction": tungsten_rod_reduction,
@@ -22376,27 +22394,33 @@ def _damage_player(
 
 def _incoming_player_damage(
     player: PlayerState,
-    amount: int,
+    amount: int | Fraction,
     *,
     relics: Sequence[str] = (),
     is_attack: bool = True,
+    extra_multiplier: Fraction = Fraction(1),
 ) -> int:
     if amount <= 0:
-        return amount
+        return int(amount)
     if _status_amount(player.statuses, "tank") > 0:
         amount *= 2
     if is_attack and _status_amount(player.statuses, "stance_wrath") > 0:
         amount *= 2
     if is_attack and _status_amount(player.statuses, "vulnerable") > 0:
-        multiplier = _damage_taken_vulnerable_multiplier(relics, player)
-        return int(amount * multiplier)
-    return amount
+        multiplier = Fraction(str(_damage_taken_vulnerable_multiplier(relics, player)))
+        if _status_amount(player.statuses, "debilitate") > 0:
+            multiplier = 1 + (multiplier - 1) * 2
+        amount *= multiplier
+    amount *= extra_multiplier
+    if _status_amount(player.statuses, "intangible") > 0:
+        amount = min(Fraction(amount), Fraction(1))
+    return int(amount)
 
 
 def _damage_monsters(
     monsters: Sequence[MonsterState],
     target_ids: Sequence[str],
-    amount: int,
+    amount: int | Fraction,
     source_id: str,
     *,
     relics: Sequence[str] = (),
@@ -22417,7 +22441,7 @@ def _damage_monsters(
         )
         blocked = min(monster.block, incoming)
         hp_loss = max(0, incoming - blocked)
-        intangible_applied = False
+        intangible_applied = _status_amount(monster.statuses, "intangible") > 0 and amount > 1
         slippery_applied = False
         slippery_before = _status_amount(monster.statuses, "slippery")
         statuses = monster.statuses
@@ -22433,6 +22457,13 @@ def _damage_monsters(
             if hp_loss > 1:
                 hp_loss = 1
             slippery_applied = True
+        effective_unblocked = min(hp_loss, 999999999)
+        shell = _status_amount(monster.statuses, "hardened_shell")
+        if shell > 0:
+            effective_unblocked = min(effective_unblocked, max(
+                0, shell - _metadata_int(monster.metadata, "hardened_shell_hp_lost_this_turn", 0),
+            ))
+        overkill_damage = max(0, effective_unblocked - monster.hp)
         hp_loss, hp_metadata = _cap_monster_hp_loss(monster, hp_loss)
         updated_monster = monster.model_copy(
             update={
@@ -22472,8 +22503,11 @@ def _damage_monsters(
                 amount=hp_loss,
                 metadata={
                     "incoming": incoming,
-                    "base": amount,
+                    "base": _damage_amount_for_metadata(amount),
                     "blocked": blocked,
+                    "unblocked_damage": hp_loss,
+                    "overkill_damage": overkill_damage,
+                    "total_damage_including_overkill": blocked + hp_loss + overkill_damage,
                     "intangible": intangible_applied,
                     "slippery": slippery_applied,
                     "attacking_player_id": source_player_id,
@@ -22691,8 +22725,8 @@ def _tracking_modified_attack_damage(
     combat: CombatState,
     card: CardInstance,
     target_ids: Sequence[str],
-    amount: int,
-) -> int:
+    amount: int | Fraction,
+) -> int | Fraction:
     if amount <= 0 or card.type != CardType.ATTACK:
         return amount
     if _status_amount(combat.player.statuses, "tracking") <= 0:
@@ -22851,7 +22885,7 @@ def _apply_player_thorns_to_attacker(
 
 def _incoming_monster_damage(
     monster: MonsterState,
-    amount: int,
+    amount: int | Fraction,
     *,
     relics: Sequence[str] = (),
     source_card_type: str | None = None,
@@ -22859,31 +22893,35 @@ def _incoming_monster_damage(
     source_player_id: str = "player",
 ) -> int:
     if amount <= 0:
-        return amount
+        return int(amount)
     if _waterfall_giant_is_about_to_blow(monster):
         return 0
-    multiplier = 1.0
+    multiplier = Fraction(1)
     if (
         source_card_type == CardType.ATTACK.value
         and _status_amount(monster.statuses, "vulnerable") > 0
     ):
-        vulnerable = _damage_dealt_vulnerable_multiplier(relics, monster)
-        vulnerable += _status_amount(attacker_statuses or {}, "cruelty") / 100
+        vulnerable = Fraction(str(_damage_dealt_vulnerable_multiplier(relics, monster)))
+        vulnerable += Fraction(_status_amount(attacker_statuses or {}, "cruelty"), 100)
         if _status_amount(monster.statuses, "debilitate") > 0:
             vulnerable = 1 + (vulnerable - 1) * 2
         multiplier *= vulnerable
-    multiplier *= card_status_hooks.other_player_damage_multiplier(
+    multiplier *= Fraction(str(card_status_hooks.other_player_damage_multiplier(
         monster, source_player_id, is_attack=source_card_type == CardType.ATTACK.value,
-    )
+    )))
     if source_card_type == CardType.ATTACK.value and _status_amount(monster.statuses, "slow"):
-        multiplier *= 1 + 0.1 * _metadata_int(monster.metadata, "slow_cards_played", 0)
+        multiplier *= 1 + Fraction(_metadata_int(monster.metadata, "slow_cards_played", 0), 10)
     if source_card_type == CardType.ATTACK.value and _status_amount(monster.statuses, "flutter"):
-        multiplier *= 0.5
+        multiplier *= Fraction(1, 2)
     if source_card_type == CardType.ATTACK.value and _status_amount(monster.statuses, "soar"):
-        multiplier *= 0.5
+        multiplier *= Fraction(1, 2)
     incoming = int(amount * multiplier)
     hard_to_kill = _status_amount(monster.statuses, "hard_to_kill")
-    return min(incoming, hard_to_kill) if hard_to_kill > 0 else incoming
+    if hard_to_kill > 0:
+        incoming = min(incoming, hard_to_kill)
+    if _status_amount(monster.statuses, "intangible") > 0:
+        incoming = min(incoming, 1)
+    return incoming
 
 
 def _apply_status_effects(
@@ -26854,18 +26892,18 @@ def _effect_amount(effect: Mapping[str, Any], key: str, energy_spent: int) -> in
 def _modified_card_damage(
     combat: CombatState,
     card: CardInstance,
-    amount: int,
+    amount: int | Fraction,
     *,
     relics: Sequence[str] = (),
-) -> int:
-    if amount <= 0:
-        return amount
-    modified = amount
+) -> Fraction:
+    modified = Fraction(amount)
     if card.type == CardType.ATTACK:
         modified += _signed_status_amount(combat.player.statuses, "strength")
         modified += _signed_status_amount(combat.player.statuses, "temporary_strength")
         modified += _status_amount(combat.player.statuses, "vigor")
         modified += _coerce_int(card.custom.get("phantom_blades_damage_bonus"), default=0)
+        if card.custom.get("source_core_inky"):
+            modified += 1
         if _is_shiv_card(card):
             modified += _status_amount(combat.player.statuses, "accuracy")
         if _has_relic_id(relics, "strike_dummy") and _card_contains_normalized_text(
@@ -26884,9 +26922,12 @@ def _modified_card_damage(
             modified += 9
         lethality = _coerce_int(card.custom.get("lethality_damage_percent"), default=0)
         if lethality:
-            modified = modified * (100 + lethality) // 100
+            modified *= Fraction(100 + lethality, 100)
         if _status_amount(combat.player.statuses, "weak") > 0:
-            modified = int(modified * 0.75)
+            weak_multiplier = Fraction(3, 4)
+            if _status_amount(combat.player.statuses, "debilitate") > 0:
+                weak_multiplier = Fraction(1, 2)
+            modified *= weak_multiplier
         if _status_amount(combat.player.statuses, "stance_wrath") > 0:
             modified *= 2
         elif _status_amount(combat.player.statuses, "stance_divinity") > 0:
@@ -26894,9 +26935,11 @@ def _modified_card_damage(
         multiplier = _queued_damage_multiplier(combat, card)
         if multiplier > 1:
             modified *= multiplier
+        if _status_amount(combat.player.statuses, "source_core_double_damage") > 0:
+            modified *= 2
         if _status_amount(combat.player.statuses, "shrink") > 0 and not _card_is_osty_attack(card):
-            modified = int(modified * 0.7)
-    return max(0, modified)
+            modified *= Fraction(7, 10)
+    return max(Fraction(0), modified)
 
 
 def _modified_card_block(
@@ -29275,10 +29318,10 @@ def _monster_intent_damage(
         relics=relics,
     )
     if per_hit > 0:
-        per_hit += _status_amount(player.statuses, "tainted")
-    if _status_amount(player.statuses, "vulnerable") > 0:
-        per_hit = int(per_hit * 1.5)
-    return max(0, per_hit) * move.hit_count
+        per_hit += _status_amount(player.statuses, "tainted") * _monster_attack_multiplier(
+            statuses, relics,
+        )
+    return max(0, _incoming_player_damage(player, per_hit, relics=relics)) * move.hit_count
 
 
 def _monster_attack_hit_damage(
@@ -29288,7 +29331,7 @@ def _monster_attack_hit_damage(
     statuses: Mapping[str, int],
     ascension_level: int,
     relics: Sequence[str] = (),
-) -> int:
+) -> Fraction:
     damage = monster_move_damage(definition, move, ascension_level=ascension_level)
     if (
         _normalized_id(definition.monster_id) == "the_forgotten"
@@ -29296,7 +29339,7 @@ def _monster_attack_hit_damage(
     ):
         damage += _signed_status_amount(statuses, "dexterity")
     if damage <= 0:
-        return 0
+        return Fraction(0)
     return _modified_monster_attack_damage(damage, statuses=statuses, relics=relics)
 
 
@@ -29305,23 +29348,39 @@ def _modified_monster_attack_damage(
     *,
     statuses: Mapping[str, int],
     relics: Sequence[str] = (),
-) -> int:
-    damage = amount
+) -> Fraction:
+    damage = Fraction(amount)
     if damage <= 0:
-        return 0
+        return Fraction(0)
     damage += _signed_status_amount(statuses, "strength")
     damage += _signed_status_amount(statuses, "temporary_strength")
     damage += _status_amount(statuses, "vigor")
+    damage *= _monster_attack_multiplier(statuses, relics)
+    return max(Fraction(0), damage)
+
+
+def _monster_attack_multiplier(
+    statuses: Mapping[str, int], relics: Sequence[str] = (),
+) -> Fraction:
+    multiplier = Fraction(1)
     attack_damage_percent = _signed_status_amount(statuses, "attack_damage_percent")
     attack_damage_percent += _signed_status_amount(statuses, "temporary_attack_damage_percent")
     if attack_damage_percent:
-        damage = int(damage * max(0, 100 + attack_damage_percent) / 100)
+        multiplier *= Fraction(max(0, 100 + attack_damage_percent), 100)
+    if _status_amount(statuses, "shrink") > 0:
+        multiplier *= Fraction(7, 10)
     if _status_amount(statuses, "weak") > 0:
         percent = 60 if _has_relic_id(relics, "paper_krane") else 75
         if _status_amount(statuses, "debilitate") > 0:
             percent = 100 - (100 - percent) * 2
-        damage = damage * percent // 100
-    return max(0, damage)
+        multiplier *= Fraction(percent, 100)
+    return multiplier
+
+
+def _damage_amount_for_metadata(amount: int | Fraction) -> int | float:
+    """Keep exact arithmetic internal and expose JSON-compatible event metadata."""
+    value = Fraction(amount)
+    return int(value) if value.denominator == 1 else float(value)
 
 
 def _fallback_monsters_for_node(node: MapNodeState) -> tuple[MonsterState, ...]:

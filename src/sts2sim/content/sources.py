@@ -47,6 +47,17 @@ STS1_COMPAT_SOURCE = SourceRef(
     ),
 )
 
+STABLE_DECOMPILED_SOURCE = SourceRef(
+    label="sts2-stable-public-decompiled-source",
+    version="0.107.1",
+    url=(
+        "https://github.com/zhiyue/sts2-rl-agent/tree/"
+        "5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled"
+    ),
+    captured_at="2026-10-28",
+    notes="Source snapshot identifies Steam build23811903; installed game comparison pending.",
+)
+
 
 def merge_sources(*sources: SourceRef | None) -> tuple[SourceRef, ...]:
     """Return sources without duplicates while preserving order."""

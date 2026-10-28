@@ -8,6 +8,7 @@ static metadata. MockCardPool is test-only and is intentionally omitted.
 An unspecified epoch set means the caller has selected the fully unlocked pool.
 """
 from __future__ import annotations
+
 from collections.abc import Iterable
 from types import MappingProxyType
 
