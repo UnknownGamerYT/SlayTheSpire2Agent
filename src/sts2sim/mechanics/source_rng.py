@@ -4,13 +4,14 @@ The C# contracts are pinned to zhiyue/sts2-rl-agent@5d874e855ae1d0550d5c30416fad
 Rng.NextFloat/WeightedNextItem and ListExtensions. Python floats store the
 exact result of each explicit binary32 rounding below.
 """
+
 from __future__ import annotations
 
 import math
 import struct
 from collections.abc import Callable, Mapping, Sequence
 from random import Random
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -37,9 +38,12 @@ def is_source_rng(rng: object) -> bool:
     return getattr(rng, "derivation", None) == "sts2.v0.107.1.utf16-djb2-splitmix64"
 
 
-def source_weighted_item(
-    rng: FloatRandom, items: Sequence[T], weight: Callable[[T], float]
-) -> T:
+def named_stream(rng: Random, name: str) -> Random:
+    selector = getattr(rng, "for_stream", None)
+    return cast(Random, selector(name)) if callable(selector) else rng
+
+
+def source_weighted_item(rng: FloatRandom, items: Sequence[T], weight: Callable[[T], float]) -> T:
     """Rng.WeightedNextItem, including float32 subtraction and <= boundaries."""
     if not items:
         raise ValueError("weighted items must not be empty")
@@ -63,6 +67,7 @@ def source_sample(rng: Random, items: Sequence[T], count: int) -> list[T]:
     available = list(items)
     return [available.pop(rng.randrange(len(available))) for _ in range(count)]
 
+
 def draw_source_potion(
     rng: Random, options: Sequence[str], rarities: Mapping[str, str] | None = None
 ) -> str:
@@ -71,11 +76,10 @@ def draw_source_potion(
     if not is_source_rng(rng) or rarities is None:
         return rng.choice(options)
     sample = source_float(rng)
-    rarity = "rare" if sample <= float32(0.1) else (
-        "uncommon" if sample <= float32(0.35) else "common"
+    rarity = (
+        "rare" if sample <= float32(0.1) else ("uncommon" if sample <= float32(0.35) else "common")
     )
     candidates = [potion for potion in options if rarities.get(potion, "common").lower() == rarity]
     if not candidates:
         raise ValueError(f"no {rarity} potion in the source creation pool")
     return rng.choice(candidates)
-

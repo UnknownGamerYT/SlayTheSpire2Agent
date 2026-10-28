@@ -20,7 +20,9 @@ from .shops import (
     ShopItemKind,
     ShopPricingRules,
     build_shop_inventory,
+    price_shop_item,
 )
+from .source_rng import float32, is_source_rng, named_stream, source_float
 
 SHOP_CARD_RARITY_WEIGHTS = {
     CardRarity.COMMON: 5400,
@@ -150,9 +152,7 @@ def _draw_shop_relics(
         return tuple(selector(rarity) for rarity in rarities)
 
     filtered_pool = [
-        item
-        for item in relic_pool
-        if _normalized_item_id(item.item_id) not in SHOP_RELIC_BLACKLIST
+        item for item in relic_pool if _normalized_item_id(item.item_id) not in SHOP_RELIC_BLACKLIST
     ]
     shop_relics = [item for item in filtered_pool if item.rarity is RelicRarity.SHOP]
     normal_relics = [item for item in filtered_pool if item.rarity is not RelicRarity.SHOP]
@@ -205,9 +205,7 @@ def _draw_character_cards(
     selected_ids: set[str] = set()
     for card_type in CHARACTER_CARD_SLOT_TYPES:
         candidates = [
-            item
-            for item in typed_candidates[card_type]
-            if item.item_id not in selected_ids
+            item for item in typed_candidates[card_type] if item.item_id not in selected_ids
         ]
         if not candidates:
             return _draw_weighted_without_replacement(rng, card_pool, count, weights)
@@ -290,10 +288,26 @@ def build_basic_shop_inventory(
 ) -> ShopInventory:
     """Build a priced shop inventory by deterministically sampling candidate pools."""
 
+    if is_source_rng(rng):
+        return _build_source_shop_inventory(
+            rng,
+            card_pool=card_pool,
+            colorless_card_pool=colorless_card_pool,
+            relic_pool=relic_pool,
+            potion_pool=potion_pool,
+            plan=plan,
+            ascension_level=ascension_level,
+            rare_offset_percent=rare_offset_percent,
+            card_removals_bought=card_removals_bought,
+            rules=rules,
+            relic_selector=relic_selector,
+            relic_rarity_rng=relic_rarity_rng,
+        )
     card_weights = shop_card_rarity_weights(
         ascension_level=ascension_level,
         rare_offset_percent=rare_offset_percent,
     )
+
     return build_shop_inventory(
         rng,
         colored_cards=_draw_character_cards(
@@ -323,6 +337,144 @@ def build_basic_shop_inventory(
     )
 
 
+def _build_source_shop_inventory(
+    rng: Random,
+    *,
+    card_pool: Sequence[ShopItem],
+    colorless_card_pool: Sequence[ShopItem],
+    relic_pool: Sequence[ShopItem],
+    potion_pool: Sequence[ShopItem],
+    plan: ShopInventoryPlan,
+    ascension_level: int,
+    rare_offset_percent: float,
+    card_removals_bought: int,
+    rules: ShopPricingRules,
+    relic_selector: Callable[[str], ShopItem] | None,
+    relic_rarity_rng: Random | None,
+) -> ShopInventory:
+    """MerchantInventory population order, with separate Rewards and Shops streams."""
+    rewards = named_stream(rng, "rewards")
+    priced: list[PricedShopItem] = []
+    used: set[str] = set()
+
+    def add(item: ShopItem, *, sale: bool = False) -> None:
+        entry = price_shop_item(
+            item,
+            rng=rng,
+            ascension_level=ascension_level,
+            card_removals_bought=card_removals_bought,
+            rules=rules,
+        )
+        if sale:
+            # MerchantCardEntry.SetOnSale calls CalcCost again, then integer /2.
+            entry = price_shop_item(
+                item,
+                rng=rng,
+                ascension_level=ascension_level,
+                card_removals_bought=card_removals_bought,
+                sale_percent=50,
+                rules=rules,
+            )
+        priced.append(entry)
+
+    def choose_card(
+        pool: Sequence[ShopItem], rarity: CardRarity, card_type: str | None = None
+    ) -> ShopItem | None:
+        available = [
+            item
+            for item in pool
+            if item.item_id not in used
+            and (card_type is None or item.card_type is None or item.card_type.lower() == card_type)
+        ]
+        cycle = (CardRarity.COMMON, CardRarity.UNCOMMON, CardRarity.RARE)
+        start = cycle.index(rarity)
+        for offset in range(3):
+            candidates = [item for item in available if item.rarity is cycle[(start + offset) % 3]]
+            if candidates:
+                chosen = rng.choice(candidates)
+                used.add(chosen.item_id)
+                # Merchant upgrade odds are forcibly negative, but still draw Rewards.
+                source_float(rewards)
+                return chosen
+        return None
+
+    sale_index = rng.randrange(plan.colored_cards) if plan.colored_cards else None
+    for index in range(plan.colored_cards):
+        sample = source_float(rewards)
+        rare = float32(
+            float32(0.045 if ascension_level >= 7 else 0.09) + float32(rare_offset_percent / 100)
+        )
+        rarity = (
+            CardRarity.RARE
+            if sample < rare
+            else (
+                CardRarity.UNCOMMON if sample < float32(rare + float32(0.37)) else CardRarity.COMMON
+            )
+        )
+        item = choose_card(
+            card_pool, rarity, CHARACTER_CARD_SLOT_TYPES[index % len(CHARACTER_CARD_SLOT_TYPES)]
+        )
+        if item is not None:
+            add(item, sale=index == sale_index)
+    for index in range(plan.colorless_cards):
+        item = choose_card(
+            colorless_card_pool,
+            COLORLESS_CARD_RARITY_SLOTS[index % len(COLORLESS_CARD_RARITY_SLOTS)],
+        )
+        if item is not None:
+            add(item)
+
+    rarity_rng = relic_rarity_rng or rewards
+    normal_count = max(0, plan.relics - 1) if plan.relics >= 3 else plan.relics
+    relic_rarities: list[RelicRarity] = []
+    for _ in range(normal_count):
+        value = source_float(rarity_rng)
+        relic_rarities.append(
+            RelicRarity.COMMON
+            if value < float32(0.5)
+            else (RelicRarity.UNCOMMON if value < float32(0.83) else RelicRarity.RARE)
+        )
+    if plan.relics >= 3:
+        relic_rarities.append(RelicRarity.SHOP)
+    for relic_rarity in relic_rarities:
+        if relic_selector is not None:
+            item = relic_selector(relic_rarity.value)
+        else:
+            available = [item for item in relic_pool if item.item_id not in used]
+            candidates = [item for item in available if item.rarity is relic_rarity]
+            if not candidates:
+                candidates = available
+            if not candidates:
+                break
+            item = rng.choice(candidates)
+        used.add(item.item_id)
+        add(item)
+
+    # PotionFactory draws all three models before constructors calculate prices.
+    potions: list[ShopItem] = []
+    available_potions = list(potion_pool)
+    for _ in range(plan.potions):
+        if not available_potions:
+            break
+        value = source_float(rng)
+        potion_rarity = (
+            PotionRarity.RARE
+            if value <= float32(0.1)
+            else (PotionRarity.UNCOMMON if value <= float32(0.35) else PotionRarity.COMMON)
+        )
+        candidates = [item for item in available_potions if item.rarity is potion_rarity]
+        if not candidates:
+            candidates = available_potions
+        item = rng.choice(candidates)
+        available_potions.remove(item)
+        potions.append(item)
+    for item in potions:
+        add(item)
+    if plan.include_card_removal:
+        add(ShopItem("card_removal", ShopItemKind.CARD_REMOVAL))
+    return ShopInventory(tuple(priced), plan.include_card_removal, rules.source)
+
+
 def available_shop_actions(state: ShopRoomState) -> tuple[ShopRoomChoice, ...]:
     choices: list[ShopRoomChoice] = []
     for index, priced_item in enumerate(state.inventory.items):
@@ -338,9 +490,7 @@ def available_shop_actions(state: ShopRoomState) -> tuple[ShopRoomChoice, ...]:
                 for card_id in sorted(state.removable_card_ids)
             )
         else:
-            choices.append(
-                ShopRoomChoice(action=ShopRoomAction.BUY_ITEM, item_index=index)
-            )
+            choices.append(ShopRoomChoice(action=ShopRoomAction.BUY_ITEM, item_index=index))
     choices.append(ShopRoomChoice(action=ShopRoomAction.LEAVE))
     return tuple(choices)
 
@@ -383,14 +533,10 @@ def resolve_shop_action(choice: ShopRoomChoice, state: ShopRoomState) -> ShopRoo
         if choice.target_card_id is None:
             raise ValueError("Card removal requires a target_card_id.")
         if choice.target_card_id not in state.removable_card_ids:
-            raise ValueError(
-                f"Card removal target is not removable: {choice.target_card_id}"
-            )
+            raise ValueError(f"Card removal target is not removable: {choice.target_card_id}")
         removed_card_id = choice.target_card_id
         next_removable_card_ids = frozenset(
-            card_id
-            for card_id in state.removable_card_ids
-            if card_id != choice.target_card_id
+            card_id for card_id in state.removable_card_ids if card_id != choice.target_card_id
         )
         next_card_removals_bought += 1
     elif choice.target_card_id is not None:

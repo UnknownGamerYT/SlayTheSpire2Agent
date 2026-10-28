@@ -122,6 +122,7 @@ from sts2sim.mechanics.relics import RelicEffectMarker, resolve_relic_pickup
 from sts2sim.mechanics.reward_pools import (
     build_character_card_pool,
     build_colorless_card_pool,
+    build_potion_reward_pool,
 )
 from sts2sim.mechanics.reward_triggers import (
     RewardGenerationContext,
@@ -160,6 +161,12 @@ from sts2sim.mechanics.shops import (
 from sts2sim.mechanics.source_class_rules import source_class_card_updates
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
+from sts2sim.mechanics.source_rng import is_source_rng, source_sample
+from sts2sim.mechanics.stable_pool_order import (
+    STABLE_CARD_POOL_ORDER,
+    STABLE_POTION_POOL_ORDER,
+    order_source_pool,
+)
 from sts2sim.mechanics.treasure import (
     TreasureContext,
     TreasureRelic,
@@ -1511,6 +1518,20 @@ def _resolve_unknown_node(
         or _has_immediate_event_reward_flags(state)
     ):
         return state, node, ()
+    if is_source_rng(state.rng) and state.flags.get("number_of_runs") == 0:
+        outcomes = dict(_mapping_from(state.flags.get("unknown_room_outcomes", {})))
+        previous_unknowns = len(outcomes)
+        if previous_unknowns <= 2:
+            outcome = "event" if previous_unknowns < 2 else "monster"
+            outcomes[node.node_id] = outcome
+            return (
+                state.model_copy(update={"flags": {
+                    **state.flags, "unknown_room_outcomes": outcomes
+                }}),
+                node.model_copy(update={"kind": RoomKind(outcome)}),
+                (EffectEvent(kind="unknown_room_resolved", target_id=node.node_id,
+                    metadata={"outcome": outcome, "tutorial_override": True, "roll": None}),),
+            )
     rng = random_stream(random_from_state(state.rng), "unknown_map_point")
     previous = (
         _mapping_from(state.flags.get("unknown_room_odds", {}))
@@ -1519,7 +1540,26 @@ def _resolve_unknown_node(
     blacklisted = list(_string_items(state.flags.get("unknown_room_blacklist")))
     if _has_relic(state, "juzu_bracelet"):
         blacklisted.append("monster")
-    resolution = resolve_unknown_room(rng, previous_odds=previous, blacklisted=blacklisted)
+    allowed_outcomes: tuple[str, ...] | None = None
+    if is_source_rng(rng):
+        if state.map is not None:
+            previous_id = state.room_history[-1] if state.room_history else None
+            previous_node = state.map.node_by_id.get(previous_id or "")
+            previous_outcome = _mapping_from(state.flags.get("unknown_room_outcomes", {})).get(
+                previous_id or ""
+            )
+            children = tuple(state.map.node_by_id[edge.to_id] for edge in state.map.edges
+                             if edge.from_id == node.node_id and edge.to_id in state.map.node_by_id)
+            if (previous_outcome == "shop" or previous_node is not None
+                    and previous_node.kind == RoomKind.SHOP or children
+                    and all(child.kind == RoomKind.SHOP for child in children)):
+                blacklisted.append("shop")
+        golden_act = state.flags.get("golden_compass_map_act",
+                                     state.flags.get("golden_compass_act"))
+        if golden_act == state.act:
+            allowed_outcomes = ("event",)
+    resolution = resolve_unknown_room(rng, previous_odds=previous, blacklisted=blacklisted,
+                                      allowed_outcomes=allowed_outcomes)
     flags = dict(state.flags)
     outcomes = dict(_mapping_from(flags.get("unknown_room_outcomes", {})))
     outcomes[node.node_id] = resolution.outcome
@@ -4813,7 +4853,8 @@ def _enter_shop_room(
         ),
         plan=_shop_inventory_plan(state),
         ascension_level=state.ascension,
-        rare_offset_percent=_flag_float(state, "card_rare_offset_percent", 0.0),
+        rare_offset_percent=_flag_float(state, "card_rare_offset_percent",
+            _flag_float(state, "card_rarity_offset", -0.05) * 100 if is_source_rng(rng) else 0.0),
         card_removals_bought=_flag_int(state, "shop_card_removals_bought", 0),
     )
     shop = _shop_state_from_inventory(
@@ -7150,6 +7191,14 @@ def _take_reward_card(
     card_spec.pop("instance_id", None)
     card = _card_from_spec(card_spec, len(state.master_deck) + 1)
     card = _with_unique_deck_card_id(card, state.master_deck)
+    option_upgrades = _source_sequence(state.reward.metadata.get("card_option_upgraded"))
+    if group_index is not None:
+        groups = _source_sequence(state.reward.metadata.get("card_option_group_upgraded"))
+        option_upgrades = _source_sequence(groups[group_index]) if group_index < len(groups) else ()
+    option_index = _coerce_int(action.target_id.rsplit(":", 1)[-1], default=-1)
+    if (fixed_index is None and 0 <= option_index < len(option_upgrades)
+            and _truthy(option_upgrades[option_index])):
+        card = _upgrade_card_instance(card)
     enchantment_key = "primary" if group_index is None else f"group:{group_index}"
     reward_enchantments = _mapping_from(state.reward.metadata.get("card_reward_enchantments"))
     if fixed_index is None and not card.enchantments:
@@ -8158,6 +8207,26 @@ def _shop_item_pool(
     )
     raw_pool = state.flags.get(flag_key)
     if raw_pool is None:
+        if is_source_rng(state.rng):
+            if flag_key in {"shop_card_pool", "shop_colorless_card_pool"}:
+                if flag_key == "shop_colorless_card_pool":
+                    cards = build_colorless_card_pool(_raw_card_pool_items(state))
+                    pool_name, kind = "colorless", ShopItemKind.COLORLESS_CARD
+                else:
+                    cards = build_character_card_pool(
+                        _raw_card_pool_items(state), character_id=state.character_id
+                    )
+                    pool_name, kind = _normalized_id(state.character_id), ShopItemKind.CARD
+                cards = order_source_pool(cards, STABLE_CARD_POOL_ORDER.get(pool_name, ()),
+                                          lambda card: card.card_id)
+                if cards:
+                    return tuple(ShopItem(card.card_id, kind, card.rarity,
+                                          card_type=card.card_type) for card in cards)
+            if flag_key == "shop_potion_pool":
+                rarities = _combat_potion_rarities(state)
+                return tuple(ShopItem(potion_id, ShopItemKind.POTION,
+                                     PotionRarity(rarities.get(potion_id, "common")))
+                             for potion_id in _combat_potion_pool(state))
         return tuple(default_pool)
     if not isinstance(raw_pool, Sequence) or isinstance(raw_pool, (str, bytes, bytearray)):
         return tuple(default_pool)
@@ -19074,8 +19143,12 @@ def _generated_choice_cards(
 
     pool = _normalized_id(str(payload.get("pool", "character")))
     _sort_source_generation_specs(state, candidates, pool)
-    random_stream(rng, "combat_card_generation").shuffle(candidates)
-    selected = candidates[:choices]
+    rng = random_stream(rng, "combat_card_generation")
+    if is_source_rng(rng):
+        selected = source_sample(rng, candidates, min(choices, len(candidates)))
+    else:
+        rng.shuffle(candidates)
+        selected = candidates[:choices]
     generated: list[CardInstance] = []
     for index, spec in enumerate(selected, start=1):
         spec = dict(spec)
@@ -26104,6 +26177,7 @@ def _combat_reward_state(
         rng,
         card_pool=_combat_card_pool(state),
         potion_pool=_combat_potion_pool(state),
+        potion_rarities=_combat_potion_rarities(state),
         relic_pool=_treasure_relic_pool(state),
         boss_relic_pool=_boss_relic_pool(state),
         context=CombatRewardContext(
@@ -26117,6 +26191,8 @@ def _combat_reward_state(
         pity_state=RewardPityState(
             card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
             potion_chance_bonus=_flag_int(state, "potion_chance_bonus", 0),
+            card_rarity_offset=_flag_float(state, "card_rarity_offset", -0.05),
+            potion_current_value=_flag_float(state, "potion_reward_odds", 0.4),
         ),
         card_count=reward_trigger.card_choice_count,
         relic_count=reward_trigger.relic_count,
@@ -26126,6 +26202,10 @@ def _combat_reward_state(
     )
     flags["card_non_rare_count"] = bundle.pity_state.card_non_rare_count
     flags["potion_chance_bonus"] = bundle.pity_state.potion_chance_bonus
+    if bundle.pity_state.card_rarity_offset is not None:
+        flags["card_rarity_offset"] = bundle.pity_state.card_rarity_offset
+    if bundle.pity_state.potion_current_value is not None:
+        flags["potion_reward_odds"] = bundle.pity_state.potion_current_value
 
     gold = bundle.gold + reward_trigger.gold_delta
     if "combat_reward_gold" in state.flags:
@@ -26136,6 +26216,7 @@ def _combat_reward_state(
     relic_ids = _combat_reward_relic_ids(state, default_relic_ids=bundle.relic_ids)
     card_ids = _fixed_reward_card_ids(state, "combat_reward_card_ids")
     card_options = _flag_str_sequence(state, "combat_reward_card_options") or bundle.card_ids
+    card_group_upgrades: list[tuple[bool, ...]] = []
     card_option_groups, card_group_rarities, card_pity_state = _combat_extra_card_option_groups(
         state,
         rng,
@@ -26146,8 +26227,11 @@ def _combat_reward_state(
             if state.combat is not None else 0
         ),
         card_count=reward_trigger.card_choice_count,
+        upgraded_flags=card_group_upgrades,
     )
     flags["card_non_rare_count"] = card_pity_state.card_non_rare_count
+    if card_pity_state.card_rarity_offset is not None:
+        flags["card_rarity_offset"] = card_pity_state.card_rarity_offset
     potion_id = _combat_reward_potion_id(state, rng, default_potion_id=bundle.potion_id)
     potion_ids = _reward_potion_ids(
         state,
@@ -26174,6 +26258,8 @@ def _combat_reward_state(
             "encounter": encounter.value,
             "base_gold": bundle.base_gold,
             "card_rarities": bundle.card_rarities,
+            "card_option_upgraded": bundle.card_upgraded,
+            "card_option_group_upgraded": tuple(card_group_upgrades),
             "card_group_rarities": card_group_rarities,
             "relic_rarities": bundle.relic_rarities,
             "potion_drop": _combat_potion_roll_metadata(
@@ -26323,6 +26409,7 @@ def _combat_extra_card_option_groups(
     *,
     group_count: int,
     card_count: int,
+    upgraded_flags: list[tuple[bool, ...]] | None = None,
 ) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], RewardPityState]:
     if group_count <= 0:
         return (), (), pity_state
@@ -26330,6 +26417,7 @@ def _combat_extra_card_option_groups(
     group_rarities: list[tuple[str, ...]] = []
     current_pity = pity_state
     for _ in range(group_count):
+        upgrades: list[bool] = []
         cards, rarities, current_pity = draw_card_reward_options(
             rng,
             card_pool=_combat_card_pool(state),
@@ -26343,10 +26431,13 @@ def _combat_extra_card_option_groups(
             ),
             pity_state=current_pity,
             card_count=card_count,
+            upgraded_flags=upgrades,
         )
         if cards:
             groups.append(cards)
             group_rarities.append(rarities)
+            if upgraded_flags is not None:
+                upgraded_flags.append(tuple(upgrades))
     return tuple(groups), tuple(group_rarities), current_pity
 
 
@@ -26690,7 +26781,12 @@ def _combat_potion_roll_metadata(
 
 
 def _combat_card_pool(state: RunState) -> tuple[Any, ...]:
-    return build_combat_card_pool(_raw_card_pool_items(state), character_id=state.character_id)
+    cards = build_combat_card_pool(_raw_card_pool_items(state), character_id=state.character_id)
+    if is_source_rng(state.rng):
+        return order_source_pool(cards,
+            STABLE_CARD_POOL_ORDER.get(_normalized_id(state.character_id), ()),
+            lambda card: card.card_id)
+    return cards
 
 
 def _raw_card_pool_items(state: RunState) -> tuple[Any, ...]:
@@ -26710,7 +26806,23 @@ def _combat_potion_pool(state: RunState) -> tuple[str, ...]:
         or _cached_source_rows(state, "potions")
     )
     pool = build_combat_potion_pool(raw_pool, character_id=state.character_id)
+    if is_source_rng(state.rng):
+        identifiers = (*STABLE_POTION_POOL_ORDER.get(_normalized_id(state.character_id), ()),
+                       *STABLE_POTION_POOL_ORDER["shared"])
+        pool = order_source_pool(pool, identifiers, lambda item: item)
     return pool or ("fire_potion", "skill_potion", "essence_of_steel")
+
+
+def _combat_potion_rarities(state: RunState) -> dict[str, str]:
+    rows = (
+        _source_items(state.flags.get("combat_reward_potion_pool"))
+        or _source_items(state.flags.get("potion_pool"))
+        or _source_items(state.flags.get("potions"))
+        or _cached_source_rows(state, "potions")
+    )
+    return {potion.potion_id: potion.rarity.value for potion in build_potion_reward_pool(
+        rows, character_id=state.character_id
+    )}
 
 
 def _boss_relic_pool(state: RunState) -> tuple[Any, ...]:

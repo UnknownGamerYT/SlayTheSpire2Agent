@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from decimal import Decimal
 from random import Random
 from typing import Any
 
@@ -17,6 +18,8 @@ from .rewards import (
     RewardPityState,
     weighted_choice,
 )
+from .source_rng import draw_source_potion as draw_source_potion
+from .source_rng import float32, is_source_rng, source_float
 from .treasure import TreasureRelic
 
 PoolItem = str | Mapping[str, Any]
@@ -95,6 +98,7 @@ class CombatPotionDrop:
     roll_tenths: int
     elite_bonus_tenths: int = 0
     state: RewardPityState = RewardPityState()
+    roll_float: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +138,7 @@ class CombatRewardBundle:
     base_gold: int = 0
     card_ids: tuple[str, ...] = ()
     card_rarities: tuple[str, ...] = ()
+    card_upgraded: tuple[bool, ...] = ()
     relic_ids: tuple[str, ...] = ()
     relic_rarities: tuple[str, ...] = ()
     potion_id: str | None = None
@@ -188,11 +193,7 @@ def build_combat_potion_pool(
         pool = _normalized_id(str(raw_potion.get("pool", "shared")))
         potions.append((_normalized_id(str(potion_id)), pool))
 
-    filtered = [
-        potion_id
-        for potion_id, pool in potions
-        if pool in {"shared", character_pool}
-    ]
+    filtered = [potion_id for potion_id, pool in potions if pool in {"shared", character_pool}]
     return tuple(filtered or [potion_id for potion_id, _pool in potions])
 
 
@@ -214,9 +215,7 @@ def build_boss_relic_pool(
         relics.append(relic)
 
     filtered = [
-        relic
-        for relic in relics
-        if _normalized_id(relic.pool) in {"shared", character_pool}
+        relic for relic in relics if _normalized_id(relic.pool) in {"shared", character_pool}
     ]
     return tuple(filtered or relics)
 
@@ -254,21 +253,35 @@ def draw_combat_reward(
     relic_count: int | None = None,
     relic_selector: Callable[[str], str] | None = None,
     rules: CombatRewardRules = DEFAULT_COMBAT_REWARD_RULES,
+    potion_rarities: Mapping[str, str] | None = None,
 ) -> CombatRewardBundle:
     """Generate the default reward bundle for a completed combat."""
 
+    source_mode = is_source_rng(rng)
+    potion_roll = (
+        roll_combat_potion_drop(rng, pity_state, context, rules=rules) if source_mode else None
+    )
     base_gold = _roll_gold(rng, context, rules)
     gold = _apply_poverty_gold(base_gold, context, rules)
+    potion_id = (
+        draw_source_potion(rng, potion_pool, potion_rarities)
+        if potion_roll is not None and potion_roll.dropped and potion_pool
+        else None
+    )
+    upgrades: list[bool] = []
     cards, card_rarities, next_pity = _draw_card_options(
         rng,
         card_pool,
         context,
-        pity_state,
+        potion_roll.state if potion_roll is not None else pity_state,
         count=rules.default_card_choices if card_count is None else card_count,
         rules=rules,
+        upgraded_flags=upgrades,
     )
-    potion_roll = roll_combat_potion_drop(rng, next_pity, context, rules=rules)
-    potion_id = rng.choice(tuple(potion_pool)) if potion_roll.dropped and potion_pool else None
+    if potion_roll is None:
+        potion_roll = roll_combat_potion_drop(rng, next_pity, context, rules=rules)
+        potion_id = rng.choice(tuple(potion_pool)) if potion_roll.dropped and potion_pool else None
+        next_pity = potion_roll.state
 
     drawn_relics, relic_rarities = _draw_relics(
         rng,
@@ -283,11 +296,12 @@ def draw_combat_reward(
         base_gold=base_gold,
         card_ids=cards,
         card_rarities=card_rarities,
+        card_upgraded=tuple(upgrades),
         relic_ids=drawn_relics,
         relic_rarities=relic_rarities,
         potion_id=potion_id,
         potion_roll=potion_roll,
-        pity_state=potion_roll.state,
+        pity_state=next_pity,
         source=rules.source,
     )
 
@@ -300,6 +314,7 @@ def draw_card_reward_options(
     pity_state: RewardPityState = RewardPityState(),
     card_count: int | None = None,
     rules: CombatRewardRules = DEFAULT_COMBAT_REWARD_RULES,
+    upgraded_flags: list[bool] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
     """Generate one card reward choice group using combat reward rarity rules."""
 
@@ -310,6 +325,7 @@ def draw_card_reward_options(
         pity_state,
         count=rules.default_card_choices if card_count is None else card_count,
         rules=rules,
+        upgraded_flags=upgraded_flags,
     )
 
 
@@ -322,12 +338,36 @@ def roll_combat_potion_drop(
 ) -> CombatPotionDrop:
     """Roll a combat potion reward with elite bonus that does not move pity."""
 
+    if is_source_rng(rng):
+        current = state.potion_current_value
+        if current is None:
+            current = float32(0.4)
+            step = float32(0.1 if state.potion_chance_bonus >= 0 else -0.1)
+            for _ in range(abs(state.potion_chance_bonus) // 10):
+                current = float32(current + step)
+        current = float32(current)
+        bonus = float32(0.125) if context.encounter is EncounterType.ELITE else 0.0
+        threshold = float32(current + bonus)
+        sample = source_float(rng)
+        dropped = sample < threshold
+        next_current = float32(current + float32(-0.1 if dropped else 0.1))
+        return CombatPotionDrop(
+            dropped=dropped,
+            base_chance_percent=round(current * 100),
+            effective_chance_tenths=round(threshold * 1000),
+            roll_tenths=int(sample * 1000),
+            elite_bonus_tenths=round(bonus * 1000),
+            roll_float=sample,
+            state=replace(
+                state,
+                potion_chance_bonus=state.potion_chance_bonus + (-10 if dropped else 10),
+                potion_current_value=next_current,
+            ),
+        )
     base_chance_percent = 40 + state.potion_chance_bonus
     base_chance_tenths = max(0, base_chance_percent * 10)
     elite_bonus_tenths = (
-        rules.elite_potion_bonus_tenths
-        if context.encounter is EncounterType.ELITE
-        else 0
+        rules.elite_potion_bonus_tenths if context.encounter is EncounterType.ELITE else 0
     )
     effective_chance_tenths = base_chance_tenths + elite_bonus_tenths
     roll_tenths = rng.randrange(1000)
@@ -358,6 +398,7 @@ def _draw_card_options(
     *,
     count: int,
     rules: CombatRewardRules,
+    upgraded_flags: list[bool] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...], RewardPityState]:
     selected: list[str] = []
     rarities: list[str] = []
@@ -372,6 +413,37 @@ def _draw_card_options(
         selected.append(card.card_id)
         rarities.append(card.rarity.value)
         used.add(card.card_id)
+        if is_source_rng(rng):
+            sample = Decimal(format(source_float(rng), ".7g"))
+            threshold = (
+                Decimal(0)
+                if card.rarity is CardRarity.RARE
+                else Decimal(
+                    "0.125" if context.ascension_level >= rules.scarcity_ascension_level else "0.25"
+                )
+                * (context.act - 1)
+            )
+            if upgraded_flags is not None:
+                upgraded_flags.append(sample <= threshold)
+            offset = _source_rarity_offset(current_pity, context, rules)
+            current_pity = replace(
+                current_pity,
+                card_rarity_offset=(
+                    float32(-0.05)
+                    if rarity is CardRarity.RARE
+                    else min(
+                        float32(0.4),
+                        float32(
+                            offset
+                            + float32(
+                                0.005
+                                if context.ascension_level >= rules.scarcity_ascension_level
+                                else 0.01
+                            )
+                        ),
+                    )
+                ),
+            )
         current_pity = replace(
             current_pity,
             card_non_rare_count=0
@@ -388,6 +460,19 @@ def _roll_card_rarity(
     context: CombatRewardContext,
     rules: CombatRewardRules,
 ) -> CardRarity:
+    if is_source_rng(rng):
+        sample = source_float(rng)
+        if context.encounter is EncounterType.BOSS:
+            return CardRarity.RARE
+        scarce = context.ascension_level >= rules.scarcity_ascension_level
+        elite = context.encounter is EncounterType.ELITE
+        rare = (0.05 if scarce else 0.1) if elite else (0.0149 if scarce else 0.03)
+        threshold = float32(float32(rare) + _source_rarity_offset(pity_state, context, rules))
+        if sample < threshold:
+            return CardRarity.RARE
+        if sample < float32(float32(0.4 if elite else 0.37) + threshold):
+            return CardRarity.UNCOMMON
+        return CardRarity.COMMON
     if context.encounter is EncounterType.BOSS:
         return CardRarity.RARE
 
@@ -410,6 +495,18 @@ def _roll_card_rarity(
     rare_bonus = min(rules.max_rare_pity_basis, pity_state.card_non_rare_count * growth)
     weights[CardRarity.RARE] = weights.get(CardRarity.RARE, 0) + rare_bonus
     return weighted_choice(rng, weights)
+
+
+def _source_rarity_offset(
+    pity: RewardPityState, context: CombatRewardContext, rules: CombatRewardRules
+) -> float:
+    if pity.card_rarity_offset is not None:
+        return float32(pity.card_rarity_offset)
+    value = float32(-0.05)
+    step = float32(0.005 if context.ascension_level >= rules.scarcity_ascension_level else 0.01)
+    for _ in range(min(100, pity.card_non_rare_count)):
+        value = min(float32(0.4), float32(value + step))
+    return value
 
 
 def _choose_card_by_rarity(
