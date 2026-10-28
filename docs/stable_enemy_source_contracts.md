@@ -138,3 +138,18 @@ The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
 power interaction, multiplayer HP scaling,
 or complete live-game action traces. Those scopes require further verification.
+
+
+Event combat follow-up preserves `EventModel.EnterCombatWithoutExitingEvent`
+semantics: its list supplies extra rewards after ordinary encounter rewards.
+Dense Vegetation and Punch-Off use their registered rosters, Punch-Off adds one
+relic and one potion, The Lantern Key adds its card, and Fake Merchant has fixed
+300 base gold plus the rug and only its remaining generated inventory. Empty
+inventories stay empty; source runs reject an absent authoritative inventory.
+Battleworn Dummy instead suppresses encounter rewards and resumes the selected
+setting: one uniform unlocked potion, two sorted-shuffled eligible upgrades, or
+one directly obtained front-bag relic. Timeout still resolves combat end/victory
+hooks but awards no setting reward. Source paths and hashes are retained in
+`tests/fixtures/stable_event_fights.json`; public-action tests include reloads,
+source stream consumption, epoch gates, and stackable Circlet fallback. These
+are source-derived contracts, not installed-game traces.

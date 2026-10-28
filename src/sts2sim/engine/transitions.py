@@ -287,6 +287,13 @@ from .source_enchantment_hooks import refresh_properties as refresh_enchantment_
 from .source_event_offers import native_dynamic_offers
 from .source_event_pools import source_event_card_rows, source_transform_ids
 from .source_reward_reroll import card_reroll_context, legal_reward_rerolls, reroll_card_reward
+from .source_event_fight_rewards import (
+    empty_battleworn_rewards,
+    event_fight_flags,
+    is_battleworn_fight,
+    resume_battleworn,
+    validate_fake_inventory,
+)
 
 ActionInput = Action | Mapping[str, Any]
 SourceData = Mapping[str, Any] | None
@@ -4655,7 +4662,7 @@ def _add_event_relic(
     relic_id: str,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     normalized = _normalized_id(relic_id)
-    if _has_relic(state, normalized):
+    if normalized != "circlet" and _has_relic(state, normalized):
         return state, (
             EffectEvent(
                 kind="event_relic_duplicate_skipped",
@@ -5330,6 +5337,7 @@ def _start_event_option_combat(
     )
     flags = dict(state.flags)
     combat_flags = _event_combat_reward_flags(event, option)
+    validate_fake_inventory(state, event, combat_flags)
     flags["event_combat_restore_flags"] = {
         key: {"present": key in state.flags, "value": state.flags.get(key)}
         for key in combat_flags
@@ -5358,7 +5366,6 @@ def _event_combat_reward_flags(
     option: EventOptionState,
 ) -> dict[str, Any]:
     event_id = _normalized_id(event.event_id)
-    option_id = _normalized_id(option.option_id)
     flags: dict[str, Any] = {
         "event_fight_id": event_id,
         "combat_reward_event_id": event_id,
@@ -5380,23 +5387,7 @@ def _event_combat_reward_flags(
                 "combat_reward_card_ids": ("lantern_key",),
             }
         )
-    elif event_id == "battleworn_dummy":
-        flags.update(
-            {
-                "combat_reward_encounter": "event",
-                "combat_reward_card_count": 0,
-                "combat_reward_relic_count": 0,
-                "combat_reward_potion_chance_percent": 0,
-                "combat_monster_ids": (f"BATTLE_FRIEND_V{option_id[-1]}",),
-                "combat_encounter_id": "BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
-            }
-        )
-        if option_id == "setting_1":
-            flags["combat_reward_extra_potion_count"] = 1
-        elif option_id == "setting_2":
-            flags["combat_reward_upgrade_random_cards"] = 2
-        elif option_id == "setting_3":
-            flags["combat_reward_relic_count"] = 1
+    flags.update(event_fight_flags(event, option))
     return flags
 
 
@@ -8861,18 +8852,22 @@ def _throw_foul_potion_at_fake_merchant(
     potions.pop(slot_index)
 
     event = state.event.model_copy(update={"resolved_option_id": "throw_foul_potion"})
-    flags = dict(state.flags)
-    flags.update(
-        {
-            "event_fight_id": "fake_merchant",
-            "combat_reward_event_id": "fake_merchant",
-            "combat_reward_encounter": "event",
-            "fake_merchant_combat": True,
-        }
+    combat_flags = _event_combat_reward_flags(
+        event, EventOptionState(option_id="throw_foul_potion", title="Throw Foul Potion"),
     )
     unsold_relic_ids = _fake_merchant_unsold_relic_ids(state.event)
-    if unsold_relic_ids and "fake_merchant_unsold_relic_ids" not in flags:
-        flags["fake_merchant_unsold_relic_ids"] = unsold_relic_ids
+    if "fake_merchant_unsold_relic_ids" not in state.event.metadata:
+        unsold_relic_ids = (
+            _flag_str_sequence(state, "fake_merchant_unsold_relic_ids") or unsold_relic_ids
+        )
+    combat_flags["fake_merchant_unsold_relic_ids"] = unsold_relic_ids
+    validate_fake_inventory(state, event, combat_flags)
+    flags = dict(state.flags)
+    flags["event_combat_restore_flags"] = {
+        key: {"present": key in state.flags, "value": state.flags.get(key)}
+        for key in combat_flags
+    }
+    flags.update(combat_flags)
 
     node = _current_map_node(state) or MapNodeState(
         node_id=f"event:{state.event.event_id}:fake_merchant",
@@ -8915,7 +8910,7 @@ def _throw_foul_potion_at_fake_merchant(
 
 def _fake_merchant_unsold_relic_ids(event: EventState) -> tuple[str, ...]:
     raw_unsold = _string_tuple(event.metadata.get("fake_merchant_unsold_relic_ids"))
-    if raw_unsold:
+    if "fake_merchant_unsold_relic_ids" in event.metadata:
         return tuple(_normalized_id(relic_id) for relic_id in raw_unsold)
 
     for option in event.options:
@@ -27621,11 +27616,6 @@ def _finalize_state_after_combat(
     if death_cost_events:
         events = tuple(events) + death_cost_events
         combat = combat.model_copy(update={"last_events": combat.last_events + death_cost_events})
-    if _truthy(combat.metadata.get("battleworn_dummy_timed_out")) and combat.player.hp > 0:
-        return _complete_current_room(
-            state.model_copy(update={"combat": combat, "player": combat.player, "rng": rng_state}),
-            tuple(events),
-        )
     for index in range(len(combat.monsters)):
         combat, slumber_events = _resolve_pending_slumber(state, combat, index)
         if slumber_events:
@@ -27700,6 +27690,19 @@ def _finalize_state_after_combat(
     })
     combat = _refresh_back_attack_intents(combat)
     next_state = _state_after_combat(state, combat, rng_state)
+    resumed = resume_battleworn(next_state)
+    if resumed is not None:
+        prior_events = (
+            next_state.combat.last_events if next_state.combat is not None else tuple(events)
+        )
+        next_state, resume_events = resumed
+        if next_state.combat is not None:
+            next_state = next_state.model_copy(update={
+                "combat": next_state.combat.model_copy(update={
+                    "last_events": prior_events + resume_events,
+                }),
+            })
+        return next_state, prior_events + resume_events
     if next_state.combat is None or not next_state.combat.last_events:
         return next_state, tuple(events)
     return next_state, next_state.combat.last_events
@@ -28191,10 +28194,7 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
                 update={"last_events": combat.last_events + optional_remove_events}
             )
         reward, flags, delayed_reward_events = _apply_due_delayed_event_rewards(
-            state,
-            rng,
-            reward,
-            flags,
+            state, rng, reward, flags, offer_rewards=not is_battleworn_fight(state),
         )
         reward, upgrade_reward_events = _apply_combat_reward_upgrade_marker(
             reward,
@@ -28336,6 +28336,8 @@ def _combat_reward_state(
     state: RunState,
     rng: Random,
 ) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
+    if is_battleworn_fight(state):
+        return empty_battleworn_rewards(state), (), dict(state.flags)
     rng = random_stream(rng, "rewards")
     flags = dict(state.flags)
     encounter = _combat_reward_encounter(state)
@@ -28395,6 +28397,8 @@ def _combat_reward_state(
     gold = bundle.gold + reward_trigger.gold_delta
     if "combat_reward_gold" in state.flags:
         gold = _flag_int(state, "combat_reward_gold", bundle.gold)
+        if state.flags.get("combat_reward_gold_is_base"):
+            gold += reward_trigger.gold_delta
     gold, escape_gold_metadata = _gold_reward_after_fat_gremlin_escape(state, gold)
 
     relic_id = _explicit_reward_id(state, "combat_reward_relic_id")
@@ -28647,6 +28651,8 @@ def _apply_due_delayed_event_rewards(
     rng: Random,
     reward: RewardState,
     flags: Mapping[str, Any],
+    *,
+    offer_rewards: bool = True,
 ) -> tuple[RewardState, dict[str, Any], tuple[EffectEvent, ...]]:
     queue = _delayed_event_rewards_from_flags(flags)
     if not queue:
@@ -28659,7 +28665,7 @@ def _apply_due_delayed_event_rewards(
         remaining = max(0, _nonnegative_int(item.get("remaining_combats"), 0) - 1)
         ticked = {**item, "remaining_combats": remaining}
         tick_metadata = _delayed_reward_event_metadata(ticked)
-        if remaining > 0:
+        if remaining > 0 or not offer_rewards:
             pending.append(ticked)
             events.append(
                 EffectEvent(
@@ -28918,6 +28924,14 @@ def _combat_reward_relic_ids(
     default_relic_ids: Sequence[str],
 ) -> tuple[str, ...]:
     if _is_fake_merchant_combat(state):
+        if "fake_merchant_unsold_relic_ids" in state.flags:
+            return tuple(dict.fromkeys(("fake_merchants_rug",) + tuple(
+                _normalized_id(value) for value in _flag_str_sequence(
+                    state, "fake_merchant_unsold_relic_ids",
+                )
+            )))
+        if state.rng.algorithm == "xoshiro256**":
+            raise EngineError("Fake Merchant rewards require its source unsold inventory")
         return fake_merchant_reward_relic_ids(
             _cached_relic_source_rows(state),
             unsold_relic_ids=_flag_str_sequence(state, "fake_merchant_unsold_relic_ids"),
