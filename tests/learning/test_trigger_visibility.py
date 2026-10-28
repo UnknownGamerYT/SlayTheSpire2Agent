@@ -75,11 +75,11 @@ def test_potion_capacity_pressure_for_three_of_five_slots() -> None:
 
 def test_potion_capacity_uses_default_ascension_and_relic_slots() -> None:
     reduced_payload = {
-        "ascension": 11,
+        "ascension": 4,
         "potions": ["fire_potion"],
     }
     belt_payload = {
-        "ascension": 11,
+        "ascension": 4,
         "relics": ["potion_belt"],
         "potions": ["fire_potion", "block_potion", "swift_potion"],
     }

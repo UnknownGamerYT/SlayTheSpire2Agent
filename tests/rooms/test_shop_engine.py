@@ -360,7 +360,7 @@ def test_potion_belt_allows_two_extra_potion_slots() -> None:
 
 def test_ascension_potion_slot_reduction_blocks_third_potion() -> None:
     state = _enter_shop(
-        ascension=11,
+        ascension=4,
         potions=("fire_potion", "skill_potion"),
     )
 

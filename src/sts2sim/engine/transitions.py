@@ -43,6 +43,7 @@ from sts2sim.mechanics.ancients import (
     resolve_ancient_choice,
     with_generated_ancient_choices,
 )
+from sts2sim.mechanics.ascension import validate_ascension_level
 from sts2sim.mechanics.campfire import (
     CampfireAction,
     CampfireChoice,
@@ -397,6 +398,7 @@ def new_run_state(
     *,
     rng_algorithm: str | None = None,
 ) -> RunState:
+    validate_ascension_level(ascension)
     source = _with_character_starter_defaults(character_id, dict(source_data or {}))
     configured_algorithm = rng_algorithm or source.get("rng_algorithm") or _mapping_from(
         source.get("flags")
@@ -432,6 +434,17 @@ def new_run_state(
         "supplied" if "revealed_epochs" in generation_source else "all_unlocked"
     )
     deck = _starter_deck(character_id, source)
+    explicit_deck = any(key in (source_data or {}) for key in ("deck", "starter_deck"))
+    if ascension >= 5 and character_starter_defaults(character_id) and not explicit_deck:
+        library = _card_library({"cards": _initial_cached_source_rows(source, "cards")})
+        bane_spec = library.get("ascenders_bane", {
+            "card_id": "ascenders_bane", "name": "Ascender's Bane", "type": "curse",
+            "cost": -1, "target": "none", "rarity": "curse",
+            "keywords": ("Unplayable", "Ethereal"),
+        })
+        bane = _card_from_spec(bane_spec, len(deck) + 1)
+        bane = bane.model_copy(update={"custom": {**bane.custom, "floor_added_to_deck": 1}})
+        deck += (_with_unique_deck_card_id(bane, deck),)
     player = _initial_player(character_id, ascension, source)
     map_state = _generate_act_map(
         act=_source_int(source, "act", 1), rng=rng, source={**source, **flags},
@@ -30219,7 +30232,7 @@ def _apply_ancient_heal(player: PlayerState, ascension: int) -> PlayerState:
     missing_hp = max(0, player.max_hp - player.hp)
     if missing_hp <= 0:
         return player
-    heal = int(missing_hp * 0.8) if ascension >= 2 else missing_hp
+    heal = missing_hp * 4 // 5 if ascension >= 2 else missing_hp
     return player.model_copy(update={"hp": min(player.max_hp, player.hp + heal)})
 
 

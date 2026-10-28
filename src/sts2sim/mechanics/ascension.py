@@ -1,8 +1,6 @@
-"""Ascension feature flags.
+"""Stable v0.107.1 Ascension thresholds from AscensionLevel/AscensionManager.
 
-The exact STS2 ascension table should be loaded from source data when available.
-Until then this module exposes a source-backed, STS-compatible flag shape that
-engine code can query without importing content, engine, or CLI modules.
+Legacy enum names remain importable, but only source-supported rules activate.
 """
 
 from __future__ import annotations
@@ -10,13 +8,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from sts2sim.content.sources import STS1_COMPAT_SOURCE, SourceRef
+from sts2sim.content.sources import STABLE_DECOMPILED_SOURCE, SourceRef
 
-MAX_ASCENSION_LEVEL = 20
+MAX_ASCENSION_LEVEL = 10
 
 
 class AscensionFlag(str, Enum):
     MORE_ELITES = "more_elites"
+    REDUCED_ANCIENT_HEAL = "reduced_ancient_heal"
+    REDUCED_GOLD = "reduced_gold"
     DEADLY_NORMALS = "deadly_normals"
     DEADLY_ELITES = "deadly_elites"
     DEADLY_BOSSES = "deadly_bosses"
@@ -43,7 +43,7 @@ class AscensionFlagRule:
     level: int
     flag: AscensionFlag
     summary: str
-    source: SourceRef = STS1_COMPAT_SOURCE
+    source: SourceRef = STABLE_DECOMPILED_SOURCE
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,20 +59,20 @@ class AscensionConfig:
 @dataclass(frozen=True, slots=True)
 class AscensionEconomyRules:
     base_potion_slots: int = 3
-    fewer_potion_slots_level: int = 11
+    fewer_potion_slots_level: int = 4
     card_removal_base_price: int = 75
     card_removal_increment: int = 25
     inflated_card_removal_level: int = 6
     inflated_card_removal_base_price: int = 100
     inflated_card_removal_increment: int = 50
     rest_heal_fraction: float = 0.30
-    reduced_rest_heal_level: int = 5
+    reduced_rest_heal_level: int = 11
     reduced_rest_heal_fraction: float = 0.20
     poorer_reward_level: int = 3
     poorer_reward_gold_multiplier: float = 0.75
     rarity_scarcity_level: int = 7
-    ascender_curse_level: int = 10
-    source: SourceRef = STS1_COMPAT_SOURCE
+    ascender_curse_level: int = 5
+    source: SourceRef = STABLE_DECOMPILED_SOURCE
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,48 +85,31 @@ class AscensionEconomyModifiers:
     reward_gold_multiplier: float
     rarity_scarcity_enabled: bool
     ascender_curse_enabled: bool
-    source: SourceRef = STS1_COMPAT_SOURCE
+    source: SourceRef = STABLE_DECOMPILED_SOURCE
 
 
 DEFAULT_ASCENSION_ECONOMY_RULES = AscensionEconomyRules()
 
 
 ASCENSION_FLAG_RULES: tuple[AscensionFlagRule, ...] = (
-    AscensionFlagRule(1, AscensionFlag.MORE_ELITES, "More elite encounters can appear."),
-    AscensionFlagRule(2, AscensionFlag.DEADLY_NORMALS, "Normal enemies are more dangerous."),
-    AscensionFlagRule(3, AscensionFlag.DEADLY_ELITES, "Elite enemies are more dangerous."),
-    AscensionFlagRule(4, AscensionFlag.DEADLY_BOSSES, "Boss enemies are more dangerous."),
-    AscensionFlagRule(6, AscensionFlag.DAMAGED_START, "Runs start damaged."),
-    AscensionFlagRule(7, AscensionFlag.TOUGHER_NORMALS, "Normal encounters use tougher tuning."),
-    AscensionFlagRule(8, AscensionFlag.TOUGHER_ELITES, "Elite encounters use tougher tuning."),
-    AscensionFlagRule(9, AscensionFlag.TOUGHER_BOSSES, "Boss encounters use tougher tuning."),
-    AscensionFlagRule(10, AscensionFlag.ASCENDER_CURSE, "A run curse is added at start."),
-    AscensionFlagRule(11, AscensionFlag.FEWER_POTION_SLOTS, "Potion slot count is reduced."),
-    AscensionFlagRule(
-        12,
-        AscensionFlag.LOWER_UPGRADE_CHANCE,
-        "Upgraded reward cards are less common.",
-    ),
-    AscensionFlagRule(13, AscensionFlag.POORER_BOSS_REWARDS, "Boss rewards are reduced."),
-    AscensionFlagRule(14, AscensionFlag.LOWER_MAX_HP, "Starting max HP is reduced."),
-    AscensionFlagRule(15, AscensionFlag.UNFAVORABLE_EVENTS, "Events use less favorable tuning."),
-    AscensionFlagRule(16, AscensionFlag.EXPENSIVE_SHOPS, "Shop prices are increased."),
-    AscensionFlagRule(
-        17,
-        AscensionFlag.ADVANCED_NORMAL_AI,
-        "Normal enemies use advanced behavior.",
-    ),
-    AscensionFlagRule(
-        18,
-        AscensionFlag.ADVANCED_ELITE_AI,
-        "Elite enemies use advanced behavior.",
-    ),
-    AscensionFlagRule(19, AscensionFlag.ADVANCED_BOSS_AI, "Boss enemies use advanced behavior."),
-    AscensionFlagRule(
-        20,
-        AscensionFlag.DOUBLE_BOSS,
-        "The final act has an extra boss requirement.",
-    ),
+    AscensionFlagRule(1, AscensionFlag.MORE_ELITES, "Swarming Elites: more elite rooms."),
+    AscensionFlagRule(2, AscensionFlag.REDUCED_ANCIENT_HEAL,
+                      "Weary Traveler: Ancients heal 80% of missing HP."),
+    AscensionFlagRule(3, AscensionFlag.REDUCED_GOLD,
+                      "Poverty: enemies and chests drop 25% less gold."),
+    AscensionFlagRule(4, AscensionFlag.FEWER_POTION_SLOTS, "Tight Belt: one fewer potion slot."),
+    AscensionFlagRule(5, AscensionFlag.ASCENDER_CURSE, "Add Ascender's Bane at run start."),
+    AscensionFlagRule(6, AscensionFlag.EXPENSIVE_SHOPS,
+                      "Inflation: Merchant card removal costs more."),
+    AscensionFlagRule(7, AscensionFlag.LOWER_UPGRADE_CHANCE,
+                      "Scarcity: Rare and upgraded cards appear less often."),
+    AscensionFlagRule(8, AscensionFlag.TOUGHER_NORMALS, "Tough Enemies: normal HP tuning."),
+    AscensionFlagRule(8, AscensionFlag.TOUGHER_ELITES, "Tough Enemies: elite HP tuning."),
+    AscensionFlagRule(8, AscensionFlag.TOUGHER_BOSSES, "Tough Enemies: boss HP tuning."),
+    AscensionFlagRule(9, AscensionFlag.DEADLY_NORMALS, "Deadly Enemies: normal attack tuning."),
+    AscensionFlagRule(9, AscensionFlag.DEADLY_ELITES, "Deadly Enemies: elite attack tuning."),
+    AscensionFlagRule(9, AscensionFlag.DEADLY_BOSSES, "Deadly Enemies: boss attack tuning."),
+    AscensionFlagRule(10, AscensionFlag.DOUBLE_BOSS, "Fight two final-act bosses."),
 )
 
 

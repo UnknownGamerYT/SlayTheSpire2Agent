@@ -92,7 +92,7 @@ def test_reward_potion_capacity_uses_ascension_and_slot_relics() -> None:
     reduced = RoomRewardState(
         hp=40,
         max_hp=80,
-        ascension_level=11,
+        ascension_level=4,
         potions=("fire_potion", "skill_potion"),
     )
     choice = EventChoice("take_potion", "Take potion", potion_id="foul_potion")

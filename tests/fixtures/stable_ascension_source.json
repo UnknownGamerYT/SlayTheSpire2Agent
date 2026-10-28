@@ -1,0 +1,31 @@
+{
+  "game_version": "0.107.1",
+  "repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "maximum_ascension": 10,
+  "potion_slot_reduction_level": 4,
+  "starter_curse_level": 5,
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Ascension/AscensionLevel.cs",
+      "sha256": "87f3bbd02817771a341774880186b4d77f37b17f91b13ffff3e5b6e83d883e91"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Ascension/AscensionManager.cs",
+      "sha256": "a6143e6c723a255c3cf87e11574aeab1ba2300aab4e084f238a500c9b9a11424"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/AscendersBane.cs",
+      "sha256": "cfce7f465f8817f145017e96bec6cc0adf99324db766b18c1e153e297f789b50"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantCardRemovalEntry.cs",
+      "sha256": "0d3d1350645347d7b9ced1f5f7efc4cf07417190f1de612990ef6e07a2337ed9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Helpers/AscensionHelper.cs",
+      "sha256": "81c7397c24d03c613d7f4d8d887b63ec7fc0accbdd97e1773ea0aacd2e9c2663"
+    }
+  ],
+  "scope": "Source flags, starter curse, potion capacity and shared economy boundaries; enemy numeric and map A10 contracts have separate fixtures. Explicit complete deck fixtures override normal deck initialization. No installed game equivalence certification."
+}

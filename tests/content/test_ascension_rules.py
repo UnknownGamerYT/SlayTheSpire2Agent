@@ -34,19 +34,19 @@ def test_a0_to_a10_non_combat_rule_boundaries() -> None:
     assert card_removal_price_at_ascension(6, card_removals_bought=2) == 200
     assert rarity_scarcity_at_ascension(6) is False
     assert rarity_scarcity_at_ascension(7) is True
-    assert ascension_economy_modifiers(9).ascender_curse_enabled is False
-    assert ascension_economy_modifiers(10).ascender_curse_enabled is True
+    assert ascension_economy_modifiers(4).ascender_curse_enabled is False
+    assert ascension_economy_modifiers(5).ascender_curse_enabled is True
 
 
-def test_potion_slot_reduction_starts_after_a10() -> None:
-    assert potion_slots_at_ascension(10) == 3
-    assert potion_slots_at_ascension(11) == 2
-    assert potion_slots_at_ascension(11, base_slots=1) == 0
+def test_potion_slot_reduction_starts_at_a4() -> None:
+    assert potion_slots_at_ascension(3) == 3
+    assert potion_slots_at_ascension(4) == 2
+    assert potion_slots_at_ascension(4, base_slots=1) == 0
 
 
 def test_ascension_validation_is_shared_by_rule_helpers() -> None:
     with pytest.raises(ValueError, match="between 0 and"):
-        validate_ascension_level(21)
+        validate_ascension_level(11)
 
     with pytest.raises(ValueError, match="between 0 and"):
         potion_slots_at_ascension(-1)
