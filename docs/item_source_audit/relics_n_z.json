@@ -698,7 +698,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -715,10 +715,13 @@
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_remaining_unknown_custom_event_relic_markers",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
-        "tests/combat/test_relic_combat.py::test_modifier_markers_preserve_base_amount_context_for_runtime_execution"
+        "tests/combat/test_relic_combat.py::test_modifier_markers_preserve_base_amount_context_for_runtime_execution",
+        "tests/combat/test_stable_item_contracts.py::test_paels_legion_doubles_all_chunks_then_cools_for_two_owner_starts",
+        "tests/combat/test_stable_item_contracts.py::test_source_first_card_block_multipliers_stack_before_fraction_rounding",
+        "tests/combat/test_stable_item_contracts.py::test_unpowered_potion_and_zero_card_block_do_not_consume_first_card_multipliers"
       ],
       "notes": [
-        "Counter reset fixed; pending all Block chunks in affected CardPlay and two-owner-turn cooldown lifecycle."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3988,7 +3991,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -4004,10 +4007,13 @@
         "tests/combat/test_relic_combat.py::test_remaining_unknown_custom_event_relic_markers",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
         "tests/combat/test_relic_combat.py::test_modifier_markers_preserve_base_amount_context_for_runtime_execution",
-        "tests/combat/test_stable_item_contracts.py::test_potion_block_is_unpowered_and_does_not_spend_card_block_bonuses"
+        "tests/combat/test_stable_item_contracts.py::test_potion_block_is_unpowered_and_does_not_spend_card_block_bonuses",
+        "tests/combat/test_stable_item_contracts.py::test_vambrace_doubles_all_block_chunks_from_first_card_and_consumes_after_play",
+        "tests/combat/test_stable_item_contracts.py::test_source_first_card_block_multipliers_stack_before_fraction_rounding",
+        "tests/combat/test_stable_item_contracts.py::test_unpowered_potion_and_zero_card_block_do_not_consume_first_card_multipliers"
       ],
       "notes": [
-        "Combat reset fixed; pending all Block chunks from first qualifying Card before AfterCardPlayed consumes charge."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },

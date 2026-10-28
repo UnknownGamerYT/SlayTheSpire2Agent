@@ -16801,10 +16801,11 @@ def _apply_after_card_play_hooks(
         combat = combat.model_copy(update={"player": combat.player.model_copy(
             update={"statuses": statuses}
         )})
+    combat, item_block_events = _finish_item_block_card(combat, card)
     return combat, (
         tuple(events) + relic_events + return_events + modifier_events
         + affliction_events + wither_events
-        + tuple(tender_events)
+        + tuple(tender_events) + item_block_events
     )
 
 
@@ -17092,6 +17093,13 @@ def _apply_card_effects(
     combat, modifier_events = source_modifier_hooks.synchronize(combat)
     card = source_modifier_hooks.current_card(combat, card)
     events: list[EffectEvent] = list(modifier_events)
+    if is_card_play:
+        card = card.model_copy(update={"custom": {**card.custom,
+            "source_block_card_play_token": (
+                f"{combat.turn}:{_metadata_int(combat.metadata, 'cards_played_this_combat', 0)}:"
+                f"{card.instance_id}"
+            ),
+        }})
     random_target = any(
         "random_damage" in effect or "random_attack" in effect
         for effect in _effect_steps(card.effects)
@@ -23105,22 +23113,18 @@ def _gain_player_block(
         if _status_amount(player.statuses, "double_block_gain_this_turn") > 0:
             block *= 2
             event_metadata["double_block_gain_this_turn"] = True
-        if _status_amount(player.statuses, "first_card_block_double") > 0 and not _truthy(
-            combat.metadata.get("first_card_block_double_used_turn")
-        ):
-            block *= 2
-            event_metadata["first_card_block_double"] = True
-            combat = combat.model_copy(
-                update={
-                    "metadata": {
-                        **combat.metadata,
-                        "first_card_block_double_used_turn": True,
-                    }
-                }
-            )
         defend_bonus = _status_amount(player.statuses, "defend_block_bonus")
         if defend_bonus and _card_is_defend(source_card):
             event_metadata["defend_block_bonus"] = defend_bonus
+
+        combat, block, item_modifiers = _apply_item_card_block_multipliers(
+            combat, source_card, block,
+            relics=state.relics if state is not None else tuple(
+                combat.metadata.get("item_relic_ids", ()),
+            ),
+        )
+        if item_modifiers:
+            event_metadata["item_block_multipliers"] = item_modifiers
 
     gained = max(0, int(block))
     player = combat.player.model_copy(update={
@@ -23157,8 +23161,11 @@ def _gain_player_block(
         )
         events.extend(trigger_events)
     if state is not None and from_card and source_card is not None:
+        block_hook_state = state.model_copy(update={"relics": tuple(
+            r for r in state.relics if _normalized_id(r) not in {"vambrace", "paels_legion"}
+        )})
         combat, rng_state, relic_events = _apply_runtime_relic_hook(
-            state.model_copy(update={"combat": combat, "player": combat.player}),
+            block_hook_state.model_copy(update={"combat": combat, "player": combat.player}),
             combat,
             rng_state,
             "block_gained_from_card",
@@ -23172,6 +23179,61 @@ def _gain_player_block(
         )
         events.extend(relic_events)
     return combat, rng_state, tuple(events)
+
+
+def _apply_item_card_block_multipliers(
+    combat: CombatState, card: CardInstance, block: Fraction, *, relics: Sequence[str],
+) -> tuple[CombatState, Fraction, tuple[str, ...]]:
+    if block <= 0:
+        return combat, block, ()
+    metadata = dict(combat.metadata)
+    counters = _combat_relic_counters(combat)
+    applied: list[str] = []
+    token = str(card.custom.get("source_block_card_play_token") or (
+        f"{combat.turn}:{_metadata_int(metadata, 'cards_played_this_combat', 0)}:{card.instance_id}"
+    ))
+    raw_counts = _mapping_from(metadata.get("source_card_block_entry_counts"))
+    entries = {str(key): _coerce_int(value, default=0) for key, value in raw_counts.items()}
+    unmovable = max(_status_amount(combat.player.statuses, "unmovable"),
+                    _status_amount(combat.player.statuses, "first_card_block_double"))
+    if unmovable > 0 and sum(count for key, count in entries.items() if key != token) < unmovable:
+        block *= 2
+        applied.append("unmovable")
+    entries[token] = entries.get(token, 0) + 1
+    metadata["source_card_block_entry_counts"] = entries
+    if _has_relic_id(relics, "vambrace") and counters.get("vambrace", 0) <= 0:
+        triggering = metadata.get("vambrace_triggering_card")
+        if triggering is None or triggering == card.instance_id:
+            block *= 2
+            metadata["vambrace_triggering_card"] = card.instance_id
+            applied.append("vambrace")
+    if _has_relic_id(relics, "paels_legion") and counters.get("paels_legion", 0) <= 0:
+        block *= 2
+        metadata.setdefault("paels_legion_triggering_card", card.instance_id)
+        applied.append("paels_legion")
+    return combat.model_copy(update={"metadata": metadata}), block, tuple(applied)
+
+
+def _finish_item_block_card(
+    combat: CombatState, card: CardInstance,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    metadata = dict(combat.metadata)
+    counters = _combat_relic_counters(combat)
+    events: list[EffectEvent] = []
+    for relic_id, counter in (("vambrace", 1), ("paels_legion", 2)):
+        key = f"{relic_id}_triggering_card"
+        if metadata.get(key) != card.instance_id:
+            continue
+        metadata.pop(key, None)
+        counters[relic_id] = counter
+        events.append(EffectEvent(
+            kind="relic_counter_changed", source_id=relic_id, amount=counter,
+            metadata={"counter": counter, "reason": "card_play_finished"},
+        ))
+    if events:
+        metadata["relic_counters"] = counters
+        combat = combat.model_copy(update={"metadata": metadata})
+    return combat, tuple(events)
 
 
 def _combat_trigger_payloads(raw: Any) -> tuple[Mapping[str, Any], ...]:
@@ -26702,9 +26764,14 @@ def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
         key: value for key, value in _coerced_int_mapping(updated.get("relic_counters", {})).items()
         if key not in TURN_ONLY_RELIC_COUNTERS
     }
+    if "paels_legion" in updated["relic_counters"]:
+        updated["relic_counters"]["paels_legion"] = max(
+            0, updated["relic_counters"]["paels_legion"] - 1,
+        )
     updated.pop("turn_card_play_limit", None)
     updated.pop("combat_trigger_turn_counters", None)
     updated.pop("first_card_block_double_used_turn", None)
+    updated.pop("source_card_block_entry_counts", None)
     updated.pop("first_attack_skill_to_draw_top_used_turn", None)
     updated.pop("hits_by_target_this_turn", None)
     updated.pop("hits_this_turn", None)

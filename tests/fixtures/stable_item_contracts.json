@@ -441,6 +441,10 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhisperingEarring.cs",
       "sha256": "4d4a67823048a590d8d7984dd328fe44973da1c945277e262c6d722acc564bba"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/UnmovablePower.cs",
+      "sha256": "b267db119bf6d000e1ccc146584cc1d648566a82a4ac7ef34bc2dd53ff5306a6"
     }
   ],
   "cached_source_rows": {

@@ -169,3 +169,12 @@ starts on turn three, and Pumpkin Candle contributes only while kindled. Legacy
 current-Energy markers are suppressed for managed maximum modifiers. The adapter
 tracks only its own relative bonus, preserves unrelated maximum changes, and
 restores the run base after combat. Current-turn gains remain separate effects.
+
+Vambrace and Pael's Legion multiply all Block commands of the qualifying card
+before final rounding; charges are consumed after that card finishes. Pael's
+Legion decrements its two-turn cooldown on owner turn starts. Unpowered potion
+Block and zero modified Block do not consume these relics. Unmovable shares the
+path: it counts positive BlockGainedEntry records from other CardPlays this turn,
+not distinct cards. Every Block command of the current qualifying play doubles,
+while all of those entries count toward later plays' threshold. History includes
+Block gained before Unmovable was applied and resets on the next owner turn.

@@ -180,13 +180,13 @@
         "tests/combat/test_stable_item_contracts.py::test_potion_block_is_unpowered_and_does_not_spend_card_block_bonuses",
         "tests/combat/test_stable_item_contracts.py::test_potion_block_respects_source_block_cap",
         "tests/combat/test_stable_item_contracts.py::test_belt_buckle_last_potion_discard_and_use_track_inventory_once",
+        "tests/combat/test_stable_item_contracts.py::test_unpowered_potion_and_zero_card_block_do_not_consume_first_card_multipliers",
         "tests/content/test_potion_triggers.py::test_generic_potion_modifier_specs_emit_markers_and_deltas",
         "tests/content/test_potion_specials.py::test_classifies_block_plated_armor_and_artifact_like_markers",
         "tests/content/test_potion_handlers.py::test_pickup_and_discard_decisions_are_bounded_and_pure",
         "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories",
         "tests/learning/test_planning_context.py::test_reward_plan_summary_keeps_mixed_visible_reward_context",
-        "tests/learning/test_masked_ppo.py::test_reward_pickup_diagnostics_count_presented_items_once",
-        "tests/learning/test_trigger_visibility.py::test_potion_capacity_pressure_for_two_of_three_slots"
+        "tests/learning/test_masked_ppo.py::test_reward_pickup_diagnostics_count_presented_items_once"
       ],
       "notes": [
         "Source-specific correction has retained public-action tests; no claim of all interaction parity.",

@@ -791,3 +791,80 @@ def test_source_max_energy_stacks_relics_without_repeated_turn_gain_or_zero_cand
     )})
     state = _end_turn(_reload(state))
     assert (state.player.energy, state.player.max_energy) == (5, 5)
+
+
+def test_vambrace_doubles_all_block_chunks_from_first_card_and_consumes_after_play():
+    multi = _simple("multi", effects={"sequence": [{"block": 2}, {"block": 3}]})
+    next_card = _simple("next", effects={"block": 2})
+    state = _state(multi, next_card, relics=("vambrace",))
+    state = _play(_reload(state), "multi")
+    assert state.player.block == 10
+    assert state.combat.metadata["relic_counters"]["vambrace"] == 1
+    assert "vambrace_triggering_card" not in state.combat.metadata
+    state = _play(_reload(state), "next")
+    assert state.player.block == 12
+
+
+def test_paels_legion_doubles_all_chunks_then_cools_for_two_owner_starts():
+    multi = _simple("multi", effects={"sequence": [{"block": 2}, {"block": 3}]})
+    cards = tuple(_simple(name, effects={"block": 2}, custom={"retain": True})
+                  for name in ("next", "later"))
+    state = _state(multi, *cards, relics=("paels_legion",))
+    state = _play(_reload(state), "multi")
+    assert state.player.block == 10
+    assert state.combat.metadata["relic_counters"]["paels_legion"] == 2
+    state = _end_turn(_reload(state))
+    assert state.combat.metadata["relic_counters"]["paels_legion"] == 1
+    state = _play(_reload(state), "next")
+    assert state.player.block == 2
+    state = _end_turn(_reload(state))
+    assert state.combat.metadata["relic_counters"]["paels_legion"] == 0
+    state = _play(_reload(state), "later")
+    assert state.player.block == 4
+
+
+def test_source_first_card_block_multipliers_stack_before_fraction_rounding():
+    card = _simple("small", effects={"sequence": [{"block": 1}, {"block": 1}]})
+    state = _state(card, relics=("vambrace", "paels_legion"), statuses={"frail": 1})
+    state = _play(_reload(state), "small")
+    assert state.player.block == 6  # Each chunk: 1 * .75 * 2 * 2 ->3.
+    blocks = [e.amount for e in state.replay_log[-1].events if e.kind == "player_block"]
+    assert blocks == [3, 3]
+
+
+def test_unpowered_potion_and_zero_card_block_do_not_consume_first_card_multipliers():
+    zero = _simple("zero", effects={"block": 0})
+    positive = _simple("positive", effects={"block": 2})
+    state = _state(zero, positive, relics=("vambrace", "paels_legion"))
+    state = _potion(state, "block_potion")
+    assert state.player.block == 12
+    state = _play(_reload(state), "zero")
+    assert not state.combat.metadata.get("relic_counters", {}).get("vambrace")
+    assert not state.combat.metadata.get("relic_counters", {}).get("paels_legion")
+    state = _play(_reload(state), "positive")
+    assert state.player.block == 20
+
+
+def test_unmovable_doubles_all_chunks_but_counts_other_play_block_entries():
+    multi = _simple("multi", effects={"sequence": [{"block": 2}, {"block": 3}]})
+    next_card = _simple("next", effects={"block": 2})
+    state = _state(multi, next_card, statuses={"first_card_block_double": 2})
+    state = _play(_reload(state), "multi")
+    assert state.player.block == 10
+    state = _play(_reload(state), "next")
+    assert state.player.block == 12  # Two prior BlockGainedEntry records meet Amount2.
+
+
+def test_unmovable_counts_block_before_power_is_gained_and_resets_history_each_turn():
+    first = _simple("first", effects={"block": 2})
+    power = _simple("install", effects={"apply_status": {"target": "self", "unmovable": 1}})
+    next_card = _simple("next", effects={"block": 2}, custom={"retain": True})
+    later = _simple("later", effects={"sequence": [{"block": 1}, {"block": 1}]},
+                    custom={"retain": True})
+    state = _state(first, power, next_card, later)
+    state = _play(_play(_reload(state), "first"), "install")
+    state = _play(_reload(state), "next")
+    assert state.player.block == 4
+    state = _end_turn(_reload(state))
+    state = _play(_reload(state), "later")
+    assert state.player.block == 4

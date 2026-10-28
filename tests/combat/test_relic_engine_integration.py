@@ -1131,7 +1131,7 @@ def test_runtime_relic_surfaces_apply_real_hook_effects() -> None:
     )
     assert any(
         event.kind == "player_block"
-        and event.metadata.get("relic_id") == "vambrace"
+        and "vambrace" in event.metadata.get("item_block_multipliers", ())
         for event in state.combat.last_events
     )
     assert any(
