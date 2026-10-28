@@ -752,3 +752,39 @@ def test_paels_flesh_updates_maximum_energy_from_turn_three_and_restores_run_bas
     state = _play(_reload(state), "kill")
     assert state.phase == RunPhase.REWARD
     assert state.player.max_energy == 20
+
+
+@pytest.mark.parametrize("relic_id", [
+    "blood_soaked_rose", "blessed_antler", "ectoplasm", "sozu", "philosophers_stone",
+    "prismatic_gem", "spiked_gauntlets", "velvet_choker", "whispering_earring", "pumpkin_candle",
+])
+def test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base(relic_id):
+    state = _enter_combat((), relics=(relic_id,), draw_per_turn=0)
+    assert (state.player.energy, state.player.max_energy) == (4, 4)
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (4, 4)
+
+
+def test_bread_first_turn_loss_and_later_maximum_energy_are_distinct():
+    state = _enter_combat((), relics=("bread",), draw_per_turn=0)
+    assert (state.player.energy, state.player.max_energy) == (1, 3)
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (4, 4)
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (4, 4)
+
+
+def test_source_max_energy_stacks_relics_without_repeated_turn_gain_or_zero_candle():
+    state = _enter_combat((), relics=("ectoplasm", "prismatic_gem", "pumpkin_candle"),
+                          draw_per_turn=0)
+    assert (state.player.energy, state.player.max_energy) == (6, 6)
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (6, 6)
+    metadata = {**state.combat.metadata, "relic_counters": {
+        **state.combat.metadata["relic_counters"], "pumpkin_candle": 0,
+    }}
+    state = state.model_copy(update={"combat": state.combat.model_copy(
+        update={"metadata": metadata},
+    )})
+    state = _end_turn(_reload(state))
+    assert (state.player.energy, state.player.max_energy) == (5, 5)

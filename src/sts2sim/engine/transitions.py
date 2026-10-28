@@ -82,6 +82,10 @@ from sts2sim.mechanics.event_flows import (
 )
 from sts2sim.mechanics.event_specials import self_help_book_options
 from sts2sim.mechanics.map_generation import generate_standard_map
+from sts2sim.mechanics.item_energy import (
+    SOURCE_MAX_ENERGY_RELIC_IDS,
+    source_max_energy_bonus,
+)
 from sts2sim.mechanics.monster_scripts import (
     MONSTER_POWER_MOVES,
     MONSTER_STATUS_CARD_MOVES,
@@ -9413,6 +9417,10 @@ def _start_combat_for_node(
             state = _with_room_set_values(state, {key: int(_act_room_set(state).get(key, 0)) + 1})
     combat, vital_start_events = source_affliction_hooks.synchronize(combat)
     innate_events += vital_start_events
+    combat = _sync_item_max_energy(state.relics, combat, turn=1)
+    combat = combat.model_copy(update={"player": combat.player.model_copy(update={
+        "energy": combat.player.max_energy + rest_energy,
+    })})
     fur_coat_events: tuple[EffectEvent, ...] = ()
     if _fur_coat_room_is_marked(state, node):
         combat = combat.model_copy(
@@ -13610,15 +13618,8 @@ def _begin_next_player_turn(
         **combat.metadata, "turn_start_draws": True,
     }})
     monsters = list(combat.monsters)
+    combat = _sync_item_max_energy(state.relics, combat, turn=combat.turn + 1)
     turn_max_energy = combat.player.max_energy
-    if _has_relic(state, "paels_flesh") and combat.turn + 1 >= 3:
-        base_max_energy = _metadata_int(
-            combat.metadata, "paels_flesh_base_max_energy", combat.player.max_energy,
-        )
-        combat = combat.model_copy(update={"metadata": {
-            **combat.metadata, "paels_flesh_base_max_energy": base_max_energy,
-        }})
-        turn_max_energy = base_max_energy + 1
     player = combat.player.model_copy(
         update={
             "block": combat.player.block
@@ -13677,7 +13678,7 @@ def _begin_next_player_turn(
                 break
     turn_start_relics = _resolve_combat_relic_trigger(
         GameTrigger.TURN_START,
-        tuple(r for r in state.relics if _normalized_id(r) != "paels_flesh"),
+        state.relics,
         turn_number=combat.turn,
         player_hp=combat.player.hp,
         player_max_hp=combat.player.max_hp,
@@ -14444,6 +14445,33 @@ def _sync_red_skull(
         "metadata": {**combat.metadata, "relic_counters": counters},
     })
     return combat, (event,) if event is not None else ()
+
+
+def _sync_item_max_energy(
+    relics: Sequence[str], combat: CombatState, *, turn: int,
+) -> CombatState:
+    owned = tuple(_normalized_id(item) for item in relics)
+    metadata = dict(combat.metadata)
+    if not (set(owned) & SOURCE_MAX_ENERGY_RELIC_IDS) and (
+        "item_last_max_energy_bonus" not in metadata
+    ):
+        return combat
+    previous = _metadata_int(metadata, "item_last_max_energy_bonus", 0)
+    # Adopt the previous Pael-only save representation without adding twice.
+    if "item_last_max_energy_bonus" not in metadata and "paels_flesh_base_max_energy" in metadata:
+        previous = 1
+    metadata.setdefault("item_run_base_max_energy", _metadata_int(
+        metadata, "paels_flesh_base_max_energy", combat.player.max_energy - previous,
+    ))
+    metadata.pop("paels_flesh_base_max_energy", None)
+    bonus = source_max_energy_bonus(owned, turn=turn, counters=_combat_relic_counters(combat))
+    metadata["item_last_max_energy_bonus"] = bonus
+    return combat.model_copy(update={
+        "player": combat.player.model_copy(update={
+            "max_energy": max(0, combat.player.max_energy - previous + bonus),
+        }),
+        "metadata": metadata,
+    })
 
 
 def _expire_temporary_potion_stats(
@@ -25370,6 +25398,9 @@ def _apply_combat_relic_marker(
         player = player.model_copy(update={"block": player.block + amount})
         events.append(_combat_relic_event(marker, "player_block", amount))
     elif marker.kind == "gain_energy" and _marker_targets_player(marker):
+        if (_normalized_id(marker.relic_id) in SOURCE_MAX_ENERGY_RELIC_IDS
+            and (marker.amount or 0) > 0 and "item_last_max_energy_bonus" in metadata):
+            return combat, ()
         amount = permitted_energy_delta(player.statuses, marker.amount or 0)
         player = player.model_copy(update={"energy": max(0, player.energy + amount)})
         events.append(_combat_relic_event(marker, "energy_changed", amount))
@@ -27156,6 +27187,7 @@ def _finalize_state_after_combat(
     combat, modifier_events = source_modifier_hooks.synchronize(combat)
     events = tuple(events) + modifier_events
     state, combat = source_class_hooks.persist_growth(state, combat)
+    combat = _sync_item_max_energy(state.relics, combat, turn=combat.turn)
     potions = tuple(combat.metadata.get("replay_potions", state.potions))
     combat, belt_events = _sync_belt_buckle(combat, potions, state.relics)
     if belt_events:
@@ -27765,11 +27797,12 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
         events_rng_state = capture_random_state(rng)
     elif phase != RunPhase.REWARD:
         reward = None
+    combat = _sync_item_max_energy(state.relics, combat, turn=combat.turn)
     run_player = combat.player
     if phase != RunPhase.COMBAT and not _combat_resolution_is_pending(combat):
-        if "paels_flesh_base_max_energy" in combat.metadata:
+        if "item_run_base_max_energy" in combat.metadata:
             run_player = run_player.model_copy(update={
-                "max_energy": _metadata_int(combat.metadata, "paels_flesh_base_max_energy", 3),
+                "max_energy": _metadata_int(combat.metadata, "item_run_base_max_energy", 3),
             })
         run_player = _run_player_after_combat(run_player)
     return state.model_copy(

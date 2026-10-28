@@ -161,3 +161,11 @@ while retaining its X-cost behavior. Spiked Gauntlets adds one to Power Energy
 costs after local free overrides. Pael's Flesh raises maximum Energy from turn
 three, retains that maximum across later turns, and restores the run base after
 combat. Ordered local Energy modifiers use the shared source_cost_hooks API.
+
+All twelve relic ModifyMaxEnergy overrides now update the combat maximum at
+Energy reset. The nine unconditional +1 relics stack, Bread adds its maximum
+bonus after turn one while keeping the separate first-turn loss, Pael's Flesh
+starts on turn three, and Pumpkin Candle contributes only while kindled. Legacy
+current-Energy markers are suppressed for managed maximum modifiers. The adapter
+tracks only its own relative bonus, preserves unrelated maximum changes, and
+restores the run base after combat. Current-turn gains remain separate effects.

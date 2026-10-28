@@ -1194,7 +1194,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -1202,10 +1202,11 @@
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution"
       ],
-      "retained_tests": [],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base"
+      ],
       "notes": [
-        "Opening Strength1 exists; source additionally applies Strength1 to each newly added opponent. Enemy agent is wiring the spawn callback.",
-        "No retained per-ID contract test identified; shared generic tests do not prove this item contract."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -1597,7 +1598,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -1607,10 +1608,12 @@
         "src/sts2sim/engine/transitions.py:_take_reward_card"
       ],
       "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base",
+        "tests/combat/test_stable_item_contracts.py::test_source_max_energy_stacks_relics_without_repeated_turn_gain_or_zero_candle",
         "tests/content/test_ancient_logic.py::test_act_specific_ancient_ids_and_act_two_special_options"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -1631,7 +1634,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -1640,6 +1643,8 @@
         "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
       ],
       "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base",
+        "tests/combat/test_stable_item_contracts.py::test_source_max_energy_stacks_relics_without_repeated_turn_gain_or_zero_candle",
         "tests/content/test_ancient_logic.py::test_major_update_neow_relics_are_registered_without_shifting_legacy_seed_pool",
         "tests/rooms/test_campfire_relics.py::test_miniature_tent_allows_each_option_once_and_persists_used_options",
         "tests/rewards/test_ancient_relic_lifecycle.py::test_pumpkin_candle_spends_a_charge_after_each_kind_of_combat_win",
@@ -1647,7 +1652,7 @@
         "tests/rewards/test_ancient_relic_lifecycle.py::test_kindle_adds_five_charges_and_spends_the_rest_site"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2849,7 +2854,8 @@
       "retained_tests": [
         "tests/combat/test_stable_item_contracts.py::test_sozu_entropic_rolls_once_then_stops_at_forbidden_procurement",
         "tests/combat/test_stable_item_contracts.py::test_sozu_claims_forbidden_potion_reward_even_with_full_inventory",
-        "tests/combat/test_stable_item_contracts.py::test_sozu_blocks_alchemize_procurement_but_preserves_source_factory_draws"
+        "tests/combat/test_stable_item_contracts.py::test_sozu_blocks_alchemize_procurement_but_preserves_source_factory_draws",
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base"
       ],
       "notes": [
         "Source-specific correction has retained public-action tests; no claim of all interaction parity."
@@ -2910,7 +2916,8 @@
       ],
       "runtime_entrypoints": [],
       "retained_tests": [
-        "tests/combat/test_stable_item_contracts.py::test_spiked_gauntlets_global_power_cost_applies_after_local_free_cost_and_mask"
+        "tests/combat/test_stable_item_contracts.py::test_spiked_gauntlets_global_power_cost_applies_after_local_free_cost_and_mask",
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base"
       ],
       "notes": [
         "Source-specific correction has retained public-action tests; no claim of all interaction parity."
@@ -4023,7 +4030,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
@@ -4036,10 +4043,11 @@
         "src/sts2sim/engine/transitions.py:_begin_next_player_turn"
       ],
       "retained_tests": [
-        "tests/combat/test_combat_engine_cards.py::test_turn_relics_apply_energy_limits_and_end_turn_block"
+        "tests/combat/test_combat_engine_cards.py::test_turn_relics_apply_energy_limits_and_end_turn_block",
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4286,16 +4294,17 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
       ],
       "runtime_entrypoints": [],
-      "retained_tests": [],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_source_energy_relics_modify_maximum_once_at_reset_and_restore_run_base"
+      ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
-        "No retained per-ID contract test identified; shared generic tests do not prove this item contract."
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity."
       ],
       "multiplayer": "not independently validated"
     },

@@ -409,6 +409,38 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantPotionEntry.cs",
       "sha256": "79ec91e3b6a1349e7d0d9f3330f11348e794d613e0a4e65784b9428047bd19c1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BloodSoakedRose.cs",
+      "sha256": "6738e21d8bab474b0e1755711d4d2d0df06aaecac02564260c3093d6da4d0bed"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BlessedAntler.cs",
+      "sha256": "a1510a9be4bb28f9d34cce3977fcea155ee6a09be7b5e5d1dc68f2a7cf6ceb59"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Bread.cs",
+      "sha256": "06d6fdc5af92ae6c7b28f540fe7e46fc52b8dc31d08369ccfd34dff29ee3e85d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PumpkinCandle.cs",
+      "sha256": "807de4c900f8d2dc20c55e7eba2bfa554a64f9a667d25bf2425e91da4dc8033a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PhilosophersStone.cs",
+      "sha256": "71c53c9bac96a1ebfda53a04a3b36bcfdbd0cffea0ef02d45ee58bd777d1784a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PrismaticGem.cs",
+      "sha256": "c247a9dae925e6cac3e4e3743470f60e8eec35e09ab605b73a6a0a4f58723196"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/VelvetChoker.cs",
+      "sha256": "418c2070e88c5f9145a55a393978a7f993ffd29ab4a1a9b514549294deb24140"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhisperingEarring.cs",
+      "sha256": "4d4a67823048a590d8d7984dd328fe44973da1c945277e262c6d722acc564bba"
     }
   ],
   "cached_source_rows": {
