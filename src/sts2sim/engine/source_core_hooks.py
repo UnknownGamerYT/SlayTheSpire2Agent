@@ -373,7 +373,7 @@ def apply_source_core(
                 0,
             )
             value = sacrificed_damage(chosen, combat, value)
-            value = t._modified_card_damage(combat, chosen, value, relics=relics)
+            value = int(t._modified_card_damage(combat, chosen, value, relics=relics))
             add_damage_bonus(int(value))
             exhaust((chosen,))
     elif name == "pillage":

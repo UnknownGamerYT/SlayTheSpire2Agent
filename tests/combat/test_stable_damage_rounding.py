@@ -103,6 +103,7 @@ def test_signed_calculated_damage_adds_strength_before_clamping():
 @pytest.mark.parametrize("card_id,status,amount,expected", [
     ("sweep", "weak", 3, [73, 91]),
     ("sovereign_blade", "conqueror", 1, [82, 91]),
+    ("hang", "hang", 2, [82, 91]),
 ])
 def test_target_specific_damage_multipliers_do_not_spread_across_aoe(
     card_id, status, amount, expected,
@@ -131,3 +132,35 @@ def test_reflection_returns_blocked_damage_without_attack_modifiers():
     assert result.player.hp == 78  # 8*.75=6; four Block absorbed.
     assert result.combat.monsters[0].hp == 96
     assert result.player.statuses.get("reflect", 0) == 0
+
+
+@pytest.mark.parametrize("base,dexterity,expected", [(9, 0, 13), (0, 3, 4)])
+def test_block_combines_frail_and_doubling_before_final_floor(base, dexterity, expected):
+    block = _simple("block", effects={"block": base})
+    result = _play(_state(block, statuses={
+        "dexterity": dexterity, "frail": 1, "double_block_gain_this_turn": 1,
+    }), "block")
+    assert result.player.block == expected
+    _reload(result)
+
+
+def test_defend_bonus_is_additive_before_frail_and_doubling():
+    defend = _simple("defend", effects={"block": 5}, tags=("defend",))
+    result = _play(_state(defend, statuses={
+        "dexterity": 1, "defend_block_bonus": 3, "frail": 1,
+        "double_block_gain_this_turn": 1,
+    }), "defend")
+    assert result.player.block == 13  # (5+1+3)*.75*2 ->13.
+
+
+def test_block_cap_limits_stored_block_and_preserves_requested_hook_amount():
+    block = _simple("block", effects={"block": 5})
+    state = _state(block)
+    player = state.player.model_copy(update={"block": 999_999_998})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(update={
+        "player": player,
+    })})
+    result = _play(state, "block")
+    assert result.player.block == 999_999_999
+    event = next(event for event in result.combat.last_events if event.kind == "player_block")
+    assert event.amount == 5

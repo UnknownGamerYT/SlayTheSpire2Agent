@@ -13,11 +13,11 @@ from typing import Any, Literal
 
 from sts2sim.content.source_card_pools import (
     COMBAT_GENERATION_EXCLUDED,
+    NON_UPGRADABLE_CARD_IDS,
     SOURCE_CARD_POOLS,
     source_pool_cards,
 )
 from sts2sim.content.sources import STS1_COMPAT_SOURCE
-from sts2sim.content.source_card_pools import NON_UPGRADABLE_CARD_IDS
 from sts2sim.data import load_cached_json
 from sts2sim.mechanics.ancients import (
     AncientChoice as MechanicsAncientChoice,
@@ -15968,8 +15968,7 @@ def _apply_effect_step(
         monsters = list(combat.monsters)
 
     block = _effect_amount(effect, "block", energy_spent)
-    if block:
-        block = _modified_card_block(combat, card, block)
+    if "block" in effect:
         combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
         combat, rng_state, block_events = _gain_player_block(
             state,
@@ -15985,8 +15984,7 @@ def _apply_effect_step(
         monsters = list(combat.monsters)
 
     formula_block = _formula_amount(effect.get("block_formula"), combat=combat)
-    if formula_block:
-        formula_block = _modified_card_block(combat, card, formula_block)
+    if effect.get("block_formula") is not None:
         combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
         combat, rng_state, block_events = _gain_player_block(
             state,
@@ -16003,7 +16001,6 @@ def _apply_effect_step(
 
     ally_block = _ally_block_amount(combat, effect.get("block_from_ally"))
     if ally_block:
-        ally_block = _modified_card_block(combat, card, ally_block)
         combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
         combat, rng_state, block_events = _gain_player_block(
             state,
@@ -19102,7 +19099,9 @@ def _card_matches_choice_payload(
 
     if payload.get("action") == "add_sly" and _card_has_keyword(card, "sly"):
         return False
-    if payload.get("action") == "upgrade" and (card.upgraded or card.card_id in NON_UPGRADABLE_CARD_IDS):
+    if payload.get("action") == "upgrade" and (
+        card.upgraded or card.card_id in NON_UPGRADABLE_CARD_IDS
+    ):
         return False
     color = payload.get("color")
     if isinstance(color, str) and color:
@@ -21386,19 +21385,21 @@ def _gain_player_block(
     source_card: CardInstance | None,
     metadata: Mapping[str, Any] | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
-    if amount <= 0:
-        return combat, rng_state, ()
-
     player = combat.player
     from_card = source_card is not None and source_card.custom.get("source_kind") not in {
         "potion", "power",
     }
+    if amount <= 0 and not from_card:
+        return combat, rng_state, ()
     if from_card and _status_amount(player.statuses, "no_card_block_gain") > 0:
         return combat, rng_state, (EffectEvent(
             kind="card_block_prevented", source_id=source_id, target_id=PLAYER_TARGET_ID,
             amount=0, metadata={"status": "no_card_block_gain", "requested": amount},
         ),)
-    block = amount
+    block = (
+        _modified_card_block(combat, source_card, amount)
+        if from_card and source_card is not None else Fraction(amount)
+    )
     event_metadata = dict(metadata or {})
     if from_card and source_card is not None:
         if _status_amount(player.statuses, "double_block_gain_this_turn") > 0:
@@ -21419,18 +21420,19 @@ def _gain_player_block(
             )
         defend_bonus = _status_amount(player.statuses, "defend_block_bonus")
         if defend_bonus and _card_is_defend(source_card):
-            block += defend_bonus
             event_metadata["defend_block_bonus"] = defend_bonus
 
-    block = min(block, max(0, 999_999_999 - combat.player.block))
-    player = combat.player.model_copy(update={"block": combat.player.block + block})
+    gained = max(0, int(block))
+    player = combat.player.model_copy(update={
+        "block": min(999_999_999, combat.player.block + gained),
+    })
     combat = combat.model_copy(update={"player": player})
     events: list[EffectEvent] = [
         EffectEvent(
             kind="player_block",
             source_id=source_id,
             target_id=PLAYER_TARGET_ID,
-            amount=block,
+            amount=gained,
             metadata=event_metadata,
         )
     ]
@@ -21448,7 +21450,7 @@ def _gain_player_block(
             rng_state,
             trigger="player_block_gain",
             context={
-                "amount": block,
+                "amount": gained,
                 "source_card": source_card,
                 "from_card": from_card,
             },
@@ -21463,7 +21465,7 @@ def _gain_player_block(
             card=source_card,
             target_id=PLAYER_TARGET_ID,
             metadata={
-                "amount": block,
+                "amount": gained,
                 "source_card_id": source_card.card_id,
                 "source_event_kind": "player_block",
             },
@@ -23537,6 +23539,8 @@ def _incoming_monster_damage(
             and _status_amount(monster.statuses, "conqueror") > 0
         ):
             multiplier *= 2
+        if _normalized_id(source_card_id or "") == "hang":
+            multiplier *= max(1, _status_amount(monster.statuses, "hang"))
     if (
         source_card_type == CardType.ATTACK.value
         and _status_amount(monster.statuses, "vulnerable") > 0
@@ -27742,18 +27746,18 @@ def _modified_card_block(
     combat: CombatState,
     card: CardInstance,
     amount: int,
-) -> int:
-    if amount <= 0:
-        return amount
+) -> Fraction:
     if card.custom.get("source_kind") in {"potion", "power"}:
-        return amount
-    modified = amount
+        return Fraction(amount)
+    modified = Fraction(amount)
     if card.type in {CardType.SKILL, CardType.ATTACK, CardType.POWER}:
         modified += _signed_status_amount(combat.player.statuses, "dexterity")
         modified += _signed_status_amount(combat.player.statuses, "temporary_dexterity")
+        if _card_is_defend(card):
+            modified += _status_amount(combat.player.statuses, "defend_block_bonus")
         if _status_amount(combat.player.statuses, "frail") > 0:
-            modified = int(modified * 0.75)
-    return max(0, modified)
+            modified *= Fraction(3, 4)
+    return max(Fraction(0), modified)
 
 
 def _is_shiv_card(card: CardInstance) -> bool:
