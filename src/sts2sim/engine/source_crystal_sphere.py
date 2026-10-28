@@ -96,6 +96,7 @@ def _sphere_rewards(
             if candidates:
                 potions.append(rng.choice(candidates))
     gold = 0
+    gold_components: list[dict[str, Any]] = []
     relics: list[str] = []
     card_groups: list[tuple[str, ...]] = []
     rarities: list[tuple[str, ...]] = []
@@ -105,7 +106,9 @@ def _sphere_rewards(
     for item in items:
         if item.kind in {'gold', 'big_gold'}:
             amount = 30 if item.kind == 'big_gold' else 10
-            gold += amount + rng.randrange(1)  # GoldReward.Populate draws even fixed amounts.
+            amount += rng.randrange(1)  # GoldReward.Populate draws even fixed amounts.
+            gold += amount
+            gold_components.append({'amount': amount, 'source_id': 'crystal_sphere'})
         elif item.kind == 'relic':
             rarity = source_relic_rarity(rng)
             if has_source_relic_bag(state):
@@ -138,7 +141,10 @@ def _sphere_rewards(
                 'card_option_upgraded': upgrades[0],
                 'card_option_group_upgraded': tuple(upgrades[1:])})
     if gold or relics or potions:
-        reward = (reward or RewardState(
-            reward_id='event:crystal_sphere', source='event')).model_copy(
-            update={'gold': gold, 'relic_ids': tuple(relics), 'potion_ids': tuple(potions)})
+        reward = reward or RewardState(reward_id='event:crystal_sphere', source='event')
+        reward = reward.model_copy(update={
+            'gold': gold, 'relic_ids': tuple(relics), 'potion_ids': tuple(potions),
+            'metadata': {**reward.metadata, **({'gold_reward_components': tuple(gold_components)}
+                                             if gold_components else {})},
+        })
     return state.model_copy(update={'flags': flags}), reward
