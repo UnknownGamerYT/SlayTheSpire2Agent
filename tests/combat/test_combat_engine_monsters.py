@@ -570,7 +570,7 @@ def test_combat_spawns_source_monster_with_scaled_initial_intent() -> None:
     assert monster.hit_count == 2
     assert monster.metadata["encounter_id"] == "TRAINING_AUTOMATON_ENCOUNTER"
 
-    ascension_state = _enter_training_combat(ascension=7)
+    ascension_state = _enter_training_combat(ascension=9)
     assert ascension_state.combat is not None
     ascension_monster = ascension_state.combat.monsters[0]
     assert ascension_monster.hp == 40
@@ -782,7 +782,7 @@ def test_waterfall_giant_cycle_heals_and_shows_dynamic_pressure_gun_damage() -> 
 
 
 def test_waterfall_giant_siphon_uses_ascension_heal_amount() -> None:
-    state = _enter_waterfall_giant_combat(ascension=4)
+    state = _enter_waterfall_giant_combat(ascension=9)
 
     state = step(state, _end_turn_action(state))
     state = step(state, _end_turn_action(state))
@@ -1676,7 +1676,7 @@ def test_wriggler_named_slot_conditions_use_slot_index() -> None:
     assert second.move_id == "WRIGGLE"
 
 
-def test_entomancer_bees_repeats_from_source_specific_selector() -> None:
+def test_entomancer_bees_advances_to_spear_from_source_specific_selector() -> None:
     definition = build_monster_definitions(
         (
             {
@@ -1710,7 +1710,7 @@ def test_entomancer_bees_repeats_from_source_specific_selector() -> None:
     move = next_monster_move(definition, "BEES", Random(1))
 
     assert move is not None
-    assert move.move_id == "BEES"
+    assert move.move_id == "SPEAR"
 
 
 def test_spawn_capacity_conditions_select_summon_or_fallback_branch() -> None:
@@ -1835,13 +1835,13 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
     source_data = _source_data(
         (
             {
-                "id": "FABRICATOR",
-                "name": "Fabricator",
+                "id": "FOGMOG",
+                "name": "Fogmog",
                 "type": "Normal",
                 "min_hp": 100,
                 "max_hp": 100,
                 "moves": (
-                    {"id": "FABRICATE", "name": "Fabricate", "intent": "Summon"},
+                    {"id": "ILLUSION", "name": "Illusion", "intent": "Summon"},
                     {
                         "id": "DISINTEGRATE",
                         "name": "Disintegrate",
@@ -1850,12 +1850,12 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
                     },
                 ),
                 "attack_pattern": {
-                    "initial_move": "FABRICATE_MOVE",
+                    "initial_move": "ILLUSION_MOVE",
                     "states": (
                         {
-                            "id": "FABRICATE_MOVE",
+                            "id": "ILLUSION_MOVE",
                             "type": "move",
-                            "move_id": "FABRICATE",
+                            "move_id": "ILLUSION",
                             "next": "DISINTEGRATE_MOVE",
                         },
                         {
@@ -1868,8 +1868,8 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
                 },
             },
             {
-                "id": "GUARDBOT",
-                "name": "Guardbot",
+                "id": "EYE_WITH_TEETH",
+                "name": "Eye With Teeth",
                 "type": "Normal",
                 "min_hp": 16,
                 "max_hp": 16,
@@ -1896,14 +1896,14 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
         ),
         (
             {
-                "id": "FABRICATOR_ENCOUNTER",
-                "name": "Fabricator",
+                "id": "FOGMOG_ENCOUNTER",
+                "name": "Fogmog",
                 "room_type": "Monster",
                 "is_weak": True,
-                "monsters": ({"id": "FABRICATOR"},),
+                "monsters": ({"id": "FOGMOG"},),
             },
         ),
-        "FABRICATOR_ENCOUNTER",
+        "FOGMOG_ENCOUNTER",
     )
     state = _enter_source_combat(source_data)
 
@@ -1911,8 +1911,8 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
 
     assert state.combat is not None
     assert [monster.monster_id for monster in state.combat.monsters] == [
-        "FABRICATOR",
-        "GUARDBOT",
+        "FOGMOG",
+        "EYE_WITH_TEETH",
     ]
     guardbot = state.combat.monsters[1]
     assert guardbot.hp == 16
@@ -1920,7 +1920,7 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
     assert guardbot.block == 0
     assert guardbot.metadata["summoned"] is True
     assert any(
-        event.kind == "monster_summoned" and event.target_id == "GUARDBOT"
+        event.kind == "monster_summoned" and event.target_id == "EYE_WITH_TEETH"
         for event in state.combat.last_events
     )
 

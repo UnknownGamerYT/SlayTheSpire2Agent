@@ -97,10 +97,9 @@ def test_presence_counts_across_turns_and_survives_serialization() -> None:
     assert events[0].metadata["reason"] == "end_turn_hand_card"
 
 
-@pytest.mark.parametrize("ascension,created,strength", [(0, 1, 2), (9, 2, 3)])
+@pytest.mark.parametrize("ascension,created,strength", [(0, 1, 3), (9, 2, 4)])
 def test_intensity_repeated_upgrades_and_new_presence_cards(ascension, created, strength) -> None:
-    # Exercise the provisional script while the exact first-use Strength order
-    # remains an explicit coverage blocker pending live-game verification.
+    # Pinned v0.107.1 Aeonglass source grants 3/4 Strength before adding uses.
     state = _combat("AEONGLASS", ascension=ascension)
     combat = state.combat
     base_wither = _card_from_spec({

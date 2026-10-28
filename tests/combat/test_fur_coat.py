@@ -193,20 +193,20 @@ def _summoning_fight(*, marked: bool):
     state = _pickup(_reward_state(normal_count=1))
     flags = {
         **state.flags,
-        "combat_monster_ids": ("FABRICATOR",),
+        "combat_monster_ids": ("FOGMOG",),
         "monsters": (
             {
-                "id": "FABRICATOR",
-                "name": "Fabricator",
+                "id": "FOGMOG",
+                "name": "Fogmog",
                 "type": "Normal",
                 "min_hp": 100,
                 "max_hp": 100,
-                "moves": ({"id": "FABRICATE", "intent": "Summon"},),
-                "attack_pattern": {"initial_move": "FABRICATE"},
+                "moves": ({"id": "ILLUSION", "intent": "Summon"},),
+                "attack_pattern": {"initial_move": "ILLUSION"},
             },
             {
-                "id": "GUARDBOT",
-                "name": "Guardbot",
+                "id": "EYE_WITH_TEETH",
+                "name": "Eye With Teeth",
                 "type": "Normal",
                 "min_hp": 16,
                 "max_hp": 16,

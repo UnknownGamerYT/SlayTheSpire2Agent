@@ -58,6 +58,7 @@ _SUPPORTED_SPECIAL_INNATE_POWERS = frozenset(
         "battleworn_dummy_time_limit", "galvanic", "back_attack_left", "back_attack_right",
         "illusion", "possess_speed", "possess_strength", "escape_artist", "thievery",
         "ritual",
+        "stock",
     )
 )
 # These powers are executed by identity-specific engine scripts, rather than
@@ -467,17 +468,6 @@ def _innate_power_requirements(
         if not power.power_id:
             continue
         normalized = normalize_power_id(power.power_id)
-        if normalized in {"back_attack_left", "back_attack_right"}:
-            requirements.append(_requirement(
-                definition, category=ADVANCED_AI,
-                code="back_attack_initial_facing_requires_live_verification",
-                severity=MONSTER_SPECIAL_BLOCKER, source_type="power",
-                source_id=power.power_id,
-                detail="Targeted cards and potions turn the player; Back Attack is executable.",
-                blocker="The source snapshot omits the player's initial Kaiser Crab facing. "
-                "Import player_facing from a live trace to verify exact first-turn damage.",
-                evidence=("https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Kaiser_Crab",),
-            ))
         if normalized in _BASIC_STATUS_POWERS:
             requirements.append(
                 _requirement(
@@ -631,21 +621,6 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
                 )
             )
 
-            requirements.append(
-                _requirement(
-                    definition,
-                    category=ADVANCED_AI,
-                    code="aeonglass_intensity_scaling_requires_live_verification",
-                    severity=MONSTER_SPECIAL_BLOCKER,
-                    source_type="move",
-                    source_id=move.move_id,
-                    detail="The public API omits Increasing Intensity's numeric effect payload.",
-                    blocker="The published wiki describes 2 + X Strength and repeated Wither "
-                    "upgrades, but does not establish the first-use counter/update order for "
-                    "this source snapshot. Verify it against a live trace or game source.",
-                    evidence=("https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Aeonglass",),
-                )
-            )
 
         requirements.extend(_move_power_requirements(definition, move))
 
@@ -906,6 +881,19 @@ def _state_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialRe
                     )
                 )
         elif normalized_state_type == "conditional" and not state.branches:
+            if (_normalized_id(definition.monster_id), state.state_id) in {
+                ("bowlbug_rock", "POST_HEADBUTT"),
+                ("lagavulin_matriarch", "SLEEP_BRANCH"),
+                ("slumbering_beetle", "SNORE_NEXT"),
+            }:
+                requirements.append(_requirement(
+                    definition, category=CONDITIONAL_BRANCH_DEPENDENCY,
+                    code="scripted_model_state_selector", severity=MONSTER_SPECIAL_HINT,
+                    source_type="state", source_id=state.state_id,
+                    detail="The stable model's sleep/imbalance branch is resolved by its "
+                    "identity-specific turn handler.",
+                ))
+                continue
             if not _state_selector_referenced(definition, state.state_id):
                 requirements.append(
                     _requirement(

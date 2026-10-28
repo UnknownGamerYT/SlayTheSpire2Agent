@@ -76,14 +76,14 @@ def test_monster_source_parses_scaling_and_cycle_moves() -> None:
     dummy = definitions["TRAINING_DUMMY"]
 
     assert monster_hp_range(dummy, ascension_level=0) == (10, 12)
-    assert monster_hp_range(dummy, ascension_level=7) == (20, 22)
+    assert monster_hp_range(dummy, ascension_level=8) == (20, 22)
 
     move = initial_monster_move(dummy, Random(1))
     assert move is not None
     assert move.move_id == "JAB"
     assert move.hit_count == 2
     assert monster_move_damage(dummy, move, ascension_level=0) == 5
-    assert monster_move_damage(dummy, move, ascension_level=2) == 7
+    assert monster_move_damage(dummy, move, ascension_level=9) == 7
 
     next_move = next_monster_move(dummy, move.move_id, Random(1))
     assert next_move is not None
@@ -170,15 +170,15 @@ def test_v0107_cache_enemy_values_and_ids_parse() -> None:
 
     soul_scream = definitions["SOUL_FYSH"].move_by_id["SCREAM"]
     assert monster_move_damage(definitions["SOUL_FYSH"], soul_scream, ascension_level=0) == 13
-    assert monster_move_damage(definitions["SOUL_FYSH"], soul_scream, ascension_level=4) == 15
+    assert monster_move_damage(definitions["SOUL_FYSH"], soul_scream, ascension_level=9) == 15
 
     assassin = definitions["ASSASSIN_RUBY_RAIDER"]
     killshot = assassin.move_by_id["KILLSHOT"]
     assert monster_move_damage(assassin, killshot, ascension_level=0) == 10
-    assert monster_move_damage(assassin, killshot, ascension_level=2) == 11
+    assert monster_move_damage(assassin, killshot, ascension_level=9) == 11
 
     axebot = definitions["AXEBOT"]
-    assert initial_monster_move(axebot, Random(1)).move_id == "BOOT_UP"
+    assert initial_monster_move(axebot, Random(1)).move_id == "HAMMER_UPPERCUT"
     assert axebot.move_by_id["ONE_TWO"].hit_count == 2
     assert {power.power_id for power in axebot.move_by_id["HAMMER_UPPERCUT"].powers} == {
         "WEAK",
@@ -251,7 +251,7 @@ def test_v0107_skulking_colony_patch_normalization() -> None:
 
     strength = colony.move_by_id["INERTIA"].powers[0]
     assert monster_power_amount(colony, strength, ascension_level=2) == 2
-    assert monster_power_amount(colony, strength, ascension_level=3) == 3
+    assert monster_power_amount(colony, strength, ascension_level=9) == 4
 
     first = initial_monster_move(colony, Random(1))
     second = next_monster_move(colony, first.move_id, Random(1))
@@ -342,4 +342,4 @@ def test_v0107_haunted_ship_and_punch_construct_move_chains() -> None:
 
 def test_v0107_waterfall_giant_siphon_heal_amount() -> None:
     assert waterfall_giant_siphon_heal(ascension_level=0) == 10
-    assert waterfall_giant_siphon_heal(ascension_level=4) == 15
+    assert waterfall_giant_siphon_heal(ascension_level=9) == 15

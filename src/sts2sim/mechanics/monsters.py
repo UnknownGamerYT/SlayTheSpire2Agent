@@ -9,12 +9,16 @@ from dataclasses import dataclass, replace
 from random import Random
 from typing import Any
 
-NORMAL_DAMAGE_ASCENSION = 2
-ELITE_DAMAGE_ASCENSION = 3
-BOSS_DAMAGE_ASCENSION = 4
-NORMAL_HP_ASCENSION = 7
+from .monster_scripts import MONSTER_INITIAL_STATES, MONSTER_STATE_FOLLOWUPS
+
+# AscensionLevel.cs in stable v0.107.1 defines ToughEnemies=8 and
+# DeadlyEnemies=9 for every enemy kind (there are no STS1 room thresholds).
+NORMAL_DAMAGE_ASCENSION = 9
+ELITE_DAMAGE_ASCENSION = 9
+BOSS_DAMAGE_ASCENSION = 9
+NORMAL_HP_ASCENSION = 8
 ELITE_HP_ASCENSION = 8
-BOSS_HP_ASCENSION = 9
+BOSS_HP_ASCENSION = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,13 +129,14 @@ _SUMMON_PLANS: tuple[MonsterSummonPlan, ...] = (
     MonsterSummonPlan(
         source_monster_id="FABRICATOR",
         move_id="FABRICATE",
-        summon_monster_ids=("GUARDBOT",),
+        summon_monster_ids=("GUARDBOT", "NOISEBOT", "ZAPBOT", "STABBOT"),
+        count=2,
         max_allies=3,
     ),
     MonsterSummonPlan(
         source_monster_id="FABRICATOR",
         move_id="FABRICATING_STRIKE",
-        summon_monster_ids=("GUARDBOT",),
+        summon_monster_ids=("ZAPBOT", "STABBOT"),
         max_allies=3,
     ),
     MonsterSummonPlan(
@@ -212,6 +217,19 @@ def build_monster_definitions(raw_monsters: Sequence[Any]) -> Mapping[str, Monst
         if row.get("max_hp") is None and max_hp_ascension is None:
             max_hp_ascension = min_hp_ascension
         pattern = _mapping(row.get("attack_pattern"))
+        states = tuple(
+            _attack_pattern_state(state) for state in _sequence(pattern.get("states"))
+        )
+        state_ids = {state.state_id for state in states}
+        states = tuple(
+            replace(state, next_selector=followup)
+            if (followup := MONSTER_STATE_FOLLOWUPS.get((monster_id, state.state_id)))
+            in state_ids else state
+            for state in states
+        )
+        initial = MONSTER_INITIAL_STATES.get(monster_id)
+        if initial not in state_ids:
+            initial = _optional_text(pattern.get("initial_move"))
         definition = MonsterDefinition(
             monster_id=monster_id,
             name=_text(row.get("name"), monster_id),
@@ -221,10 +239,12 @@ def build_monster_definitions(raw_monsters: Sequence[Any]) -> Mapping[str, Monst
             min_hp_ascension=min_hp_ascension,
             max_hp_ascension=max_hp_ascension,
             moves=moves,
-            states=tuple(
-                _attack_pattern_state(state) for state in _sequence(pattern.get("states"))
+            states=states,
+            initial_selector=(
+                "HAMMER_UPPERCUT" if _normalized_id(monster_id) == "axebot"
+                and any(move.move_id == "HAMMER_UPPERCUT" for move in moves)
+                else initial
             ),
-            initial_selector=_optional_text(pattern.get("initial_move")),
             innate_powers=innate_powers,
         )
         definitions[monster_id] = definition
@@ -395,7 +415,8 @@ def monster_hp_range(
         and definition.min_hp <= 1
         and definition.max_hp <= 1
     ):
-        return 100, 100
+        hp = 111 if ascension_level >= 8 else 100
+        return hp, hp
 
     minimum = definition.min_hp
     maximum = definition.max_hp
@@ -430,17 +451,45 @@ def monster_power_amount(
     *,
     ascension_level: int,
 ) -> int:
-    if (
-        _normalized_id(definition.monster_id) in {"the_lost", "the_forgotten"}
-        and _normalized_id(power.power_id) in {"strength", "dexterity"}
-        and _normalized_id(power.target) == "self"
-        and power.amount == 2 and power.amount_ascension is None
-    ):
-        # Their stat stealing is a secondary A9 change, not the A2 damage increase.
-        return 3 if ascension_level >= 9 else 2
-    if _uses_ascension_damage(definition, ascension_level) and power.amount_ascension is not None:
+    threshold = 8 if _normalized_id(power.power_id) in {
+        "plating", "curl_up", "skittish", "shriek", "slippery",
+    } else 9
+    if ascension_level >= threshold and power.amount_ascension is not None:
         return max(0, power.amount_ascension)
     return max(0, power.amount)
+
+
+def monster_move_for_ascension(
+    definition: MonsterDefinition, move: MonsterMove, *, ascension_level: int,
+) -> MonsterMove:
+    """Resolve omitted stable Block and repeat-count ascension properties."""
+    key = (_normalized_id(definition.monster_id), _normalized_id(move.move_id))
+    block_rules = {
+        ("axe_ruby_raider", "swing_1"): (9, 6),
+        ("axe_ruby_raider", "swing_2"): (9, 6),
+        ("axebot", "boot_up"): (9, 15),
+        ("bowlbug_egg", "bite"): (9, 8),
+        ("infested_prism", "radiate"): (9, 13),
+        ("infested_prism", "pulsate"): (8, 22),
+        ("lagavulin_matriarch", "slash2"): (8, 14),
+        ("magi_knight", "power_shield"): (8, 9),
+        ("nibbit", "slice"): (8, 6),
+        ("seapunk", "bubble_burp"): (8, 8),
+        ("the_obscura", "hardening_strike"): (9, 7),
+        ("tunneler", "burrow"): (8, 37),
+    }
+    if key in block_rules:
+        threshold, amount = block_rules[key]
+        if ascension_level >= threshold:
+            move = replace(move, block=amount)
+    hit_rules = {
+        ("entomancer", "bees"): 8,
+        ("exoskeleton", "skitter"): 4,
+        ("tracker_ruby_raider", "hounds"): 9,
+    }
+    if key in hit_rules and ascension_level >= 9:
+        move = replace(move, hit_count=hit_rules[key])
+    return move
 
 
 def waterfall_giant_siphon_heal(*, ascension_level: int) -> int:
@@ -450,7 +499,7 @@ def waterfall_giant_siphon_heal(*, ascension_level: int) -> int:
     exposes it explicitly for runtime integrations.
     """
 
-    return 15 if _uses_ascension_damage_kind("boss", ascension_level) else 10
+    return 15 if ascension_level >= 8 else 10
 
 
 def initial_monster_move(
@@ -512,9 +561,9 @@ def next_monster_move(
         )
 
     current_state = _state_for_move(definition, current_move_id)
-    selector = current_state.next_selector if current_state is not None else None
+    selector = _source_specific_next_selector(definition, current_move_id)
     if selector is None:
-        selector = _source_specific_next_selector(definition, current_move_id)
+        selector = current_state.next_selector if current_state is not None else None
     if selector is None:
         selector = _next_cycle_move_id(definition, current_move_id)
     return resolve_monster_move(
@@ -665,12 +714,34 @@ def _source_specific_moves(
         )
     patched: list[MonsterMove] = []
     scaled_powers = {
-        ("skulking_colony", "inertia", "strength"): 3,
+        ("skulking_colony", "inertia", "strength"): 4,
         ("myte", "suck", "strength"): 3,
         ("test_subject", "burning_growl", "strength"): 3,
         ("infested_prism", "pulsate", "vital_spark"): 3,
+        ("crusher", "adapt", "strength"): 3,
+        ("rocket", "charge_up", "strength"): 3,
+        ("bowlbug_nectar", "buff", "strength"): 16,
+        ("ceremonial_beast", "stamp", "plow"): 160,
+        ("ceremonial_beast", "crush", "strength"): 4,
+        ("damp_cultist", "incantation", "ritual"): 6,
+        ("kin_follower", "power_dance", "strength"): 3,
+        ("kin_priest", "ritual", "strength"): 3,
+        ("knowledge_demon", "ponder", "strength"): 3,
+        ("nibbit", "hiss", "strength"): 3,
+        ("ovicopter", "nutritional_paste", "strength"): 4,
+        ("phantasmal_gardener", "enlarge", "strength"): 3,
+        ("seapunk", "bubble_burp", "strength"): 2,
+        ("the_insatiable", "salivate", "strength"): 3,
+        ("waterfall_giant", "pressurize", "steam_eruption"): 20,
     }
     for move in moves:
+        if (
+            normalized_monster_id == "entomancer"
+            and _normalized_id(move.move_id) == "pheromone_spit"
+        ):
+            # The list API flattens both mutually exclusive SpitMove branches.
+            patched.append(replace(move, powers=()))
+            continue
         powers = tuple(
             replace(power, amount_ascension=scaled_powers[key])
             if (key := (
@@ -704,6 +775,8 @@ def _source_specific_innate_powers(
         # The list endpoint omits this printed power; the public monster page
         # records Thievery 20 (no ascension change).
         patched.append(MonsterPower("THIEVERY", 20))
+    if normalized_monster_id == "axebot" and "stock" not in normalized_power_ids:
+        patched.append(MonsterPower("STOCK", 2))
     return tuple(patched)
 
 
@@ -1004,6 +1077,19 @@ def _source_specific_next_selector(
     definition: MonsterDefinition,
     current_move_id: str,
 ) -> str | None:
+    if (
+        _normalized_id(definition.monster_id) == "bowlbug_rock"
+        and _normalized_id(current_move_id) == "headbutt"
+    ):
+        # The engine overrides this with DIZZY when Imbalanced set its model
+        # flag. Avoid randomly resolving the API's empty POST_HEADBUTT branch.
+        return "HEADBUTT"
+    if _normalized_id(definition.monster_id) == "axebot":
+        return {
+            "boot_up": "HAMMER_UPPERCUT",
+            "hammer_uppercut": "ONE_TWO",
+            "one_two": "HAMMER_UPPERCUT",
+        }.get(_normalized_id(current_move_id))
     if _normalized_id(definition.monster_id) == "punch_construct":
         return {
             "ready": "FAST_PUNCH",
@@ -1018,11 +1104,10 @@ def _source_specific_next_selector(
             "dead": "REATTACH",
             "reattach": "WRITHE",
         }.get(_normalized_id(current_move_id))
-    if (
-        _normalized_id(definition.monster_id) == "entomancer"
-        and _normalized_id(current_move_id) == "bees"
-    ):
-        return current_move_id
+    if _normalized_id(definition.monster_id) == "entomancer":
+        return {
+            "bees": "SPEAR", "spear": "PHEROMONE_SPIT", "pheromone_spit": "BEES",
+        }.get(_normalized_id(current_move_id))
     return None
 
 

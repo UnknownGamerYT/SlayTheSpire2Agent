@@ -773,9 +773,7 @@ def test_named_scripts_keep_only_unverified_numeric_source_blockers() -> None:
         }
     )
 
-    assert _codes(aeonglass.blockers) == {
-        "aeonglass_intensity_scaling_requires_live_verification",
-    }
+    assert not aeonglass.blockers
     assert "aeonglass_increasing_intensity_supported" in _codes(aeonglass.hints)
     assert not prism.blocked
     assert "vital_spark_tainted_skill_supported" in _codes(prism.hints)
@@ -911,7 +909,7 @@ def test_cached_monster_special_source_coverage_smoke() -> None:
     assert summary.encounter_count >= 80
     assert summary.missing_monster_ids == ()
     assert "DOORMAKER" not in summary.classified_monster_ids
-    assert "AEONGLASS" in summary.blocked_monster_ids
+    assert "AEONGLASS" not in summary.blocked_monster_ids
     assert "INFESTED_PRISM" not in summary.blocked_monster_ids
     assert "SKULKING_COLONY" not in summary.blocked_monster_ids
     queen = classify_raw_monster_specials(next(m for m in raw_monsters if m["id"] == "QUEEN"))

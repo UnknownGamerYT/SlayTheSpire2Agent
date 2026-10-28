@@ -297,18 +297,18 @@ def test_artifact_prevents_stealing_and_does_not_create_a_later_return_bonus() -
     assert state.combat.player.statuses.get("strength", 0) == 0
 
 
-def test_possess_stat_stealing_scales_at_a9_and_forgotten_dread_adds_dexterity() -> None:
+def test_possess_stat_stealing_stays_two_at_a9_and_forgotten_dread_adds_dexterity() -> None:
     # The source lists Dread without damage: the documented 13/15 base is restored.
     monster = _possessor("THE_FORGOTTEN")
     encounter = {"id": "POSSESS", "room_type": "Monster", "monsters": ({"id": monster["id"]},)}
     data = _source_data((monster,), (encounter,), "POSSESS")
     state = _enter_source_combat(data, ascension=9)
     state = step(state, _end_turn_action(state))
-    assert state.combat.player.statuses["dexterity"] == -3
-    assert state.combat.monsters[0].statuses["dexterity"] == 3
-    assert state.combat.monsters[0].intent_damage == 18
+    assert state.combat.player.statuses["dexterity"] == -2
+    assert state.combat.monsters[0].statuses["dexterity"] == 2
+    assert state.combat.monsters[0].intent_damage == 17
     state = step(state, _end_turn_action(state))
-    assert state.combat.player.hp == 62
+    assert state.combat.player.hp == 63
 
 
 def test_illusion_revives_on_next_own_turn_with_clean_debuffs_and_no_immediate_attack() -> None:

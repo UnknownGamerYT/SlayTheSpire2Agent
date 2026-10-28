@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import suppress
+from dataclasses import replace
 from fractions import Fraction
 from functools import lru_cache
 from itertools import combinations
@@ -80,6 +81,7 @@ from sts2sim.mechanics.monsters import (
     choose_encounter,
     initial_monster_move,
     monster_move_damage,
+    monster_move_for_ascension,
     monster_power_amount,
     monster_summon_plan,
     monster_summon_plans_for,
@@ -155,7 +157,7 @@ from sts2sim.mechanics.triggers import (
 from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
 from . import card_status_hooks
-from .errors import IllegalActionError
+from .errors import EngineError, IllegalActionError
 from .models import (
     PLAYER_TARGET_ID,
     Action,
@@ -8207,6 +8209,13 @@ def _start_combat_for_node(
         draw_per_turn=_flag_int(state, "draw_per_turn", 5),
         metadata=metadata,
     )
+    if any(_status_amount(monster.statuses, "back_attack_right") for monster in combat.monsters):
+        combat = combat.model_copy(update={
+            "player": combat.player.model_copy(update={
+                "statuses": {**combat.player.statuses, "surrounded": 1},
+            }),
+            "metadata": {"player_facing": "right", **combat.metadata},
+        })
     fur_coat_events: tuple[EffectEvent, ...] = ()
     if _fur_coat_room_is_marked(state, node):
         combat = combat.model_copy(
@@ -12028,6 +12037,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
 
     combat, tangled_events = _tick_player_tangled(combat)
     events.extend(tangled_events)
+    combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
+    events.extend(spawn_events)
     player = combat.player
     monster_definitions = _monster_definitions(state)
     # v0.107.1 resets Skulking Colony's budget at both turn starts, so Poison
@@ -12069,6 +12080,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         )
         events.extend(poison_kill_relic_events)
         rng = random_from_state(rng_state)
+        combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
+        events.extend(spawn_events)
+        rng_state = capture_random_state(rng)
+        combat, death_power_events = _apply_monster_death_power_triggers(combat, poison_events)
+        events.extend(death_power_events)
         player = combat.player
         monsters = list(combat.monsters)
         if monster.hp <= 0:
@@ -12109,6 +12125,12 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             monster_events,
         )
         events.extend(monster_killed_relic_events)
+        rng = random_from_state(rng_state)
+        combat, spawn_events = _apply_monster_death_spawns(state, combat, rng)
+        events.extend(spawn_events)
+        rng_state = capture_random_state(rng)
+        combat, death_power_events = _apply_monster_death_power_triggers(combat, monster_events)
+        events.extend(death_power_events)
         if combat.pending_choices:
             metadata = dict(combat.metadata)
             metadata["resume_after_pending_choice"] = "player_turn_start"
@@ -12478,6 +12500,17 @@ def _execute_monster_turn(
             relics=state.relics,
         )
         return combat, tuple(events) + fallback_events
+
+    move = monster_move_for_ascension(definition, move, ascension_level=state.ascension)
+
+    if _normalized_id(definition.monster_id) == "axebot" and move.move_id == "BOOT_UP":
+        # Axebot.BootUpMove uses the model's StockAmount even at zero, when
+        # no Stock power is applied to the final replacement.
+        wave = 2 - _metadata_int(monster.metadata, "axebot_stock_amount", 2)
+        move = replace(
+            move, block=15 if state.ascension >= 9 else 10,
+            powers=(MonsterPower("STRENGTH", (4 if state.ascension >= 9 else 3) * wave),),
+        )
 
     monster, move, wake_events = _prepare_lagavulin_wake_stun(
         monster,
@@ -13335,6 +13368,26 @@ def _apply_monster_special_move_effects(
         ),) if soar else ()
     if monster_id == "aeonglass" and move_id == "increasing_intensity":
         return _apply_aeonglass_increasing_intensity(combat, monster_index, state.ascension)
+    if monster_id == "entomancer" and move_id == "pheromone_spit":
+        hive = _status_amount(monster.statuses, "personal_hive")
+        statuses = dict(monster.statuses)
+        spit_events: list[EffectEvent] = []
+        if hive < 3:
+            statuses, event = _apply_status_value(
+                statuses, "personal_hive", 1,
+                source_id=monster.monster_id, target_id=monster.monster_id,
+            )
+            if event is not None:
+                spit_events.append(event)
+        statuses, event = _apply_status_value(
+            statuses, "strength", 1 if hive < 3 else 2,
+            source_id=monster.monster_id, target_id=monster.monster_id,
+        )
+        if event is not None:
+            spit_events.append(event)
+        return _combat_with_monster(
+            combat, monster_index, monster.model_copy(update={"statuses": statuses}),
+        ), tuple(spit_events)
     if monster_id == "waterfall_giant" and move_id == "siphon":
         heal = waterfall_giant_siphon_heal(ascension_level=state.ascension)
         old_hp = monster.hp
@@ -13435,7 +13488,7 @@ def _apply_monster_special_move_effects(
         ), None)
         amount = monster_power_amount(
             definition, power, ascension_level=state.ascension
-        ) if power is not None else (3 if state.ascension >= 9 else 2)
+        ) if power is not None else 2
         statuses, event = _apply_status_value(
             combat.player.statuses, stolen_stat, -amount,
             source_id=monster.monster_id, target_id=PLAYER_TARGET_ID,
@@ -13637,21 +13690,13 @@ def _apply_aeonglass_increasing_intensity(
     monster_index: int,
     ascension: int,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
-    # Source script supplements the move's empty API payload:
-    # https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Aeonglass#Pattern
+    # Aeonglass.IncreasingIntensityMove in the pinned v0.107.1 source upgrades
+    # existing cards first, advances the Wither counter, creates new cards at
+    # that counter, then grants 3/4 + prior uses Strength.
     monster = combat.monsters[monster_index]
     prior_uses = _metadata_int(monster.metadata, "aeonglass_intensity_uses", 0)
     count = 2 if ascension >= 9 else 1
-    combat, created = _add_generated_status_cards_to_combat(
-        combat,
-        "wither",
-        count,
-        "discard_pile",
-        source_id=monster.monster_id,
-        reason="aeonglass_increasing_intensity",
-    )
-    created_ids = {event.target_id for event in created}
-    events: list[EffectEvent] = list(created)
+    events: list[EffectEvent] = []
     updates: dict[str, Any] = {}
     for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile"):
         cards: list[CardInstance] = []
@@ -13659,12 +13704,8 @@ def _apply_aeonglass_increasing_intensity(
             if _normalized_id(card.card_id) != "wither":
                 cards.append(card)
                 continue
-            previous = (
-                prior_uses
-                if card.instance_id in created_ids
-                else _coerce_int(
-                    card.custom.get("wither_upgrade_count"), default=int(card.upgraded)
-                )
+            previous = _coerce_int(
+                card.custom.get("wither_upgrade_count"), default=int(card.upgraded)
             )
             upgraded = _wither_with_upgrade_count(card, previous + 1)
             cards.append(upgraded)
@@ -13678,7 +13719,19 @@ def _apply_aeonglass_increasing_intensity(
                 )
             )
         updates[zone] = tuple(cards)
-    strength = (3 if ascension >= 9 else 2) + prior_uses
+    combat = combat.model_copy(update=updates)
+    combat, created = _add_generated_status_cards_to_combat(
+        combat, "wither", count, "discard_pile", source_id=monster.monster_id,
+        reason="aeonglass_increasing_intensity",
+    )
+    created_ids = {event.target_id for event in created}
+    combat = combat.model_copy(update={"discard_pile": tuple(
+        _wither_with_upgrade_count(card, prior_uses + 1)
+        if card.instance_id in created_ids else card
+        for card in combat.discard_pile
+    )})
+    events.extend(created)
+    strength = (4 if ascension >= 9 else 3) + prior_uses
     statuses, strength_event = _apply_status_value(
         monster.statuses,
         "strength",
@@ -13692,7 +13745,7 @@ def _apply_aeonglass_increasing_intensity(
             "metadata": {**monster.metadata, "aeonglass_intensity_uses": prior_uses + 1},
         }
     )
-    combat = _combat_with_monster(combat.model_copy(update=updates), monster_index, monster)
+    combat = _combat_with_monster(combat, monster_index, monster)
     if strength_event is not None:
         events.append(strength_event)
     return combat, tuple(events)
@@ -14158,6 +14211,17 @@ def _apply_monster_summon_move(
     encounter_id = str(summoner.metadata.get("encounter_id", "dynamic_summon"))
     for index in range(count):
         source_monster_id = plan.summon_monster_ids[index % len(plan.summon_monster_ids)]
+        if _normalized_id(definition.monster_id) == "fabricator":
+            options = (
+                ("GUARDBOT", "NOISEBOT") if move.move_id == "FABRICATE" and index == 0
+                else ("ZAPBOT", "STABBOT")
+            )
+            previous = summoner.metadata.get("fabricator_last_spawned")
+            source_monster_id = rng.choice(tuple(item for item in options if item != previous))
+            summoner = summoner.model_copy(update={"metadata": {
+                **summoner.metadata, "fabricator_last_spawned": source_monster_id,
+            }})
+            monsters[monster_index] = summoner
         summon_definition = monster_definitions.get(source_monster_id)
         if summon_definition is None:
             events.append(
@@ -14191,6 +14255,8 @@ def _apply_monster_summon_move(
             innate_powers=summon_definition.innate_powers,
         )
         summoned = _monster_state_from_spawn(spawned, summon_definition, state)
+        if _normalized_id(definition.monster_id) == "fabricator":
+            summoned = summoned.model_copy(update={"statuses": {**summoned.statuses, "minion": 1}})
         summoned = summoned.model_copy(
             update={
                 "metadata": {
@@ -14227,6 +14293,8 @@ def _monster_summon_count(
 ) -> int:
     if not plan.summon_monster_ids:
         return 0
+    if _normalized_id(plan.source_monster_id) == "fabricator":
+        return min(plan.count, _open_monster_slots(combat))
 
     ally_capacity = _monster_summon_ally_capacity(combat, monster_index, plan)
     if ally_capacity <= 0:
@@ -14983,6 +15051,7 @@ def _set_monster_move(
             }
         )
 
+    move = monster_move_for_ascension(definition, move, ascension_level=ascension_level)
     metadata.update(_monster_move_metadata(definition, move, ascension_level))
     intent_damage = _monster_intent_damage(
         definition,
@@ -15214,8 +15283,8 @@ def _back_attack_multiplier(combat: CombatState, monster: MonsterState) -> float
     if not left_alive or not right_alive:
         return 1.0
     side = "left" if _status_amount(monster.statuses, "back_attack_left") else "right"
-    # The public source does not establish the initial facing. Imported traces
-    # can set it explicitly; the default remains a visible coverage blocker.
+    # SurroundedPower.Direction.Right is enum value zero and _facing has no
+    # initializer, establishing the initial direction in the stable source.
     facing = str(combat.metadata.get("player_facing", "right"))
     return 1.5 if side != facing else 1.0
 
@@ -15463,6 +15532,16 @@ def _apply_effect_step(
         )
         player = combat.player
         events.extend(kill_events)
+
+    if state is not None and any(event.kind == "monster_defeated" for event in events):
+        combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
+        death_rng = random_from_state(rng_state)
+        combat, spawn_events = _apply_monster_death_spawns(state, combat, death_rng)
+        rng_state = capture_random_state(death_rng)
+        combat, death_power_events = _apply_monster_death_power_triggers(combat, events)
+        events.extend(spawn_events + death_power_events)
+        player = combat.player
+        monsters = list(combat.monsters)
 
     block = _effect_amount(effect, "block", energy_spent)
     if block:
@@ -24624,7 +24703,7 @@ def _apply_test_subject_respawn_from_events(
             continue
 
         next_respawns = respawns + 1
-        phase_hp = _test_subject_phase_hp(next_respawns)
+        phase_hp = _test_subject_phase_hp(next_respawns, ascension_level=state.ascension)
         respawn_move = move_by_id(definition, "RESPAWN")
         statuses: dict[str, int] = {}
         status_events: list[EffectEvent] = []
@@ -24955,6 +25034,7 @@ def _apply_monster_death_spawns(
     combat: CombatState,
     rng: Random,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    combat, stock_events = _resolve_axebot_replacements(state, combat, rng)
     # Source rules: wiki.gg/Slay_the_Spire_2:Gremlin_Merc and :Phrog_Parasite.
     if not any(
         monster.hp <= 0 and not monster.metadata.get("escaped") and (
@@ -24965,11 +25045,11 @@ def _apply_monster_death_spawns(
         )
         for monster in combat.monsters
     ):
-        return combat, ()
+        return combat, stock_events
     definitions = _monster_definitions(state)
     monsters = list(combat.monsters)
     player = combat.player
-    events: list[EffectEvent] = []
+    events: list[EffectEvent] = list(stock_events)
     for parent_index, parent in enumerate(combat.monsters):
         source_id = _normalized_id(parent.metadata.get("source_monster_id", parent.monster_id))
         if parent.hp > 0 or parent.metadata.get("escaped"):
@@ -25028,6 +25108,63 @@ def _apply_monster_death_spawns(
                 metadata={"source_monster_id": spawn_id, "trigger": "death"},
             ))
     return combat.model_copy(update={"monsters": tuple(monsters), "player": player}), tuple(events)
+
+
+def _resolve_axebot_replacements(
+    state: RunState, combat: CombatState, rng: Random,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Resolve StockPower.AfterDeath before another hit or combat victory.
+
+    A replacement is a new creature in the same slot. The old identity remains
+    dead, so a single-target attack cannot transfer its remaining hits to it.
+    """
+    parents = tuple(
+        monster for monster in combat.monsters
+        if monster.hp <= 0 and _status_amount(monster.statuses, "stock") > 0
+        and not monster.metadata.get("death_spawn_resolved")
+        and not monster.metadata.get("escaped")
+    )
+    if not parents:
+        return combat, ()
+    definitions = _monster_definitions(state)
+    definition = definitions.get("AXEBOT")
+    if definition is None or move_by_id(definition, "BOOT_UP") is None:
+        raise EngineError("Stock replacement requires the AXEBOT definition and BOOT_UP move")
+    monsters = list(combat.monsters)
+    events: list[EffectEvent] = []
+    for parent in parents:
+        remaining = _status_amount(parent.statuses, "stock") - 1
+        parent_index = next(i for i, m in enumerate(monsters) if m.monster_id == parent.monster_id)
+        monsters[parent_index] = parent.model_copy(update={"metadata": {
+            **parent.metadata, "death_spawn_resolved": True,
+        }})
+        hp = roll_monster_hp(definition, rng, ascension_level=state.ascension)
+        child = _monster_state_from_spawn(SpawnedMonster(
+            instance_id=_next_monster_instance_id(monsters, definition.monster_id),
+            source_monster_id=definition.monster_id, name=definition.name,
+            hp=hp, max_hp=hp, move=move_by_id(definition, "BOOT_UP"), next_move_id=None,
+            encounter_id=str(parent.metadata.get("encounter_id", "stock")),
+            slot_index=_monster_slot_index(parent), innate_powers=definition.innate_powers,
+        ), definition, state)
+        statuses = dict(child.statuses)
+        if remaining:
+            statuses["stock"] = remaining
+        else:
+            statuses.pop("stock", None)
+        child = child.model_copy(update={
+            "statuses": statuses, "intent_block": 15 if state.ascension >= 9 else 10,
+            "metadata": {
+                **child.metadata, "axebot_stock_amount": remaining,
+                "summoned": True, "summoned_by": parent.monster_id,
+            },
+        })
+        monsters.append(child)
+        events.append(EffectEvent(
+            kind="monster_summoned", source_id=parent.monster_id, target_id=child.monster_id,
+            metadata={"source_monster_id": "AXEBOT", "trigger": "stock",
+                      "stock": remaining, "slot_index": _monster_slot_index(parent)},
+        ))
+    return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
 
 
 def _expire_source_linked_shrink(
@@ -25125,6 +25262,8 @@ def _apply_monster_death_power_triggers(
     }
     if not defeated:
         return combat, ()
+    rage_processed = set(_string_items(combat.metadata.get("crab_rage_death_ids")))
+    rage_deaths = defeated - rage_processed
     events: list[EffectEvent] = []
     monsters = []
     for monster in combat.monsters:
@@ -25170,7 +25309,7 @@ def _apply_monster_death_power_triggers(
                     kind="illusion_defeated", source_id=monster.monster_id,
                     target_id=monster.monster_id, metadata={"revives_next_turn": True},
                 ))
-        ally_deaths = len(defeated - {monster.monster_id, None})
+        ally_deaths = len(rage_deaths - {monster.monster_id, None})
         if monster.hp > 0 and ally_deaths and _status_amount(monster.statuses, "crab_rage"):
             statuses, strength_event = _apply_status_value(
                 monster.statuses, "strength", 6 * ally_deaths,
@@ -25213,7 +25352,20 @@ def _apply_monster_death_power_triggers(
                 kind="monster_escaped", source_id=monster.monster_id,
                 target_id=monster.monster_id, metadata={"reason": "minion_without_leader"},
             ))
-    return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
+    combat = combat.model_copy(update={
+        "monsters": tuple(monsters),
+        "metadata": {**combat.metadata,
+                     "crab_rage_death_ids": tuple(sorted(rage_processed | (defeated - {None})))},
+    })
+    # SurroundedPower.AfterDeath faces the surviving side immediately.
+    alive = _alive_monsters(combat)
+    if alive and (
+        all(_status_amount(monster.statuses, "back_attack_left") for monster in alive)
+        or all(_status_amount(monster.statuses, "back_attack_right") for monster in alive)
+    ):
+        combat, facing_events = _face_targeted_claw(combat, alive[0].monster_id)
+        events.extend(facing_events)
+    return combat, tuple(events)
 
 
 def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngState) -> RunState:
@@ -26551,16 +26703,16 @@ def _waterfall_giant_pressure_gun_damage(
         for move_id, count in {"PRESSURE_GUN": 0, **move_counts}.items()
         if _normalized_id(move_id) == "pressure_gun"
     )
-    base = 23 if ascension_level >= 4 else 20
+    base = 23 if ascension_level >= 9 else 20
     return base + 5 * previous_uses
 
 
-def _test_subject_phase_hp(respawns: int) -> int:
+def _test_subject_phase_hp(respawns: int, *, ascension_level: int = 0) -> int:
     if respawns <= 0:
-        return 100
+        return 111 if ascension_level >= 8 else 100
     if respawns == 1:
-        return 200
-    return 300
+        return 212 if ascension_level >= 8 else 200
+    return 313 if ascension_level >= 8 else 300
 
 
 def _has_other_living_decimillipede_segment(
@@ -29248,6 +29400,8 @@ def _monster_state_from_spawn(
 ) -> MonsterState:
     statuses = _monster_innate_statuses(definition, state.ascension)
     move = spawned_monster.move
+    if move is not None:
+        move = monster_move_for_ascension(definition, move, ascension_level=state.ascension)
     intent_damage = 0
     intent_block = 0
     hit_count = 1
