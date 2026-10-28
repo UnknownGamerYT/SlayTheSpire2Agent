@@ -386,16 +386,16 @@ def test_event_multi_card_choice_exposes_selected_cards() -> None:
         type=CardType.ATTACK,
         effects={"damage": 6},
     )
-    defend = CardInstance(
-        instance_id="defend-1",
-        card_id="defend",
-        type=CardType.SKILL,
+    iron_wave = CardInstance(
+        instance_id="iron-wave-1",
+        card_id="iron_wave",
+        type=CardType.ATTACK,
         target=TargetType.SELF,
-        effects={"block": 5},
+        effects={"block": 5, "damage": 5},
     )
     state = _state(
         phase=RunPhase.EVENT,
-        master_deck=(strike, defend),
+        master_deck=(strike, iron_wave),
         event=EventState(
             event_id="SELF_HELP_BOOK",
             name="Self Help Book",
@@ -421,12 +421,12 @@ def test_event_multi_card_choice_exposes_selected_cards() -> None:
     assert event_action["selected_card_count"] == 2
     assert [card["instance_id"] for card in event_action["selected_cards"]] == [
         "strike-1",
-        "defend-1",
+        "iron-wave-1",
     ]
     assert event_action["selected_cards"][0]["zone"] == "master_deck"
     assert event_action["selected_cards"][1]["position"] == 1
     assert event_action["card"]["selected_count"] == 2
-    assert event_action["card"]["effect_amounts"]["damage"] == 6.0
+    assert event_action["card"]["effect_amounts"]["damage"] == 11.0
     assert event_action["card"]["effect_amounts"]["block"] == 5.0
     assert event_action["event_option"]["option_id"] == "ENCHANT_TWO"
     assert "event_option" in event_action["mechanics"]["tags"]

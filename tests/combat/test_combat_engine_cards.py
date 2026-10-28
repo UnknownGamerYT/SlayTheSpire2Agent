@@ -1482,9 +1482,15 @@ def test_generated_discovery_choice_adds_selected_card_to_hand() -> None:
     assert state.combat.pending_choices == ()
     assert len(state.combat.hand) == 1
     assert state.combat.hand[0].card_id.startswith("colorless_")
-    assert state.combat.hand[0].cost == 1
-    assert state.combat.hand[0].custom["free_to_play_this_turn"] is True
-    assert state.combat.hand[0].custom["free_to_play_this_turn"] is True
+    selected = state.combat.hand[0]
+    assert selected.cost == 0
+    assert selected.custom["source_local_energy_base"] == 1
+    assert selected.custom["free_to_play_this_turn"] is True
+    energy_before = state.player.energy
+    state = _play_card(state, selected.card_id)
+    assert state.player.energy == energy_before
+    assert next(card for card in state.combat.discard_pile
+                if card.instance_id == selected.instance_id).cost == 1
 
 
 def test_choose_card_copies_selected_attack_or_power_to_hand() -> None:
