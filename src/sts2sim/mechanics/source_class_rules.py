@@ -26,6 +26,46 @@ def source_class_spec(source: Mapping[str, Any]) -> Mapping[str, Any]:
     return result
 
 
+def source_class_generation_steps(
+    source: Mapping[str, Any],
+    steps: tuple[Mapping[str, Any], ...],
+) -> tuple[Mapping[str, Any], ...]:
+    """Canonical CardFactory.GetDistinctForCombat calls select without replacement."""
+    card_id = str(source.get("id", source.get("card_id", ""))).lower()
+    if card_id not in {
+        "bundle_of_joy",
+        "manifest_authority",
+        "metamorphosis",
+        "mad_science",
+        "white_noise",
+        "distraction",
+        "largesse",
+        "creative_ai",
+        "call_of_the_void",
+        "spectrum_shift",
+        "hello_world",
+    }:
+        return steps
+
+    def tagged(value: Any) -> Any:
+        if isinstance(value, Mapping):
+            result = {key: tagged(item) for key, item in value.items()}
+            if "add_random_card_to_hand" in result:
+                payload = result["add_random_card_to_hand"]
+                result["add_random_card_to_hand"] = {
+                    **(dict(payload) if isinstance(payload, Mapping) else {"count": int(payload)}),
+                    "distinct": True,
+                }
+            if result.get("operation") == "random_generate":
+                result["distinct"] = True
+            return result
+        if isinstance(value, (list, tuple)):
+            return tuple(tagged(item) for item in value)
+        return value
+
+    return tuple(tagged(step) for step in steps)
+
+
 def source_class_steps(
     source: Mapping[str, Any],
     steps: tuple[Mapping[str, Any], ...],

@@ -180,6 +180,12 @@ from sts2sim.mechanics.source_ancients import (
 from sts2sim.mechanics.source_class_rules import source_class_card_updates, source_class_spec
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_events import source_event_startup
+from sts2sim.mechanics.source_power_rules import (
+    power_allows_negative,
+    power_application_is_debuff,
+    power_triggers_debuff_damage,
+    source_power_definition,
+)
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.source_rng import (
     draw_source_potion,
@@ -4495,6 +4501,7 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
         sequence.append({"add_random_card_to_hand": {
             "count": int(rider.get("random_card_count", 1)),
             "free_to_play_this_turn": True,
+            "distinct": True,
         }})
     elif effect == "gain_strength_and_dexterity":
         sequence.append(
@@ -9933,7 +9940,10 @@ def _apply_status_application_relics_from_events(
             and amount > 0
         ):
             hook_ids.append("status_gained")
-        if _status_event_targets_enemy(source_event) and status in _ARTIFACT_BLOCKED_STATUSES:
+        if (
+            _status_event_targets_enemy(source_event)
+            and power_application_is_debuff(status, amount)
+        ):
             hook_ids.append("debuff_applied")
         for hook_id in hook_ids:
             combat, rng_state, hook_events = _apply_runtime_relic_hook(
@@ -9971,10 +9981,11 @@ def _apply_status_application_relics_from_events(
         )
         events.extend(status_trigger_events)
         is_enemy = source_event.target_id in monster_ids
-        is_debuff = status in _ARTIFACT_BLOCKED_STATUSES or status == "doom" or amount < 0
+        is_debuff = power_application_is_debuff(status, amount)
         if is_enemy and amount:
             combat, power_events = card_status_hooks.debuff_reactions(
-                combat, source_event, relics=state.relics, is_debuff=is_debuff,
+                combat, source_event, relics=state.relics,
+                is_debuff=power_triggers_debuff_damage(status, amount),
             )
             events.extend(power_events)
             triggers = []
@@ -23225,6 +23236,25 @@ def _tick_status_map(
         "knockdown",
     ):
         amount = statuses.pop(temporary_status, 0)
+        temporary_stat = {
+            "temporary_strength": "strength", "temporary_dexterity": "dexterity",
+            "temporary_focus": "focus",
+        }.get(temporary_status)
+        if temporary_stat is not None and amount > 0 and _status_amount(statuses, "artifact") > 0:
+            # Inline temporary modifiers represent a real signed stat plus its
+            # wrapper. Its expiry removes the wrapper, then applies a negative
+            # signed-stat delta which Artifact can block in the source.
+            current = statuses.get(temporary_stat, 0) + amount
+            if current:
+                statuses[temporary_stat] = current
+            else:
+                statuses.pop(temporary_stat, None)
+            statuses, expiry_event = _apply_status_value(
+                statuses, temporary_stat, -amount,
+                source_id=temporary_status, target_id=target_id,
+            )
+            if expiry_event is not None:
+                events.append(expiry_event)
         if amount:
             events.append(
                 EffectEvent(
@@ -24238,10 +24268,7 @@ def _apply_status_value(
     if value == 0:
         return updated, None
 
-    if _status_blocked_by_artifact(updated, status, value) or (
-        target_id != PLAYER_TARGET_ID and value < 0
-        and status in _ARTIFACT_IGNORED_STATUSES and _status_amount(updated, "artifact") > 0
-    ):
+    if _status_blocked_by_artifact(updated, status, value):
         artifact = _status_amount(updated, "artifact")
         if artifact > 1:
             updated["artifact"] = artifact - 1
@@ -24259,7 +24286,9 @@ def _apply_status_value(
         )
 
     next_amount = updated.get(status, 0) + value
-    if next_amount == 0:
+    if source_power_definition(status) is not None:
+        next_amount = max(-999999999, min(999999999, next_amount))
+    if next_amount == 0 or (next_amount < 0 and not power_allows_negative(status)):
         updated.pop(status, None)
     else:
         updated[status] = next_amount
@@ -24282,9 +24311,7 @@ def _status_blocked_by_artifact(
 ) -> bool:
     if _status_amount(statuses, "artifact") <= 0:
         return False
-    if status in _ARTIFACT_BLOCKED_STATUSES:
-        return True
-    return value < 0 and status not in _ARTIFACT_IGNORED_STATUSES
+    return power_application_is_debuff(status, value)
 
 
 def _apply_combat_relic_resolution(
