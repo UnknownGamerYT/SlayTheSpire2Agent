@@ -211,6 +211,14 @@ def test_run_progresses_through_map_boss_and_next_act() -> None:
     state = _proceed(state)
     assert state.phase.value == "ancient"
     assert state.act == 2
+    # This fixture follows a three-room synthetic act; a random Golden Compass
+    # offering would deliberately replace it with the full source special map.
+    state = state.model_copy(update={"ancient": AncientState(
+        act=2, ancient_id="test_fixture", options=(AncientOptionState(
+            option_id="controlled_anchor", name="Controlled Anchor",
+            kind="positive_relic", relic_id="anchor",
+        ),),
+    )})
     state = _choose_first_ancient(state)
     assert state.phase.value == "map"
     assert state.act == 2
