@@ -10,8 +10,9 @@ The [current fidelity review](docs/stable_game_parity_review.md) links retained
 card, modifier, enemy, item, event and RNG evidence. Source review is separate
 from installed-game equivalence; no overall fidelity percentage is claimed.
 
-All source-available corrections are being verified through public actions,
-reloads and training checks. Per-ID audits state finite method and test scope,
+The known single-player discrepancies in the finite item ledger are corrected.
+Completed public-action, reload and training checks are recorded in
+[the bounded validation report](docs/validation/stable_source_training_2026_10_28.json). Per-ID audits state finite method and test scope,
 including remaining interaction and multiplayer qualifications. `TEST` is an
 explicit synthetic fixture, and saved MT19937 states remain compatible.
 

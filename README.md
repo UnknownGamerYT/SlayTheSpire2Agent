@@ -314,8 +314,8 @@ The adapter uses learning rewards by default and supports Gymnasium vectorizatio
 
 ## Source Data
 
-The simulator uses Spire Codex as the primary public reference for current
-Slay the Spire 2 data and mechanics:
+The simulator uses the [version-qualified stable source reference](docs/stable_game_parity_review.md#evidence-and-version-binding)
+for implemented rules and Spire Codex for cached content metadata:
 
 - <https://spire-codex.com/docs>
 - <https://spire-codex.com/developers>

@@ -58,6 +58,8 @@ is Kaleidoscope plus Driftwood: its recorded reroll options contain an empty
 custom pool. The source appears to throw; the simulator preserves that context
 and masks the unsupported reroll for training instead of inventing replacement
 cards. An installed-game trace is needed to establish the actual UI outcome.
+The Trial Double Down abandon-confirmation popup is represented as an explicit
+abandon action; its live UI sequence still needs a Windows trace.
 
 The current bridge exports a limited combat schema. It does not provide a
 lossless game checkpoint, every RNG counter or every class/item interaction.
@@ -73,3 +75,7 @@ process has been run in this cloud workspace.
 Latest integrated validation is recorded in the pull request and delivered
 validation reports. A short PPO smoke checks the training pipeline; it does not
 produce a capable agent. Start fresh checkpoints after this logic update.
+
+Completed bounded training, source-hash, item-review and campaign progression
+checks are recorded in [the validation report](validation/stable_source_training_2026_10_28.json).
+Each report identifies its actual runtime revision and test-only settings.

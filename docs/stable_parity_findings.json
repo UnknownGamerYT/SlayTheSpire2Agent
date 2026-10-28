@@ -12,7 +12,7 @@
     "overall_fidelity_percentage": null
   },
   "online_snapshot_check": {
-    "checked_at_utc": "2026-10-28T16:02:04.663381+00:00",
+    "checked_at_utc": "2026-10-28T19:21:43.065949+00:00",
     "endpoints": 17,
     "all_match_cached_hashes": true,
     "scope": "Live stable payload byte-equivalence to cached snapshot; not behavioral or executable-build parity"
@@ -90,7 +90,8 @@
     "Whole-run source RNG routing/consumption and all nested effect ordering not exhaustively compared to executable",
     "Complete multiplayer protocol and co-op interactions not certified",
     "Kaleidoscope/Driftwood empty custom reroll is explicit unsupported source edge, masked for training",
-    "Finite method/metadata/fixture review is not complete behavioral or interaction certification"
+    "Finite method/metadata/fixture review is not complete behavioral or interaction certification",
+    "Trial Double Down abandon-confirmation UI is represented by an explicit abandon action; Windows UI sequence not validated"
   ],
   "sources": [
     "https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2868840&count=50&maxlength=1500&format=json",
@@ -119,5 +120,6 @@
     "tests/fixtures/source_modifier_audit.json",
     "tests/fixtures/stable_ascension_source.json"
   ],
-  "validation_machine": "Windows with Steam installed, supplied by user"
+  "validation_machine": "Windows with Steam installed, supplied by user",
+  "completed_training_validation": "docs/validation/stable_source_training_2026_10_28.json"
 }
