@@ -586,6 +586,7 @@ def _resolve_start_of_combat_dynamic(
                 metadata={
                     "status": "strength",
                     "condition": "hp_at_or_below_50_percent",
+                    "next_counter": 1,
                 },
             ),
         )
@@ -1253,16 +1254,14 @@ def _resolve_turn_end_other_dynamic(
             block = _coerce_int(context.metadata.get("player_block"), default=0)
         if block <= 0:
             return ()
-        persisted = min(10, block)
         return (
             CombatRelicMarker(
-                kind="gain_status",
+                kind="retain_block_cap",
                 relic_id=relic_id,
                 hook=hook,
-                amount=persisted,
+                amount=10,
                 target_id="player",
                 metadata={
-                    "status": "next_turn_block",
                     "condition": "block_persists",
                     "player_block": block,
                     "limit": 10,
@@ -2027,6 +2026,7 @@ def _resolve_damage_taken_dynamic(
                     "status": "strength",
                     "condition": "hp_crossed_to_at_or_below_50_percent",
                     "hp_after_loss": hp_after_loss,
+                    "next_counter": 1,
                 },
             ),
         )
@@ -3427,7 +3427,6 @@ _STATIC_MARKERS_BY_HOOK: Mapping[
         "ectoplasm": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
         "fiddle": (
             CombatRelicMarkerSpec("draw_cards", amount=2, target_id="player"),
-            _status_spec("no_draw_this_turn", 1),
         ),
         "mercury_hourglass": (
             CombatRelicMarkerSpec("all_damage", amount=3, target_id="all_enemies"),

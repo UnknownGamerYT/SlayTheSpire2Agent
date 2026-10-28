@@ -7,6 +7,7 @@ fixtures/stable_item_contracts.json; the game decompilation is not bundled.
 import pytest
 from combat.test_card_play_status_runtime import _reload, _simple, _state
 from combat.test_glam import _end_turn, _play
+from combat.test_relic_engine_integration import _card_spec, _enter_combat
 
 from sts2sim import legal_actions, serialize, step
 from sts2sim.agent_api import action_space
@@ -307,4 +308,71 @@ def test_potion_block_respects_source_block_cap(potion_id):
     )})
     state = _potion(state, potion_id)
     assert state.player.block == 999_999_999
+
+
+@pytest.mark.parametrize("damage,remaining", [(0, 10), (15, 5), (25, 0)])
+def test_sturdy_clamp_preserves_only_block_remaining_after_enemy_attacks(damage, remaining):
+    state = _enemies(_state(_simple("unused"), relics=("sturdy_clamp",)), damage=damage)
+    player = state.player.model_copy(update={"block": 20})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(
+        update={"player": player, "monsters": state.combat.monsters[:1]},
+    )})
+    state = _end_turn(_reload(state))
+    assert state.player.block == remaining
+    assert "next_turn_block" not in state.player.statuses
+
+
+def test_red_skull_tracks_hp_loss_healing_and_reactivation_between_effect_steps():
+    attack = _simple("cross", card_type="attack", target="enemy", effects={
+        "sequence": [{"hp_loss": 5}, {"damage": 6}],
+    })
+    heal = _simple("heal", effects={"heal": 20})
+    state = _state(attack, heal, relics=("red_skull",))
+    player = state.player.model_copy(update={"hp": 42})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(
+        update={"player": player},
+    )})
+    state = _play(_reload(state), "cross")
+    assert state.player.hp == 37
+    assert state.player.statuses["strength"] == 3
+    assert state.combat.monsters[0].hp == 91
+    state = _play(_reload(state), "heal")
+    assert state.player.hp == 57
+    assert state.player.statuses.get("strength", 0) == 0
+    assert state.combat.metadata["relic_counters"]["red_skull"] == 0
+
+
+def test_red_skull_removal_can_be_blocked_by_artifact_on_healing():
+    state = _state(_simple("unused"), relics=("red_skull",),
+                   statuses={"strength": 3, "artifact": 1})
+    player = state.player.model_copy(update={"hp": 40})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(
+        update={"player": player, "metadata": {"relic_counters": {"red_skull": 1}}},
+    )})
+    state = _potion(state, "blood_potion")
+    assert state.player.hp == 56
+    assert state.player.statuses["strength"] == 3
+    assert state.player.statuses.get("artifact", 0) == 0
+    assert state.combat.metadata["relic_counters"]["red_skull"] == 0
+
+
+def test_fiddle_allows_opening_and_turn_hand_draw_but_blocks_potion_draw():
+    state = _enter_combat(tuple(_card_spec(f"card:{i}") for i in range(12)),
+                          relics=("fiddle",), draw_per_turn=5)
+    assert len(state.combat.hand) == 7
+    state = _potion(state, "swift_potion")
+    assert len(state.combat.hand) == 7
+    assert any(e.source_id == "fiddle" and e.kind == "draw_blocked"
+               for e in state.combat.last_events)
+    state = _end_turn(_reload(state))
+    assert len(state.combat.hand) == 7
+    assert not state.player.statuses.get("no_draw_this_turn")
+
+
+def test_fiddle_allows_enemy_side_draws_from_other_relics():
+    cards = tuple(_simple(f"draw:{i}") for i in range(10))
+    state = _enemies(_state(_simple("unused"), relics=("fiddle", "centennial_puzzle"),
+                            draw=cards, draw_per_turn=1), damage=1)
+    state = _end_turn(_reload(state))
+    assert len(state.combat.hand) == 6  # 3 from Puzzle, then 1+2 from hand draw.
 

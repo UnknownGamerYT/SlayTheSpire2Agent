@@ -12411,7 +12411,7 @@ def _begin_next_player_turn(
             "block": combat.player.block
             if (_status_amount(combat.player.statuses, "retain_block") > 0
                 or _status_amount(combat.player.statuses, "blur") > 0)
-            else 0,
+            else min(combat.player.block, 10) if _has_relic_id(state.relics, "sturdy_clamp") else 0,
             "energy": combat.player.max_energy,
         }
     )
@@ -13128,6 +13128,28 @@ def _apply_item_enemy_side_end(
             ))
         monsters[index] = monster
     return combat.model_copy(update={"monsters": tuple(monsters)}), tuple(events)
+
+
+def _sync_red_skull(
+    state: RunState, combat: CombatState,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    if not _has_relic(state, "red_skull") or combat.player.hp <= 0:
+        return combat, ()
+    active = _combat_relic_counters(combat).get("red_skull", 0) > 0
+    should_activate = combat.player.hp * 2 <= combat.player.max_hp
+    if active == should_activate:
+        return combat, ()
+    delta = 3 if should_activate else -3
+    statuses, event = _apply_status_value(
+        combat.player.statuses, "strength", delta,
+        source_id="red_skull", target_id=PLAYER_TARGET_ID,
+    )
+    counters = {**_combat_relic_counters(combat), "red_skull": int(should_activate)}
+    combat = combat.model_copy(update={
+        "player": combat.player.model_copy(update={"statuses": statuses}),
+        "metadata": {**combat.metadata, "relic_counters": counters},
+    })
+    return combat, (event,) if event is not None else ()
 
 
 def _expire_temporary_potion_stats(
@@ -16333,6 +16355,8 @@ def _apply_effect_step(
         )
 
     if state is not None:
+        combat, red_skull_events = _sync_red_skull(state, combat)
+        events.extend(red_skull_events)
         runtime_source_events = tuple(events)
         combat, rng_state, card_created_events = _apply_card_created_relics_from_events(
             state.model_copy(update={"combat": combat, "player": combat.player}),
@@ -17928,6 +17952,12 @@ def _draw_cards(
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     if amount <= 0:
         return combat, rng_state, ()
+    if (_has_relic_id(relics, "fiddle") and not from_hand_draw
+            and combat.metadata.get("turn_owner", "player") == "player"):
+        return combat, rng_state, (EffectEvent(
+            kind="draw_blocked", source_id="fiddle", target_id=PLAYER_TARGET_ID,
+            amount=0, metadata={"requested": amount, "reason": "non_hand_draw_on_owner_side"},
+        ),)
     if _status_amount(combat.player.statuses, "no_draw_this_turn") > 0:
         return (
             combat,
@@ -24078,6 +24108,8 @@ def _apply_combat_relic_marker(
         events.append(_combat_relic_event(marker, "turn_card_play_limit_added", limit))
     elif marker.kind == "retain_hand":
         events.append(_combat_relic_event(marker, "hand_retain_enabled", marker.amount))
+    elif marker.kind == "retain_block_cap":
+        events.append(_combat_relic_event(marker, "block_retention_enabled", marker.amount))
     elif marker.kind == "reduce_retained_card_cost" and _marker_targets_player(marker):
         retained_hand_cards = list(combat.hand)
         chosen_index = next(
@@ -25340,6 +25372,14 @@ def _finalize_state_after_combat(
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     state, combat = source_class_hooks.persist_growth(state, combat)
+    combat, red_skull_events = _sync_red_skull(state, combat)
+    if red_skull_events:
+        combat, rng_state, strength_events = _apply_status_application_relics_from_events(
+            state, combat, rng_state, red_skull_events, source_card=None,
+        )
+        red_skull_events += strength_events
+        events = tuple(events) + red_skull_events
+        combat = combat.model_copy(update={"last_events": combat.last_events + red_skull_events})
     combat, black_hole_events = card_status_hooks.flush_black_hole(combat, relics=state.relics)
     if black_hole_events:
         events = tuple(events) + black_hole_events

@@ -54,6 +54,16 @@ player rewards stream. An extra source-contract test records the RNG call order.
 Fortifier and delayed potion Block also obey the source Block cap. Fur Coat's
 replay event now records the preserved maximum HP.
 
+Three further relic contracts are corrected: Fiddle distinguishes the normal
+opening/turn hand draw from other draws, and permits draws on the enemy side;
+Sturdy Clamp retains at most ten Block remaining **after** enemy attacks;
+Red Skull tracks direct HP loss and healing across the half-HP threshold, stores
+activation state, and applies its real negative Strength delta (including Artifact)
+when deactivating. Public tests cover threshold changes between effect steps,
+save/reload, normal draw, blocked potion draw, enemy-side Centennial Puzzle draw,
+and consumed/remaining Block. Ordering when Sturdy Clamp competes with other
+Block-clear preventers still needs an independent game trace.
+
 Implementation source:
 [pinned repository](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7),
 `Models.Potions/{GlowwaterPotion,LiquidMemories,GigantificationPotion,BeetleJuice,PowderedDemise}.cs`,

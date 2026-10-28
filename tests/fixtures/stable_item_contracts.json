@@ -145,6 +145,18 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ScrollBoxes.cs",
       "sha256": "0199d9370fac6d20d9dffeeb668dac478a3983fdac5ded24ea0f98711ad3d1cc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Fiddle.cs",
+      "sha256": "2326900ac466ae4a1847b3ceb1a37d635cdc9c93730fc387109cd83342acd037"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SturdyClamp.cs",
+      "sha256": "5b9ad3cff05c51540b6559891a2e1cb87022834d9fc68f9f6be336f6f52834df"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RedSkull.cs",
+      "sha256": "cf57eb10a81ced7a20a845c53b1f58253fbf980f1b72f76243d57f1cbe165382"
     }
   ],
   "cached_source_rows": {
