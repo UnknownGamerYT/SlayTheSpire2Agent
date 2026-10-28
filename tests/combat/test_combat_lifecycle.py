@@ -253,8 +253,9 @@ def test_gold_max_hp_passive_cannot_revive_a_failed_combat() -> None:
         cost=0,
         effects={"damage": 999, "hp_loss": 999},
     )
-    # A dying Fat Gremlin returns its stolen gold during death scripts, even if
-    # the same card also killed the player. The gold relic must not revive them.
+    # HeistPower.BeforeDeath queues a room GoldReward before the same card
+    # kills the player. CombatManager.CheckWinCondition prioritizes pending
+    # loss over victory, so the deferred reward is never offered or claimed.
     monster = MonsterState(
         monster_id="gremlin",
         hp=1,
@@ -263,13 +264,26 @@ def test_gold_max_hp_passive_cannot_revive_a_failed_combat() -> None:
     )
     combat = state.combat.model_copy(update={"hand": (source,), "monsters": (monster,)})
     state = state.model_copy(update={"combat": combat})
+    gold_before, max_hp_before = state.player.gold, state.player.max_hp
     state = step(state, _action(state, "play_card", card_id="doomed"))
 
     assert state.phase == RunPhase.FAILED
-    assert state.player.gold == 5
-    assert state.player.max_hp == 81
-    assert state.player.hp == 0
-    assert state.combat.player.hp == 0
+    assert state.player.gold == gold_before
+    assert state.player.max_hp == max_hp_before
+    assert state.player.hp == state.combat.player.hp == 0
+    assert state.combat.metadata["pending_gold_rewards"] == (
+        {"amount": 5, "source_id": "heist", "was_gold_stolen_back": True},)
+    assert state.reward is None
+    assert not any(event.kind in {"gold_gained", "reward_gold_taken"}
+                   or event.source_id == "dragon_fruit"
+                   for event in state.replay_log[-1].events)
+    restored = load_state(serialize(state))
+    assert serialize(restored) == serialize(state)
+    assert not legal_actions(restored)
+    from sts2sim.engine import Action, ActionType
+    from sts2sim.engine.errors import IllegalActionError
+    with pytest.raises(IllegalActionError):
+        step(restored, Action(type=ActionType.TAKE_REWARD_GOLD, target_id="reward:gold:0"))
 
 
 def test_dummy_timeout_also_ends_combat_scoped_player_state() -> None:
