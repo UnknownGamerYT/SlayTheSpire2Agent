@@ -15,6 +15,7 @@ from typing import Any
 
 from sts2sim.content.source_card_tags import SOURCE_CARD_TAGS
 
+from . import source_cost_hooks
 from .models import CardInstance, CombatState, EffectEvent, RngState, RunState
 from .rng import random_stream
 
@@ -249,10 +250,15 @@ def refresh_properties(card: CardInstance) -> CardInstance:
             custom["eternal"] = True
             if not custom.get("x_cost"):
                 cost = 0
-    return card.model_copy(
+    updated = card.model_copy(
         update={"custom": custom, "cost": cost, "exhausts": exhausts, "tags": tags,
                 "effects": effects}
     )
+    if (not custom.get("x_cost") and any(
+        enchantment_id(e.keyword) == "tezcataras_ember" for e in card.enchantments
+    )):
+        updated = source_cost_hooks.set_base_energy_cost(updated, 0, clamp_absolute=True)
+    return updated
 
 
 def has(card: CardInstance, name: str) -> bool:
@@ -416,6 +422,7 @@ def after_draw(card: CardInstance, rng: Random) -> CardInstance:
     if not has(card, "slither"):
         return card
     cost = random_stream(rng, "combat_energy_costs").randrange(4)
+    card = source_cost_hooks.set_local_energy_cost(card, cost, "combat")
     return card.model_copy(update={"custom": {
         **card.custom, "source_enchantment_slither_cost": cost,
     }})
@@ -430,11 +437,8 @@ def before_flush(combat: CombatState) -> CombatState:
     if combat.metadata.get("source_enchantment_flush_turn") == combat.turn:
         return combat
     hand = tuple(
-        card.model_copy(update={"custom": {
-            **card.custom, "source_enchantment_slumber_discount": (
-                int(card.custom.get("source_enchantment_slumber_discount", 0)) + 1
-            ),
-        }}) if has(card, "slumbering_essence") else card
+        source_cost_hooks.add_local_energy_cost(card, -1, "played")
+        if has(card, "slumbering_essence") else card
         for card in combat.hand
     )
     return combat.model_copy(update={"hand": hand, "metadata": {

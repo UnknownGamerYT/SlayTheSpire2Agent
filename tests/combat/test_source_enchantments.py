@@ -119,7 +119,8 @@ def test_source_slither_randomizes_only_drawn_card_on_energy_cost_stream():
     expected = random_stream(random_from_state(state.rng), "combat_energy_costs").randrange(4)
     state = _play(state, "draw")
     drawn = state.combat.hand[0]
-    assert drawn.cost == 2  # Base stays intact; local combat override has its own scope.
+    assert drawn.cost == expected
+    assert drawn.custom["source_local_energy_base"] == 2
     assert drawn.custom["source_enchantment_slither_cost"] == expected
     state = _play(_reload(state), "slither")
     assert state.player.energy == 20 - expected
@@ -140,7 +141,8 @@ def test_source_slumbering_essence_accumulates_in_retained_hand_until_played():
     card = enchanted("slumbering_essence", cost=3, custom={"retain": True})
     state = _state(card)
     state = _reload(_end_turn(_end_turn(state)))
-    assert state.combat.hand[0].custom["source_enchantment_slumber_discount"] == 2
+    assert state.combat.hand[0].cost == 1
+    assert len(state.combat.hand[0].custom["source_local_energy_modifiers"]) == 2
     before = state.player.energy
     state = _play(state, "slumbering_essence")
     assert state.player.energy == before - 1

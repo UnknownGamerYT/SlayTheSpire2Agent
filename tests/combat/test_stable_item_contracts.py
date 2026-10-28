@@ -230,7 +230,8 @@ def test_card_choice_potions_are_optional_exclude_invalid_cards_and_restore_cost
     action = next(a for a in legal_actions(state) if a.type == "choose_card")
     state = step(_reload(state), action)
     chosen = next(c for c in state.combat.hand if c.instance_id == action.card_instance_id)
-    assert chosen.cost == 2
+    assert chosen.cost == 0
+    assert chosen.custom["source_local_energy_base"] == 2
     assert chosen.custom["free_to_play_this_turn"]
     state = _end_turn(_reload(state))
     chosen = next(c for c in state.combat.discard_pile if c.instance_id == chosen.instance_id)
@@ -613,7 +614,9 @@ def test_snecko_oil_uses_energy_cost_rng_and_restores_cost_after_physical_play()
     state = state.model_copy(update={"rng": capture_random_state(RunRng(
         "SNECKO", derivation="sts2.v0.107.1.utf16-djb2-splitmix64"))})
     state = _potion(state, "snecko_oil")
-    assert set(state.rng.streams) == {"combat_energy_costs"}
+    assert {name for name, stream in state.rng.streams.items() if stream.draws} == {
+        "combat_energy_costs",
+    }
     assert state.rng.streams["combat_energy_costs"].draws == 1
     state = _play(_reload(state), "reusable")
     card = next(c for c in state.combat.discard_pile if c.instance_id == "reusable")

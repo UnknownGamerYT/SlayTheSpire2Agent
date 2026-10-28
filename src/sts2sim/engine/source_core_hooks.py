@@ -601,14 +601,11 @@ def apply_source_core(
 
 
 def energy_cost(card: CardInstance, combat: CombatState, default: int) -> int:
-    """Late costs from FreeAttack/FreeSkill and the two count-cost cards."""
+    """Late global costs from FreeAttack/FreeSkill."""
     kind = card.type.value
     if combat.player.statuses.get(f"source_core_free_{kind}", 0) > 0:
         return 0
-    key = {"stomp": "attacks_played_this_turn", "pinpoint": "skills_played_this_turn"}.get(
-        card.card_id
-    )
-    return max(0, default - int(combat.metadata.get(key, 0))) if key else default
+    return default
 
 
 def consume_free(combat: CombatState, card: CardInstance) -> CombatState:

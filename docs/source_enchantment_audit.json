@@ -28,7 +28,7 @@
       "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Clone.cs",
       "source_sha256": "64fccd17ad5bdc9bc1db2a354557f951daa85072bfca13a08cf79d4016a253c3",
       "declared_hook_methods": [],
-      "combat_rule": "Marker only in combat; consumed by Clone rest-site option.",
+      "combat_rule": "Marker only in combat; rest option clones each marked card once and preserves enchantment; Amount is unused.",
       "implementation": [
         "src/sts2sim/engine/source_enchantment_hooks.py",
         "src/sts2sim/engine/transitions.py"

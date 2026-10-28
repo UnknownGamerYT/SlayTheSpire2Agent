@@ -12105,8 +12105,8 @@ def _choose_card_for_pending_choice(
         chosen = _card_with_added_keyword(chosen, keyword, 1,
                                           source_id=pending_choice.source_id or "choice")
         delta = _coerce_int(pending_choice.metadata.get("cost_delta"), default=0)
-        if delta and chosen.cost is not None and chosen.cost >= 0 and not _card_is_x_cost(chosen):
-            chosen = chosen.model_copy(update={"cost": chosen.cost + delta})
+        if delta:
+            chosen = source_cost_hooks.add_local_energy_cost(chosen, delta, "combat")
         combat = _replace_card_in_combat_zone(combat, pending_choice.zone, chosen)
         events.append(EffectEvent(kind="card_keyword_added", source_id=pending_choice.source_id,
                                   target_id=chosen.instance_id, amount=1,
@@ -12566,6 +12566,7 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         return state, ()
 
     combat, vital_entry_events = source_affliction_hooks.synchronize(state.combat)
+    combat = source_cost_hooks.synchronize_count_cards(combat)
     card = _find_card(combat.hand, action.card_instance_id)
     if card is None:
         return state, ()
@@ -13933,8 +13934,7 @@ def _card_after_end_turn_retain(card: CardInstance) -> CardInstance:
 
 
 def _card_after_end_turn_cleanup(card: CardInstance) -> CardInstance:
-    if "source_local_energy_modifiers" in card.custom:
-        card = source_cost_hooks.expire(card, turn_end=True)
+    card = source_cost_hooks.expire(card, turn_end=True)
     custom = dict(card.custom)
     changed = False
     if custom.pop("source_core_temporary_sly", False):
@@ -16616,6 +16616,7 @@ def _apply_after_card_play_hooks(
     rng: Random | None = None,
     state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    combat = source_cost_hooks.after_play(combat, card)
     player = combat.player
     events: list[EffectEvent] = []
     afterimage = _status_amount(player.statuses, "afterimage")
@@ -16991,6 +16992,7 @@ def _apply_card_effects(
         combat, facing_events = _face_targeted_claw(combat, target_id)
         events.extend(facing_events)
     if is_card_play:
+        combat, card = source_cost_hooks.before_play(combat, card)
         combat = source_modifier_hooks.before_play(combat, card)
         combat = source_class_hooks.before_play(combat, card, energy_spent)
         card = source_class_hooks.prepare_blade(combat, card)
@@ -17201,6 +17203,7 @@ def _apply_effect_step(
     effect: Mapping[str, Any],
     relics: Sequence[str] = (),
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    combat = source_cost_hooks.synchronize_count_cards(combat)
     core = source_core_hooks.apply_source_core(
         state=state, combat=combat, rng_state=rng_state, card=card, target_id=target_id,
         energy_spent=energy_spent, effect=effect, relics=relics,
@@ -19401,6 +19404,7 @@ def _move_played_card_to_destination(
 
 
 def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardInstance:
+    card = source_cost_hooks.expire(card, when_played=True)
     card = source_enchantment_hooks.played_card(combat, card)
     if card.custom.get("free_to_play_this_turn"):
         card = card.model_copy(update={"custom": {**card.custom, "free_energy_consumed": True}})
@@ -19420,11 +19424,12 @@ def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardIn
     if not update:
         return card
     card = source_class_hooks.played_updates(card, update)
+    card = source_cost_hooks.played_updates(card, update)
 
     card_updates: dict[str, Any] = {}
     cost_delta = _coerce_int(update.get("cost_delta"), default=0)
-    if cost_delta and card.cost is not None:
-        card_updates["cost"] = max(0, card.cost + cost_delta)
+    if cost_delta:
+        card = source_cost_hooks.add_local_energy_cost(card, cost_delta, "combat")
     damage_bonus = source_core_hooks.damage_fraction(update.get("source_core_damage_bonus", 0))
     if damage_bonus:
         card_updates["custom"] = {**card.custom, "source_core_damage_bonus": (
@@ -20403,14 +20408,10 @@ def _apply_combat_card_mutation_effects(
         hand: list[CardInstance] = []
         changed_ids: list[str] = []
         for card in combat.hand:
-            if card.cost is None or (max_cost_only and card.cost <= target_cost):
-                hand.append(card)
-                continue
-            custom = dict(card.custom)
-            if duration == "turn":
-                custom.setdefault("cost_before_set_hand_cost", card.cost)
-                custom["set_hand_cost_duration"] = "turn"
-            changed = card.model_copy(update={"cost": target_cost, "custom": custom})
+            changed = source_cost_hooks.set_local_energy_cost(
+                card, target_cost, "turn_or_played" if duration == "turn" else "combat",
+                reduce_only=max_cost_only,
+            )
             hand.append(changed)
             changed_ids.append(changed.instance_id)
         if changed_ids:
@@ -20817,14 +20818,11 @@ def _apply_choice_runtime_card_modifiers(
     card: CardInstance,
     choice: PendingChoiceState,
 ) -> CardInstance:
-    custom = dict(card.custom)
     if _truthy(choice.metadata.get("free_to_play_this_turn")):
-        custom["free_to_play_this_turn"] = True
+        card = source_cost_hooks.free_to_play(card)
     if _truthy(choice.metadata.get("free_to_play_this_combat")):
-        custom["free_to_play_this_combat"] = True
-    if custom == card.custom:
-        return card
-    return card.model_copy(update={"custom": custom})
+        card = source_cost_hooks.free_to_play(card, combat=True)
+    return card
 
 
 def _choice_play_target_id(combat: CombatState, card: CardInstance) -> str | None:
@@ -20978,11 +20976,11 @@ def _apply_hand_free_to_play_effect(
     free_hand: list[CardInstance] = []
     changed_ids: list[str] = []
     for card in combat.hand:
-        custom = dict(card.custom)
-        if not _truthy(custom.get("free_to_play_this_turn")):
-            custom["free_to_play_this_turn"] = True
-            changed_ids.append(card.instance_id)
-        free_hand.append(card.model_copy(update={"custom": custom}))
+        if source_card.card_id == "bullet_time" and _card_is_x_cost(card):
+            free_hand.append(card)
+            continue
+        free_hand.append(source_cost_hooks.free_to_play(card))
+        changed_ids.append(card.instance_id)
 
     return (
         combat.model_copy(update={"hand": tuple(free_hand)}),
@@ -21273,14 +21271,15 @@ def _apply_randomize_hand_costs_effect(
     changed_ids: list[str] = []
     costs: dict[str, int] = {}
     for card in combat.hand:
-        if card.cost is None or card.cost < 0:
+        if card.cost is None or ((source_cost_hooks.base_cost(card) or 0) < 0
+                                  and not _card_is_x_cost(card)):
             hand.append(card)
             continue
         new_cost = random_stream(rng, "combat_energy_costs").randrange(4)
-        custom = dict(card.custom)
-        custom.setdefault("cost_before_randomize", card.cost)
-        custom["randomized_cost_this_turn"] = new_cost
-        hand.append(card.model_copy(update={"cost": new_cost, "custom": custom}))
+        card = source_cost_hooks.set_local_energy_cost(card, new_cost, "turn_or_played")
+        hand.append(card.model_copy(update={"custom": {
+            **card.custom, "randomized_cost_this_turn": new_cost,
+        }}))
         changed_ids.append(card.instance_id)
         costs[card.instance_id] = new_cost
 
@@ -25689,9 +25688,7 @@ def _apply_combat_relic_marker(
         )
         if chosen_index is not None:
             chosen = hand_cards[chosen_index]
-            hand_cards[chosen_index] = chosen.model_copy(
-                update={"custom": {**chosen.custom, "free_to_play_this_turn": True}}
-            )
+            hand_cards[chosen_index] = source_cost_hooks.free_to_play(chosen)
             combat = combat.model_copy(update={"hand": tuple(hand_cards)})
             player = combat.player
             monsters = list(combat.monsters)
@@ -26210,8 +26207,8 @@ def _apply_relic_draw_pile_to_hand_marker(
         if remaining > 0 and _relic_draw_pile_card_matches(card, marker.kind, card_type):
             custom = dict(card.custom)
             if make_free:
-                custom["free_to_play_this_turn"] = True
-            moved.append(card.model_copy(update={"custom": custom}))
+                card = source_cost_hooks.free_to_play(card)
+            moved.append(card)
             remaining -= 1
         else:
             draw_pile.append(card)
@@ -29323,15 +29320,6 @@ def _energy_cost(
         return max(0, available_energy)
     if combat is not None and _void_form_applies(combat):
         return 0
-    local_free = (
-        (_truthy(card.custom.get("free_to_play_this_turn"))
-         and not _truthy(card.custom.get("free_energy_consumed")))
-        or _truthy(card.custom.get("free_to_play_this_combat"))
-    ) and "randomized_cost_this_turn" not in card.custom and (
-        "confused_cost_this_combat" not in card.custom
-    ) and "source_local_energy_modifiers" not in card.custom
-    if local_free and card.type != CardType.POWER:
-        return 0
     if combat is not None:
         card = _card_after_dynamic_monster_modifiers(combat, card)
     if (
@@ -29342,16 +29330,17 @@ def _energy_cost(
         return 0
     if combat is not None and _card_costs_zero_after_osty_attack(card, combat):
         return 0
-    cost = 0 if local_free else source_enchantment_hooks.energy_cost(
-        card, source_cost_hooks.local_cost(card),
-    )
+    card = source_cost_hooks.prepare_count_card(combat, card) if combat is not None else card
+    cost = source_cost_hooks.local_cost(card)
+    if cost < 0:
+        return 0
     if combat is not None and source_modifier_hooks.affliction_id(
         source_modifier_hooks.current_card(combat, card)
     ) == "entangled":
         cost += _status_amount(combat.player.statuses, "tangled")
+    cost = source_class_hooks.energy_cost(card, combat, cost)
     if combat is not None:
         cost = source_core_hooks.energy_cost(card, combat, cost)
-    cost = source_class_hooks.energy_cost(card, combat, cost)
     if (combat is not None and card.type == CardType.POWER
         and _has_relic_id(tuple(combat.metadata.get("item_relic_ids", ())), "spiked_gauntlets")):
         cost += 1
@@ -30278,7 +30267,7 @@ def _card_from_spec(
     raw_tags = spec.get("tags", ())
     tags = tuple(str(tag) for tag in raw_tags) if raw_tags is not None else ()
     tags = tuple(dict.fromkeys((*tags, *SOURCE_CARD_TAGS.get(_normalized_id(card_id), ()))))
-    return source_enchantment_hooks.refresh_properties(CardInstance(
+    return source_cost_hooks.adopt_legacy(source_enchantment_hooks.refresh_properties(CardInstance(
         instance_id=str(spec.get("instance_id", f"card_{instance_counter:03d}")),
         card_id=card_id,
         name=str(spec.get("name", card_id)),
@@ -30296,7 +30285,7 @@ def _card_from_spec(
             for enchantment in spec.get("enchantments", ())
         ),
         custom=_card_custom_metadata(custom, source_spec),
-    ))
+    )))
 
 
 def _card_custom_metadata(
@@ -30674,14 +30663,14 @@ def _upgrade_card_instance(card: CardInstance) -> CardInstance:
             upgraded = _enchant_card(
                 upgraded, enchantment.keyword, enchantment.amount, source_id=enchantment.source_id
             )
-        return source_enchantment_hooks.preserve_changes(card, upgraded.model_copy(
+        return source_cost_hooks.preserve_changes(card, source_enchantment_hooks.preserve_changes(card, upgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
                 "custom": {**upgraded.custom, **{k: v for k, v in card.custom.items()
                     if k.startswith("source_core_")}},
                 "tags": tuple(sorted(set(upgraded.tags + card.tags))),
             }
-        ))
+        )))
     return card.model_copy(update={"upgraded": True})
 
 
@@ -30695,14 +30684,14 @@ def _downgrade_card_instance(card: CardInstance) -> CardInstance:
         downgraded_spec["upgraded"] = False
         downgraded_spec["instance_id"] = card.instance_id
         downgraded = _card_from_spec(downgraded_spec, 1)
-        return source_enchantment_hooks.preserve_changes(card, downgraded.model_copy(
+        return source_cost_hooks.preserve_changes(card, source_enchantment_hooks.preserve_changes(card, downgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
                 "custom": {**downgraded.custom, **{k: v for k, v in card.custom.items()
                     if k.startswith("source_core_")}},
                 "tags": tuple(sorted(set(downgraded.tags + card.tags))),
             }
-        ))
+        )))
     return card.model_copy(update={"upgraded": False})
 
 

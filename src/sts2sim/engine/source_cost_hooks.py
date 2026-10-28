@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from .models import CardInstance
+from .models import CardInstance, CombatState
 
 _KEY = "source_local_energy_modifiers"
 _BASE = "source_local_energy_base"
@@ -112,6 +112,20 @@ def add_local_energy_cost(
     return _append(card, amount, expiration, absolute=False, reduce_only=reduce_only)
 
 
+def set_base_energy_cost(
+    card: CardInstance, amount: int, *, clamp_absolute: bool = False,
+) -> CardInstance:
+    card = adopt_legacy(card)
+    modifiers = _mods(card)
+    if clamp_absolute:
+        for modifier in modifiers:
+            if modifier.get("absolute") and int(modifier.get("amount", 0)) > amount:
+                modifier["amount"] = amount
+    return _display(card.model_copy(update={"custom": {
+        **card.custom, _BASE: amount, _KEY: modifiers,
+    }}))
+
+
 def free_to_play(card: CardInstance, *, combat: bool = False) -> CardInstance:
     card = set_local_energy_cost(card, 0, "combat" if combat else "turn_or_played")
     flag = "free_to_play_this_combat" if combat else "free_to_play_this_turn"
@@ -146,7 +160,7 @@ def preserve_changes(card: CardInstance, updated: CardInstance) -> CardInstance:
         return updated
     modifiers = _mods(card)
     old_base = base_cost(card)
-    new_base = updated.cost
+    new_base = base_cost(updated)
     if (not card.upgraded and updated.upgraded and old_base is not None
             and new_base is not None and new_base < old_base):
         for modifier in modifiers:
@@ -156,5 +170,83 @@ def preserve_changes(card: CardInstance, updated: CardInstance) -> CardInstance:
         **updated.custom, _BASE: new_base, _KEY: modifiers,
         **{key: value for key, value in card.custom.items() if key in {
             "free_to_play_this_turn", "free_to_play_this_combat", "free_energy_consumed",
-        }},
+        } or (key.startswith("source_local_") and key not in {_BASE, _KEY})},
     }}))
+
+
+def prepare_count_card(combat: CombatState, card: CardInstance) -> CardInstance:
+    key = {"stomp": "attacks_played_this_turn", "pinpoint": "skills_played_this_turn"}.get(
+        card.card_id,
+    )
+    if key is None or card.custom.get("source_local_count_turn") == combat.turn:
+        return card
+    card = add_local_energy_cost(card, -int(combat.metadata.get(key, 0)), "turn")
+    return card.model_copy(update={"custom": {
+        **card.custom, "source_local_count_turn": combat.turn,
+    }})
+
+
+def synchronize_count_cards(combat: CombatState) -> CombatState:
+    if not any(
+        card.card_id in {"stomp", "pinpoint"}
+        and card.custom.get("source_local_count_turn") != combat.turn
+        for zone in (combat.hand, combat.draw_pile, combat.discard_pile, combat.exhaust_pile)
+        for card in zone
+    ):
+        return combat
+    updates = {
+        zone: tuple(prepare_count_card(combat, card) for card in getattr(combat, zone))
+        for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
+    }
+    return combat.model_copy(update=updates)
+
+
+def before_play(combat: CombatState, card: CardInstance) -> tuple[CombatState, CardInstance]:
+    combat = synchronize_count_cards(combat)
+    if card.type.value != "attack":
+        return combat, card
+    if card.card_id != "stomp" and not any(
+        c.card_id == "stomp"
+        for zone in (combat.hand, combat.draw_pile, combat.discard_pile, combat.exhaust_pile)
+        for c in zone
+    ):
+        return combat, card
+    combat = combat.model_copy(update={
+        zone: tuple(add_local_energy_cost(c, -1, "turn") if c.card_id == "stomp" else c
+                    for c in getattr(combat, zone))
+        for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
+    })
+    if card.card_id == "stomp":
+        card = prepare_count_card(combat, card)
+        updates = dict(combat.metadata.get("played_card_updates", {}))
+        update = dict(updates.get(card.instance_id, {}))
+        update["source_local_count_reduction"] = int(
+            update.get("source_local_count_reduction", 0)
+        ) + 1
+        updates[card.instance_id] = update
+        combat = combat.model_copy(update={"metadata": {
+            **combat.metadata, "played_card_updates": updates,
+        }})
+    return combat, card
+
+
+def after_play(combat: CombatState, card: CardInstance) -> CombatState:
+    if card.type.value != "skill":
+        return combat
+    if not any(
+        c.card_id == "pinpoint"
+        for zone in (combat.hand, combat.draw_pile, combat.discard_pile, combat.exhaust_pile)
+        for c in zone
+    ):
+        return combat
+    combat = synchronize_count_cards(combat)
+    return combat.model_copy(update={
+        zone: tuple(add_local_energy_cost(c, -1, "turn") if c.card_id == "pinpoint" else c
+                    for c in getattr(combat, zone))
+        for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
+    })
+
+
+def played_updates(card: CardInstance, update: Mapping[str, Any]) -> CardInstance:
+    reduction = int(update.get("source_local_count_reduction", 0))
+    return add_local_energy_cost(card, -reduction, "turn") if reduction else card
