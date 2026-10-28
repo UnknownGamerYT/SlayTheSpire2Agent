@@ -15194,14 +15194,10 @@ def _apply_monster_summon_move(
             monsters[monster_index] = summoner
         summon_definition = monster_definitions.get(source_monster_id)
         if summon_definition is None:
-            events.append(
-                EffectEvent(
-                    kind="monster_summon_missing_definition",
-                    source_id=summoner.monster_id,
-                    metadata={"monster_id": source_monster_id, "move_id": move.move_id},
-                )
+            raise EngineError(
+                f"{definition.monster_id}.{move.move_id} requires summoned monster "
+                f"definition {source_monster_id}"
             )
-            continue
 
         slots = ENCOUNTER_SLOT_ORDER.get(encounter_id, ())
         occupied = {
@@ -15239,6 +15235,8 @@ def _apply_monster_summon_move(
             slot_name=slot_name,
         )
         summoned = _monster_state_from_spawn(spawned, summon_definition, state)
+        summoned, added_events = _apply_enemy_added_relics(summoned, state)
+        events.extend(added_events)
         if _normalized_id(source_monster_id) == "tough_egg":
             summoned = summoned.model_copy(update={"statuses": {**summoned.statuses, "hatch": 2}})
         if _normalized_id(definition.monster_id) in {"fabricator", "ovicopter"}:
@@ -26460,11 +26458,8 @@ def _apply_monster_death_spawns(
         else:
             continue
         if any(spawn_id not in definitions for spawn_id in spawn_ids):
-            events.append(EffectEvent(
-                kind="monster_death_spawn_blocked", source_id=parent.monster_id,
-                metadata={"missing_definition_ids": [i for i in spawn_ids if i not in definitions]},
-            ))
-            continue
+            missing_ids = tuple(dict.fromkeys(i for i in spawn_ids if i not in definitions))
+            raise EngineError(f"{source_id} death requires monster definitions {missing_ids}")
         monsters[parent_index] = parent.model_copy(update={"metadata": {
             **parent.metadata, "death_spawn_resolved": True,
         }})
@@ -26486,6 +26481,8 @@ def _apply_monster_death_spawns(
                 slot_name=f"wriggler{slot + 1}" if spawn_id == "WRIGGLER" else None,
             )
             child = _monster_state_from_spawn(spawned, definition, state)
+            child, added_events = _apply_enemy_added_relics(child, state)
+            events.extend(added_events)
             child = child.model_copy(update={"metadata": {
                 **child.metadata, "summoned": True, "summoned_by": parent.monster_id,
                 "stolen_gold": _metadata_int(parent.metadata, "stolen_gold", 0)
@@ -26540,6 +26537,8 @@ def _resolve_axebot_replacements(
             slot_name=(str(parent.metadata["slot_name"])
                        if parent.metadata.get("slot_name") else None),
         ), definition, state)
+        child, added_events = _apply_enemy_added_relics(child, state)
+        events.extend(added_events)
         statuses = dict(child.statuses)
         if remaining:
             statuses["stock"] = remaining
@@ -30993,6 +30992,31 @@ def _preferred_encounter_id(state: RunState) -> str | None:
         }:
             return value
     return None
+
+
+def _apply_enemy_added_relics(
+    monster: MonsterState,
+    state: RunState,
+) -> tuple[MonsterState, tuple[EffectEvent, ...]]:
+    """AfterCreatureAddedToCombat, for a newly added opposing creature.
+
+    Opening creatures use PhilosophersStone.AfterRoomEntered instead. A same
+    creature hatch/revival does not call this hook.
+    """
+    if not _has_relic(state, "philosophers_stone") or monster.metadata.get(
+        "philosophers_stone_added"
+    ):
+        return monster, ()
+    statuses, event = _apply_status_value(
+        monster.statuses, "strength", 1,
+        source_id="philosophers_stone", target_id=monster.monster_id,
+    )
+    monster = monster.model_copy(update={
+        "statuses": statuses,
+        "metadata": {**monster.metadata, "philosophers_stone_added": True},
+    })
+    monster = _refresh_monster_intent_from_metadata(monster, state.player, state.relics)
+    return monster, (event,) if event is not None else ()
 
 
 def _monster_state_from_spawn(

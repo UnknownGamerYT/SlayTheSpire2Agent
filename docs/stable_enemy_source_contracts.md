@@ -15,12 +15,13 @@ tests live in `tests/combat/test_stable_enemy_lifecycle.py`.
 
 Confirmed corrections:
 
-- `AscensionLevel`: all enemy HP scales at A8 and damage at A9. The previous
+- `AscensionLevel`: enemy HP scales at A8 and attacks generally scale at A9.
+  Gremlin Merc's three attack properties explicitly use A8 instead. The previous
   room-specific thresholds came from Slay the Spire 1. Innate Plating, Curl Up,
   Skittish, Shriek and Slippery scale at A8; other recorded innate values scale
   at A9. Siphon healing scales at A8. Test Subject forms are 100/200/300 HP,
   or 111/212/313 at A8.
-- Numeric property review found 19 omitted move-power ascensions, 12 omitted
+- Numeric property review found 19 omitted move-power ascensions, 14 omitted
   Block ascensions and three omitted multi-hit count ascensions. Skulking
   Colony's A9 Inertia gives 4 Strength. The Lost and The Forgotten still steal
   2 Strength/Dexterity at A9.
@@ -116,6 +117,16 @@ Confirmed corrections:
   final fallback. Illusions keep buffs, signed negative buffs and temporary
   debuff wrappers after death, using the source power type declarations.
   Spectral Knight applies Hex 2 to the player on its first enemy action.
+- Philosopher's Stone applies one Strength to each newly added enemy, including
+  summons, death spawns and every Stock replacement. Same-creature hatches and
+  revivals do not invoke the added-creature hook. Required summon definitions
+  now fail the transition with a named diagnostic when missing, instead of
+  silently omitting enemies from a training trajectory.
+- Independent numeric fixtures cover 206 matched source attack methods:
+  203 constant/ascension damage expressions and 205 hit-count expressions at
+  A0/A7/A8/A9. This identified Gremlin Merc's A8 exception and Fake Merchant's
+  unconditional Spew Coins 2 damage × 8 hits. Dynamic Dread, Pressure Gun,
+  Explode and Multi Claw expressions retain their focused behavior checks.
 
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every

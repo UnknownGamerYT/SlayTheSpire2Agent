@@ -823,6 +823,8 @@ def _source_specific_moves(
         ("waterfall_giant", "pressurize", "steam_eruption"): 20,
     }
     for move in moves:
+        if normalized_monster_id == "fake_merchant_monster" and move.move_id == "SPEW_COINS":
+            move = replace(move, hit_count=8)
         if normalized_monster_id == "guardbot" and _normalized_id(move.move_id) == "guard":
             # Guardbot's Block payload targets Fabricators, not itself.
             patched.append(replace(move, block=0))
@@ -1259,6 +1261,9 @@ def _is_decimillipede_segment(monster_id: str) -> bool:
 
 
 def _uses_ascension_damage(definition: MonsterDefinition, ascension_level: int) -> bool:
+    if _normalized_id(definition.monster_id) == "gremlin_merc":
+        # All three GremlinMerc attack properties explicitly use ToughEnemies.
+        return ascension_level >= 8
     return _uses_ascension_damage_kind(definition.kind, ascension_level)
 
 
