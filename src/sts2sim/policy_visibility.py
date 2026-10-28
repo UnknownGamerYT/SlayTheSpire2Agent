@@ -40,6 +40,9 @@ def policy_payload(payload: Mapping[str, Any], *, oracle: bool = False) -> dict[
     ):
         flags.pop(key, None)
     visible["flags"] = flags
+    # Event snapshots also occur inside pickup/resume frames. Project these
+    # known internal payloads wherever they appear, including saved outer events.
+    visible = dict(_mapping(_project_event_payloads(visible)))
     raw_combat = visible.get("combat")
     if isinstance(raw_combat, Mapping):
         combat = dict(raw_combat)
@@ -67,6 +70,59 @@ def policy_payload(payload: Mapping[str, Any], *, oracle: bool = False) -> dict[
         combat["monsters"] = monsters
         visible["combat"] = combat
     return visible
+
+
+def _project_event_payloads(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: (_visible_sphere_board(item) if key == "crystal_sphere_board"
+                  and isinstance(item, Mapping) else _project_event_payloads(item))
+            for key, item in value.items() if key != "source_startup_flags"
+        }
+    if isinstance(value, list | tuple):
+        projected = [_project_event_payloads(item) for item in value]
+        return tuple(projected) if isinstance(value, tuple) else projected
+    return value
+
+
+def _visible_sphere_board(board: Mapping[str, Any]) -> dict[str, Any]:
+    """Reveal cell contents only through cleared cells, and completed items.
+
+    Item bounds, array positions, retry subscriptions and placement success are
+    engine facts until their cells have been revealed. This projection is also
+    idempotent when action descriptors project an already sanitized state.
+    """
+    if "items" not in board:
+        return {key: deepcopy(board[key]) for key in (
+            "remaining", "cleared", "visible_cells", "revealed_items") if key in board}
+    cleared = sorted({int(cell) for cell in _sequence(board.get("cleared"))})
+    cell_items: dict[int, Mapping[str, Any]] = {}
+    items = _sequence(board.get("items"))
+    for raw in items:
+        item = _mapping(raw)
+        if not item.get("placed"):
+            continue
+        for dx in range(int(item.get("width", 1))):
+            for dy in range(int(item.get("height", 1))):
+                cell = (int(item.get("x", 0)) + dx) * 11 + int(item.get("y", 0)) + dy
+                cell_items.setdefault(cell, item)
+    revealed = []
+    for index in sorted({int(index) for index in _sequence(board.get("revealed"))}):
+        if not 0 <= index < len(items):
+            continue
+        item = _mapping(items[index])
+        revealed.append({key: item[key] for key in (
+            "kind", "rarity", "x", "y", "width", "height") if key in item})
+    return {
+        "remaining": int(board.get("remaining", 0)),
+        "cleared": cleared,
+        "visible_cells": [{
+            "x": cell // 11, "y": cell % 11,
+            "kind": str(cell_items.get(cell, {}).get("kind", "empty")),
+            "rarity": str(cell_items.get(cell, {}).get("rarity", "")),
+        } for cell in cleared],
+        "revealed_items": sorted(revealed, key=lambda item: json.dumps(item, sort_keys=True)),
+    }
 
 
 def policy_state(state: Any, *, oracle: bool = False) -> Any:
