@@ -89,9 +89,9 @@ def test_book_of_five_rings_tracks_multiple_cycles_across_save_and_load() -> Non
 
 
 @pytest.mark.parametrize(
-    "kind", ["event_card_transformed", "card_upgraded", "card_created", "card_removed"]
+    "kind", ["card_upgraded", "card_created", "card_removed"]
 )
-def test_transforms_upgrades_and_combat_creations_are_not_deck_additions(kind: str) -> None:
+def test_upgrades_and_combat_creations_are_not_deck_additions(kind: str) -> None:
     state = _state("bing_bong", "lucky_fysh", "book_of_five_rings", "fresnel_lens")
     after = state.model_copy(update={"master_deck": (_card("replacement", block=True),)})
     events = (EffectEvent(kind=kind, target_id="replacement"),)
@@ -207,3 +207,42 @@ def test_upgrading_fresnel_card_preserves_its_actual_nimble_block_bonus() -> Non
     assert upgraded.effects["sequence"][0]["block"] == 8
     assert len(upgraded.enchantments) == 1
     assert _play(_fight(upgraded), upgraded.instance_id).player.block == 10
+
+
+@pytest.mark.parametrize("kind", ["event_card_transformed", "relic_deck_card_transformed"])
+def test_transforms_trigger_deck_observers_and_one_bing_copy_after_reload(kind: str) -> None:
+    original = _card("same-instance")
+    before = _state("bing_bong", "lucky_fysh", "book_of_five_rings")
+    before = before.model_copy(update={"master_deck": (original,)})
+    replacement = _card("same-instance", block=True)
+    after = load_state(serialize(before.model_copy(update={"master_deck": (replacement,)})))
+    action = Action(type="choose_card", card_instance_id="same-instance")
+    result, events = _apply_deck_add_relics(before, after, action, (
+        EffectEvent(kind=kind, target_id="same-instance", metadata={
+            "old_card_id": original.card_id, "new_card_id": replacement.card_id,
+        }),
+    ))
+    assert len(result.master_deck) == 2
+    assert all(card.card_id == "defend" for card in result.master_deck)
+    assert result.player.gold == 40
+    assert result.flags["relic_counters"]["book_of_five_rings"] == 2
+    assert sum(event.source_id == "bing_bong" for event in events) == 1
+
+
+@pytest.mark.parametrize("kind", ["relic_deck_card_duplicated", "event_card_duplicated",
+                                  "card_cloned"])
+def test_clone_origins_skip_bing_but_still_trigger_other_deck_observers(kind: str) -> None:
+    result, events = _add(_state("bing_bong", "lucky_fysh", "book_of_five_rings"),
+                          (_card("clone"),), kind=kind)
+    assert len(result.master_deck) == 1
+    assert result.player.gold == 25
+    assert result.flags["relic_counters"]["book_of_five_rings"] == 1
+    assert not any(event.source_id == "bing_bong" for event in events)
+
+
+def test_fresnel_preserves_existing_enchantment_without_stacking_nimble() -> None:
+    nimble = _enchant_card(_card("nimble", block=True), "nimble", 2, source_id="reward")
+    swift = _enchant_card(_card("swift", block=True), "swift", 1, source_id="wing_charm")
+    result, events = _add(_state("fresnel_lens"), (nimble, swift))
+    assert result.master_deck == (nimble, swift)
+    assert not any(event.kind == "card_enchanted" for event in events)

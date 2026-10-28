@@ -30934,9 +30934,9 @@ def _apply_deck_add_relics(
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     """Resolve run relics for explicit deck additions, without recursive copies.
 
-    Transform, upgrade, and combat-only card creation events are deliberately
-    excluded. A snapshot of the original additions bounds Bing Bong to one
-    extra copy, while those copies still count for the other addition relics.
+    CardCmd.Transform adds its replacement to Deck with clonedBy null. Clone
+    entries also trigger deck observers, but Bing Bong ignores clonedBy sources.
+    A snapshot bounds Bing Bong to one extra copy per eligible entry.
     """
 
     relevant = (
@@ -30947,8 +30947,10 @@ def _apply_deck_add_relics(
     addition_kinds = {
         "ancient_card_added", "event_custom_card_created", "event_card_added",
         "event_random_card_added", "relic_deck_card_added", "relic_deck_card_duplicated",
-        "reward_card_taken",
+        "reward_card_taken", "event_card_transformed", "relic_deck_card_transformed",
+        "event_card_duplicated", "card_cloned",
     }
+    clone_kinds = {"relic_deck_card_duplicated", "event_card_duplicated", "card_cloned"}
     source_refs: list[tuple[int, str]] = []
     for event_index, event in enumerate(events):
         if event.kind in addition_kinds and event.target_id:
@@ -30992,6 +30994,7 @@ def _apply_deck_add_relics(
                 return instance_id
 
     originals: list[int] = []
+    bing_origins: list[int] = []
     for event_index, index in additions:
         card = deck[index]
         if any(
@@ -31021,10 +31024,13 @@ def _apply_deck_add_relics(
                         update={"target_id": card.instance_id}
                     )
         originals.append(index)
+        source_event = result_events[event_index]
+        if source_event.kind not in clone_kinds and not source_event.metadata.get("cloned_by"):
+            bing_origins.append(index)
 
     added_indices = list(originals)
     if _has_relic(after, "bing_bong"):
-        for index in originals:
+        for index in bing_origins:
             original = deck[index]
             duplicate = original.model_copy(
                 update={"instance_id": new_instance_id("bing_bong")}
@@ -31047,7 +31053,7 @@ def _apply_deck_add_relics(
                 kind="player_max_hp_changed", source_id="darkstone_periapt", amount=6,
                 target_id=PLAYER_TARGET_ID, metadata={"card_instance_id": card.instance_id},
             ))
-        if _has_relic(after, "fresnel_lens") and _card_effects_gain_block(card.effects):
+        if _has_relic(after, "fresnel_lens") and can_enchant_source(card, "nimble"):
             card = _enchant_card(card, "Nimble", 2, source_id="fresnel_lens")
             deck[index] = card
             result_events.append(EffectEvent(

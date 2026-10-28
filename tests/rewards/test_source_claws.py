@@ -36,3 +36,25 @@ def test_claws_preserves_upgrades_and_only_enchantments_that_can_enchant_maul(
     assert all(stream.draws == 0 for stream in state.rng.streams.values())
     result = _play(_fight(maul), "original")
     assert result.combat.monsters[0].hp == 500 - damage
+
+
+def test_claws_replacement_enters_deck_and_bing_duplicates_it_once() -> None:
+    original = _source_card("bash").model_copy(update={"instance_id": "original"})
+    state = _reward_state("claws", cards=(original,))
+    state = state.model_copy(update={"relics": (*state.relics, "bing_bong")})
+    state = step(state, next(a for a in legal_actions(state) if a.type == "take_reward_relic"))
+    state = _choose(load_state(serialize(state)), "original")
+    assert len(state.master_deck) == 2
+    assert [card.card_id for card in state.master_deck] == ["maul", "maul"]
+    assert len({card.instance_id for card in state.master_deck}) == 2
+
+
+def test_dolly_clone_does_not_trigger_bing_but_counts_for_lucky_fysh() -> None:
+    original = _source_card("bash").model_copy(update={"instance_id": "original"})
+    state = _reward_state("dollys_mirror", cards=(original,))
+    state = state.model_copy(update={"relics": (*state.relics, "bing_bong", "lucky_fysh")})
+    gold = state.player.gold
+    state = step(state, next(a for a in legal_actions(state) if a.type == "take_reward_relic"))
+    state = _choose(load_state(serialize(state)), "original")
+    assert len(state.master_deck) == 2
+    assert state.player.gold == gold + 15
