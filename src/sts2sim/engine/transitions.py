@@ -202,7 +202,6 @@ from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.source_rng import (
     draw_source_potion,
     is_source_rng,
-    source_float,
     source_sample,
     source_take_random,
 )
@@ -668,6 +667,10 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         next_state, events = _take_reward_potion(state, action)
     elif action.type == ActionType.SKIP_REWARD:
         next_state, events = _skip_reward(state, action)
+    elif action.type == ActionType.SACRIFICE_REWARD:
+        from .source_pickup_rewards import sacrifice_reward
+
+        next_state, events = sacrifice_reward(state, action)
     elif action.type == ActionType.REROLL_REWARD:
         next_state, events = reroll_card_reward(state, action)
     elif action.type in _CAMPFIRE_ACTION_TYPES:
@@ -1864,6 +1867,11 @@ def _proceed(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if state.phase == RunPhase.TREASURE:
         return _complete_current_room(state, (EffectEvent(kind="treasure_opened"),))
     if state.phase == RunPhase.REWARD:
+        from .source_pickup_rewards import resume_reward
+
+        resumed = resume_reward(state)
+        if resumed is not None:
+            return resumed
         if state.reward is not None and (state.reward.metadata.get("campfire_return_phase")
                 or state.reward.metadata.get("rest_heal_return_phase")):
             return_phase = RunPhase(str(state.reward.metadata.get("rest_heal_return_phase")
@@ -3649,9 +3657,18 @@ def _choose_source_native_event(
     numeric = _mapping_from(option.metadata.get("source_numeric_effect"))
     if numeric.get("next_page"):
         event = _source_event_next_page(next_state, event, str(numeric["next_page"]))
-    next_state = next_state.model_copy(update={"event": event, "reward": reward,
-        "rng": capture_random_state(rng),
-        "phase": RunPhase.FAILED if next_state.player.hp <= 0 else next_state.phase})
+    stack = list(next_state.flags.get("source_pickup_reward_stack", ()))
+    if len(stack) > len(state.flags.get("source_pickup_reward_stack", ())):
+        # The first new frame resumes this event once child rewards finish.
+        frame_index = len(state.flags.get("source_pickup_reward_stack", ()))
+        stack[frame_index] = {**stack[frame_index], "event": event.model_dump(mode="json"),
+            "reward": reward.model_dump(mode="json") if reward else None}
+        next_state = next_state.model_copy(update={"flags": {**next_state.flags,
+            "source_pickup_reward_stack": stack}, "rng": capture_random_state(rng)})
+    else:
+        next_state = next_state.model_copy(update={"event": event, "reward": reward,
+            "rng": capture_random_state(rng),
+            "phase": RunPhase.FAILED if next_state.player.hp <= 0 else next_state.phase})
     return next_state, tuple(events)
 
 def _event_option_for_id(
@@ -6613,7 +6630,9 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
     if reward is None:
         return ()
 
-    actions: list[Action] = list(legal_reward_rerolls(state))
+    from .source_pickup_rewards import legal_sacrifices
+
+    actions: list[Action] = [*legal_reward_rerolls(state), *legal_sacrifices(state)]
     actions.extend(
         Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
         for target_id, _card in _reward_optional_remove_card_targets(state)
@@ -6674,10 +6693,13 @@ def _unclaimed_reward_relic_targets(reward: RewardState) -> tuple[tuple[str, str
     if reward.relic_id is not None and not reward.relic_claimed and not reward.relic_skipped:
         targets.append(("reward:relic", reward.relic_id))
     claimed = set(reward.claimed_relic_ids) | set(reward.skipped_relic_ids)
+    claimed_indices = set(_source_sequence(reward.metadata.get("claimed_relic_indices"))) | set(
+        _source_sequence(reward.metadata.get("skipped_relic_indices")))
     targets.extend(
         (f"reward:relic:{index}", relic_id)
         for index, relic_id in enumerate(reward.relic_ids)
-        if relic_id not in claimed
+        if (index not in claimed_indices if reward.metadata.get("relic_rewards_use_indices")
+            else relic_id not in claimed)
     )
     return tuple(targets)
 
@@ -6811,6 +6833,9 @@ def _take_reward_relic(
                 "claimed_relic_ids": tuple(
                     dict.fromkeys(state.reward.claimed_relic_ids + (relic_id,))
                 ),
+                "metadata": {**state.reward.metadata, "claimed_relic_indices": (
+                    *_source_sequence(state.reward.metadata.get("claimed_relic_indices")),
+                    target_index)},
             }
         )
     next_state = state.model_copy(
@@ -6862,7 +6887,10 @@ def _reward_relic_for_target_id(
     with suppress(ValueError, IndexError):
         index = int(parts[2])
         relic_id = reward.relic_ids[index]
-        if relic_id in set(reward.claimed_relic_ids) | set(reward.skipped_relic_ids):
+        if (index in set(_source_sequence(reward.metadata.get("claimed_relic_indices")))
+                | set(_source_sequence(reward.metadata.get("skipped_relic_indices")))
+                if reward.metadata.get("relic_rewards_use_indices")
+                else relic_id in set(reward.claimed_relic_ids) | set(reward.skipped_relic_ids)):
             return None
         return relic_id, index
     return None
@@ -7081,6 +7109,10 @@ def _apply_relic_pickup_effects(
     if normalized == "byrdpip" and _normalized_id(state.character_id) != "test":
         return _apply_byrdpip_pickup(state)
     state = remove_obtained_source_relic(state, normalized)
+    from .source_pickup_rewards import PICKUP_REWARDS, obtain_pickup_reward
+
+    if normalized in PICKUP_REWARDS and _normalized_id(state.character_id) != "test":
+        return obtain_pickup_reward(state, normalized)
     if normalized == "paels_tooth":
         flags = {**state.flags, "paels_tooth_serialized_cards": ()}
         state = state.model_copy(update={"flags": flags})
@@ -7748,14 +7780,24 @@ def _apply_relic_card_reward_marker(
         if not candidates:
             return state, ()
         selected = random_stream(rng, "rewards").choice(candidates)
+        from .source_card_reward_modifiers import apply_option_modifiers, modify_generated_cards
+
+        state, upgrades, modifiers, modifier_events = modify_generated_cards(
+            state, rng, (selected,), (False,), is_card_reward=False,
+            context={"group_key": "arcane_scroll", "no_upgrade_roll": True},
+        )
         card = _card_from_spec(_reward_card_spec(state, selected), len(state.master_deck) + 1)
+        if upgrades[0]:
+            card = _upgrade_card_instance(card)
+        card = apply_option_modifiers(card, RewardState(reward_id="arcane_scroll_factory",
+            metadata={"card_reward_option_modifiers": {"generated": modifiers}}), "generated", 0)
         card = _with_unique_deck_card_id(card, state.master_deck)
         card, upgrade_event = _upgrade_card_for_add_relics(state, card)
         event = EffectEvent(kind="relic_deck_card_added", source_id="arcane_scroll",
                             target_id=card.instance_id, amount=1,
                             metadata={"card_id": selected, "no_upgrade_roll": True})
         return state.model_copy(update={"master_deck": state.master_deck + (card,)}), (
-            (event,) + ((upgrade_event,) if upgrade_event is not None else ())
+            (event,) + modifier_events + ((upgrade_event,) if upgrade_event is not None else ())
         )
     if _normalized_id(relic_id) == "glass_eye" and _normalized_id(state.character_id) != "test":
         return _apply_glass_eye_rewards(state, rng)
@@ -7835,10 +7877,12 @@ def _apply_byrdpip_pickup(state: RunState) -> tuple[RunState, tuple[EffectEvent,
 def _apply_glass_eye_rewards(
     state: RunState, rng: Random,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    # Uniform odds over a rarity-filtered class pool: one card selection and
-    # one upgrade roll per card, with the blacklist reset for each reward.
+    # ForNonCombatWithUniformOdds retains NoUpgradeRoll; each group has
+    # its own blacklist and ordinary reward pool hooks before the rarity filter.
     rewards_rng = random_stream(rng, "rewards")
-    pool = _combat_card_pool(state)
+    from .source_run_passives import modify_reward_pool
+
+    pool = modify_reward_pool(state, _combat_card_pool(state))
     groups: list[tuple[str, ...]] = []
     rarities: list[tuple[str, ...]] = []
     upgrades: list[tuple[bool, ...]] = []
@@ -7851,10 +7895,7 @@ def _apply_glass_eye_rewards(
             card_id = rewards_rng.choice(candidates)
             candidates.remove(card_id)
             selected.append(card_id)
-            threshold = 0.0 if rarity is CardRarity.RARE else (
-                (state.act - 1) * (0.125 if state.ascension >= 7 else 0.25)
-            )
-            upgraded.append(source_float(rewards_rng) <= threshold)
+            upgraded.append(False)
         groups.append(tuple(selected))
         rarities.append(tuple(rarity.value for _ in selected))
         upgrades.append(tuple(upgraded))
@@ -8858,7 +8899,7 @@ def _reward_skip_for_target_id(
         index = int(parts[2])
         if parts[1] == "relic":
             relic_id = reward.relic_ids[index]
-            if relic_id in set(reward.claimed_relic_ids) | set(reward.skipped_relic_ids):
+            if _reward_relic_for_target_id(reward, target_id) is None:
                 return None
             return {
                 "kind": "relic",
@@ -8868,6 +8909,8 @@ def _reward_skip_for_target_id(
                     "skipped_relic_ids": tuple(
                         dict.fromkeys(reward.skipped_relic_ids + (relic_id,))
                     ),
+                    "metadata": {**reward.metadata, "skipped_relic_indices": (
+                        *_source_sequence(reward.metadata.get("skipped_relic_indices")), index)},
                 },
             }
         if parts[1] == "fixed_card":

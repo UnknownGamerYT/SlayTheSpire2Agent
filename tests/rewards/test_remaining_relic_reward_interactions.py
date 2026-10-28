@@ -129,3 +129,7 @@ def test_lava_lamp_upgrades_combat_card_reward_after_no_damage_fight() -> None:
     assert gained.upgraded is True
     assert not any(event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
                    for event in state.replay_log[-1].events)
+    assert any(
+        event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
+        for entry in state.replay_log for event in entry.events
+    )

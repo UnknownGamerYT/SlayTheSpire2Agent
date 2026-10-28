@@ -69,6 +69,7 @@ class ActionType(str, Enum):
     HATCH = "hatch"
     MEND = "mend"
     REROLL_REWARD = "reroll_reward"
+    SACRIFICE_REWARD = "sacrifice_reward"
 
 
 class CardType(str, Enum):

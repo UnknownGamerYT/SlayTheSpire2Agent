@@ -198,3 +198,23 @@ acquisition rather than the run's first treasure. Sea Glass preserves its three
 five-card factory callbacks for Eggs/Wing Charm/Fresnel Lens; reward-only hooks
 remain excluded from that fixed selection grid. Glitter and Lava Lamp now join
 the shared late-hook dispatcher in actual relic acquisition order.
+
+Custom pickup RewardsSets retain the outer reward/shop/event state in serialized
+resume frames. Calling Bell presents Common, Uncommon and Rare relic rewards
+only after adding its curse; Cauldron presents five potion rewards even when
+inventory is full; Small Capsule presents a relic reward. Neow's Bones presents
+two eligible Neow rewards with skipping disabled, completes nested pickup
+choices, and adds its modifier curse after both rewards have finished. Pael's
+Wing exposes a separate Sacrifice alternative for every actual CardReward and
+obtains a front-bag relic on every second sacrifice. Fixed selection grids do
+not receive that alternative.
+
+Orrery and Lost Coffer use their explicit Other/RegularEncounter creation
+options, including upgrade rolls; Lost Coffer then populates its potion. Glass
+Eye's ForNonCombatWithUniformOdds retains NoUpgradeRoll when NoRarityModification
+is ORed into the flags, so its five three-card rewards consume fifteen selection
+draws before hooks. These CardRewards preserve their original creation contexts
+for Driftwood rerolls. Arcane Scroll's one-card factory also receives the
+non-CardReward late hooks before adding the card to the deck. The retained
+fixtures distinguish source constructors from rendered reward grouping and
+exercise reloads at nested reward boundaries; they are not a live-game oracle.

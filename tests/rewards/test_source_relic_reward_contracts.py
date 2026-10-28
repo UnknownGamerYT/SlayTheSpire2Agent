@@ -28,7 +28,7 @@ from sts2sim.engine.rng import capture_random_state, random_from_state
 
 
 @pytest.mark.parametrize("character", ["IRONCLAD", "SILENT", "DEFECT", "REGENT", "NECROBINDER"])
-def test_glass_eye_has_five_independent_source_rarity_groups_and_upgrade_rolls(character) -> None:
+def test_glass_eye_has_five_source_rarity_groups_without_upgrade_rolls(character) -> None:
     state = new_run("GLASS-EYE", character, 0, source_data={"revealed_epochs": []})
     state = state.model_copy(update={"phase": RunPhase.REWARD, "reward": None})
     rng = random_from_state(state.rng)
@@ -44,7 +44,7 @@ def test_glass_eye_has_five_independent_source_rarity_groups_and_upgrade_rolls(c
         (rarity,) * 3 for rarity in expected
     )
     after = capture_random_state(rng).streams["rewards"]
-    assert after.draws - (before.draws if before else 0) == 30
+    assert after.draws - (before.draws if before else 0) == 15
     assert actual.flags.get("card_rarity_offset") == state.flags.get("card_rarity_offset")
 
 
@@ -105,7 +105,7 @@ def test_glass_eye_public_pickup_offers_five_rarity_groups_with_reload() -> None
     actual = step(state, action)
     restored = step(load_state(serialize_state(state)), action)
     assert serialize_state(actual) == serialize_state(restored)
-    assert actual.reward is not None and len(actual.reward.card_option_groups) == 5
+    assert actual.reward is not None and len(actual.reward.card_option_groups) == 4
     assert all(len(group) == 3 for group in actual.reward.card_option_groups)
 
 

@@ -423,7 +423,8 @@ def test_egg_relics_upgrade_reward_cards_before_adding_to_deck() -> None:
     assert gained.upgraded is True
     assert gained.effects["sequence"][0]["damage"] == 9
     assert state.reward is not None
-    assert any(event.kind == "relic_card_upgraded" for event in state.replay_log[-1].events)
+    assert any(event.kind == "relic_card_reward_modified" and event.source_id == "molten_egg"
+               for entry in state.replay_log for event in entry.events)
 
 
 def test_stable_boss_reward_has_gold_rare_cards_and_no_default_relic() -> None:

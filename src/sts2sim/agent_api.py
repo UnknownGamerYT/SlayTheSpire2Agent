@@ -2264,6 +2264,13 @@ def _action_reward_descriptor(state: Any, action: Action) -> dict[str, Any]:
         # Finishing an optional selection resumes the surrounding reward screen;
         # it does not skip any of those still-unclaimed rewards.
         return {}
+    if action.type == ActionType.SACRIFICE_REWARD:
+        reward = getattr(state, "reward", None)
+        return {"source": str(getattr(reward, "source", "")), "kind": "sacrifice",
+                "content_id": "paels_wing", "gold": 0,
+                "selection_set_id": str(action.target_id or "").removeprefix(
+                    "reward:sacrifice:"), "skips_remaining": False,
+                "skips_selection": True, "closes_selection_set": True}
     if action.type == ActionType.REROLL_REWARD:
         reward = getattr(state, "reward", None)
         return {"source": str(getattr(reward, "source", "")), "kind": "reroll",
