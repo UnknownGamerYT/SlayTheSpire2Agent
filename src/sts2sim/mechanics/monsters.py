@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import struct
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -365,6 +366,8 @@ def spawn_monsters(
     rng: Random,
     *,
     ascension_level: int,
+    hp_rng: Random | None = None,
+    ai_rng: Random | None = None,
 ) -> tuple[SpawnedMonster, ...]:
     counts = Counter(encounter.monster_ids)
     seen: Counter[str] = Counter()
@@ -374,10 +377,13 @@ def spawn_monsters(
         if definition is None:
             continue
         seen[source_monster_id] += 1
-        hp = roll_monster_hp(definition, rng, ascension_level=ascension_level)
+        hp = roll_monster_hp(
+            definition, hp_rng or rng, ascension_level=ascension_level,
+            excluded_max_hp=tuple(monster.max_hp for monster in spawned),
+        )
         current_move = initial_monster_move(
             definition,
-            rng,
+            ai_rng or rng,
             slot_index=slot_index,
             ally_count=max(0, len(encounter.monster_ids) - 1),
             is_front=slot_index == 0,
@@ -409,11 +415,15 @@ def roll_monster_hp(
     rng: Random,
     *,
     ascension_level: int,
+    excluded_max_hp: Sequence[int] = (),
 ) -> int:
     minimum, maximum = monster_hp_range(definition, ascension_level=ascension_level)
     if maximum < minimum:
         maximum = minimum
-    return rng.randint(minimum, maximum)
+    # Creature.SetUniqueMonsterHpValue removes other current enemies' MaxHp
+    # from its ascending candidate set before drawing from RunRng.Niche.
+    choices = tuple(hp for hp in range(minimum, maximum + 1) if hp not in excluded_max_hp)
+    return rng.choice(choices) if choices else rng.randint(minimum, maximum)
 
 
 def monster_hp_range(
@@ -683,6 +693,11 @@ def next_move_counts(
     counts = {str(key): int(value) for key, value in move_counts.items()}
     if move_id:
         counts[move_id] = counts.get(move_id, 0) + 1
+        consecutive = f"__consecutive__:{move_id}"
+        for key in tuple(counts):
+            if key.startswith("__consecutive__:") and key != consecutive:
+                counts.pop(key)
+        counts[consecutive] = counts.get(consecutive, 0) + 1
     return counts
 
 
@@ -855,15 +870,20 @@ def _choose_branch(
     if not candidates:
         candidates = tuple(branches)
 
-    total_weight = sum(max(0.0, branch.weight) for branch in candidates)
+    def float32(value: float) -> float:
+        return float(struct.unpack("f", struct.pack("f", value))[0])
+
+    total_weight = 0.0
+    for branch in candidates:
+        total_weight = float32(total_weight + float32(max(0.0, branch.weight)))
     if total_weight <= 0:
         return candidates[0]
 
-    needle = rng.random() * total_weight
-    upto = 0.0
+    # RandomBranchState.GetNextState uses Rng.NextFloat and float subtraction.
+    needle = float32(rng.random() * total_weight)
     for branch in candidates:
-        upto += max(0.0, branch.weight)
-        if needle <= upto:
+        needle = float32(needle - float32(max(0.0, branch.weight)))
+        if needle <= 0:
             return branch
     return candidates[-1]
 
@@ -883,7 +903,7 @@ def _branch_available(
     if (
         branch.max_times is not None
         and branch.move_id is not None
-        and move_counts.get(branch.move_id, 0) >= branch.max_times
+        and move_counts.get(f"__consecutive__:{branch.move_id}", 0) >= branch.max_times
     ):
         return False
     return not (branch.repeat == "CannotRepeat" and branch.move_id == previous_move_id)

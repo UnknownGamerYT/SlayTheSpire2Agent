@@ -12716,7 +12716,8 @@ def _execute_monster_turn(
         if _normalized_id(definition.monster_id) == "thieving_hopper":
             counts = next_move_counts(_monster_move_counts(monster), move.move_id)
             next_move = next_monster_move(
-                definition, move.move_id, rng, slot_index=_monster_slot_index(monster),
+                definition, move.move_id, random_stream(rng, "monster_ai"),
+                slot_index=_monster_slot_index(monster),
                 ally_count=_monster_ally_count(combat, monster_index),
                 current_hp=monster.hp, max_hp=monster.max_hp, move_counts=counts,
             )
@@ -13000,7 +13001,7 @@ def _execute_monster_turn(
     next_move = next_monster_move(
         definition,
         move.move_id,
-        rng,
+        random_stream(rng, "monster_ai"),
         slot_index=_monster_slot_index(monster),
         ally_count=_monster_ally_count(combat, monster_index),
         is_front=_monster_is_front(combat, monster_index),
@@ -14019,7 +14020,9 @@ def _thieving_hopper_steal_card(
                 "basic": 3, "quest": 3}.get(rarity, 5)
 
     best = min(priority(card) for card in candidates)
-    stolen = rng.choice([card for card in candidates if priority(card) == best])
+    stolen = random_stream(rng, "combat_card_generation").choice(
+        [card for card in candidates if priority(card) == best]
+    )
     statuses = {**monster.statuses, "swipe": 1}
     monster = monster.model_copy(update={
         "statuses": statuses,
@@ -14453,7 +14456,9 @@ def _apply_monster_summon_move(
                 else ("ZAPBOT", "STABBOT")
             )
             previous = summoner.metadata.get("fabricator_last_spawned")
-            source_monster_id = rng.choice(tuple(item for item in options if item != previous))
+            source_monster_id = random_stream(rng, "monster_ai").choice(
+                tuple(item for item in options if item != previous)
+            )
             summoner = summoner.model_copy(update={"metadata": {
                 **summoner.metadata, "fabricator_last_spawned": source_monster_id,
             }})
@@ -14470,7 +14475,10 @@ def _apply_monster_summon_move(
             continue
 
         slot_index = _next_monster_slot_index(monsters)
-        hp = roll_monster_hp(summon_definition, rng, ascension_level=state.ascension)
+        hp = roll_monster_hp(
+            summon_definition, random_stream(rng, "niche"), ascension_level=state.ascension,
+            excluded_max_hp=tuple(monster.max_hp for monster in monsters if monster.hp > 0),
+        )
         spawned = SpawnedMonster(
             instance_id=_next_monster_instance_id(monsters, source_monster_id),
             source_monster_id=source_monster_id,
@@ -14479,7 +14487,7 @@ def _apply_monster_summon_move(
             max_hp=hp,
             move=initial_monster_move(
                 summon_definition,
-                rng,
+                random_stream(rng, "monster_ai"),
                 slot_index=slot_index,
                 ally_count=sum(1 for monster in monsters if monster.hp > 0),
                 is_front=False,
@@ -14614,7 +14622,9 @@ def _tick_inactive_monster_turn(
         revived = monster.model_copy(update={
             "hp": monster.max_hp, "block": 0, "metadata": metadata,
         })
-        move = move_by_id(definition, resume_move_id) or initial_monster_move(definition, rng)
+        move = move_by_id(definition, resume_move_id) or initial_monster_move(
+            definition, random_stream(rng, "monster_ai"),
+        )
         revived = _set_monster_move(
             revived, definition, move, player=combat.player,
             ascension_level=state.ascension, move_counts=_monster_move_counts(revived),
@@ -14677,7 +14687,7 @@ def _tick_inactive_monster_turn(
     next_move = next_monster_move(
         definition,
         "REATTACH",
-        rng,
+        random_stream(rng, "monster_ai"),
         slot_index=_monster_slot_index(revived),
         ally_count=_monster_ally_count(combat, monster_index),
         is_front=_monster_is_front(combat, monster_index),
@@ -25108,7 +25118,7 @@ def _apply_test_subject_respawn_from_events(
         next_move = next_monster_move(
             definition,
             "RESPAWN",
-            rng,
+            random_stream(rng, "monster_ai"),
             slot_index=_monster_slot_index(revived),
             ally_count=_monster_ally_count(combat, monster_index),
             is_front=_monster_is_front(combat, monster_index),
@@ -25426,9 +25436,12 @@ def _apply_monster_death_spawns(
         }})
         for slot, spawn_id in enumerate(spawn_ids):
             definition = definitions[spawn_id]
-            hp = roll_monster_hp(definition, rng, ascension_level=state.ascension)
+            hp = roll_monster_hp(
+                definition, random_stream(rng, "niche"), ascension_level=state.ascension,
+                excluded_max_hp=tuple(monster.max_hp for monster in monsters if monster.hp > 0),
+            )
             move = move_by_id(definition, "SPAWNED") or initial_monster_move(
-                definition, rng, slot_index=slot,
+                definition, random_stream(rng, "monster_ai"), slot_index=slot,
             )
             spawned = SpawnedMonster(
                 instance_id=_next_monster_instance_id(monsters, spawn_id),
@@ -25479,7 +25492,10 @@ def _resolve_axebot_replacements(
         monsters[parent_index] = parent.model_copy(update={"metadata": {
             **parent.metadata, "death_spawn_resolved": True,
         }})
-        hp = roll_monster_hp(definition, rng, ascension_level=state.ascension)
+        hp = roll_monster_hp(
+            definition, random_stream(rng, "niche"), ascension_level=state.ascension,
+            excluded_max_hp=tuple(monster.max_hp for monster in monsters if monster.hp > 0),
+        )
         child = _monster_state_from_spawn(SpawnedMonster(
             instance_id=_next_monster_instance_id(monsters, definition.monster_id),
             source_monster_id=definition.monster_id, name=definition.name,
@@ -29579,6 +29595,8 @@ def _monsters_for_node(
             monster_definitions,
             rng,
             ascension_level=state.ascension,
+            hp_rng=random_stream(rng, "niche"),
+            ai_rng=random_stream(rng, "monster_ai"),
         )
         monsters = tuple(
             _monster_state_from_spawn(

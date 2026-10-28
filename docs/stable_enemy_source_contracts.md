@@ -53,6 +53,15 @@ Confirmed corrections:
 - `Entomancer`: Bees, Spear, Pheromone Spit, repeat. Spit grants one Personal
   Hive and one Strength while Hive is below three, then two Strength. The API
   had flattened the mutually exclusive branches into unconditional effects.
+- `CombatState.CreateCreature`: HP selection uses the Niche stream and removes
+  other current enemies' maximum HP values from its candidate range, falling
+  back to the full range when every candidate is occupied. Initial and later
+  AI rolls and Fabricator choices use MonsterAi; Hopper theft uses
+  CombatCardGeneration. Stream ownership and save/reload checks are in
+  `tests/combat/test_stable_enemy_rng.py`. The per-creature model RNG's only
+  reference in the registered monster classes is Tough Egg's cosmetic skin.
+- `RandomBranchState`: selection rounds through C# float precision, and
+  CanRepeatXTimes limits consecutive uses rather than lifetime uses.
 
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
