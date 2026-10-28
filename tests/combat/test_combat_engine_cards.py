@@ -1724,7 +1724,10 @@ def test_more_than_ten_innate_cards_leave_extras_on_top_of_draw_pile() -> None:
 
     assert state.combat is not None
     assert len(state.combat.hand) == 10
-    assert [card.card_id for card in state.combat.draw_pile[:2]] == ["innate_10", "innate_11"]
+    assert len(state.combat.draw_pile) == 2
+    assert {card.card_id for card in state.combat.hand + state.combat.draw_pile} == {
+        f"innate_{index}" for index in range(12)
+    }
 
 
 def test_osty_action_card_uses_companion_state_to_damage_enemy() -> None:

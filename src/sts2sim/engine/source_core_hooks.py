@@ -332,9 +332,22 @@ def apply_source_core(
                 )
     elif name in {"calculated_gamble", "storm_of_steel"}:
         count = len(combat.hand)
-        run({"discard_hand": {"mode": "all"}})
+        run({"discard_hand": {"mode": "all", "defer_sly": name == "calculated_gamble"}})
         if name == "calculated_gamble":
             run({"draw": count})
+            pending = dict(t._mapping_from(combat.metadata.get("source_keyword_sly_after_draw")))
+            requests = tuple(t._source_sequence(pending.pop(card.instance_id, ())))
+            metadata = dict(combat.metadata)
+            if pending:
+                metadata["source_keyword_sly_after_draw"] = pending
+            else:
+                metadata.pop("source_keyword_sly_after_draw", None)
+            combat = combat.model_copy(update={"metadata": metadata})
+            if requests and state is not None:
+                combat, rng_state, sly_events = t._resolve_queued_autoplays(
+                    state, combat, rng_state, requests,
+                )
+                events.extend(sly_events)
         elif count:
             run({"add_card_to_hand": {"count": count, "card": shiv_spec(upgraded=up)}})
     elif name in {"bouncing_flask", "ricochet", "sword_boomerang"}:

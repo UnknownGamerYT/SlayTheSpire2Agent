@@ -233,6 +233,7 @@ from . import (
     source_core_hooks,
     source_cost_hooks,
     source_enchantment_hooks,
+    source_keyword_hooks,
     source_modifier_hooks,
 )
 from .errors import EngineError, IllegalActionError
@@ -2307,7 +2308,7 @@ def _campfire_state(state: RunState) -> CampfireState:
         upgradeable_card_ids=frozenset(
             card.instance_id
             for card in state.master_deck
-            if not card.upgraded and not _deck_card_mutation_blocked(card)
+            if _card_is_upgradable(card)
         ),
         removable_card_ids=frozenset(
             card.instance_id for card in state.master_deck if not _deck_card_mutation_blocked(card)
@@ -4045,10 +4046,7 @@ def _upgrade_all_deck_cards(
     deck = list(state.master_deck)
     events: list[EffectEvent] = []
     for index, card in enumerate(deck):
-        if card.upgraded or (not is_source_rng(state.rng) and _deck_card_mutation_blocked(card)):
-            continue
-        if is_source_rng(state.rng) and card.type not in {
-                CardType.ATTACK, CardType.SKILL, CardType.POWER}:
+        if not _card_is_upgradable(card):
             continue
         deck[index] = _upgrade_card_instance(card)
         events.append(
@@ -4098,7 +4096,7 @@ def _downgrade_random_deck_cards(
     candidates = [
         index
         for index, card in enumerate(deck)
-        if card.upgraded and (is_source_rng(rng) or not _deck_card_mutation_blocked(card))
+        if card.upgraded
     ]
     if is_source_rng(rng):
         candidates = source_sample(rng, candidates, min(max(0, count), len(candidates)))
@@ -4795,15 +4793,14 @@ def _apply_event_enchants(
         if card.instance_id not in selected:
             deck.append(card)
             continue
-        if (_deck_card_mutation_blocked(card) if not is_source_rng(state.rng)
-                else not source_can_enchant(card, keyword)):
+        if not source_can_enchant(card, keyword):
             deck.append(card)
             events.append(
                 EffectEvent(
                     kind="card_enchant_blocked",
                     source_id=state.event.event_id if state.event else None,
                     target_id=card.instance_id,
-                    metadata={"card_id": card.card_id, "reason": "eternal"},
+                    metadata={"card_id": card.card_id, "reason": "ineligible_enchantment"},
                 )
             )
             continue
@@ -4860,8 +4857,7 @@ def _eligible_enchant_cards(
     return tuple(
         card
         for card in state.master_deck
-        if (source_can_enchant(card, str(option.metadata.get("enchant_keyword", "")))
-            if is_source_rng(state.rng) else not _deck_card_mutation_blocked(card))
+        if source_can_enchant(card, str(option.metadata.get("enchant_keyword", "")))
         and (card_type is None or card.type.value == str(card_type))
         and (not allowed_card_ids or _normalized_id(card.card_id) in allowed_card_ids)
         and (not requires_exhaust or card.exhausts or bool(card.effects.get("exhaust_on_play")))
@@ -5108,9 +5104,7 @@ def _upgrade_random_deck_cards(
     candidates = [
         index
         for index, card in enumerate(deck)
-        if not card.upgraded and (not _deck_card_mutation_blocked(card) or is_source_rng(rng))
-        and (not is_source_rng(rng) or card.type in {
-            CardType.ATTACK, CardType.SKILL, CardType.POWER})
+        if _card_is_upgradable(card)
     ]
     if is_source_rng(rng):
         candidates = source_sample(rng, candidates, min(max(0, count), len(candidates)))
@@ -7419,8 +7413,7 @@ def _apply_relic_upgrade_deck_cards_marker(
     candidates = [
         index
         for index, card in enumerate(deck)
-        if not card.upgraded
-        and (marker.kind == "modify_deck_cards" or not _deck_card_mutation_blocked(card))
+        if _card_is_upgradable(card)
         and _relic_marker_matches_deck_card(card, marker.metadata)
     ]
     rng.shuffle(candidates)
@@ -7834,7 +7827,8 @@ def _relic_marker_deck_candidates(
         card
         for card in deck
         if (not instance_ids or card.instance_id in instance_ids)
-        and not _deck_card_mutation_blocked(card)
+        and (marker.kind not in {"remove_deck_cards", "transform_deck_cards"}
+             or not _deck_card_mutation_blocked(card))
         and _relic_marker_matches_deck_card(card, marker.metadata)
     )
 
@@ -7886,7 +7880,7 @@ def _relic_deck_choice_candidates(
     return tuple(
         card for card in _relic_marker_deck_candidates(state.master_deck, marker)
         if card.instance_id in allowed and card.instance_id not in selected
-        and (marker.kind != "upgrade_deck_cards" or not card.upgraded)
+        and (marker.kind != "upgrade_deck_cards" or _card_is_upgradable(card))
     )
 
 
@@ -7895,7 +7889,7 @@ def _queue_relic_deck_choice(
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     candidates = tuple(
         card for card in _relic_marker_deck_candidates(state.master_deck, marker)
-        if marker.kind != "upgrade_deck_cards" or not card.upgraded
+        if marker.kind != "upgrade_deck_cards" or _card_is_upgradable(card)
     )
     count = _relic_marker_effect_count(marker, len(candidates), default=1)
     if not count:
@@ -9970,9 +9964,14 @@ def _opening_draw_pile(
     rng: Random,
 ) -> tuple[tuple[CardInstance, ...], tuple[EffectEvent, ...]]:
     rng = random_stream(rng, "shuffle")
-    innate_cards = tuple(card for card in master_deck if _card_is_innate(card))
-    other_cards = [card for card in master_deck if not _card_is_innate(card)]
-    rng.shuffle(other_cards)
+    shuffled = list(master_deck)
+    rng.shuffle(shuffled)
+    bottom_cards = tuple(card for card in shuffled if source_enchantment_hooks.has(card, "imbued"))
+    innate_cards = tuple(reversed(tuple(
+        card for card in shuffled if _card_is_innate(card) and card not in bottom_cards
+    )))
+    other_cards = tuple(card for card in shuffled
+                        if card not in innate_cards and card not in bottom_cards)
     events: tuple[EffectEvent, ...] = ()
     if innate_cards:
         events = (
@@ -9985,7 +9984,7 @@ def _opening_draw_pile(
                 },
             ),
         )
-    return innate_cards + tuple(other_cards), events
+    return innate_cards + other_cards + bottom_cards, events
 
 
 def _draw_opening_hand(
@@ -9997,7 +9996,7 @@ def _draw_opening_hand(
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     innate_count = 0
     for card in combat.draw_pile:
-        if not _card_is_innate(card):
+        if not _card_is_innate(card) or source_enchantment_hooks.has(card, "imbued"):
             break
         innate_count += 1
     draw_amount = min(MAX_HAND_SIZE, max(0, amount, innate_count))
@@ -12990,6 +12989,13 @@ def _apply_end_turn_hand_card_effects(
     player = combat.player
     events: list[EffectEvent] = []
     for card in cards:
+        handled, combat, source_events = source_keyword_hooks.end_hand_effect(
+            combat, card, relics,
+        )
+        if handled:
+            player = combat.player
+            events.extend(source_events)
+            continue
         text = _plain_card_description(card)
         if "at the end of your turn" not in text:
             continue
@@ -13192,19 +13198,16 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         })
         if diadem_event is not None:
             events.append(diadem_event)
-    player = combat.player
-    combat, hand_effect_events = _apply_end_turn_hand_card_effects(
-        combat,
-        combat.hand,
-        relics=state.relics,
+    combat, hand_rng, hand_effect_events = source_keyword_hooks.resolve_end_hand(
+        state, combat, capture_random_state(rng),
     )
     events.extend(hand_effect_events)
-    combat, hand_rng, hand_damage_relic_events = _apply_damage_taken_relics_from_events(
-        state, combat, capture_random_state(rng), hand_effect_events, turn_owner="player",
-    )
     rng = random_from_state(hand_rng)
-    events.extend(hand_damage_relic_events)
     player = combat.player
+    if combat.player.hp <= 0 or not _alive_monsters(combat):
+        event_tuple = tuple(events)
+        combat = combat.model_copy(update={"last_events": event_tuple})
+        return _finalize_state_after_combat(state, combat, hand_rng, event_tuple)
     rng_state = capture_random_state(rng)
     if _metadata_int(combat.metadata, "turn_end_triggers_resolved_turn", 0) != combat.turn:
         combat, rng_state, zone_events = _apply_zone_card_autoplays(
@@ -13290,17 +13293,8 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
                     },
                 )
             )
-    spectral_hex_active = _status_amount(combat.player.statuses, "hex") > 0
-    exhaust_hand = tuple(
-        card
-        for card in combat.hand
-        if source_modifier_hooks.ethereal(combat, card)
-    )
-    exhausted_ids = {card.instance_id for card in exhaust_hand}
-    retained_hand = tuple(card for card in retained_hand if card.instance_id not in exhausted_ids)
-    discard_hand = tuple(card for card in discarded_hand if card.instance_id not in exhausted_ids)
+    discard_hand = discarded_hand
     discard_movement_events: tuple[EffectEvent, ...] = ()
-    exhaust_movement_events: tuple[EffectEvent, ...] = ()
 
     if discard_hand:
         events.append(
@@ -13318,44 +13312,13 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             reason="end_turn_discard",
         )
         events.extend(discard_movement_events)
-    if exhaust_hand:
-        event_kind = (
-            "hex_ethereal_cards_exhausted"
-            if spectral_hex_active
-            else "ethereal_cards_exhausted"
-        )
-        events.append(
-            EffectEvent(
-                kind=event_kind,
-                amount=len(exhaust_hand),
-                metadata={"card_instance_ids": [card.instance_id for card in exhaust_hand]},
-            )
-        )
-        exhaust_movement_events = _card_movement_events(
-            GameTrigger.CARD_EXHAUSTED,
-            exhaust_hand,
-            from_pile="hand",
-            to_pile="exhaust_pile",
-            reason="ethereal_end_turn",
-        )
-        events.extend(exhaust_movement_events)
     combat = combat.model_copy(
         update={
             "discard_pile": combat.discard_pile + discard_hand,
-            "exhaust_pile": combat.exhaust_pile + exhaust_hand,
             "hand": retained_hand,
         }
     )
     combat = _cleanup_turn_limited_cards_in_combat(combat)
-    if exhaust_movement_events:
-        combat, rng_state, exhaust_trigger_events = _apply_card_exhausted_triggers_from_events(
-            state.model_copy(update={"combat": combat, "player": combat.player}),
-            combat,
-            rng_state,
-            exhaust_movement_events,
-        )
-        events.extend(exhaust_trigger_events)
-        rng = random_from_state(rng_state)
 
     turn_end_relics = _resolve_combat_relic_trigger(
         GameTrigger.TURN_END,
@@ -13411,14 +13374,6 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         event_tuple = tuple(events)
         combat = combat.model_copy(update={"last_events": event_tuple})
         return _finalize_state_after_combat(state, combat, capture_random_state(rng), event_tuple)
-    player = combat.player
-    combat, passive_rng_state, orb_passive_events = _apply_orb_passives(
-        combat,
-        capture_random_state(rng),
-        relics=state.relics,
-    )
-    rng = random_from_state(passive_rng_state)
-    events.extend(orb_passive_events)
     player = combat.player
 
     combat, block_rng_state, block_power_events = _apply_block_gain_status_triggers(
@@ -16719,18 +16674,18 @@ def _apply_monster_skill_afflictions(
     if source_modifier_hooks.affliction_id(
         source_modifier_hooks.current_card(combat, card)
     ) == "galvanized":
-        amount = sum(
-            _status_amount(monster.statuses, "galvanic")
-            for monster in combat.monsters if monster.hp > 0
-        )
-        if amount <= 0:
-            return combat, ()
-        combat, damage_events = _damage_combat_player(
-            combat, amount, card.instance_id, relics=relics,
-        )
-        return combat, tuple(event.model_copy(update={"metadata": {
-            **event.metadata, "trigger": "galvanic", "card_id": card.card_id,
-        }}) for event in damage_events)
+        events: list[EffectEvent] = []
+        for monster in combat.monsters:
+            amount = _status_amount(monster.statuses, "galvanic")
+            if monster.hp <= 0 or amount <= 0 or combat.player.hp <= 0:
+                continue
+            combat, damage_events = _damage_combat_player(
+                combat, amount, monster.monster_id, relics=relics,
+            )
+            events.extend(event.model_copy(update={"metadata": {
+                **event.metadata, "trigger": "galvanic", "card_id": card.card_id,
+            }}) for event in damage_events)
+        return combat, tuple(events)
     return source_affliction_hooks.after_play(combat, card)
 
 
@@ -19462,6 +19417,7 @@ def _apply_sly_discarded_cards(
     *,
     reason: str,
     relics: Sequence[str] = (),
+    defer_key: str | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     if reason == "played_card_destination":
         return combat, rng_state, ()
@@ -19479,6 +19435,12 @@ def _apply_sly_discarded_cards(
     )
     if not requests:
         return combat, rng_state, ()
+    if defer_key is not None:
+        pending = dict(_mapping_from(combat.metadata.get("source_keyword_sly_after_draw")))
+        pending[defer_key] = tuple(_source_sequence(pending.get(defer_key))) + requests
+        return combat.model_copy(update={"metadata": {
+            **combat.metadata, "source_keyword_sly_after_draw": pending,
+        }}), rng_state, ()
     return _resolve_queued_autoplays(state, combat, rng_state, requests)
 
 
@@ -20151,7 +20113,8 @@ def _apply_hand_manipulation_effects(
         discard_count = len(hand)
     if discard_count:
         indexes = list(range(len(hand)))
-        rng.shuffle(indexes)
+        if not (isinstance(discard_hand, Mapping) and discard_hand.get("mode") == "all"):
+            rng.shuffle(indexes)
         selected = sorted(indexes[: max(0, min(discard_count, len(hand)))], reverse=True)
         discarded: list[CardInstance] = []
         for index in selected:
@@ -20223,7 +20186,8 @@ def _apply_hand_manipulation_effects(
         exhaust_count = len(hand)
     if exhaust_count:
         indexes = list(range(len(hand)))
-        rng.shuffle(indexes)
+        if not (isinstance(exhaust_hand, Mapping) and exhaust_hand.get("mode") == "all"):
+            rng.shuffle(indexes)
         selected = sorted(indexes[: max(0, min(exhaust_count, len(hand)))], reverse=True)
         exhausted: list[CardInstance] = []
         for index in selected:
@@ -20267,6 +20231,8 @@ def _apply_hand_manipulation_effects(
             tuple(sly_discarded_cards),
             reason="random_discard",
             relics=relics,
+            defer_key=(source_card.instance_id if isinstance(discard_hand, Mapping)
+                       and discard_hand.get("defer_sly") else None),
         )
 
     return next_combat, next_rng_state, tuple(events) + sly_events
@@ -22711,6 +22677,12 @@ def _play_combat_card_from_zone_by_trigger(
     card = source_modifier_hooks.current_card(combat, card)
     zone_cards = _cards_in_combat_zone(combat, from_zone)
     physical = _find_card(zone_cards, card.instance_id)
+    if physical is None and event_kind == "sly_card_triggered":
+        for source_zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile"):
+            physical = _find_card(_cards_in_combat_zone(combat, source_zone), card.instance_id)
+            if physical is not None:
+                from_zone = source_zone
+                break
     if physical is None:
         return (
             combat,
@@ -23257,15 +23229,15 @@ def _add_random_pool_cards_to_hand(
     _sort_source_generation_specs(state, candidates, pool)
     generation_rng = random_stream(rng, "combat_card_generation")
     distinct = isinstance(payload, Mapping) and _truthy(payload.get("distinct"))
+    if distinct:
+        generation_rng.shuffle(candidates)
     hand = list(combat.hand)
     discard_pile = list(combat.discard_pile)
     events: list[EffectEvent] = []
-    for index in range(count):
+    for index in range(min(count, len(candidates)) if distinct else count):
         if not candidates:
             break
-        selected_spec = generation_rng.choice(candidates)
-        if distinct:
-            candidates.remove(selected_spec)
+        selected_spec = candidates[index] if distinct else generation_rng.choice(candidates)
         spec = dict(selected_spec)
         card_id = _normalized_id(str(spec.get("card_id", spec.get("id", f"random_{index}"))))
         spec["card_id"] = card_id
@@ -30478,6 +30450,10 @@ def _card_with_resolved_x_value(
 
 def _deck_card_mutation_blocked(card: CardInstance) -> bool:
     return _card_is_eternal(card)
+
+
+def _card_is_upgradable(card: CardInstance) -> bool:
+    return not card.upgraded and _upgrade_card_instance(card) != card
 
 
 def _normalized_tag(value: object) -> str:

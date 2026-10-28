@@ -280,8 +280,22 @@ def test_no_eligible_cards_does_not_deadlock_or_offer_invalid_selections() -> No
     assert any(
         event.kind == "relic_deck_choice_unavailable" for event in state.replay_log[-1].events
     )
-    state = _pickup("yummy_cookie", cards=(_card(0, upgraded=True), _card(1, eternal=True)))
+    state = _pickup("yummy_cookie", cards=(
+        _card(0, upgraded=True), _card(1, upgraded=True, eternal=True),
+    ))
     assert not state.flags.get("pending_relic_deck_choices")
+
+
+def test_eternal_does_not_block_upgrade_duplicate_or_enchantment_choices() -> None:
+    for relic in ("yummy_cookie", "dollys_mirror", "electric_shrymp"):
+        state = _pickup(relic, cards=(_card(1, eternal=True),))
+        result = _choose(load_state(serialize(state)), "deck:1")
+        if relic == "yummy_cookie":
+            assert result.master_deck[0].upgraded
+        elif relic == "dollys_mirror":
+            assert len(result.master_deck) == 2
+        else:
+            assert result.master_deck[0].enchantments
 
 
 def test_precarious_shears_does_not_repeat_pickup_hp_loss_for_each_selection() -> None:

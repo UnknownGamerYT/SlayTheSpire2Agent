@@ -3,7 +3,7 @@
   "build_id": "23811903",
   "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
   "provenance": "Independent behavioral audit and SHA-256 references to public source; no game source is vendored. AfflictionModel defines seven concrete afflictions in this pin.",
-  "scope": "All seven affliction classes. Keyword rows are added with the keyword boundary follow-up.",
+  "scope": "All seven concrete afflictions and all eight CardKeyword enum values (including None), stable 0.107.1.",
   "rows": [
     {
       "id": "bound",
@@ -225,7 +225,226 @@
         "sts2sim.engine.source_affliction_hooks.synchronize"
       ],
       "regressions": [
-        "tests/combat/test_source_vital_spark.py"
+        "tests/combat/test_source_vital_spark.py::test_unplayable_skill_receives_tainted_under_default_affliction_rule"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "none",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        }
+      ],
+      "behavior": "The enum sentinel supplies no card behavior.",
+      "runtime_entrypoints": [
+        "sts2sim.mechanics.card_effects.normalize_card_spec"
+      ],
+      "regressions": [
+        "tests/combat/test_source_class_metadata.py"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "exhaust",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        }
+      ],
+      "behavior": "After play, non-Power physical cards with Exhaust move once to Exhaust and trigger exhaust callbacks; Power cards leave combat.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.transitions._card_destination"
+      ],
+      "regressions": [
+        "tests/combat/test_replay_hooks.py::test_replayed_exhaust_card_moves_once_and_exhaust_trigger_fires_once"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "ethereal",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Combat/CombatManager.cs",
+          "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Combat/CombatManager.cs"
+        }
+      ],
+      "behavior": "Ordinary Ethereal cards exhaust before end-in-hand effects and retention. A card with an end-in-hand effect resolves that effect then exhausts when Ethereal, otherwise discards.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.source_keyword_hooks.resolve_end_hand"
+      ],
+      "regressions": [
+        "tests/combat/test_source_keywords.py::test_ordinary_ethereal_exhaust_hooks_resolve_before_burn_damage"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "innate",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Combat/CombatManager.cs",
+          "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Combat/CombatManager.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardPile.cs",
+          "sha256": "e7c3733f533c14ba269a4a2a46cb6ac3ed1d98fba41b3d0450035c17691b3e3d",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardPile.cs"
+        }
+      ],
+      "behavior": "The complete deck is shuffled first. Imbued cards move to the bottom; remaining Innate cards move to the top one by one, reversing their shuffled order, and expand opening draw up to ten.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.transitions._opening_draw_pile"
+      ],
+      "regressions": [
+        "tests/combat/test_source_keywords.py::test_innate_uses_full_deck_shuffle_then_reverses_collected_order"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "unplayable",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Commands/CardCmd.cs",
+          "sha256": "8520d56b8db0c5c996dd0701f381d4e173e20731e50b056eed96c93ad4551904",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Commands/CardCmd.cs"
+        }
+      ],
+      "behavior": "Both manual play and CardCmd.AutoPlay reject the Unplayable keyword; afflictions may still claim such cards unless their own card-type rule rejects them.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.transitions._card_is_unplayable"
+      ],
+      "regressions": [
+        "tests/combat/test_source_modifiers.py::test_all_afflictions_accept_unplayable_cards_when_type_allows"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "retain",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Combat/CombatManager.cs",
+          "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Combat/CombatManager.cs"
+        }
+      ],
+      "behavior": "Retain and single-turn Retain preserve otherwise flushed cards; they do not stop ordinary Ethereal exhaustion or the explicit end-in-hand wrapper.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.transitions._split_retained_end_turn_cards"
+      ],
+      "regressions": [
+        "tests/combat/test_source_keywords.py::test_ethereal_exhausts_before_retain_and_full_hand_retention"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "sly",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Commands/CardCmd.cs",
+          "sha256": "8520d56b8db0c5c996dd0701f381d4e173e20731e50b056eed96c93ad4551904",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Commands/CardCmd.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        }
+      ],
+      "behavior": "Explicit discards collect Sly cards for autoplay after discard callbacks and the associated draw; normal hand flushing is a pile movement and does not trigger Sly. Single-turn Sly clears at cleanup.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.transitions._apply_sly_discarded_cards"
+      ],
+      "regressions": [
+        "tests/combat/test_source_core_cards.py::test_hand_trick_grants_single_turn_sly_to_one_skill",
+        "tests/combat/test_source_keywords.py::test_calculated_gamble_draws_before_discarded_sly_card_autoplays",
+        "tests/combat/test_source_keywords.py::test_sly_autoplay_finds_card_drawn_from_the_just_shuffled_discard_pile"
+      ],
+      "known_single_player_gaps": []
+    },
+    {
+      "id": "eternal",
+      "category": "keyword",
+      "sources": [
+        {
+          "path": "MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs",
+          "sha256": "9e7f60ce5a42cc4ac828c3356f197e7f7e125d6f38f7856196002c4f497d8c88",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardKeyword.cs"
+        },
+        {
+          "path": "MegaCrit.Sts2.Core.Models/CardModel.cs",
+          "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+          "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs"
+        }
+      ],
+      "behavior": "Eternal prevents deck removal and deck transformation. It permits upgrades, downgrades, copying, enchantment, and combat transformation.",
+      "runtime_entrypoints": [
+        "sts2sim.engine.transitions._deck_card_mutation_blocked"
+      ],
+      "regressions": [
+        "tests/rewards/test_relic_deck_choices.py::test_eternal_does_not_block_upgrade_duplicate_or_enchantment_choices"
       ],
       "known_single_player_gaps": []
     }
@@ -233,5 +452,95 @@
   "limitations": [
     "Legacy snapshots with powers but without per-card affliction identities cannot reconstruct the historical order in which competing powers first claimed a card. Normal runtime applications record identities as each power is applied.",
     "Single-player behavior only. Multiplayer ownership and concurrent-player turn ordering are outside this simulator."
+  ],
+  "end_in_hand_cards": [
+    {
+      "id": "bad_luck",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/BadLuck.cs",
+        "sha256": "74de0d3b4758cfcb2c3828750df1cee81d2965517224777e7a4c98f71eaa58d9",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BadLuck.cs"
+      }
+    },
+    {
+      "id": "beckon",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Beckon.cs",
+        "sha256": "66b6d9793a5aba6555ab072030e441522cf3cf0d627993e5c71c886b4ab14c37",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Beckon.cs"
+      }
+    },
+    {
+      "id": "burn",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Burn.cs",
+        "sha256": "d5ceb118517684c6426899ac5bfb4b0e21f7eb1341d5e642554a4d2221883648",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Burn.cs"
+      }
+    },
+    {
+      "id": "decay",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Decay.cs",
+        "sha256": "c4943a381a19edd2d204be5c777ecc9e465f1e333ba68308be9d2f7c3c01ef1c",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Decay.cs"
+      }
+    },
+    {
+      "id": "debt",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Debt.cs",
+        "sha256": "3d905c35b7731c658893b2bc0f06a46c20777298181962a08543e5c6ffb0c315",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Debt.cs"
+      }
+    },
+    {
+      "id": "doubt",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Doubt.cs",
+        "sha256": "881307a1a2b5264562a6f7b3239ed594840a9211650ce4060c38fe8195595581",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Doubt.cs"
+      }
+    },
+    {
+      "id": "infection",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Infection.cs",
+        "sha256": "a4ca6c38979fea689f777a2cb075df5d21335a05c1ede53a357682cf17814534",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Infection.cs"
+      }
+    },
+    {
+      "id": "regret",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Regret.cs",
+        "sha256": "74784ddfefc306ef56027006fbf79a8831ec1d8495ce400eb2830a120b82b53e",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Regret.cs"
+      }
+    },
+    {
+      "id": "shame",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Shame.cs",
+        "sha256": "44e3972a61d1331288af6c3ae50102b58c6c8af9a2c3ee28c05ed11ea0a06d3c",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Shame.cs"
+      }
+    },
+    {
+      "id": "toxic",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Toxic.cs",
+        "sha256": "3886fc0631ae04c5170e0ed3599852ffe5a24313d76174946987b84c75f6ce0c",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Toxic.cs"
+      }
+    },
+    {
+      "id": "wither",
+      "source": {
+        "path": "MegaCrit.Sts2.Core.Models.Cards/Wither.cs",
+        "sha256": "93988fd6ccfeb8d1af7449128a5f2e5dafa5266ca1213a5de2f47c9d3fe5e7c4",
+        "url": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Wither.cs"
+      }
+    }
   ]
 }
