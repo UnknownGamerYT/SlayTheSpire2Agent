@@ -886,7 +886,7 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         metadata={
                             "selection": "chosen",
                             "match_card_types": ("attack", "skill"),
-                            "custom": {"enchant_keyword": "royally_approved"},
+                            "custom": {"enchant_keyword": "royally_approved", "enchant_amount": 1},
                         },
                     ),
                 ),

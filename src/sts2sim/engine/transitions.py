@@ -235,6 +235,7 @@ from . import (
     source_enchantment_hooks,
     source_keyword_hooks,
     source_modifier_hooks,
+    source_item_selection,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -7201,6 +7202,13 @@ def _apply_relic_pickup_effects(
                 )
                 state = state.model_copy(update={"rng": capture_random_state(rng)})
                 events.extend(relic_events)
+            elif marker.kind == "random_curses_gained":
+                rng = random_from_state(state.rng)
+                state, curse_events = source_item_selection.add_random_curses(
+                    state, rng, marker.amount or 0, source_id=normalized,
+                )
+                state = state.model_copy(update={"rng": capture_random_state(rng)})
+                events.extend(curse_events)
             elif marker.kind == "random_potions_gained":
                 rng = random_from_state(state.rng)
                 state, potion_events = _apply_relic_random_potions_marker(
@@ -7218,6 +7226,11 @@ def _apply_relic_pickup_effects(
                 continue
             elif marker.kind == "no_effect":
                 events.append(EffectEvent(kind="relic_no_effect", source_id=relic_id))
+    if normalized == "phial_holster" and apply_table_effects:
+        rng = random_from_state(state.rng)
+        state, potion_events = source_item_selection.phial_potions(state, rng)
+        state = state.model_copy(update={"rng": capture_random_state(rng)})
+        events.extend(potion_events)
     if normalized == "fur_coat":
         map_marker = next(marker for marker in pickup.markers if marker.kind == "mark_map_rooms")
         rng = pickup_rng if pickup_rng is not None else random_from_state(state.rng)
@@ -7467,23 +7480,24 @@ def _apply_relic_upgrade_deck_cards_marker(
         return _queue_relic_deck_choice(state, relic_id, marker)
 
     deck = list(state.master_deck)
-    candidates = [
-        index
-        for index, card in enumerate(deck)
-        if _card_is_upgradable(card)
-        and _relic_marker_matches_deck_card(card, marker.metadata)
-    ]
-    if (
+    if is_source_rng(rng) or (
         _normalized_id(relic_id) == "fragrant_mushroom"
         and _normalized_id(state.character_id) != "test"
     ):
-        candidates = [index for index, card in enumerate(deck)
-                      if not card.upgraded and card.card_id not in NON_UPGRADABLE_CARD_IDS]
-        candidates = stable_shuffle(
-            candidates, random_stream(rng, "niche"),
-            key=lambda index: (deck[index].card_id.upper(), deck[index].upgraded),
+        chosen = source_item_selection.select_stable_cards(
+            tuple(card for card in deck if _card_is_upgradable(card)
+                  and _relic_marker_matches_deck_card(card, marker.metadata)),
+            rng, marker.amount or 0, stream="niche",
         )
+        chosen_ids = [card.instance_id for card in chosen]
+        candidates = [next(i for i, card in enumerate(deck) if card.instance_id == identifier)
+                      for identifier in chosen_ids]
     else:
+        candidates = [
+            index for index, card in enumerate(deck)
+            if _card_is_upgradable(card)
+            and _relic_marker_matches_deck_card(card, marker.metadata)
+        ]
         rng.shuffle(candidates)
     events: list[EffectEvent] = []
     for index in candidates[: max(0, marker.amount or 0)]:
@@ -7555,6 +7569,11 @@ def _apply_relic_transform_deck_cards_marker(
     marker: RelicEffectMarker,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     candidates = list(_relic_marker_deck_candidates(state.master_deck, marker))
+    if is_source_rng(rng) and _normalized_id(relic_id) == "pandoras_box":
+        candidates = [card for card in state.master_deck
+                      if not _deck_card_mutation_blocked(card) and _is_source_basic_card(card)
+                      and (_has_source_card_tag(card, "strike")
+                           or _has_source_card_tag(card, "defend"))]
     if _relic_marker_requires_card_choice(marker):
         return _queue_relic_deck_choice(state, relic_id, marker)
     if _relic_marker_selection(marker) == "random":
@@ -7572,7 +7591,7 @@ def _apply_relic_transform_deck_cards_marker(
         rng = random_stream(rng, "transformations")
     next_state, transform_events, transformed_count = _transform_deck_cards(
         state,
-        random_stream(rng, "niche") if _normalized_id(relic_id) == "new_leaf" else rng,
+        random_stream(rng, "niche") if is_source_rng(rng) else rng,
         event_marker,
         selected_card_instance_ids=selected_ids,
         source_id=f"relic:{relic_id}",
@@ -7990,11 +8009,15 @@ def _relic_deck_choice_candidates(
     marker = _relic_deck_choice_marker(choice)
     allowed = set(_string_items(choice.get("candidate_ids")))
     selected = set(_string_items(choice.get("selected_ids")))
-    return tuple(
+    candidates = tuple(
         card for card in _relic_marker_deck_candidates(state.master_deck, marker)
         if card.instance_id in allowed and card.instance_id not in selected
         and (marker.kind != "upgrade_deck_cards" or _card_is_upgradable(card))
     )
+    if str(choice.get("relic_id", "")).lower() == "royal_stamp":
+        order = {identifier: i for i, identifier in enumerate(_string_items(choice.get("candidate_ids")))}
+        return tuple(sorted(candidates, key=lambda card: order[card.instance_id]))
+    return candidates
 
 
 def _queue_relic_deck_choice(
@@ -8004,6 +8027,12 @@ def _queue_relic_deck_choice(
         card for card in _relic_marker_deck_candidates(state.master_deck, marker)
         if marker.kind != "upgrade_deck_cards" or _card_is_upgradable(card)
     )
+    if _normalized_id(relic_id) == "royal_stamp" and is_source_rng(state.rng):
+        rng = random_from_state(state.rng)
+        ordered = list(candidates)
+        random_stream(rng, "niche").shuffle(ordered)
+        candidates = tuple(ordered)
+        state = state.model_copy(update={"rng": capture_random_state(rng)})
     count = _relic_marker_effect_count(marker, len(candidates), default=1)
     if not count:
         return state, (EffectEvent(
@@ -25775,6 +25804,9 @@ def _apply_combat_relic_marker(
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     if state is not None and _normalized_id(state.character_id) == "test":
         rng = None
+    source_selection = source_item_selection.combat_marker(combat, marker, rng)
+    if source_selection is not None:
+        return source_selection
     events: list[EffectEvent] = []
     player = combat.player
     monsters = list(combat.monsters)
