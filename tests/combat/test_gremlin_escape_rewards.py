@@ -64,11 +64,15 @@ def test_killing_fat_gremlin_returns_stolen_gold_and_preserves_normal_reward() -
     fat = next(m for m in state.combat.monsters
                if m.metadata.get("source_monster_id") == "FAT_GREMLIN")
     state = _play(state, effects={"damage": 999}, target=fat.monster_id)
-    assert state.combat.player.gold == 60
+    assert state.combat.player.gold == 40
     sneaky = next(m for m in state.combat.monsters if m.hp > 0)
     state = _play(state, effects={"damage": 999}, target=sneaky.monster_id)
-    assert state.reward.gold == 30
+    assert state.reward.gold == 50
     assert "fat_gremlin_escape_gold_percent" not in state.reward.metadata
+    assert [c["amount"] for c in state.reward.metadata["gold_reward_components"]] == [30, 20]
+    state = step(load_state(serialize(state)), next(a for a in legal_actions(state)
+        if a.type == "take_reward_gold" and a.target_id == "reward:gold:1"))
+    assert state.player.gold == 60
 
 
 def test_unrelated_escaping_monster_preserves_normal_combat_gold_reward() -> None:

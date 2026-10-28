@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from test_named_monster_scripts import _combat
 
 from sts2sim import legal_actions, load_state, serialize, step
@@ -191,8 +192,15 @@ def test_infested_death_spawns_four_wrigglers_with_one_inactive_turn() -> None:
     assert len(state.combat.monsters) == 5
 
 
-def test_surprise_death_transfers_stolen_gold_to_fat_gremlin_and_heist_returns_it() -> None:
+@pytest.mark.parametrize("relics,returned_gain", [
+    ((), 20), (("bowler_hat", "dragon_fruit"), 25),
+])
+def test_surprise_transfers_stolen_gold_and_heist_defers_it_to_a_claimable_reward(
+    relics, returned_gain,
+) -> None:
     state = _combat("GREMLIN_MERC", statuses=(("SURPRISE", 1),))
+    state = state.model_copy(update={"relics": relics})
+    initial_max_hp = state.player.max_hp
     state = _with_child_definitions(state, ("FAT_GREMLIN", "SNEAKY_GREMLIN"))
     player = state.combat.player.model_copy(update={"gold": 60})
     state = state.model_copy(
@@ -211,8 +219,21 @@ def test_surprise_death_transfers_stolen_gold_to_fat_gremlin_and_heist_returns_i
     fat = next(m for m in living if m.metadata["source_monster_id"] == "FAT_GREMLIN")
     assert fat.metadata["stolen_gold"] == 20
     state = _play(state, effects={"damage": 999}, target=fat.monster_id)
-    assert state.combat.player.gold == 60
+    assert state.combat.player.gold == 40
+    assert state.player.max_hp == initial_max_hp
+    assert state.combat.metadata["pending_gold_rewards"] == (
+        {"amount": 20, "source_id": "heist", "was_gold_stolen_back": True},)
     assert sum(m.hp > 0 for m in state.combat.monsters) == 1
+    state = _play(load_state(serialize(state)), effects={"damage": 999})
+    assert state.phase == RunPhase.REWARD
+    assert state.player.gold == 40
+    stolen = next(index for index, component in enumerate(
+        state.reward.metadata["gold_reward_components"]) if component.get("was_gold_stolen_back"))
+    action = next(a for a in legal_actions(state) if a.type == "take_reward_gold"
+                  and a.target_id == f"reward:gold:{stolen}")
+    state = step(load_state(serialize(state)), action)
+    assert state.player.gold == 40 + returned_gain
+    assert state.player.max_hp == initial_max_hp + int("dragon_fruit" in relics)
 
 
 def test_encounter_participant_lists_exclude_death_only_summons_at_opening() -> None:

@@ -99,12 +99,15 @@
       "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Each GoldReward is independently claimable/skippable across reloads, including base+Amethyst and deferred Heist; per-gain Bowler floors/Dragon callbacks and unique actor/planning option values verified."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed",
         "src/sts2sim/mechanics/reward_triggers.py:_modifier_applies",
-        "src/sts2sim/engine/transitions.py:_source_final_act_boss_reward"
+        "src/sts2sim/engine/transitions.py:_source_final_act_boss_reward",
+        "src/sts2sim/mechanics/reward_gold_components.py",
+        "src/sts2sim/engine/transitions.py:_take_reward_gold"
       ],
       "retained_tests": [
         "tests/combat/test_combat_coverage.py::test_default_combat_catalog_reflects_current_mechanics_registries",
@@ -112,7 +115,9 @@
         "tests/rewards/test_source_final_boss_rewards.py::test_amethyst_modifier_explicitly_rejects_final_boss_context",
         "tests/rewards/test_source_final_boss_rewards.py::test_public_final_boss_empty_rewards_proceed_to_next_boss_or_completion",
         "tests/rewards/test_reward_triggers.py::test_gold_and_potion_reward_relics_apply_to_combat_rewards",
-        "tests/rewards/test_combat_rewards_engine.py::test_gold_and_potion_relics_modify_combat_reward_state"
+        "tests/rewards/test_combat_rewards_engine.py::test_gold_and_potion_relics_modify_combat_reward_state",
+        "tests/rewards/test_source_gold_components.py",
+        "tests/combat/test_remaining_monster_scripts.py::test_surprise_transfers_stolen_gold_and_heist_defers_it_to_a_claimable_reward"
       ],
       "notes": [
         "Compared listed source gameplay methods and canonical values with shared runtime marker/consumer scope; no independent full-interaction game oracle is claimed."
@@ -1099,22 +1104,27 @@
         "IsAllowedInShops",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Each GoldReward is independently claimable/skippable across reloads, including base+Amethyst and deferred Heist; per-gain Bowler floors/Dragon callbacks and unique actor/planning option values verified."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_gold_gain_passives",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed"
+        "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed",
+        "src/sts2sim/mechanics/reward_gold_components.py",
+        "src/sts2sim/engine/transitions.py:_take_reward_gold"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_non_combat_passive_pickups_document_runtime_intent",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/run/test_progression_relics.py::test_bowler_modifies_one_gain_and_dragon_fruit_observes_one_notification",
         "tests/run/test_progression_relics.py::test_maw_bank_floor_gold_is_available_on_room_entry_and_stops_after_spending",
-        "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy"
+        "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy",
+        "tests/rewards/test_source_gold_components.py",
+        "tests/combat/test_remaining_monster_scripts.py::test_surprise_transfers_stolen_gold_and_heist_defers_it_to_a_claimable_reward"
       ],
       "notes": [
         "Compared listed source gameplay methods and canonical values with shared runtime marker/consumer scope; no independent full-interaction game oracle is claimed."
@@ -2319,15 +2329,18 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Each GoldReward is independently claimable/skippable across reloads, including base+Amethyst and deferred Heist; per-gain Bowler floors/Dragon callbacks and unique actor/planning option values verified."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_gold_gain_passives",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed"
+        "src/sts2sim/mechanics/relic_bags.py:relic_is_allowed",
+        "src/sts2sim/mechanics/reward_gold_components.py",
+        "src/sts2sim/engine/transitions.py:_take_reward_gold"
       ],
       "retained_tests": [
         "tests/combat/test_combat_lifecycle.py::test_gold_max_hp_passive_cannot_revive_a_failed_combat",
@@ -2335,7 +2348,9 @@
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/run/test_progression_relics.py::test_bowler_modifies_one_gain_and_dragon_fruit_observes_one_notification",
         "tests/run/test_progression_relics.py::test_maw_bank_floor_gold_is_available_on_room_entry_and_stops_after_spending",
-        "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy"
+        "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy",
+        "tests/rewards/test_source_gold_components.py",
+        "tests/combat/test_remaining_monster_scripts.py::test_surprise_transfers_stolen_gold_and_heist_defers_it_to_a_claimable_reward"
       ],
       "notes": [
         "Compared maximum HP+1 after each owner gold-gain command; gold modifier/procurement layer is shared."

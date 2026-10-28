@@ -1,0 +1,97 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "certifies_game_parity": false,
+  "reviewed_methods": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/AmethystAubergine.cs",
+      "sha256": "34446b1c3df8b87539f7c658e29cf42ebd7e70618789875f8fa7de42c3c3431f",
+      "methods": [
+        "TryModifyRewards"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BowlerHat.cs",
+      "sha256": "87159fa44b87c32f66fa4b6c49989d6d8245a08e48d0465d24c3a0505f6729c0",
+      "methods": [
+        "ModifyGoldGained"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DragonFruit.cs",
+      "sha256": "582419724356f96b29ebe7e2f17e61a84495890137df14892f77580916a48941",
+      "methods": [
+        "AfterGoldGained"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/HeistPower.cs",
+      "sha256": "b7cecfad5fc4dd1cd77a7312ce5bbf97f0e788d11688b42848840c0368dcf1cf",
+      "methods": [
+        "BeforeDeath"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PlayerCmd.cs",
+      "sha256": "8630f180d829942738c860f96dc6621cae01e7c2402fd33cee871fe21f42f668",
+      "methods": [
+        "GainGold"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/GoldReward.cs",
+      "sha256": "1dd118ee26d178cb72ec56dc449d37bf46930bab6a175fcdfe06ccca6bfd97bf",
+      "methods": [
+        "Populate",
+        "OnSelect"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb",
+      "methods": [
+        "GenerateRewardsFor",
+        "GenerateWithoutOffering"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Encounters/GremlinMercNormal.cs",
+      "sha256": "bac8975076826b8a4a690489ff1f4820e0e65432ad0434554be83ec0fc6a4322",
+      "methods": [
+        "CalculateGoldProportion"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/EncounterModel.cs",
+      "sha256": "8bdc260afd3ca9cac360ac28f2bc292a00feccf20326e8fef4a226f8fc6ff2db",
+      "methods": [
+        "MinGoldReward",
+        "MaxGoldReward"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Helpers/AscensionHelper.cs",
+      "sha256": "81c7397c24d03c613d7f4d8d887b63ec7fc0accbdd97e1773ea0aacd2e9c2663",
+      "methods": [
+        "PovertyAscensionGoldMultiplier"
+      ]
+    }
+  ],
+  "contracts": {
+    "amethyst_gold_reward_amount": 15,
+    "separate_gold_rewards_have_separate_claim_and_skip_actions": true,
+    "bowler_truncates_each_gold_gain_separately": true,
+    "dragon_fruit_max_hp_per_positive_claim": 1,
+    "gold_claims_consume_rng": false,
+    "gremlin_escape_reduces_only_encounter_base_gold": true,
+    "heist_gold_is_deferred_to_a_skippable_reward": true,
+    "heist_fixed_extra_reward_population_draws": 1,
+    "amethyst_already_populated_modifier_reward_draws": 0,
+    "legacy_single_gold_target": "reward:gold",
+    "multiple_gold_targets": "reward:gold:<original_component_index>",
+    "poverty_truncates_endpoints_before_roll": true,
+    "gremlin_proportion_scales_float32_endpoints_with_round_to_even": true,
+    "zero_gremlin_gold_proportion_skips_base_gold_roll": true
+  }
+}

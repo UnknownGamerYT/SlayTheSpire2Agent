@@ -141,6 +141,11 @@ from sts2sim.mechanics.relic_lifecycle import (
     scroll_boxes_packs,
 )
 from sts2sim.mechanics.relics import RelicEffectMarker, resolve_relic_pickup
+from sts2sim.mechanics.reward_gold_components import (
+    available_gold_choices,
+    gold_choice_for_target,
+    resolve_gold_choice,
+)
 from sts2sim.mechanics.reward_pools import (
     build_character_card_pool,
     build_colorless_card_pool,
@@ -237,8 +242,8 @@ from . import (
     source_item_selection,
     source_keyword_hooks,
     source_modifier_hooks,
-    source_run_passives,
     source_osty_hooks,
+    source_run_passives,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -6640,8 +6645,8 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
         Action(type=ActionType.TAKE_REWARD_CARD, target_id=target_id)
         for target_id, _card in _reward_optional_remove_card_targets(state)
     )
-    if reward.gold > 0 and not reward.gold_claimed and not reward.gold_skipped:
-        actions.append(Action(type=ActionType.TAKE_REWARD_GOLD, target_id="reward:gold"))
+    actions.extend(Action(type=ActionType.TAKE_REWARD_GOLD, target_id=choice["target_id"])
+                   for choice in available_gold_choices(reward))
     actions.extend(
         Action(type=ActionType.TAKE_REWARD_RELIC, target_id=target_id)
         for target_id, _relic_id in _unclaimed_reward_relic_targets(reward)
@@ -6682,7 +6687,7 @@ def _reward_has_forced_pending_items(state: RunState) -> bool:
         for index in _source_sequence(reward.metadata.get("optional_fixed_card_indices"))
     )
     return (
-        (reward.gold > 0 and not reward.gold_claimed and not reward.gold_skipped)
+        bool(available_gold_choices(reward))
         or bool(_unclaimed_reward_relic_targets(reward))
         or any(index not in unavailable_fixed for index in range(len(reward.card_ids)))
         or (bool(reward.card_options) and not reward.card_claimed and not reward.card_skipped)
@@ -6746,8 +6751,8 @@ def _unclaimed_reward_potion_targets(reward: RewardState) -> tuple[tuple[str, st
 
 def _unclaimed_reward_skip_targets(reward: RewardState) -> tuple[tuple[str, str, str], ...]:
     targets: list[tuple[str, str, str]] = []
-    if reward.gold > 0 and not reward.gold_claimed and not reward.gold_skipped:
-        targets.append(("reward:gold", "gold", "gold"))
+    targets.extend((choice["target_id"], "gold", choice["content_id"])
+                   for choice in available_gold_choices(reward))
     targets.extend(
         (target_id, "relic", relic_id)
         for target_id, relic_id in _unclaimed_reward_relic_targets(reward)
@@ -6800,21 +6805,21 @@ def _take_reward_gold(
     state: RunState,
     action: Action,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    if action.target_id != "reward:gold" or state.reward is None:
+    if state.reward is None or action.target_id is None:
         return state, ()
-    if state.reward.gold <= 0 or state.reward.gold_claimed or state.reward.gold_skipped:
+    choice = gold_choice_for_target(state.reward, action.target_id)
+    if choice is None:
         return state, ()
-
-    reward = state.reward.model_copy(update={"gold_claimed": True})
+    reward = state.reward.model_copy(update=resolve_gold_choice(
+        state.reward, action.target_id, claimed=True))
     player, events = _gain_player_gold(
-        state.player, state.reward.gold, relics=state.relics, source_id=None,
-        kind="reward_gold_taken", target_id=None,
-        metadata={"reward_id": state.reward.reward_id, "reward_source": state.reward.source},
+        state.player, choice["amount"], relics=state.relics, source_id=choice["source_id"],
+        kind="reward_gold_taken", target_id=action.target_id,
+        metadata={"reward_id": state.reward.reward_id, "reward_source": state.reward.source,
+                  "selection_set_id": choice["selection_set_id"],
+                  "was_gold_stolen_back": choice.get("was_gold_stolen_back", False)},
     )
-    return (
-        state.model_copy(update={"player": player, "reward": reward}),
-        events,
-    )
+    return state.model_copy(update={"player": player, "reward": reward}), events
 
 
 def _take_reward_relic(
@@ -8858,14 +8863,12 @@ def _reward_skip_for_target_id(
     reward: RewardState,
     target_id: str,
 ) -> dict[str, Any] | None:
-    if target_id == "reward:gold":
-        if reward.gold <= 0 or reward.gold_claimed or reward.gold_skipped:
-            return None
+    choice = gold_choice_for_target(reward, target_id)
+    if choice is not None:
         return {
-            "kind": "gold",
-            "content_id": "gold",
-            "selection_set_id": "gold",
-            "update": {"gold_skipped": True},
+            "kind": "gold", "content_id": choice["content_id"],
+            "selection_set_id": choice["selection_set_id"],
+            "update": resolve_gold_choice(reward, target_id, claimed=False),
         }
     if target_id == "reward:relic":
         if reward.relic_id is None or reward.relic_claimed or reward.relic_skipped:
@@ -28293,6 +28296,7 @@ def _apply_monster_death_spawns(
     definitions = _monster_definitions(state)
     monsters = list(combat.monsters)
     player = combat.player
+    pending_gold = list(_source_sequence(combat.metadata.get("pending_gold_rewards")))
     events: list[EffectEvent] = list(stock_events)
     for parent_index, parent in enumerate(combat.monsters):
         source_id = _normalized_id(parent.metadata.get("source_monster_id", parent.monster_id))
@@ -28300,15 +28304,15 @@ def _apply_monster_death_spawns(
             continue
         if source_id == "fat_gremlin" and not parent.metadata.get("heist_returned"):
             gold = _metadata_int(parent.metadata, "stolen_gold", 0)
-            player, gold_events = _gain_player_gold(
-                player, gold, relics=state.relics, source_id=parent.monster_id,
-                metadata={"trigger": "heist"},
-            )
+            if gold > 0:
+                pending_gold.append({"amount": gold, "source_id": "heist",
+                                     "was_gold_stolen_back": True})
+                events.append(EffectEvent(kind="extra_gold_reward_added",
+                    source_id=parent.monster_id, amount=gold,
+                    metadata={"was_gold_stolen_back": True}))
             monsters[parent_index] = parent.model_copy(update={"metadata": {
                 **parent.metadata, "heist_returned": True,
             }})
-            if gold:
-                events.extend(gold_events)
         if parent.metadata.get("death_spawn_resolved"):
             continue
         spawn_ids: tuple[str, ...]
@@ -28354,7 +28358,10 @@ def _apply_monster_death_spawns(
                 kind="monster_summoned", source_id=parent.monster_id, target_id=child.monster_id,
                 metadata={"source_monster_id": spawn_id, "trigger": "death"},
             ))
-    return combat.model_copy(update={"monsters": tuple(monsters), "player": player}), tuple(events)
+    return combat.model_copy(update={
+        "monsters": tuple(monsters), "player": player,
+        "metadata": {**combat.metadata, "pending_gold_rewards": tuple(pending_gold)},
+    }), tuple(events)
 
 
 def _resolve_axebot_replacements(
@@ -28926,6 +28933,8 @@ def _combat_reward_state(
             floor=state.floor,
             ascension_level=state.ascension,
             owned_relics=state.relics,
+            gold_proportion=(_gold_reward_after_fat_gremlin_escape(state, 100)[0] / 100
+                             if is_source_rng(rng) else 1.0),
         ),
         pity_state=RewardPityState(
             card_non_rare_count=_flag_int(state, "card_non_rare_count", 0),
@@ -28946,12 +28955,37 @@ def _combat_reward_state(
     if bundle.pity_state.potion_current_value is not None:
         flags["potion_reward_odds"] = bundle.pity_state.potion_current_value
 
-    gold = bundle.gold + reward_trigger.gold_delta
+    base_gold, extra_gold = bundle.gold, reward_trigger.gold_delta
     if "combat_reward_gold" in state.flags:
-        gold = _flag_int(state, "combat_reward_gold", bundle.gold)
-        if state.flags.get("combat_reward_gold_is_base"):
-            gold += reward_trigger.gold_delta
-    gold, escape_gold_metadata = _gold_reward_after_fat_gremlin_escape(state, gold)
+        base_gold = _flag_int(state, "combat_reward_gold", bundle.gold)
+        if not state.flags.get("combat_reward_gold_is_base"):
+            extra_gold = 0
+    if is_source_rng(rng) and "combat_reward_gold" not in state.flags:
+        # Source has already scaled encounter endpoints and possibly omitted
+        # the base reward, before its RNG draw. Keep only the escape diagnostics.
+        _, escape_gold_metadata = _gold_reward_after_fat_gremlin_escape(state, 100)
+        escape_gold_metadata.pop("gold_before_fat_gremlin_escape", None)
+        if escape_gold_metadata:
+            escape_gold_metadata["gold_proportion_applied_to_range"] = True
+    else:
+        base_gold, escape_gold_metadata = _gold_reward_after_fat_gremlin_escape(state, base_gold)
+    pending_gold = tuple(_mapping_from(component) for component in _source_sequence(
+        state.combat.metadata.get("pending_gold_rewards") if state.combat is not None else ()))
+    gold_components: list[dict[str, Any]] = []
+    if base_gold > 0:
+        gold_components.append({"amount": base_gold, "source_id": None})
+    for component in pending_gold:
+        amount = _coerce_int(component.get("amount"), default=0)
+        if amount > 0:
+            # Extra room rewards are populated with the original set, before
+            # ModifyRewards appends Amethyst's already-populated fixed reward.
+            rng.randrange(amount, amount + 1)
+            gold_components.append(dict(component))
+    if extra_gold > 0:
+        gold_components.append({"amount": extra_gold, "source_id": "amethyst_aubergine"})
+    gold = sum(_coerce_int(component.get("amount"), default=0) for component in gold_components)
+    gold_component_metadata = ({"gold_reward_components": tuple(gold_components)}
+                               if extra_gold > 0 or pending_gold else {})
 
     relic_id = _explicit_reward_id(state, "combat_reward_relic_id")
     relic_ids = _combat_reward_relic_ids(state, default_relic_ids=bundle.relic_ids)
@@ -29019,6 +29053,7 @@ def _combat_reward_state(
             "current_potions": len(state.potions),
             "reward_trigger_effects": _trigger_effect_metadata(reward_trigger.effects),
             **escape_gold_metadata,
+            **gold_component_metadata,
         },
     )
     return (
@@ -29865,14 +29900,12 @@ def _reward_generated_events(
     metadata = {"reward_id": reward.reward_id, "reward_source": reward.source}
     if node_id is not None:
         metadata["node_id"] = node_id
-    if reward.gold > 0:
-        events.append(
-            EffectEvent(
-                kind="reward_gold_generated",
-                amount=reward.gold,
-                metadata=metadata,
-            )
-        )
+    for choice in available_gold_choices(reward):
+        events.append(EffectEvent(
+            kind="reward_gold_generated", source_id=choice["source_id"],
+            target_id=choice["target_id"], amount=choice["amount"],
+            metadata={**metadata, "selection_set_id": choice["selection_set_id"]},
+        ))
     if reward.relic_id is not None:
         events.append(
             EffectEvent(

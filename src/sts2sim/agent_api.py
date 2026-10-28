@@ -45,6 +45,11 @@ from sts2sim.mechanics.planning_context import (
     route_plan_vector,
 )
 from sts2sim.mechanics.potions import normalize_potion_use, potion_capacity
+from sts2sim.mechanics.reward_gold_components import (
+    available_gold_choices,
+    gold_choice_for_target,
+    gold_component_count,
+)
 from sts2sim.mechanics.semantics import (
     MECHANIC_TAG_BUCKETS,
     MECHANIC_VALUE_KEYS,
@@ -2338,7 +2343,11 @@ def _action_reward_descriptor(state: Any, action: Action) -> dict[str, Any]:
         or _reward_potion_id_for_action(state, action)
         or "gold"
     )
-    gold = _int(getattr(reward, "gold", 0)) if action.type == ActionType.TAKE_REWARD_GOLD else 0
+    gold_choice = (gold_choice_for_target(reward, action.target_id)
+                   if action.type == ActionType.TAKE_REWARD_GOLD else None)
+    gold = _int(gold_choice["amount"]) if gold_choice else 0
+    if gold_choice is not None:
+        content_id = gold_choice["content_id"]
     selection = _reward_selection_context_for_action(state, action)
     return {
         "source": str(getattr(reward, "source", "")),
@@ -2361,7 +2370,7 @@ def _reward_bundle_descriptor(state: Any) -> dict[str, Any]:
     choices = _available_reward_choice_descriptors(state)
     counts = _reward_choice_counts(choices)
     claimed_counts = {
-        "gold": int(bool(getattr(reward, "gold_claimed", False))),
+        "gold": gold_component_count(reward, "claimed"),
         "primary_card_group": int(bool(getattr(reward, "card_claimed", False))),
         "card_groups": len(_sequence(getattr(reward, "claimed_card_option_group_indices", ()))),
         "fixed_cards": len(_sequence(getattr(reward, "claimed_card_indices", ()))),
@@ -2409,22 +2418,7 @@ def _available_reward_choice_descriptors(state: Any) -> list[dict[str, Any]]:
                 "position": index,
             }
         )
-    if (
-        _int(getattr(reward, "gold", 0)) > 0
-        and not bool(getattr(reward, "gold_claimed", False))
-        and not bool(getattr(reward, "gold_skipped", False))
-    ):
-        choices.append(
-            {
-                "kind": "gold",
-                "content_id": "gold",
-                "target_id": "reward:gold",
-                "amount": _int(getattr(reward, "gold", 0)),
-                "selection_set_id": "gold",
-                "selection_set_size": 1,
-                "position": 0,
-            }
-        )
+    choices.extend(available_gold_choices(reward))
     if (
         getattr(reward, "relic_id", None)
         and not bool(getattr(reward, "relic_claimed", False))
@@ -2579,7 +2573,7 @@ def _reward_choice_counts(choices: list[dict[str, Any]]) -> dict[str, int]:
 
 def _reward_skipped_counts(reward: Any) -> dict[str, int]:
     return {
-        "gold": int(bool(getattr(reward, "gold_skipped", False))),
+        "gold": gold_component_count(reward, "skipped"),
         "primary_card_group": int(bool(getattr(reward, "card_skipped", False))),
         "card_groups": len(_sequence(getattr(reward, "skipped_card_option_group_indices", ()))),
         "fixed_cards": len(_sequence(getattr(reward, "skipped_card_indices", ()))),
@@ -2666,6 +2660,7 @@ def _skip_target_id_for_selection_set(selection_set_id: str) -> str | None:
     if selection_set_id == "card_options":
         return "reward:card_options"
     for prefix, target_prefix in (
+        ("gold:", "reward:gold:"),
         ("relic:", "reward:relic:"),
         ("fixed_card:", "reward:fixed_card:"),
         ("card_group:", "reward:card_group:"),
@@ -2841,7 +2836,8 @@ def _reward_position_for_action(state: Any, action: Action) -> int | None:
     if action.target_id is None:
         return None
     if action.type == ActionType.TAKE_REWARD_GOLD:
-        return 0
+        choice = gold_choice_for_target(getattr(state, "reward", None), action.target_id)
+        return int(choice["position"]) if choice else None
     target_id = action.target_id
     if target_id in {"reward:relic", "reward:potion"}:
         return 0

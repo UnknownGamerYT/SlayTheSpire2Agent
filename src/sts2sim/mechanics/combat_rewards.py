@@ -130,6 +130,7 @@ class CombatRewardContext:
     floor: int = 1
     ascension_level: int = 0
     owned_relics: tuple[str, ...] = ()
+    gold_proportion: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,7 +267,7 @@ def draw_combat_reward(
         roll_combat_potion_drop(rng, pity_state, context, rules=rules) if source_mode else None
     )
     base_gold = _roll_gold(rng, context, rules)
-    gold = _apply_poverty_gold(base_gold, context, rules)
+    gold = base_gold if source_mode else _apply_poverty_gold(base_gold, context, rules)
     potion_id = (
         draw_source_potion(rng, potion_pool, potion_rarities)
         if potion_roll is not None and potion_roll.dropped and potion_pool
@@ -608,6 +609,16 @@ def _roll_gold(
     rules: CombatRewardRules,
 ) -> int:
     low, high = rules.gold_ranges.get(context.encounter, (0, 0))
+    if is_source_rng(rng):
+        # EncounterModel truncates Poverty endpoints before GoldReward.Populate.
+        if context.ascension_level >= rules.poverty_ascension_level:
+            low, high = int(low * rules.poverty_gold_multiplier), int(
+                high * rules.poverty_gold_multiplier)
+        if context.encounter is EncounterType.NORMAL:
+            if context.gold_proportion <= 0:
+                return 0  # GenerateRewardsFor omits the GoldReward entirely.
+            low, high = (round(float32(float32(value) * float32(context.gold_proportion)))
+                         for value in (low, high))
     if low > high:
         raise ValueError(f"Invalid combat gold range: {(low, high)}")
     return rng.randint(low, high)
