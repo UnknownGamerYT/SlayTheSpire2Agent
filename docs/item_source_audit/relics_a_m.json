@@ -1758,24 +1758,28 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "Fixed chosen Maul transformations preserving upgrade and copying only enchantments whose actual CanEnchant accepts the replacement."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/transitions.py:_transform_deck_cards",
+        "src/sts2sim/engine/source_enchantment_hooks.py:can_enchant"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_more_transform_upgrade_and_remove_pickup_relics_return_deck_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
         "tests/rewards/test_relic_deck_choices.py::test_up_to_choices_can_finish_with_zero_or_fewer_than_the_limit",
-        "tests/rewards/test_relic_deck_choices.py::test_claws_uses_fixed_maul_transform_and_preserves_selected_instance_id"
+        "tests/rewards/test_relic_deck_choices.py::test_claws_uses_fixed_maul_transform_and_preserves_selected_instance_id",
+        "tests/rewards/test_source_claws.py::test_claws_preserves_upgrades_and_only_enchantments_that_can_enchant_maul"
       ],
       "notes": [
-        "Source transforms up to six chosen cards into Maul, preserving upgrade and any enchantment that can enchant Maul. Generic transformation needs this exact preservation predicate verified."
+        "Source fixed-card transformation consumes no selection RNG; source-stream action/reload tests retain Sharp on upgraded Maul and reject Nimble because Maul does not gain Block. All cross-relic and multiplayer interactions remain unvalidated."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"

@@ -1,0 +1,21 @@
+{
+  "game_version": "0.107.1",
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "scope": "Claws up-to-six chosen fixed transformations preserve upgrades and copy only enchantments whose actual CanEnchant predicate accepts Maul; original instance IDs retained in simulator.",
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Claws.cs",
+      "sha256": "cda943bab0f737f687a5bcccb22a565a737befae8612a1a4f71eff513bf80d60"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Maul.cs",
+      "sha256": "e1aa634fe0602463cdc9a47069dc93a758c51f6754de7f849f17d97b8a0d68c1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Enchantments/Nimble.cs",
+      "sha256": "b730c1c94d6ec506575c5db5dd883f98d01880e700111936de1363ded34f685c"
+    }
+  ]
+}

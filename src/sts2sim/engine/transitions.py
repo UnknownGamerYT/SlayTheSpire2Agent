@@ -4226,7 +4226,9 @@ def _transform_deck_cards(
         new_spec = _reward_card_spec(state, new_card_id)
         new_spec["card_id"] = new_card_id
         new_spec["instance_id"] = old_card.instance_id
-        if old_card.upgraded and not is_source_rng(rng):
+        if old_card.upgraded and (
+            not is_source_rng(rng) or _truthy(marker.metadata.get("preserve_upgrade"))
+        ):
             new_spec["upgraded"] = True
         elif is_source_rng(rng):
             new_spec["upgraded"] = False
@@ -4237,6 +4239,9 @@ def _transform_deck_cards(
                 events.append(egg_event)
         if _truthy(marker.metadata.get("preserve_enchantments")):
             for enchantment in old_card.enchantments:
+                if (_truthy(marker.metadata.get("preserve_valid_enchantments"))
+                    and not can_enchant_source(new_card, enchantment.keyword)):
+                    continue
                 new_card = _enchant_card(
                     new_card, enchantment.keyword, enchantment.amount,
                     source_id=enchantment.source_id,

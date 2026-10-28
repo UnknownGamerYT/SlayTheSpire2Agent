@@ -205,7 +205,9 @@ def test_more_transform_upgrade_and_remove_pickup_relics_return_deck_markers() -
         "bash", "neutralize", "falling_star", "unleash", "dualcast"
     )
     assert claws.markers[0].metadata == {
-        "selection": "chosen", "target_card_id": "maul", "up_to": True
+        "selection": "chosen", "target_card_id": "maul", "up_to": True,
+        "preserve_upgrade": True, "preserve_enchantments": True,
+        "preserve_valid_enchantments": True,
     }
     assert leaf.markers[0].metadata == {"selection": "chosen"}
     assert poultice.max_hp_delta == -12

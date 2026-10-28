@@ -272,7 +272,11 @@ def _default_relic_hook_rules() -> dict[RelicHook, dict[str, RelicHookRule]]:
                         "transform_deck_cards",
                         amount=6,
                         target_id="player",
-                        metadata={"selection": "chosen", "target_card_id": "maul", "up_to": True},
+                        metadata={
+                            "selection": "chosen", "target_card_id": "maul", "up_to": True,
+                            "preserve_upgrade": True, "preserve_enchantments": True,
+                            "preserve_valid_enchantments": True,
+                        },
                     ),
                 ),
             ),
