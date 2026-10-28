@@ -17,20 +17,24 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: source-order eligible Neow list, Rewards shuffle, two mandatory relic reward objects, nested choices and deferred Niche modifier curse"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_pickup_rewards.py:obtain_pickup_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_non_combat_pickup_relics_return_source_backed_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch"
+        "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
+        "tests/rewards/test_source_pickup_rewards.py"
       ],
       "notes": [
-        "Source offers two eligible Neow relic rewards with skipping disallowed; current generic direct pickup and curse eligibility/stream require source-specific reward handling."
+        "AfterObtained: source-order eligible Neow list, Rewards shuffle, two mandatory relic reward objects, nested choices and deferred Niche modifier curse.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -550,10 +554,11 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "Before/After owner-turn completion: finished manual card history, first-turn Whispering Earring exception, early exhaust callback before Burn"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
@@ -564,10 +569,12 @@
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_remaining_unknown_start_turn_and_end_relic_markers",
-        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook"
+        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
+        "tests/combat/test_stable_combat_item_callbacks.py"
       ],
       "notes": [
-        "Counter reset fixed; source counts manual finished plays and WhisperingEarring first-turn exception. Current generic card-count condition needs these distinctions."
+        "Before/After owner-turn completion: finished manual card history, first-turn Whispering Earring exception, early exhaust callback before Burn.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -775,13 +782,15 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained/AfterCombatEnd: five chosen removable upgradable instances; ModelId-sorted serialized duplicate-preserving list; one Rewards-selected return upgraded and removed after each surviving combat"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/transitions.py:_apply_paels_tooth_add_removed_card_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_paels_tooth_adds_upgraded_removed_card_after_combat",
@@ -789,10 +798,12 @@
         "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped",
         "tests/engine/test_permanent_card_ids.py::test_paels_tooth_preserves_returned_card_properties_while_reserving_new_id",
         "tests/content/test_relic_handlers.py::test_high_risk_combat_relic_markers_have_runtime_executor_support",
-        "tests/rewards/test_relic_run_state_effects.py::test_paels_tooth_adds_upgraded_card_removed_by_relic_after_combat"
+        "tests/rewards/test_relic_run_state_effects.py::test_paels_tooth_adds_upgraded_card_removed_by_relic_after_combat",
+        "tests/rewards/test_source_item_lifecycle.py"
       ],
       "notes": [
-        "Source filters removal to upgradable cards, serializes removed cards and chooses/removes one via Rewards after combat. Generic remove/return implementation needs eligibility/order comparison."
+        "AfterObtained/AfterCombatEnd: five chosen removable upgradable instances; ModelId-sorted serialized duplicate-preserving list; one Rewards-selected return upgraded and removed after each surviving combat.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -810,21 +821,25 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "TryModifyCardRewardAlternatives/OnSacrifice: explicit per-CardReward Sacrifice; persisted counter; every second sacrifice obtains front-bag relic and awaits nested pickup choices"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
-        "src/sts2sim/engine/transitions.py:_take_reward_card"
+        "src/sts2sim/engine/transitions.py:_take_reward_card",
+        "src/sts2sim/engine/source_pickup_rewards.py:sacrifice_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_pickup_rewards.py"
       ],
       "notes": [
-        "Source adds Sacrifice reward alternative and obtains a front-bag relic every second sacrifice; generic skip path needs an explicit source alternative."
+        "TryModifyCardRewardAlternatives/OnSacrifice: explicit per-CardReward Sacrifice; persisted counter; every second sacrifice obtains front-bag relic and awaits nested pickup choices.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -842,21 +857,25 @@
         "Rarity",
         "HasUponPickupEffect"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: removable actual Basic Strike-or-Defend source tags and Niche transformation selection"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/transitions.py:_apply_relic_transform_deck_cards_marker"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_random_upgrade_and_transform_pickup_relics_return_deck_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rooms/test_treasure_engine.py::test_pandoras_box_pickup_transforms_strikes_and_defends"
+        "tests/rooms/test_treasure_engine.py::test_pandoras_box_pickup_transforms_strikes_and_defends",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source BasicStrikeOrDefend/removability selection and Niche transformation stream require tightening in generic marker."
+        "AfterObtained: removable actual Basic Strike-or-Defend source tags and Niche transformation selection.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -960,21 +979,25 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "After early Plating: one CombatTargets draw for each random damage callback, including singleton target draws"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_end_turn",
-        "src/sts2sim/engine/transitions.py:_begin_next_player_turn"
+        "src/sts2sim/engine/transitions.py:_begin_next_player_turn",
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_remaining_unknown_start_turn_and_end_relic_markers",
-        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook"
+        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
+        "tests/combat/test_source_power_boundaries.py"
       ],
       "notes": [
-        "Source random damage uses CombatTargets. Shared marker currently selects with a fixed local RNG."
+        "After early Plating: one CombatTargets draw for each random damage callback, including singleton target draws.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -1162,22 +1185,26 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: slot added once, two out-of-combat source potion factories generated before procurement/Sozu using CombatPotionGeneration"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_item_selection.py:phial_potions"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_potion_slot_relics_add_source_backed_capacity",
         "tests/content/test_relic_handlers.py::test_phial_holster_pickup_reports_slot_and_random_potion_marker",
         "tests/content/test_potion_handlers.py::test_potion_capacity_uses_ascension_and_slot_relics",
-        "tests/rewards/test_room_rewards.py::test_reward_potion_capacity_uses_ascension_and_slot_relics"
+        "tests/rewards/test_room_rewards.py::test_reward_potion_capacity_uses_ascension_and_slot_relics",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source gains one slot then procures two OutOfCombat factory potions with CombatPotionGeneration; generic potion marker needs rarity/order/Sozu routing."
+        "AfterObtained: slot added once, two out-of-combat source potion factories generated before procurement/Sozu using CombatPotionGeneration.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -1440,21 +1467,25 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "Before opening draw: StableShuffle CombatCardSelection over non-X local-zero-cost draw cards, then move two to Hand without Draw notification"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_end_turn",
-        "src/sts2sim/engine/transitions.py:_begin_next_player_turn"
+        "src/sts2sim/engine/transitions.py:_begin_next_player_turn",
+        "src/sts2sim/engine/source_item_selection.py:combat_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_draw_pile_start_relics_move_add_and_upgrade_cards",
-        "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers"
+        "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source StableShuffle CombatCardSelection over non-X local-zero-cost cards before opening hand draw; generic marker selection needs source ordering."
+        "Before opening draw: StableShuffle CombatCardSelection over non-X local-zero-cost draw cards, then move two to Hand without Draw notification.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -1505,21 +1536,25 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: mandatory chosen removals complete before unpowered blockable damage16; reload continuation and central HP-loss modifiers"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/transitions.py:_finish_source_pickup_damage"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_more_transform_upgrade_and_remove_pickup_relics_return_deck_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_relic_deck_choices.py::test_precarious_shears_does_not_repeat_pickup_hp_loss_for_each_selection"
+        "tests/rewards/test_relic_deck_choices.py::test_precarious_shears_does_not_repeat_pickup_hp_loss_for_each_selection",
+        "tests/combat/test_source_item_math.py"
       ],
       "notes": [
-        "Source damages16 after chosen removals via CreatureCmd.Damage Unpowered. Timing and shared damage-relic modifiers require explicit completion callback."
+        "AfterObtained: mandatory chosen removals complete before unpowered blockable damage16; reload continuation and central HP-loss modifiers.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -1876,23 +1911,27 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "ModifyRestSiteHealAmount: add15 before actual normal or mimicked rest heal; route shared rest callbacks once"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution"
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
+        "src/sts2sim/engine/source_rest_runtime.py:execute_rest_heal"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_shop_and_campfire_relics_register_hook_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/rooms/test_hatch_mend_tea.py::test_mend_heals_selected_ally_thirty_percent_capped_and_does_not_rest",
         "tests/rooms/test_campfire_relics.py::test_rest_combines_regal_pillow_and_stone_humidifier_with_hp_caps",
-        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics"
+        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics",
+        "tests/rooms/test_source_rest_runtime.py"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "ModifyRestSiteHealAmount: add15 before actual normal or mimicked rest heal; route shared rest callbacks once.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2109,22 +2148,27 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "First owner turn: unpowered unblockable damage4 through central damage/HP-loss modifiers"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_end_turn",
-        "src/sts2sim/engine/transitions.py:_begin_next_player_turn"
+        "src/sts2sim/engine/transitions.py:_begin_next_player_turn",
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_more_start_combat_relics_create_cards_and_apply_enemy_statuses",
         "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers",
-        "tests/events/test_event_catalog_primitives.py::test_random_relic_potion_fixed_relic_and_fixed_potion_primitives"
+        "tests/events/test_event_catalog_primitives.py::test_random_relic_potion_fixed_relic_and_fixed_potion_primitives",
+        "tests/combat/test_stable_damage_rounding.py",
+        "tests/rewards/test_source_item_lifecycle.py::test_royal_poison_uses_unpowered_unblockable_damage_with_tungsten_hp_loss_modifier"
       ],
       "notes": [
-        "Source startup unpowered unblockable Damage4 should use central HP-loss modifiers, including TungstenRod; generic lose-HP marker requires review."
+        "First owner turn: unpowered unblockable damage4 through central damage/HP-loss modifiers.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2143,20 +2187,24 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: eligible display order shuffled using Niche; subsequent chosen enchantment does not consume random draws"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/transitions.py:_queue_relic_deck_choice"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_enchant_style_relics_return_modify_deck_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source shuffles eligible display order with Niche before chosen enchantment; generic choice currently preserves deck order."
+        "AfterObtained: eligible display order shuffled using Niche; subsequent chosen enchantment does not consume random draws.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2175,21 +2223,26 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "ModifyPowerAmount: first positive received Strength before cap regardless of giver; card, potion, relic, starting and internal status routes"
       ],
-      "runtime_entrypoints": [],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/source_combat_item_hooks.py:power_amount"
+      ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_remaining_unknown_custom_event_relic_markers",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
         "tests/combat/test_relic_combat.py::test_modifier_markers_preserve_base_amount_context_for_runtime_execution",
         "tests/combat/test_stable_item_contracts.py::test_flex_expiry_preserves_actual_additional_strength_from_ruined_helmet",
-        "tests/combat/test_stable_item_contracts.py::test_new_combat_resets_source_ephemeral_relic_counters_and_preserves_saved_counts"
+        "tests/combat/test_stable_item_contracts.py::test_new_combat_resets_source_ephemeral_relic_counters_and_preserves_saved_counts",
+        "tests/combat/test_stable_combat_item_callbacks.py"
       ],
       "notes": [
-        "Explicit Strength effect dispatcher fixed; source amount modification must apply to every Strength giver, including start/relic-generated Strength. Shared status entrypoint audit remains."
+        "ModifyPowerAmount: first positive received Strength before cap regardless of giver; card, potion, relic, starting and internal status routes.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2302,20 +2355,24 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: ModelId/upgrade sorted full upgradable deck StableShuffle Niche before Take6"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_item_selection.py:select_stable_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_random_upgrade_and_transform_pickup_relics_return_deck_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source StableShuffle Niche over all upgradable deck cards then Take6; generic upgrade marker uses supplied root stream."
+        "AfterObtained: ModelId/upgrade sorted full upgradable deck StableShuffle Niche before Take6.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2466,22 +2523,26 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterDamageReceived: observe each positive nonlethal HP loss once, including unpowered/card HP-loss routes; lethal damage does not arm next-turn Block"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_damage_combat_player",
-        "src/sts2sim/engine/transitions.py:_apply_damage_taken_relics_from_events"
+        "src/sts2sim/engine/transitions.py:_apply_damage_taken_relics_from_events",
+        "src/sts2sim/engine/transitions.py:_damage_combat_player"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_diamond_diadem_and_self_forming_clay_react_to_incoming_damage",
         "tests/combat/test_relic_combat.py::test_damage_relic_markers_cover_card_and_hp_loss_modifiers",
-        "tests/combat/test_buffer_hp_loss.py::test_hp_loss_cap_preserves_buffer_and_prevented_loss_does_not_trigger_loss_effects"
+        "tests/combat/test_buffer_hp_loss.py::test_hp_loss_cap_preserves_buffer_and_prevented_loss_does_not_trigger_loss_effects",
+        "tests/combat/test_source_item_math.py"
       ],
       "notes": [
-        "Source AfterDamageReceived callback must skip lethal damage and cover each nonlethal unpowered damage path. Legacy damage function embeds only one route."
+        "AfterDamageReceived: observe each positive nonlethal HP loss once, including unpowered/card HP-loss routes; lethal damage does not arm next-turn Block.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2500,20 +2561,24 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: sorted unlocked modifier-eligible curse list, two Niche NextItem+Remove draws, then add retained Wishes"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_item_selection.py:add_random_curses"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_non_combat_pickup_relics_return_source_backed_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch"
+        "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source samples two eligible curses without replacement from sorted IDs via Niche; generic curse pickup needs exact source filtering/RNG."
+        "AfterObtained: sorted unlocked modifier-eligible curse list, two Niche NextItem+Remove draws, then add retained Wishes.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2638,25 +2703,29 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "TryModifyCardRewardOptionsLate: first actual IsCardReward callback, including empty eligible set, receives per-index Glam once; no blanket NoCardModelModifications guard"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
-        "src/sts2sim/engine/transitions.py:_take_reward_card"
+        "src/sts2sim/engine/transitions.py:_take_reward_card",
+        "src/sts2sim/engine/source_card_reward_modifiers.py:modify_generated_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_non_combat_pickup_relics_return_source_backed_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/content/test_ancient_logic.py::test_major_update_neow_relics_are_registered_without_shifting_legacy_seed_pool",
         "tests/content/test_ancient_logic.py::test_scroll_boxes_no_longer_removes_gold_but_silken_tress_does",
-        "tests/rewards/test_ancient_relic_lifecycle.py::test_silken_tress_enchants_first_presented_group_and_selected_card"
+        "tests/rewards/test_ancient_relic_lifecycle.py::test_silken_tress_enchants_first_presented_group_and_selected_card",
+        "tests/rewards/test_source_card_reward_modifiers.py"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "TryModifyCardRewardOptionsLate: first actual IsCardReward callback, including empty eligible set, receives per-index Glam once; no blanket NoCardModelModifications guard.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2678,23 +2747,27 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "TryModifyCardRewardOptionsLate/treasure entry: upgrade first three actual IsCardReward callback batches; persistent first treasure entered after acquisition is suppressed"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
-        "src/sts2sim/engine/transitions.py:_take_reward_card"
+        "src/sts2sim/engine/transitions.py:_take_reward_card",
+        "src/sts2sim/engine/source_card_reward_modifiers.py:modify_generated_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rooms/test_treasure_engine.py::test_silver_crucible_makes_first_treasure_chest_empty"
+        "tests/rooms/test_treasure_engine.py::test_silver_crucible_makes_first_treasure_chest_empty",
+        "tests/rewards/test_source_item_lifecycle.py"
       ],
       "notes": [
-        "Source upgrades first three generated card rewards and suppresses only the first treasure. Current marker/reward metadata and treasure counter lifecycle require source-specific review."
+        "TryModifyCardRewardOptionsLate/treasure entry: upgrade first three actual IsCardReward callback batches; persistent first treasure entered after acquisition is suppressed.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2743,20 +2816,24 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: populate one relic reward with source rarity/front bag, offer/skip/claim and restore serialized parent screen"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_pickup_rewards.py:obtain_pickup_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_misc_pickup_relics_return_reward_relic_and_deck_rule_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_pickup_rewards.py"
       ],
       "notes": [
-        "Source offers one RelicReward; current marker obtains it directly, bypassing reward choice lifecycle."
+        "AfterObtained: populate one relic reward with source rarity/front bag, offer/skip/claim and restore serialized parent screen.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -2976,20 +3053,24 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "Before opening draw: full sorted upgradable draw-pile StableShuffle CombatCardSelection before Take2"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution"
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
+        "src/sts2sim/engine/source_item_selection.py:combat_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_draw_pile_start_relics_move_add_and_upgrade_cards",
-        "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers"
+        "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source StableShuffle CombatCardSelection upgrades two eligible draw-pile cards before opening draw; current generic marker needs source randomness."
+        "Before opening draw: full sorted upgradable draw-pile StableShuffle CombatCardSelection before Take2.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3008,21 +3089,26 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterRestSiteHeal: add5 maxHP and associated HP after actual rest healing, including mimicked rest action; no action on entering or smithing"
       ],
-      "runtime_entrypoints": [],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/source_rest_runtime.py:execute_rest_heal"
+      ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_shop_and_campfire_relics_register_hook_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/rooms/test_hatch_mend_tea.py::test_mend_heals_selected_ally_thirty_percent_capped_and_does_not_rest",
         "tests/rooms/test_campfire_relics.py::test_rest_combines_regal_pillow_and_stone_humidifier_with_hp_caps",
-        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics"
+        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics",
+        "tests/rooms/test_source_rest_runtime.py"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "AfterRestSiteHeal: add5 maxHP and associated HP after actual rest healing, including mimicked rest action; no action on entering or smithing.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3105,23 +3191,27 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "ModifyDamageAdditive: actual source Strike tag rather than card title/ID substring"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_damage_combat_player",
-        "src/sts2sim/engine/transitions.py:_apply_damage_taken_relics_from_events"
+        "src/sts2sim/engine/transitions.py:_apply_damage_taken_relics_from_events",
+        "src/sts2sim/engine/transitions.py:_has_source_card_tag"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_damage_bonus_relics_change_card_damage_math",
         "tests/combat/test_combat_coverage.py::test_default_combat_catalog_reflects_current_mechanics_registries",
         "tests/combat/test_relic_combat.py::test_damage_relic_markers_cover_card_and_hp_loss_modifiers",
-        "tests/combat/test_relic_combat.py::test_modifier_markers_preserve_base_amount_context_for_runtime_execution"
+        "tests/combat/test_relic_combat.py::test_modifier_markers_preserve_base_amount_context_for_runtime_execution",
+        "tests/combat/test_source_item_math.py"
       ],
       "notes": [
-        "Source checks actual Strike tag; name/ID substring matching must use shared CanonicalTags registry."
+        "ModifyDamageAdditive: actual source Strike tag rather than card title/ID substring.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3291,20 +3381,24 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "BeforeCombatStart: saved default one-combat charge; two Dazed inserted at random Shuffle positions before first-turn Innate prioritization"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution"
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
+        "src/sts2sim/engine/transitions.py:_start_combat_for_node"
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_more_contextual_start_relics_cover_potions_charges_and_low_hp",
-        "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped"
+        "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped",
+        "tests/rewards/test_source_item_lifecycle.py"
       ],
       "notes": [
-        "Source adds two Dazed at random draw positions in the next combat only and consumes its one-combat counter; lifecycle needs dedicated validation."
+        "BeforeCombatStart: saved default one-combat charge; two Dazed inserted at random Shuffle positions before first-turn Innate prioritization.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3460,19 +3554,24 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "Owner discard callbacks: separate CombatTargets draw and damage for each discard, including singleton target draws"
       ],
-      "runtime_entrypoints": [],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
+      ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_runtime_discard_relic_hook_applies_returned_marker",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_exhaust_and_discard_relic_markers",
-        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook"
+        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
+        "tests/combat/test_source_power_boundaries.py"
       ],
       "notes": [
-        "Source owner-side discard random damage uses CombatTargets; shared random marker currently uses fixed local RNG."
+        "Owner discard callbacks: separate CombatTargets draw and damage for each discard, including singleton target draws.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3490,14 +3589,16 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterRestSiteHeal: populate two separate out-of-combat PotionRewards with Rewards RNG in relic acquisition order and retain offers without auto-procurement"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
-        "src/sts2sim/engine/transitions.py:_take_reward_card"
+        "src/sts2sim/engine/transitions.py:_take_reward_card",
+        "src/sts2sim/engine/source_rest_runtime.py:execute_rest_heal"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_remaining_shop_and_campfire_relics_register_hook_markers",
@@ -3505,10 +3606,12 @@
         "tests/rooms/test_hatch_mend_tea.py::test_mend_heals_selected_ally_thirty_percent_capped_and_does_not_rest",
         "tests/rooms/test_campfire_relics.py::test_rest_offers_dream_catcher_card_and_two_mailbox_potions_then_returns",
         "tests/rooms/test_campfire_relics.py::test_mailbox_potions_stay_available_when_belt_is_full",
-        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics"
+        "tests/rooms/test_campfire_relics.py::test_smith_does_not_trigger_rest_only_relics",
+        "tests/rooms/test_source_rest_runtime.py"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "AfterRestSiteHeal: populate two separate out-of-combat PotionRewards with Rewards RNG in relic acquisition order and retain offers without auto-procurement.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3526,21 +3629,25 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "Before first Hand draw: ShuffleIfNecessary; exhaust first non-Innate card or fallback top card; route exhaust and shuffle callbacks"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_end_turn",
-        "src/sts2sim/engine/transitions.py:_begin_next_player_turn"
+        "src/sts2sim/engine/transitions.py:_begin_next_player_turn",
+        "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_more_turn_start_relic_markers_cover_draw_block_damage_and_resources",
-        "tests/combat/test_remaining_relic_interactions.py::test_exhaust_relic_moves_top_draw_card_and_emits_exhaust_event"
+        "tests/combat/test_remaining_relic_interactions.py::test_exhaust_relic_moves_top_draw_card_and_emits_exhaust_event",
+        "tests/combat/test_stable_combat_item_callbacks.py"
       ],
       "notes": [
-        "Source ShuffleIfNecessary then exhausts first non-Innate opening draw card (or top card fallback); generic marker exhausts raw top and omits this selection."
+        "Before first Hand draw: ShuffleIfNecessary; exhaust first non-Innate card or fallback top card; route exhaust and shuffle callbacks.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3855,19 +3962,24 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterHandEmptied: card and potion completion callbacks in valid owner-turn phases, preserving pending choices"
       ],
-      "runtime_entrypoints": [],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:step_state"
+      ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_unceasing_top_draws_when_hand_is_empty_after_card_play",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_custom_event_relic_markers",
-        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook"
+        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
+        "tests/combat/test_stable_combat_item_callbacks.py"
       ],
       "notes": [
-        "Source checks AfterHandEmptied in legal turn phases, including potion completion; current hook is limited to after-card play."
+        "AfterHandEmptied: card and potion completion callbacks in valid owner-turn phases, preserving pending choices.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -3920,23 +4032,27 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "ModifyPowerAmount: first qualifying enemy debuff attempt, all debuffs from first source card/play/targets; Artifact consumption, source/rider exclusions and no re-doubling internal temporary powers"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
         "src/sts2sim/engine/transitions.py:_apply_after_card_play_hooks",
-        "src/sts2sim/engine/transitions.py:_apply_card_play_runtime_relic_hooks"
+        "src/sts2sim/engine/transitions.py:_apply_card_play_runtime_relic_hooks",
+        "src/sts2sim/engine/source_combat_item_hooks.py:power_amount"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_runtime_relic_surfaces_apply_real_hook_effects",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_card_played_relic_markers",
-        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook"
+        "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
+        "tests/combat/test_stable_combat_item_callbacks.py"
       ],
       "notes": [
-        "Combat reset fixed; source doubles all debuffs from the first qualifying source Card, excludes potion/no-card applications and avoids re-doubling temporary power internals. Generic post-status counter consumes too early."
+        "ModifyPowerAmount: first qualifying enemy debuff attempt, all debuffs from first source card/play/targets; Artifact consumption, source/rider exclusions and no re-doubling internal temporary powers.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4072,22 +4188,26 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterRoomEntered/AfterEnergyReset: arm on rest-site entry even when another campfire action chosen, consume once in next combat; repeated rest visits do not accumulate"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_resolution",
         "src/sts2sim/engine/transitions.py:_end_turn",
-        "src/sts2sim/engine/transitions.py:_begin_next_player_turn"
+        "src/sts2sim/engine/transitions.py:_begin_next_player_turn",
+        "src/sts2sim/engine/transitions.py:_start_combat_for_node"
       ],
       "retained_tests": [
         "tests/rooms/test_hatch_mend_tea.py::test_tea_sets_grant_stacking_bonus_only_on_first_turn_of_next_combat",
-        "tests/rooms/test_hatch_mend_tea.py::test_visiting_multiple_rest_sites_does_not_stack_one_tea_sets_bonus"
+        "tests/rooms/test_hatch_mend_tea.py::test_visiting_multiple_rest_sites_does_not_stack_one_tea_sets_bonus",
+        "tests/rooms/test_hatch_mend_tea.py"
       ],
       "notes": [
-        "Source arms on entering any rest site, including skipped heal, and triggers once after next combat Energy reset; source room-entry lifecycle requires validation."
+        "AfterRoomEntered/AfterEnergyReset: arm on rest-site entry even when another campfire action chosen, consume once in next combat; repeated rest visits do not accumulate.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4169,22 +4289,26 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "ModifyDamageMultiplicative/ModifyBlockMultiplicative: actual source Minion tag in both central consumers before final integer rounding"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_damage_combat_player",
         "src/sts2sim/engine/transitions.py:_apply_damage_taken_relics_from_events",
-        "src/sts2sim/engine/transitions.py:_gain_player_block"
+        "src/sts2sim/engine/transitions.py:_gain_player_block",
+        "src/sts2sim/engine/transitions.py:_has_source_card_tag"
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_additional_damage_relics_cover_low_hp_fatal_and_minion_cards",
-        "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped"
+        "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped",
+        "tests/combat/test_source_item_math.py"
       ],
       "notes": [
-        "Source checks actual Minion tag for both damage and Block; shared CanonicalTags registry is available but both central consumers require verification."
+        "ModifyDamageMultiplicative/ModifyBlockMultiplicative: actual source Minion tag in both central consumers before final integer rounding.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4202,21 +4326,26 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "After Elite victory: full sorted upgradable deck StableShuffle Niche before Take4"
       ],
-      "runtime_entrypoints": [],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/source_item_selection.py:select_stable_cards"
+      ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_war_hammer_upgrades_four_deck_cards_after_elite_kill",
         "tests/combat/test_relic_combat.py::test_more_monster_kill_and_combat_end_relic_markers",
         "tests/combat/test_relic_combat.py::test_supported_combat_relic_ids_are_hook_scoped",
         "tests/content/test_relic_handlers.py::test_high_risk_combat_relic_markers_have_runtime_executor_support",
-        "tests/rewards/test_relic_run_state_effects.py::test_war_hammer_upgrades_four_deck_cards_after_elite_win"
+        "tests/rewards/test_relic_run_state_effects.py::test_war_hammer_upgrades_four_deck_cards_after_elite_win",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source after Elite victory StableShuffle Niche over upgradable deck then Take4; generic combat-end upgrade marker needs source stream."
+        "After Elite victory: full sorted upgradable deck StableShuffle Niche before Take4.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4235,21 +4364,25 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: full sorted upgradable Skill deck StableShuffle Niche before Take2"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_item_selection.py:select_stable_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_random_upgrade_and_transform_pickup_relics_return_deck_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rooms/test_treasure_engine.py::test_war_paint_pickup_upgrades_two_random_skills_only"
+        "tests/rooms/test_treasure_engine.py::test_war_paint_pickup_upgrades_two_random_skills_only",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source StableShuffle Niche over upgradable Skills then Take2; generic upgrade marker uses supplied root stream."
+        "AfterObtained: full sorted upgradable Skill deck StableShuffle Niche before Take2.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4268,20 +4401,24 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "AfterObtained: full sorted upgradable Attack deck StableShuffle Niche before Take2"
       ],
       "runtime_entrypoints": [
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_item_selection.py:select_stable_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_random_upgrade_and_transform_pickup_relics_return_deck_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/combat/test_source_item_selection.py"
       ],
       "notes": [
-        "Source StableShuffle Niche over upgradable Attacks then Take2; generic upgrade marker uses supplied root stream."
+        "AfterObtained: full sorted upgradable Attack deck StableShuffle Niche before Take2.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4394,21 +4531,25 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "TryModifyCardRewardOptionsLate: one CanEnchant Swift1 option chosen with Niche per actual factory batch, including non-CardReward factories; per-index offered/claimed provenance and no repeat callbacks"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
-        "src/sts2sim/engine/transitions.py:_take_reward_card"
+        "src/sts2sim/engine/transitions.py:_take_reward_card",
+        "src/sts2sim/engine/source_card_reward_modifiers.py:modify_generated_cards"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_card_reward_modifiers.py"
       ],
       "notes": [
-        "Source chooses one enchantable reward option via Niche; generic reward enchant selection needs exact RNG/order eligibility review."
+        "TryModifyCardRewardOptionsLate: one CanEnchant Swift1 option chosen with Niche per actual factory batch, including non-CardReward factories; per-index offered/claimed provenance and no repeat callbacks.",
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
       ],
       "multiplayer": "not independently validated"
     },

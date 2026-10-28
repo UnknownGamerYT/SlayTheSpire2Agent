@@ -83,3 +83,16 @@ def test_sea_glass_runs_three_five_card_factory_hooks_without_reward_only_hooks(
     assert len(state.reward.metadata['card_reward_option_modifiers']['fixed']) == 3
     assert not state.flags.get('silver_crucible_times_used')
     assert not state.flags.get('silken_tress_reward_used')
+
+
+def test_royal_poison_uses_unpowered_unblockable_damage_with_tungsten_hp_loss_modifier():
+    state = _reward_state('royal_poison').model_copy(update={
+        'relics': ('royal_poison', 'tungsten_rod')})
+    node = MapNodeState(node_id='royal', kind='monster', act=1, floor=1, lane=0)
+    _, combat, _, _ = _start_combat_for_node(state, node)
+    assert combat.player.hp == state.player.hp - 3
+    royal = next(event for event in combat.last_events if event.source_id == 'royal_poison'
+                 and event.kind == 'player_damaged')
+    assert royal.metadata['unblockable']
+    assert royal.metadata['incoming'] == 4
+    assert royal.metadata['tungsten_rod_reduction'] == 1
