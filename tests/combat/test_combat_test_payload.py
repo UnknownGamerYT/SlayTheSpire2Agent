@@ -213,6 +213,7 @@ def test_debug_card_can_include_orb_effects() -> None:
 
 def test_debug_actions_can_mutate_and_spawn_enemies() -> None:
     state = combat_test.create_combat_state(seed=125, ascension=0)
+    original_count = len(state.combat.monsters)
     monster_id = state.combat.monsters[0].monster_id
     original_hp = state.combat.monsters[0].hp
 
@@ -237,7 +238,7 @@ def test_debug_actions_can_mutate_and_spawn_enemies() -> None:
         state,
         {"action": "spawn_monster", "monster_id": "debug_sentry", "hp": 22, "damage": 7},
     )
-    assert len(state.combat.monsters) == 2
+    assert len(state.combat.monsters) == original_count + 1
     assert state.combat.monsters[-1].hp == 22
     assert state.combat.monsters[-1].intent_damage == 7
 

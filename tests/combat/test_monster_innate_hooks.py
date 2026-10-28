@@ -370,4 +370,6 @@ def test_fogmog_opening_roster_does_not_spawn_its_later_illusion_twice() -> None
     assert len(state.combat.monsters) == 1
     state = step(state, _end_turn_action(state))
     assert len(state.combat.monsters) == 2
-    assert state.combat.monsters[1].statuses["minion"] == 1
+    illusion = next(monster for monster in state.combat.monsters
+                    if monster.metadata["source_monster_id"] == "EYE_WITH_TEETH")
+    assert illusion.statuses["minion"] == 1

@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from random import Random
 from typing import Any
 
+from .encounter_spawns import EncounterSpawnSpec, encounter_spawn_specs
 from .monster_scripts import MONSTER_INITIAL_STATES, MONSTER_STATE_FOLLOWUPS
 
 # AscensionLevel.cs in stable v0.107.1 defines ToughEnemies=8 and
@@ -125,6 +126,7 @@ class SpawnedMonster:
     encounter_id: str
     slot_index: int
     innate_powers: tuple[MonsterPower, ...] = ()
+    slot_name: str | None = None
 
 
 _SUMMON_PLANS: tuple[MonsterSummonPlan, ...] = (
@@ -222,6 +224,20 @@ def build_monster_definitions(raw_monsters: Sequence[Any]) -> Mapping[str, Monst
         states = tuple(
             _attack_pattern_state(state) for state in _sequence(pattern.get("states"))
         )
+        if _is_decimillipede_segment(monster_id):
+            # The inherited visual segment rows omit their base AI entirely.
+            if not states:
+                states = tuple(AttackPatternState(
+                    state_id=f"{move_id}_MOVE", move_id=move_id,
+                    next_selector={"WRITHE": "CONSTRICT_MOVE", "CONSTRICT": "BULK_MOVE",
+                                   "BULK": "WRITHE_MOVE", "DEAD": "REATTACH_MOVE",
+                                   "REATTACH": "RAND"}[move_id], state_type="move",
+                ) for move_id in ("WRITHE", "BULK", "CONSTRICT", "DEAD", "REATTACH"))
+                states += (AttackPatternState("RAND", None, None, "random"),)
+            states = tuple(replace(state, branches=tuple(
+                AttackPatternBranch(move_id=move_id, weight=1, repeat="CannotRepeat")
+                for move_id in ("WRITHE", "BULK", "CONSTRICT")
+            )) if state.state_id == "RAND" else state for state in states)
         state_ids = {state.state_id for state in states}
         states = tuple(
             replace(state, next_selector=followup)
@@ -232,6 +248,16 @@ def build_monster_definitions(raw_monsters: Sequence[Any]) -> Mapping[str, Monst
         initial = MONSTER_INITIAL_STATES.get(monster_id)
         if initial not in state_ids:
             initial = _optional_text(pattern.get("initial_move"))
+        defaults = {
+            "inklet": "JAB", "kin_follower": "QUICK_SLASH", "chomper": "CLAMP",
+            "corpse_slug": "WHIP_SLAP", "scroll_of_biting": "CHOMP",
+            "punch_construct": "READY", "wriggler": "INIT_MOVE",
+        }
+        default = defaults.get(_normalized_id(monster_id))
+        if default in state_ids or any(move.move_id == default for move in moves):
+            initial = default
+        if _is_decimillipede_segment(monster_id):
+            initial = "WRITHE"
         definition = MonsterDefinition(
             monster_id=monster_id,
             name=_text(row.get("name"), monster_id),
@@ -368,24 +394,34 @@ def spawn_monsters(
     ascension_level: int,
     hp_rng: Random | None = None,
     ai_rng: Random | None = None,
+    encounter_rng: Random | None = None,
 ) -> tuple[SpawnedMonster, ...]:
-    counts = Counter(encounter.monster_ids)
+    specs = encounter_spawn_specs(
+        encounter.encounter_id, encounter_rng or rng, imported_monster_ids=encounter.monster_ids,
+    )
+    source_plan = specs is not None
+    if specs is None:
+        specs = tuple(EncounterSpawnSpec(monster_id) for monster_id in encounter.monster_ids)
+    counts = Counter(spec.monster_id for spec in specs)
     seen: Counter[str] = Counter()
     spawned: list[SpawnedMonster] = []
-    for slot_index, source_monster_id in enumerate(encounter.monster_ids):
+    for slot_index, spec in enumerate(specs):
+        source_monster_id = spec.monster_id
         definition = monster_definitions.get(source_monster_id)
         if definition is None:
+            if source_plan:
+                raise ValueError(f"Encounter {encounter.encounter_id} requires {source_monster_id}")
             continue
         seen[source_monster_id] += 1
         hp = roll_monster_hp(
             definition, hp_rng or rng, ascension_level=ascension_level,
             excluded_max_hp=tuple(monster.max_hp for monster in spawned),
         )
-        current_move = initial_monster_move(
+        current_move = move_by_id(definition, spec.initial_move_id) or initial_monster_move(
             definition,
             ai_rng or rng,
             slot_index=slot_index,
-            ally_count=max(0, len(encounter.monster_ids) - 1),
+            ally_count=max(0, len(specs) - 1),
             is_front=slot_index == 0,
             current_hp=hp,
             max_hp=hp,
@@ -398,13 +434,14 @@ def spawn_monsters(
                 instance_id=instance_id,
                 source_monster_id=source_monster_id,
                 name=definition.name,
-                hp=hp,
+                hp=max(1, hp - spec.hp_reduction),
                 max_hp=hp,
                 move=current_move,
                 next_move_id=None,
                 encounter_id=encounter.encounter_id,
                 slot_index=slot_index,
                 innate_powers=definition.innate_powers,
+                slot_name=spec.slot_name,
             )
         )
     return tuple(spawned)
@@ -803,6 +840,9 @@ def _source_specific_innate_powers(
         patched.append(MonsterPower("THIEVERY", 20))
     if normalized_monster_id == "axebot" and "stock" not in normalized_power_ids:
         patched.append(MonsterPower("STOCK", 2))
+    if normalized_monster_id == "phrog_parasite":
+        patched = [replace(power, amount=1) if _normalized_id(power.power_id) == "infested"
+                   else power for power in patched]
     return tuple(patched)
 
 
@@ -1133,7 +1173,7 @@ def _source_specific_next_selector(
             "constrict": "BULK",
             "bulk": "WRITHE",
             "dead": "REATTACH",
-            "reattach": "WRITHE",
+            "reattach": "RAND",
         }.get(_normalized_id(current_move_id))
     if _normalized_id(definition.monster_id) == "entomancer":
         return {

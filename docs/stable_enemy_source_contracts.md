@@ -62,8 +62,23 @@ Confirmed corrections:
   reference in the registered monster classes is Tough Egg's cosmetic skin.
 - `RandomBranchState`: selection rounds through C# float precision, and
   CanRepeatXTimes limits consecutive uses rather than lifetime uses.
+- All 87 `GenerateMonsters` implementations now have opening-roster contracts:
+  78 fixed rosters and nine generated or setting-dependent rosters. The source
+  list's possible participants are no longer used as the opening lineup.
+  Random Ruby Raiders and Bowlbugs exclude duplicates; Slimes and Strangler
+  companions follow their source composition rules. Per-instance properties
+  preserve alternating Chompers, the middle Inklet, the first Kin Follower,
+  Punch Off damage/openings, four event Wrigglers and phased Slug/Scroll/Rat/
+  Decimillipede starts. Encounter-local randomness uses the source encounter ID
+  and TotalFloor; an imported `flags.total_floor` overrides the run-history
+  calculation. Battleworn Dummy requires its selected setting.
+- Tough Egg hatches into the same creature, clears powers except Minion,
+  restores 19–21 HP (20–22 at A8), and repeats Nibble. Enemy-turn summons display
+  the source Hatch counter. Hatch does not add a creature and therefore does
+  not reapply Fur Coat. Source slot names are retained; dynamic summons reuse
+  available named slots and public combat state follows source slot order.
 
 The independent HP table and focused outcome cases establish these scopes.
 They do not establish complete equivalence for every enemy callback, every
-power interaction, multiplayer HP scaling, every encounter's generated roster,
+power interaction, multiplayer HP scaling,
 or complete live-game action traces. Those scopes require further verification.

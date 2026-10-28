@@ -55,6 +55,7 @@ from sts2sim.mechanics.combat_rewards import (
     draw_combat_reward,
     fake_merchant_reward_relic_ids,
 )
+from sts2sim.mechanics.encounter_spawns import ENCOUNTER_SLOT_ORDER
 from sts2sim.mechanics.event_eligibility import (
     EventEligibilityContext,
     evaluate_event_eligibility,
@@ -12462,6 +12463,23 @@ def _begin_next_player_turn(
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = []
+    # HatchPower.AfterSideTurnEnd sees the enemy-side roster after summons.
+    # Eggs created during that side receive 2, then display 1 until they hatch.
+    hatch_monsters = []
+    for monster in combat.monsters:
+        hatch = _status_amount(monster.statuses, "hatch")
+        if monster.hp > 0 and hatch > 0:
+            statuses = dict(monster.statuses)
+            if hatch > 1:
+                statuses["hatch"] = hatch - 1
+            else:
+                statuses.pop("hatch", None)
+            monster = monster.model_copy(update={"statuses": statuses})
+            events.append(EffectEvent(
+                kind="hatch_counter_ticked", target_id=monster.monster_id, amount=hatch - 1,
+            ))
+        hatch_monsters.append(monster)
+    combat = combat.model_copy(update={"monsters": tuple(hatch_monsters)})
     statuses = dict(combat.player.statuses)
     if statuses.pop("no_energy_gain_this_turn", 0):
         events.append(EffectEvent(
@@ -12878,6 +12896,18 @@ def _execute_monster_turn(
         return combat, tuple(events)
 
     if _monster_move_is_self_hatch(definition, move):
+        # ToughEgg.HatchMove transforms this same creature, removes all powers
+        # except Minion and rolls Hatchling HP from Niche (exclusive upper bound).
+        minimum = 20 if state.ascension >= 8 else 19
+        maximum = 23 if state.ascension >= 8 else 22
+        hp = random_stream(rng, "niche").randrange(minimum, maximum)
+        monster = monster.model_copy(update={
+            "hp": hp, "max_hp": hp, "name": "Hatchling",
+            "statuses": {key: value for key, value in monster.statuses.items()
+                         if _normalized_id(key) == "minion"},
+            "metadata": {**monster.metadata, "tough_egg_hatched": True},
+        })
+        combat = _combat_with_monster(combat, monster_index, monster)
         events.append(
             EffectEvent(
                 kind="monster_hatched",
@@ -14629,7 +14659,17 @@ def _apply_monster_summon_move(
             )
             continue
 
-        slot_index = _next_monster_slot_index(monsters)
+        slots = ENCOUNTER_SLOT_ORDER.get(encounter_id, ())
+        occupied = {
+            str(monster.metadata.get("slot_name")) for monster in monsters if monster.hp > 0
+        }
+        free_slots = tuple(slot for slot in slots if slot not in occupied)
+        reverse_slot = _normalized_id(definition.monster_id) in {"ovicopter", "two_tailed_rat"}
+        slot_name = (free_slots[-1] if reverse_slot else free_slots[0]) if free_slots else None
+        slot_index = (
+            slots.index(slot_name) if slot_name is not None and slot_name in slots
+            else _next_monster_slot_index(monsters)
+        )
         hp = roll_monster_hp(
             summon_definition, random_stream(rng, "niche"), ascension_level=state.ascension,
             excluded_max_hp=tuple(monster.max_hp for monster in monsters if monster.hp > 0),
@@ -14652,9 +14692,12 @@ def _apply_monster_summon_move(
             encounter_id=encounter_id,
             slot_index=slot_index,
             innate_powers=summon_definition.innate_powers,
+            slot_name=slot_name,
         )
         summoned = _monster_state_from_spawn(spawned, summon_definition, state)
-        if _normalized_id(definition.monster_id) == "fabricator":
+        if _normalized_id(source_monster_id) == "tough_egg":
+            summoned = summoned.model_copy(update={"statuses": {**summoned.statuses, "hatch": 2}})
+        if _normalized_id(definition.monster_id) in {"fabricator", "ovicopter"}:
             summoned = summoned.model_copy(update={"statuses": {**summoned.statuses, "minion": 1}})
         summoned = summoned.model_copy(
             update={
@@ -14694,6 +14737,8 @@ def _monster_summon_count(
         return 0
     if _normalized_id(plan.source_monster_id) == "fabricator":
         return min(plan.count, _open_monster_slots(combat))
+    if _normalized_id(plan.source_monster_id) == "ovicopter":
+        return min(3, max(0, 6 - len(_alive_monsters(combat))))
 
     ally_capacity = _monster_summon_ally_capacity(combat, monster_index, plan)
     if ally_capacity <= 0:
@@ -14734,6 +14779,8 @@ def _monster_has_spawn_capacity(
     monster_index: int,
     definition: MonsterDefinition,
 ) -> bool:
+    if _normalized_id(definition.monster_id) == "ovicopter":
+        return len(_alive_monsters(combat)) <= 3
     for plan in monster_summon_plans_for(definition.monster_id):
         if _monster_summon_ally_capacity(combat, monster_index, plan) > 0:
             return True
@@ -15608,6 +15655,7 @@ def _apply_card_effects(
         if state is not None:
             effect_rng = random_from_state(rng_state)
             combat, spawn_events = _apply_monster_death_spawns(state, combat, effect_rng)
+            combat = _sort_monsters_by_slots(combat)
             rng_state = capture_random_state(effect_rng)
             events.extend(spawn_events)
             combat, shrink_events = _expire_source_linked_shrink(combat)
@@ -15961,6 +16009,7 @@ def _apply_effect_step(
         combat = combat.model_copy(update={"player": player, "monsters": tuple(monsters)})
         death_rng = random_from_state(rng_state)
         combat, spawn_events = _apply_monster_death_spawns(state, combat, death_rng)
+        combat = _sort_monsters_by_slots(combat)
         rng_state = capture_random_state(death_rng)
         combat, death_power_events = _apply_monster_death_power_triggers(combat, events)
         events.extend(spawn_events + death_power_events)
@@ -25531,6 +25580,7 @@ def _finalize_state_after_combat(
     if death_power_events:
         events = tuple(events) + death_power_events
         combat = combat.model_copy(update={"last_events": combat.last_events + death_power_events})
+    combat = _sort_monsters_by_slots(combat)
     combat = combat.model_copy(update={
         "monsters": tuple(
             _refresh_monster_intent_from_metadata(monster, combat.player, state.relics)
@@ -25615,7 +25665,7 @@ def _apply_monster_death_spawns(
         if source_id == "gremlin_merc" and _status_amount(parent.statuses, "surprise"):
             spawn_ids = ("FAT_GREMLIN", "SNEAKY_GREMLIN")
         elif source_id == "phrog_parasite" and _status_amount(parent.statuses, "infested"):
-            spawn_ids = ("WRIGGLER",) * _status_amount(parent.statuses, "infested")
+            spawn_ids = ("WRIGGLER",) * 4
         else:
             continue
         if any(spawn_id not in definitions for spawn_id in spawn_ids):
@@ -25642,6 +25692,7 @@ def _apply_monster_death_spawns(
                 move=move, next_move_id=None,
                 encounter_id=str(parent.metadata.get("encounter_id", "death_spawn")),
                 slot_index=slot, innate_powers=definition.innate_powers,
+                slot_name=f"wriggler{slot + 1}" if spawn_id == "WRIGGLER" else None,
             )
             child = _monster_state_from_spawn(spawned, definition, state)
             child = child.model_copy(update={"metadata": {
@@ -25695,6 +25746,8 @@ def _resolve_axebot_replacements(
             hp=hp, max_hp=hp, move=move_by_id(definition, "BOOT_UP"), next_move_id=None,
             encounter_id=str(parent.metadata.get("encounter_id", "stock")),
             slot_index=_monster_slot_index(parent), innate_powers=definition.innate_powers,
+            slot_name=(str(parent.metadata["slot_name"])
+                       if parent.metadata.get("slot_name") else None),
         ), definition, state)
         statuses = dict(child.statuses)
         if remaining:
@@ -27259,6 +27312,19 @@ def _reward_potion_pool(state: RunState, pool_key: str) -> tuple[str, ...]:
 
 def _alive_monsters(combat: CombatState) -> tuple[MonsterState, ...]:
     return tuple(monster for monster in combat.monsters if monster.hp > 0)
+
+
+def _sort_monsters_by_slots(combat: CombatState) -> CombatState:
+    if not combat.monsters:
+        return combat
+    encounter_id = str(combat.monsters[0].metadata.get("encounter_id", ""))
+    slots = ENCOUNTER_SLOT_ORDER.get(encounter_id)
+    if not slots:
+        return combat
+    order = {slot: index for index, slot in enumerate(slots)}
+    return combat.model_copy(update={"monsters": tuple(sorted(
+        combat.monsters, key=lambda monster: order.get(str(monster.metadata.get("slot_name")), -1),
+    ))})
 
 
 def _is_decimillipede_segment_id(monster_id: object) -> bool:
@@ -29852,6 +29918,13 @@ def _monsters_for_node(
             ascension_level=state.ascension,
             hp_rng=random_stream(rng, "niche"),
             ai_rng=random_stream(rng, "monster_ai"),
+            # EncounterModel uses the same uint32 sum as the independent
+            # content RNG: run seed + encounter ID hash + TotalFloor.
+            encounter_rng=model_random(
+                rng, encounter.encounter_id,
+                mixin=_flag_int(state, "total_floor", len(state.room_history) + state.act + 1
+                                - int(state.flags.get("generation_started_with_neow") is False)),
+            ),
         )
         monsters = tuple(
             _monster_state_from_spawn(
@@ -30018,6 +30091,7 @@ def _monster_state_from_spawn(
         "source_monster_id": spawned_monster.source_monster_id,
         "encounter_id": spawned_monster.encounter_id,
         "slot_index": spawned_monster.slot_index,
+        "slot_name": spawned_monster.slot_name,
         "move_counts": {},
         "innate_powers": [
             power.as_metadata() for power in spawned_monster.innate_powers if power.power_id
@@ -30061,6 +30135,8 @@ def _monster_innate_statuses(
         statuses.setdefault("plating", 12)
     if _normalized_id(definition.monster_id) == "vantom" and "slippery" not in statuses:
         statuses["slippery"] = 9
+    if _normalized_id(definition.monster_id) == "tough_egg":
+        statuses.setdefault("hatch", 1)
     if _is_decimillipede_segment_id(definition.monster_id):
         statuses.setdefault("reattach", 25)
     return statuses
