@@ -1231,6 +1231,7 @@ def test_remaining_unknown_custom_event_relic_markers() -> None:
 
     assert created.markers[0].amount == 4
     assert [(marker.relic_id, marker.kind, marker.amount) for marker in resource.markers] == [
+        ("galactic_dust", "relic_counter_changed", 1),
         ("galactic_dust", "gain_block", 10),
         ("mini_regent", "gain_status", 1),
     ]

@@ -30,6 +30,15 @@ ANCIENT_STARTER_RELICS = {
     "cracked_core": "infused_core",
 }
 
+# Source per-combat mutable flags/counters. Saved run counters such as Joss
+# Paper, Nunchaku, Pen Nib and Galactic Dust are deliberately preserved.
+COMBAT_ONLY_RELIC_COUNTERS = frozenset({
+    "burning_sticks", "centennial_puzzle", "demon_tongue", "metronome", "mini_regent",
+    "paels_eye", "paels_legion", "permafrost", "red_skull", "ruined_helmet", "throwing_axe",
+    "unsettling_lamp", "vambrace",
+})
+TURN_ONLY_RELIC_COUNTERS = frozenset({"demon_tongue", "mini_regent"})
+
 
 def scroll_boxes_packs(
     rng: Random, cards: Sequence[RewardPoolCard], *, character_id: str

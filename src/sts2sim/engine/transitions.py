@@ -118,7 +118,12 @@ from sts2sim.mechanics.relic_combat import (
     resolve_damage_dealt_relics,
     resolve_damage_taken_relics,
 )
-from sts2sim.mechanics.relic_lifecycle import ANCIENT_STARTER_RELICS, scroll_boxes_packs
+from sts2sim.mechanics.relic_lifecycle import (
+    ANCIENT_STARTER_RELICS,
+    COMBAT_ONLY_RELIC_COUNTERS,
+    TURN_ONLY_RELIC_COUNTERS,
+    scroll_boxes_packs,
+)
 from sts2sim.mechanics.relics import RelicEffectMarker, resolve_relic_pickup
 from sts2sim.mechanics.reward_pools import (
     build_character_card_pool,
@@ -5090,6 +5095,10 @@ def _use_potion(
         state, combat, rng_state, direct_events
     )
     events.extend(_resolved_block_events(direct_events) + block_power_events)
+    combat, rng_state, damage_relic_events = _apply_damage_taken_relics_from_events(
+        state, combat, rng_state, direct_events, turn_owner="player",
+    )
+    events.extend(damage_relic_events)
 
     effects = _potion_effects(state, potion_id, combat)
     if effects:
@@ -8452,7 +8461,10 @@ def _start_combat_for_node(
         state = state.model_copy(update={"player": _run_player_after_combat(state.player)})
     rng = random_from_state(state.rng)
     draw_pile, innate_events = _opening_draw_pile(state.master_deck, rng)
-    metadata: dict[str, Any] = {"relic_counters": _relic_counters_from_flags(state)}
+    metadata: dict[str, Any] = {"relic_counters": {
+        key: value for key, value in _relic_counters_from_flags(state).items()
+        if key not in COMBAT_ONLY_RELIC_COUNTERS
+    }}
     if "player_facing" in state.flags:
         metadata["player_facing"] = state.flags["player_facing"]
     allies = _ally_states_from_source(state.flags.get("allies", state.flags.get("ally_players")))
@@ -9328,7 +9340,7 @@ def _apply_damage_taken_relics_from_events(
     events: list[EffectEvent] = []
     for source_event in source_events:
         if (
-            source_event.kind != "player_damaged"
+            source_event.kind not in {"player_damaged", "player_hp_lost"}
             or _coerce_int(source_event.amount, default=0) <= 0
             or source_event.metadata.get("card_play_hooks_resolved")
         ):
@@ -12111,6 +12123,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         relics=state.relics,
     )
     events.extend(hand_effect_events)
+    combat, hand_rng, hand_damage_relic_events = _apply_damage_taken_relics_from_events(
+        state, combat, capture_random_state(rng), hand_effect_events, turn_owner="player",
+    )
+    rng = random_from_state(hand_rng)
+    events.extend(hand_damage_relic_events)
     player = combat.player
     rng_state = capture_random_state(rng)
     if _metadata_int(combat.metadata, "turn_end_triggers_resolved_turn", 0) != combat.turn:
@@ -12284,6 +12301,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     )
     combat, turn_end_relic_events = _apply_combat_relic_resolution(combat, turn_end_relics)
     events.extend(turn_end_relic_events)
+    combat, relic_rng, loss_relic_events = _apply_damage_taken_relics_from_events(
+        state, combat, capture_random_state(rng), turn_end_relic_events, turn_owner="player",
+    )
+    rng = random_from_state(relic_rng)
+    events.extend(loss_relic_events)
     player = combat.player
 
     player, status_block_events = _apply_player_end_turn_status_block(player)
@@ -12299,6 +12321,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         relics=state.relics,
     )
     events.extend(debuff_damage_events)
+    combat, debuff_rng, debuff_relic_events = _apply_damage_taken_relics_from_events(
+        state, combat, capture_random_state(rng), debuff_damage_events, turn_owner="player",
+    )
+    rng = random_from_state(debuff_rng)
+    events.extend(debuff_relic_events)
     if combat.player.hp <= 0:
         event_tuple = tuple(events)
         combat = combat.model_copy(update={"last_events": event_tuple})
@@ -24798,6 +24825,10 @@ def _coerced_int_mapping(value: object) -> dict[str, int]:
 
 def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     updated = dict(metadata)
+    updated["relic_counters"] = {
+        key: value for key, value in _coerced_int_mapping(updated.get("relic_counters", {})).items()
+        if key not in TURN_ONLY_RELIC_COUNTERS
+    }
     updated.pop("turn_card_play_limit", None)
     updated.pop("combat_trigger_turn_counters", None)
     updated.pop("first_card_block_double_used_turn", None)

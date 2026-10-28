@@ -157,6 +157,70 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RedSkull.cs",
       "sha256": "cf57eb10a81ced7a20a845c53b1f58253fbf980f1b72f76243d57f1cbe165382"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BurningSticks.cs",
+      "sha256": "7c01f7308ea8d12a84161c069c669dbdadc18fb48ef5f551a5d9adcfbe3e8cf9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/CentennialPuzzle.cs",
+      "sha256": "610d506f51cef90c84cded79e508251f3ce462177fa3e7ccda88b8feac2593aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DemonTongue.cs",
+      "sha256": "23a0a62f9b47c0fa786df2e8a56aee86a4223b015c5c4510f1cee5c891010d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Metronome.cs",
+      "sha256": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MiniRegent.cs",
+      "sha256": "c36490b78249d15effa19b18a9463e7151fbb7a8aa36c42977b26544195fd234"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsLegion.cs",
+      "sha256": "08bc0980dc3b133a256bb39d50881b6888fabb5f47033aaab02b7ccb36381530"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Permafrost.cs",
+      "sha256": "15f99b67cc992dd3c88839f8eae79d829528b92ad6a57e71266cbf88897cd585"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ThrowingAxe.cs",
+      "sha256": "c7bb04ac13201a2ee892bc860caa37c0f2eff33efe31606c762442b3019a4c48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/UnsettlingLamp.cs",
+      "sha256": "f4d772296f344ba05eedcc2131f60435a9bd4afe1166bab435e13bce517cf9b3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Vambrace.cs",
+      "sha256": "d804bb40a837fa90b9b5e734e7dcdd61643cd0328f35a884ce07d97f1dc4a34a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GalacticDust.cs",
+      "sha256": "173a5b84adfd4fc3bf4796d4ba447655f6ba7b4cca7897332beb3963544962d4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/JossPaper.cs",
+      "sha256": "97237a51eda6199f48455edf7e83c061a73b97980279ee4a6cfdd149561b6bf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Bloodletting.cs",
+      "sha256": "02dbb861ed91dc7dc58d1509fbe80dd0fa50e20bb293ee4a5bf1c7e34e7fe4d3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/BloodWall.cs",
+      "sha256": "9634914026afa0cdab3d7c03e0569c2c942239bed2f513d52de93ebc69c4681a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Offering.cs",
+      "sha256": "fa615e1a41ee749779ce89dab2d542ac3e4c8d2cb7b0d3d196b83ad64a218534"
     }
   ],
   "cached_source_rows": {

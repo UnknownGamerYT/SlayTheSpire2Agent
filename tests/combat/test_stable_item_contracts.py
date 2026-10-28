@@ -12,6 +12,7 @@ from combat.test_relic_engine_integration import _card_spec, _enter_combat
 from sts2sim import legal_actions, serialize, step
 from sts2sim.agent_api import action_space
 from sts2sim.engine import RunPhase
+from sts2sim.mechanics.relic_lifecycle import COMBAT_ONLY_RELIC_COUNTERS
 
 
 def _potion(state, potion_id, target_id=None):
@@ -375,4 +376,64 @@ def test_fiddle_allows_enemy_side_draws_from_other_relics():
                             draw=cards, draw_per_turn=1), damage=1)
     state = _end_turn(_reload(state))
     assert len(state.combat.hand) == 6  # 3 from Puzzle, then 1+2 from hand draw.
+
+
+def test_new_combat_resets_source_ephemeral_relic_counters_and_preserves_saved_counts():
+    saved = {"nunchaku": 9, "pen_nib": 9, "joss_paper": 4, "galactic_dust": 9,
+             "happy_flower": 1, "lizard_tail": 1, "winged_boots": 2}
+    stale = {**dict.fromkeys(COMBAT_ONLY_RELIC_COUNTERS, 9), **saved}
+    state = _enter_combat(tuple(_card_spec(f"card:{i}") for i in range(10)),
+                          relics=("centennial_puzzle", "ruined_helmet"), draw_per_turn=0,
+                          flags={"relic_counters": stale})
+    counters = state.combat.metadata["relic_counters"]
+    assert not COMBAT_ONLY_RELIC_COUNTERS.intersection(counters)
+    assert counters == saved
+    loss = _simple("hp_loss", effects={"hp_loss": 3})
+    strength = _simple("strength", effects={"apply_status": {"target": "self", "strength": 2}})
+    state = state.model_copy(update={"combat": state.combat.model_copy(
+        update={"hand": (loss, strength)},
+    )})
+    state = _play(_reload(state), "hp_loss")
+    assert len(state.combat.hand) == 4  # Remaining Strength card plus 3 Puzzle draws.
+    state = _play(_reload(state), "strength")
+    assert state.player.statuses["strength"] == 4
+
+
+def test_demon_tongue_restores_first_unpowered_card_hp_loss_once_each_player_turn():
+    loss = _simple("loss", effects={"hp_loss": 4})
+    second = loss.model_copy(update={"instance_id": "second"})
+    state = _state(loss, second, relics=("demon_tongue",))
+    state = _play(_reload(state), "loss")
+    assert state.player.hp == 80
+    state = _play(_reload(state), "second")
+    assert state.player.hp == 76
+    state = _end_turn(_reload(state))
+    state = state.model_copy(update={"combat": state.combat.model_copy(update={"hand": (loss,)})})
+    state = _play(_reload(state), "loss")
+    assert state.player.hp == 76
+
+
+def test_mini_regent_activates_once_per_turn_and_galactic_dust_accumulates_small_spends():
+    cards = tuple(_simple(f"spend:{i}", custom={"star_cost": cost, "retain": True})
+                  for i, cost in enumerate((3, 4, 7, 7)))
+    state = _state(*cards, relics=("mini_regent", "galactic_dust"))
+    state = _play(_reload(state), "spend:0")
+    assert state.player.statuses["strength"] == 1
+    assert state.player.block == 0
+    assert state.combat.metadata["relic_counters"]["galactic_dust"] == 3
+    state = _play(_reload(state), "spend:1")
+    assert state.player.statuses["strength"] == 1
+    assert state.combat.metadata["relic_counters"]["galactic_dust"] == 7
+    state = _play(_reload(state), "spend:2")
+    assert state.player.block == 10
+    assert state.combat.metadata["relic_counters"]["galactic_dust"] == 4
+    state = _end_turn(_reload(state))
+    player = state.player.model_copy(update={"resources": {"star": 7}})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(
+        update={"player": player},
+    )})
+    state = _play(_reload(state), "spend:3")
+    assert state.player.statuses["strength"] == 2
+    assert state.player.block == 10
+    assert state.combat.metadata["relic_counters"]["galactic_dust"] == 1
 

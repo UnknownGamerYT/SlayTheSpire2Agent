@@ -64,6 +64,22 @@ save/reload, normal draw, blocked potion draw, enemy-side Centennial Puzzle draw
 and consumed/remaining Block. Ordering when Sturdy Clamp competes with other
 Block-clear preventers still needs an independent game trace.
 
+Counter lifecycle review distinguishes thirteen per-combat relic counters from
+saved run counters. A new combat resets Burning Sticks, Centennial Puzzle, Demon
+Tongue, Metronome, Mini Regent, Pael's Eye/Legion, Permafrost, Red Skull, Ruined
+Helmet, Throwing Axe, Unsettling Lamp, and Vambrace. Demon Tongue and Mini Regent
+also reset on each owner turn. Joss Paper, Nunchaku, Pen Nib, Galactic Dust and
+other saved counts remain intact. Mini Regent consumes its first-Star-spend
+activation; Galactic Dust accumulates separate small spends and keeps the remainder
+after each ten-Star trigger. Demon Tongue calculates recovery from HP after damage.
+
+Card HP-loss events from the modeled `HpLossVar` damage path now reach Centennial
+Puzzle/Demon Tongue and the existing damage-relic dispatcher. Potion, end-hand,
+end-turn relic and debuff damage use the same event adapter. This classifies these
+unpowered/unblockable damage paths; it does not classify arbitrary payment costs
+as attacks. Tests cover source counter reset/preservation, active consumers after
+reset, once-per-turn activation, and repeated small resource spends through saves.
+
 Implementation source:
 [pinned repository](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7),
 `Models.Potions/{GlowwaterPotion,LiquidMemories,GigantificationPotion,BeetleJuice,PowderedDemise}.cs`,

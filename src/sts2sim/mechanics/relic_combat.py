@@ -2009,6 +2009,8 @@ def _resolve_damage_taken_dynamic(
     if relic_id == "red_skull":
         if context.player_hp is None or context.player_max_hp is None:
             return ()
+        if context.relic_counters.get(relic_id, 0) > 0:
+            return ()
         hp_loss = _coerce_int(context.metadata.get("hp_loss"), default=0)
         hp_after_loss = max(0, context.player_hp - hp_loss)
         if _player_hp_at_or_below_half(context.player_hp, context.player_max_hp):
@@ -2058,7 +2060,10 @@ def _resolve_damage_taken_dynamic(
         if context.metadata.get("on_player_turn") is False:
             return ()
         hp_loss = _coerce_int(context.metadata.get("hp_loss"), default=1)
-        heal = _capped_heal(hp_loss, hp=context.player_hp, max_hp=context.player_max_hp)
+        hp_after = _coerce_int(context.metadata.get("hp_after"), default=max(
+            0, (context.player_hp or 0) - hp_loss,
+        ))
+        heal = _capped_heal(hp_loss, hp=hp_after, max_hp=context.player_max_hp)
         if heal <= 0:
             return ()
         return (
@@ -2847,11 +2852,13 @@ def _resolve_resource_spent_dynamic(
         return ()
 
     if relic_id == "galactic_dust":
-        block_triggers = amount_spent // 10
-        if block_triggers <= 0:
-            return ()
-        return (
-            CombatRelicMarker(
+        total = context.relic_counters.get(relic_id, 0) + amount_spent
+        block_triggers, remaining = divmod(total, 10)
+        markers = [_counter_marker(
+            relic_id, hook, next_counter=remaining, period=10, source=PROVISIONAL_STS2_SOURCE,
+        )]
+        if block_triggers > 0:
+            markers.append(CombatRelicMarker(
                 kind="gain_block",
                 relic_id=relic_id,
                 hook=hook,
@@ -2863,8 +2870,8 @@ def _resolve_resource_spent_dynamic(
                     "period": 10,
                     "block_per_period": 10,
                 },
-            ),
-        )
+            ))
+        return tuple(markers)
 
     if relic_id != "mini_regent":
         return ()
@@ -2879,7 +2886,8 @@ def _resolve_resource_spent_dynamic(
             hook=hook,
             amount=1,
             target_id="player",
-            metadata={"status": "strength", "condition": "first_star_spent_this_turn"},
+            metadata={"status": "strength", "condition": "first_star_spent_this_turn",
+                      "next_counter": 1},
         ),
     )
 
