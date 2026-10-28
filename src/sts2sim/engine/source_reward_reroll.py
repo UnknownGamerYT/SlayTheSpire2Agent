@@ -18,7 +18,10 @@ def card_reroll_context(
     **options: Any,
 ) -> dict[str, Any]:
     """Serializable CardCreationOptions subset; explicit manual offers use this too."""
-    return {'mode': mode, 'pools': tuple(pools), 'count': count, **options}
+    context = {'mode': mode, 'pools': tuple(pools), 'count': count, **options}
+    if options.get('unsupported_reason'):
+        context['availability'] = 'unsupported'
+    return context
 
 
 def _group_ids(reward: RewardState, key: str) -> tuple[str, ...]:
@@ -56,8 +59,9 @@ def legal_reward_rerolls(state: RunState) -> tuple[Action, ...]:
         return ()
     used = reward.metadata.get('card_reward_rerolled_groups', ())
     return tuple(Action(type=ActionType.REROLL_REWARD, target_id=f'reward:reroll:{key}')
-                 for key in reward_reroll_contexts(reward)
-                 if key not in used and _group_ids(reward, key))
+                 for key, context in reward_reroll_contexts(reward).items()
+                 if key not in used and _group_ids(reward, key)
+                 and not context.get('unsupported_reason'))
 
 
 def _pool(state: RunState, context: Mapping[str, Any]) -> tuple[Any, ...]:

@@ -111,3 +111,39 @@ def test_agent_reroll_descriptor_uses_a_stable_action_type_and_keeps_selection_o
     assert descriptor['action_type_id'] >= 0
     assert descriptor['reward_choice']['kind'] == 'reroll'
     assert not descriptor['reward_choice']['closes_selection_set']
+
+
+
+def test_known_source_empty_custom_reroll_is_masked_and_keeps_its_diagnostic():
+    state = _combat_reward()
+    context = card_reroll_context(
+        mode='source_empty_custom_pool', pools=(), card_ids=(), custom_pool=True,
+        count=3, no_upgrade_roll=True, is_card_reward=False,
+        unsupported_reason='source_empty_custom_card_pool',
+    )
+    reward = RewardState(reward_id='manual-empty-source', source='other',
+        card_options=('anger', 'shrug_it_off', 'bash'), metadata={
+            'card_reroll_contexts': {'primary': context}})
+    state = load_state(serialize(state.model_copy(update={'reward': reward})))
+    assert state.reward.metadata['card_reroll_contexts']['primary']['availability'] == 'unsupported'
+    assert not any(action.type == ActionType.REROLL_REWARD for action in legal_actions(state))
+    assert len([action for action in legal_actions(state)
+                if action.type == ActionType.TAKE_REWARD_CARD]) == 3
+    assert any(action.type == ActionType.SKIP_REWARD for action in legal_actions(state))
+    from sts2sim.engine import Action
+    with pytest.raises(IllegalActionError):
+        step(state, Action(type=ActionType.REROLL_REWARD, target_id='reward:reroll:primary'))
+
+
+def test_nonempty_manual_custom_reroll_still_uses_its_original_explicit_pool():
+    state = _combat_reward()
+    context = card_reroll_context(pools=(), custom_pool=True,
+        card_ids=('anger', 'shrug_it_off', 'armaments'), count=2, uniform=True)
+    state = state.model_copy(update={'reward': RewardState(
+        reward_id='manual-explicit', source='other', card_options=('bash',),
+        metadata={'card_reroll_contexts': {'primary': context}})})
+    action = next(action for action in legal_actions(state)
+                  if action.type == ActionType.REROLL_REWARD)
+    result = step(load_state(serialize(state)), action)
+    assert len(result.reward.card_options) == 2
+    assert set(result.reward.card_options) <= {'anger', 'shrug_it_off', 'armaments'}
