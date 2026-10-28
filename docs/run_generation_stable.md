@@ -74,6 +74,17 @@ It does not represent any playable game character or a game fidelity mode.
 The five real characters use the stable run generation even when a caller
 explicitly selects MT19937 for a diagnostic run.
 
+Normal card rewards and merchant card inventories join cached metadata to the
+actual registered character or Colorless card pool, preserving source order.
+They apply the supplied `revealed_epochs` and `player_count` predicates before
+drawing. Single-player pools exclude the nine class and twelve Colorless cards
+restricted to multiplayer; multiplayer excludes Well-Laid Plans. An absent
+epoch set selects all unlocked content, while an explicit empty set keeps
+epoch-gated cards locked. Missing metadata never substitutes an unrelated card.
+Explicit custom source pools and the reserved `TEST` fixture retain their
+supplied scope. These reward pools use `GetUnlockedCards`; the separate stricter
+in-combat generation predicate does not remove normal reward/merchant cards.
+
 ## Profile assumptions and evidence limits
 
 Absent profile facts, training uses all unlocked content and records
@@ -117,3 +128,8 @@ separation, Underdocks pool binding, event queue skipping, profile gates,
 multiplayer room counts, final double bosses and identical serialized reload
 continuations. Separate pure tests cover pruning/repair/coordinate transforms,
 bag refill/rejection/overlap fallback, boss discovery and relic deque boundaries.
+
+`stable_card_pool_source.json` projects the six complete ordered source reward
+registries, all 60 card epoch gates and the 22 multiplayer constraint overrides.
+The retained pool tests compare every registry across unlock and player-count
+settings, plus public reward/shop entry and serialized continuation.

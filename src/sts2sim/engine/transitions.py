@@ -11,6 +11,7 @@ from pathlib import Path
 from random import Random
 from typing import Any, Literal
 
+from sts2sim.content.card_pool_selection import PLAYABLE_CARD_POOLS, source_card_pool_rows
 from sts2sim.content.source_card_pools import (
     COMBAT_GENERATION_EXCLUDED,
     NON_UPGRADABLE_CARD_IDS,
@@ -8520,6 +8521,21 @@ def _shop_item_pool(
     )
     raw_pool = state.flags.get(flag_key)
     if raw_pool is None:
+        if default_kind in {ShopItemKind.CARD, ShopItemKind.COLORLESS_CARD}:
+            pool_id = (
+                "colorless" if default_kind is ShopItemKind.COLORLESS_CARD else state.character_id
+            )
+            source_rows = _registered_reward_card_rows(state, pool_id)
+            if source_rows is not None:
+                cards = (
+                    build_colorless_card_pool(source_rows)
+                    if default_kind is ShopItemKind.COLORLESS_CARD
+                    else build_character_card_pool(source_rows, character_id=state.character_id)
+                )
+                return tuple(
+                    ShopItem(card.card_id, default_kind, card.rarity, card_type=card.card_type)
+                    for card in cards
+                )
         if is_source_rng(state.rng):
             if flag_key in {"shop_card_pool", "shop_colorless_card_pool"}:
                 if flag_key == "shop_colorless_card_pool":
@@ -27413,12 +27429,44 @@ def _combat_potion_roll_metadata(
 
 
 def _combat_card_pool(state: RunState) -> tuple[Any, ...]:
-    cards = build_combat_card_pool(_raw_card_pool_items(state), character_id=state.character_id)
-    if is_source_rng(state.rng):
-        return order_source_pool(cards,
-            STABLE_CARD_POOL_ORDER.get(_normalized_id(state.character_id), ()),
-            lambda card: card.card_id)
+    rows = _registered_reward_card_rows(state, state.character_id, combat_reward=True)
+    cards = build_combat_card_pool(
+        _raw_card_pool_items(state) if rows is None else rows, character_id=state.character_id
+    )
+    if rows is None and is_source_rng(state.rng):
+        return order_source_pool(
+            cards, STABLE_CARD_POOL_ORDER.get(_normalized_id(state.character_id), ()),
+            lambda card: card.card_id,
+        )
     return cards
+
+
+def _registered_reward_card_rows(
+    state: RunState, pool_id: str, *, combat_reward: bool = False
+) -> tuple[Any, ...] | None:
+    """Filter registered catalogs; explicit custom pools retain their scope."""
+    if _normalized_id(state.character_id) not in PLAYABLE_CARD_POOLS:
+        return None
+    keys = ("combat_reward_card_pool", "card_pool") if combat_reward else ("card_pool",)
+    if any(_source_items(state.flags.get(key)) for key in keys):
+        return None
+    rows = (_source_items(state.flags.get("card_library"))
+            or _source_items(state.flags.get("cards")))
+    if rows:
+        registered = {card_id for pool in SOURCE_CARD_POOLS.values() for card_id in pool}
+        if not any(
+            _normalized_id(str(_mapping_from(row).get("id", ""))) in registered for row in rows
+        ):
+            return None
+    else:
+        rows = _cached_source_rows(state, "cards")
+    epochs = (
+        _flag_str_sequence(state, "revealed_epochs") if "revealed_epochs" in state.flags else None
+    )
+    return source_card_pool_rows(
+        rows, _normalized_id(pool_id), unlocked_epochs=epochs,
+        multiplayer=_flag_int(state, "player_count", 1) > 1,
+    )
 
 
 def _raw_card_pool_items(state: RunState) -> tuple[Any, ...]:
