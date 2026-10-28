@@ -7484,6 +7484,8 @@ def _apply_relic_card_reward_marker(
         return state, ()
     if _normalized_id(relic_id) == "sea_glass":
         return _apply_sea_glass_card_selection(state, rng)
+    if _normalized_id(relic_id) == "glass_eye" and _normalized_id(state.character_id) != "test":
+        return _apply_glass_eye_rewards(state, rng)
     if _normalized_id(relic_id) == "dusty_tome":
         selected = state.flags.get("dusty_tome_card_id")
         if not isinstance(selected, str):
@@ -7524,6 +7526,48 @@ def _apply_relic_card_reward_marker(
         )
         for event in reward_events
     )
+
+
+def _apply_glass_eye_rewards(
+    state: RunState, rng: Random,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    # Uniform odds over a rarity-filtered class pool: one card selection and
+    # one upgrade roll per card, with the blacklist reset for each reward.
+    rewards_rng = random_stream(rng, "rewards")
+    pool = _combat_card_pool(state)
+    groups: list[tuple[str, ...]] = []
+    rarities: list[tuple[str, ...]] = []
+    upgrades: list[tuple[bool, ...]] = []
+    for rarity in (CardRarity.COMMON, CardRarity.COMMON, CardRarity.UNCOMMON,
+                   CardRarity.UNCOMMON, CardRarity.RARE):
+        candidates = [card.card_id for card in pool if card.rarity is rarity]
+        selected: list[str] = []
+        upgraded: list[bool] = []
+        for _ in range(min(_card_reward_choice_count(state), len(candidates))):
+            card_id = rewards_rng.choice(candidates)
+            candidates.remove(card_id)
+            selected.append(card_id)
+            threshold = 0.0 if rarity is CardRarity.RARE else (
+                (state.act - 1) * (0.125 if state.ascension >= 7 else 0.25)
+            )
+            upgraded.append(source_float(rewards_rng) <= threshold)
+        groups.append(tuple(selected))
+        rarities.append(tuple(rarity.value for _ in selected))
+        upgrades.append(tuple(upgraded))
+    reward = _reward_with_card_option_groups(
+        state.reward, reward_id="glass_eye", source="other", groups=groups, rarities=rarities,
+        metadata={"source_relic_id": "glass_eye", "fixed_rarity_rewards": True},
+    )
+    metadata = dict(reward.metadata)
+    if state.reward is None:
+        metadata["card_option_upgraded"] = upgrades[0]
+        metadata["card_option_group_upgraded"] = tuple(upgrades[1:])
+    else:
+        metadata["card_option_group_upgraded"] = (
+            *_source_sequence(state.reward.metadata.get("card_option_group_upgraded")), *upgrades,
+        )
+    reward = reward.model_copy(update={"metadata": metadata})
+    return state.model_copy(update={"reward": reward}), _reward_generated_events(reward)
 
 
 def _apply_sea_glass_card_selection(
@@ -8673,6 +8717,7 @@ def _apply_lords_parasol(
     if not _has_relic(state, "lords_parasol", "lord's_parasol", "lord_parasol"):
         return None, ()
 
+    original_relics = state.relics
     update, gained_ids = _shop_gain_all_non_service_items(state, shop)
     update["shop"] = shop.model_copy(
         update={
@@ -8682,15 +8727,40 @@ def _apply_lords_parasol(
             )
         }
     )
+    state = state.model_copy(update=update)
+    pickup_events: tuple[EffectEvent, ...] = ()
+    if _normalized_id(state.character_id) != "test":
+        for relic_id in tuple(state.relics):
+            if relic_id not in original_relics:
+                state, relic_events = _apply_relic_pickup_effects(state, relic_id)
+                pickup_events += relic_events
+    choice_events: tuple[EffectEvent, ...] = ()
+    if _normalized_id(state.character_id) != "test" and state.shop is not None:
+        removal_index = next((i for i, item in enumerate(state.shop.items)
+                              if item.kind == ShopItemKind.CARD_REMOVAL.value), None)
+        marker = RelicEffectMarker(
+            kind="remove_deck_cards", relic_id="lords_parasol", amount=1,
+            metadata={"selection": "chosen"},
+        )
+        if removal_index is not None and _relic_marker_deck_candidates(state.master_deck, marker):
+            items = list(state.shop.items)
+            items[removal_index] = items[removal_index].model_copy(update={"purchased": True})
+            count = state.shop.card_removals_bought + 1
+            state = state.model_copy(update={
+                "shop": state.shop.model_copy(update={"items": tuple(items),
+                                                       "card_removals_bought": count}),
+                "flags": {**state.flags, "shop_card_removals_bought": count},
+            })
+            state, choice_events = _queue_relic_deck_choice(state, "lords_parasol", marker)
     return (
-        state.model_copy(update=update),
+        state,
         (
             EffectEvent(
                 kind="lords_parasol_claimed_shop",
                 amount=len(gained_ids),
                 metadata={"item_ids": gained_ids},
             ),
-        ),
+        ) + pickup_events + choice_events,
     )
 
 
@@ -8708,11 +8778,12 @@ def _shop_gain_all_non_service_items(
         kind = ShopItemKind(item.kind)
         if kind in {ShopItemKind.CARD, ShopItemKind.COLORLESS_CARD}:
             gained_ids.append(item.item_id)
+            source_spec = _reward_card_spec(state, item.item_id)
             card = _card_from_spec(
                 {
+                    **source_spec,
                     "instance_id": f"shop_free_{len(state.replay_log)}_{index}",
                     "card_id": item.item_id,
-                    "name": item.item_id,
                 },
                 len(deck) + 1,
             )
@@ -8721,7 +8792,10 @@ def _shop_gain_all_non_service_items(
             gained_ids.append(item.item_id)
             relics.append(item.item_id)
         elif kind is ShopItemKind.POTION:
-            if len(potions) < _potion_capacity(state, relics=relics):
+            if (
+                not _has_relic_id(relics, "sozu")
+                and len(potions) < _potion_capacity(state, relics=relics)
+            ):
                 gained_ids.append(item.item_id)
                 potions.append(item.item_id)
     return {
@@ -8934,7 +9008,11 @@ def _restock_shop_slot(
 def _source_shop_relic_selector(
     state: RunState, flags: dict[str, Any], *, excluded_ids: Iterable[str] = (),
 ) -> Callable[[str], ShopItem] | None:
-    if not has_source_relic_bag(state):
+    if (
+        not has_source_relic_bag(state)
+        or _normalized_id(state.character_id) == "test"
+        or _source_items(state.flags.get("shop_relic_pool"))
+    ):
         return None
     rows = {
         _normalized_id(str(row.get("id", ""))): row
@@ -8947,7 +9025,8 @@ def _source_shop_relic_selector(
             state, flags, rarity, from_back=True, for_shop=True,
             excluded_ids=tuple(excluded_ids),
         )
-        actual_rarity = _normalized_id(str(rows.get(relic_id, {}).get("rarity", rarity)))
+        row = rows.get(relic_id, {})
+        actual_rarity = _normalized_id(str(row.get("rarity_key", row.get("rarity", rarity))))
         if relic_id == "circlet":
             actual_rarity = "shop"  # Source default MerchantCost200.
         return ShopItem(
@@ -13189,6 +13268,7 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             exhaust_movement_events,
         )
         events.extend(exhaust_trigger_events)
+        rng = random_from_state(rng_state)
 
     turn_end_relics = _resolve_combat_relic_trigger(
         GameTrigger.TURN_END,
@@ -13293,6 +13373,11 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         )))
     combat, potion_expiry_events = _expire_temporary_potion_stats(combat)
     events.extend(potion_expiry_events)
+    combat, joss_rng_state, joss_events = _flush_joss_paper_ethereal(
+        state, combat, capture_random_state(rng),
+    )
+    rng = random_from_state(joss_rng_state)
+    events.extend(joss_events)
     player = combat.player
     monster_definitions = _monster_definitions(state)
     # v0.107.1 resets Skulking Colony's budget at both turn starts, so Poison
@@ -23286,8 +23371,24 @@ def _apply_card_exhausted_triggers_from_events(
                                 context={"exhausted_card": exhausted_card},
                             )
                             events.extend(inherent_events)
+        hook_state = state.model_copy(update={"combat": combat, "player": combat.player})
+        if (
+            _normalized_id(state.character_id) != "test"
+            and _has_relic(state, "joss_paper")
+            and event.metadata.get("reason") == "ethereal_end_turn"
+        ):
+            combat = combat.model_copy(update={"metadata": {
+                **combat.metadata,
+                "joss_paper_ethereal_pending": _metadata_int(
+                    combat.metadata, "joss_paper_ethereal_pending", 0,
+                ) + 1,
+            }})
+            hook_state = hook_state.model_copy(update={
+                "relics": tuple(relic for relic in state.relics
+                                if _normalized_id(relic) != "joss_paper"),
+            })
         combat, rng_state, relic_events = _apply_runtime_relic_hook(
-            state.model_copy(update={"combat": combat, "player": combat.player}),
+            hook_state,
             combat,
             rng_state,
             GameTrigger.CARD_EXHAUSTED,
@@ -23309,6 +23410,24 @@ def _apply_card_exhausted_triggers_from_events(
         )
         events.extend(trigger_events)
     return combat, rng_state, tuple(events)
+
+
+def _flush_joss_paper_ethereal(
+    state: RunState, combat: CombatState, rng_state: RngState,
+) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    pending = _metadata_int(combat.metadata, "joss_paper_ethereal_pending", 0)
+    if pending <= 0:
+        return combat, rng_state, ()
+    counters = _combat_relic_counters(combat)
+    count = counters.get("joss_paper", 0) + pending
+    counters["joss_paper"] = count % 5
+    metadata = dict(combat.metadata)
+    metadata.pop("joss_paper_ethereal_pending", None)
+    metadata["relic_counters"] = counters
+    combat = combat.model_copy(update={"metadata": metadata})
+    if count < 5:
+        return combat, rng_state, ()
+    return _draw_cards(combat, rng_state, count // 5, relics=state.relics)
 
 
 def _apply_player_resource_effect(
