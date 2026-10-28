@@ -233,9 +233,9 @@ from . import (
     source_core_hooks,
     source_cost_hooks,
     source_enchantment_hooks,
+    source_item_selection,
     source_keyword_hooks,
     source_modifier_hooks,
-    source_item_selection,
 )
 from .errors import EngineError, IllegalActionError
 from .models import (
@@ -8015,7 +8015,9 @@ def _relic_deck_choice_candidates(
         and (marker.kind != "upgrade_deck_cards" or _card_is_upgradable(card))
     )
     if str(choice.get("relic_id", "")).lower() == "royal_stamp":
-        order = {identifier: i for i, identifier in enumerate(_string_items(choice.get("candidate_ids")))}
+        order = {identifier: i for i, identifier in enumerate(
+            _string_items(choice.get("candidate_ids")),
+        )}
         return tuple(sorted(candidates, key=lambda card: order[card.instance_id]))
     return candidates
 
