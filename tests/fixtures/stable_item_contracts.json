@@ -125,6 +125,26 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Extensions/IEnumerableExtensions.cs",
       "sha256": "d6062ab2a496c6d21aba6bdd48937a1097858f46197f2c17f2cbac7177b494a5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BloodPotion.cs",
+      "sha256": "1c4e95aa8373a3d62a7e607479c73dfb1fc2f0cf3733a4912e358df85e9f45f3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FruitJuice.cs",
+      "sha256": "63737f83ad6ff0565a4257ab7236060b35767a176d27c841cdb832860d2106d1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/EntropicBrew.cs",
+      "sha256": "3bc1c6a4176e7bc53f4693832df5ce40e6575aaddc6f1efe11a79e2094950203"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Fortifier.cs",
+      "sha256": "837b3ed1d6c58533548e794e51ba08f2a79fc91c9bbfac441d807844c3737ee8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ScrollBoxes.cs",
+      "sha256": "0199d9370fac6d20d9dffeeb668dac478a3983fdac5ded24ea0f98711ad3d1cc"
     }
   ],
   "cached_source_rows": {

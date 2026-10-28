@@ -209,11 +209,12 @@ def test_scroll_boxes_missing_source_pool_is_explicitly_blocked() -> None:
 )
 def test_defect_claw_pack_exception_is_independent_for_each_pack(rolls, expected: int) -> None:
     class PackRng(Random):
-        def sample(self, population, k, **kwargs):
-            return list(population)[:k]
+        def choice(self, population):
+            return population[0]
 
-        def random(self):
-            return next(self.rolls)
+        def randrange(self, stop):
+            assert stop == 100
+            return int(next(self.rolls) * 100)
 
     rng = PackRng(1)
     rng.rolls = iter(rolls)
@@ -226,6 +227,32 @@ def test_defect_claw_pack_exception_is_independent_for_each_pack(rolls, expected
     )
     packs = scroll_boxes_packs(rng, cards, character_id="DEFECT")
     assert sum(pack == ("claw",) * 3 for pack in packs) == expected
+
+
+def test_scroll_boxes_rolls_before_drawing_each_pack_and_displays_commons_first() -> None:
+    class PackRng(Random):
+        calls = []
+
+        def randrange(self, stop):
+            self.calls.append(("claw_roll", stop))
+            return 50
+
+        def choice(self, population):
+            self.calls.append(("card", tuple(population)))
+            return population[0]
+
+    rng = PackRng(1)
+    cards = build_character_card_pool(
+        (*({**card, "color": "defect"} for card in PACK_CARDS),
+         {"id": "CLAW", "rarity": "Common", "color": "defect", "type": "Attack"}),
+        character_id="DEFECT",
+    )
+    packs = scroll_boxes_packs(rng, cards, character_id="DEFECT")
+    assert [kind for kind, _ in rng.calls] == ["claw_roll", "card", "card", "card"] * 2
+    for pack in packs:
+        assert pack[-1] in {"card_4", "card_5"}
+        assert all(card not in {"card_4", "card_5"} for card in pack[:2])
+    assert len(set(sum(packs, ()))) == 6
 
 
 @pytest.mark.parametrize("starter,upgraded", ANCIENT_STARTER_RELICS.items())

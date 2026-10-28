@@ -672,6 +672,13 @@ def _with_potion_discard_actions(
     actions: Sequence[Action],
 ) -> tuple[Action, ...]:
     base_actions = tuple(actions)
+    if state.phase not in {RunPhase.COMBAT, RunPhase.FAILED, RunPhase.COMPLETE}:
+        base_actions += tuple(
+            Action(type=ActionType.USE_POTION, target_id=PLAYER_TARGET_ID,
+                   payload={"potion_slot": _potion_slot_id(index), "potion_id": potion_id})
+            for index, potion_id in enumerate(state.potions)
+            if _normalized_id(potion_id) in {"blood_potion", "fruit_juice", "entropic_brew"}
+        )
     if not _should_offer_potion_discard(state):
         return base_actions
     return base_actions + tuple(
@@ -4981,7 +4988,9 @@ def _use_potion(
     state: RunState,
     action: Action,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    if state.phase != RunPhase.COMBAT or state.combat is None:
+    if state.phase != RunPhase.COMBAT:
+        return _use_noncombat_potion(state, action)
+    if state.combat is None:
         return state, ()
 
     slot_id = action.payload.get("potion_slot")
@@ -5115,6 +5124,51 @@ def _use_potion(
     )
 
 
+def _use_noncombat_potion(
+    state: RunState, action: Action,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    slot_id = action.payload.get("potion_slot")
+    if not isinstance(slot_id, str):
+        return state, ()
+    try:
+        index = _parse_potion_slot_id(slot_id)
+        potion_id = state.potions[index] if index >= 0 else ""
+    except (ValueError, IndexError):
+        return state, ()
+    normalized = _normalized_id(potion_id)
+    if normalized not in {"blood_potion", "fruit_juice", "entropic_brew"}:
+        return state, ()
+    player = state.player
+    potions = state.potions[:index] + state.potions[index + 1:]
+    events = [EffectEvent(kind="potion_used", source_id=potion_id,
+                          target_id=PLAYER_TARGET_ID, metadata={"potion_slot": slot_id})]
+    if normalized == "fruit_juice":
+        player = _change_player_max_hp(player, 5)
+        events.append(EffectEvent(kind="player_max_hp_gained", source_id=potion_id,
+                                  target_id=PLAYER_TARGET_ID, amount=5))
+    elif normalized == "blood_potion":
+        healed = min(player.max_hp - player.hp, max(0, player.max_hp // 5))
+        player = player.model_copy(update={"hp": player.hp + healed})
+        events.append(EffectEvent(kind="player_healed", source_id=potion_id,
+                                  target_id=PLAYER_TARGET_ID, amount=healed))
+    result = resolve_potion_use_triggers(PotionUseTriggerContext(
+        potion=potion_id, slot_index=index, slot_id=slot_id, target_id=PLAYER_TARGET_ID,
+        use_mode=state.phase.value, player_hp=player.hp, player_max_hp=player.max_hp,
+        owned_relics=state.relics,
+    ))
+    if result.max_hp_delta:
+        player = _change_player_max_hp(player, result.max_hp_delta)
+    if result.hp_delta:
+        player = player.model_copy(update={"hp": min(player.max_hp, player.hp + result.hp_delta)})
+    events.extend(_trigger_effect_events(result.effects))
+    state = state.model_copy(update={"player": player, "potions": potions})
+    if normalized == "entropic_brew":
+        potions, rng, generated = _fill_empty_potion_slots(state, state.rng, source_id=potion_id)
+        state = state.model_copy(update={"potions": potions, "rng": rng})
+        events.extend(generated)
+    return state, tuple(events)
+
+
 def _apply_potion_use_trigger_result(
     combat: CombatState,
     result: PotionUseTriggerResult,
@@ -5173,8 +5227,8 @@ def _apply_direct_potion_effects(
             )
         )
     elif normalized == "fortifier":
-        gained = player.block * 2
-        player = player.model_copy(update={"block": player.block * 3})
+        gained = min(player.block * 2, max(0, 999_999_999 - player.block))
+        player = player.model_copy(update={"block": player.block + gained})
         events.append(
             EffectEvent(
                 kind="player_block",
@@ -8362,7 +8416,7 @@ def _start_combat_for_node(
                 source_id="fur_coat",
                 target_id=monster.monster_id,
                 amount=1,
-                metadata={"node_id": node.node_id, "max_hp": 1},
+                metadata={"node_id": node.node_id, "max_hp": monster.max_hp},
             )
             for monster in combat.monsters
         )
@@ -22336,6 +22390,7 @@ def _apply_player_turn_start_effects(
 
     block = max(0, int(statuses.pop("next_turn_block", 0)))
     if block:
+        block = min(block, max(0, 999_999_999 - player.block))
         player = player.model_copy(update={"block": player.block + block})
         events.append(EffectEvent(kind="player_block", target_id=PLAYER_TARGET_ID, amount=block))
 

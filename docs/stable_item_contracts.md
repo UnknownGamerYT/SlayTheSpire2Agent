@@ -45,6 +45,15 @@ cases in `test_stable_item_contracts.py`. The free-energy-until-played cleanup
 integration is shared with the core-card source patch; absent profile unlock facts
 still mean an explicitly assumed fully unlocked profile.
 
+The third family adds four newly corrected items: Blood Potion, Fruit Juice,
+and Entropic Brew expose their source `AnyTime` use in noncombat phases, while
+combat-only/manual-unusable potions remain masked. Scroll Boxes rolls each
+Defect Claw exception before selecting that bundle, draws common/common/uncommon
+sequentially without replacement, preserves source pool order, and uses the
+player rewards stream. An extra source-contract test records the RNG call order.
+Fortifier and delayed potion Block also obey the source Block cap. Fur Coat's
+replay event now records the preserved maximum HP.
+
 Implementation source:
 [pinned repository](https://github.com/zhiyue/sts2-rl-agent/tree/5d874e855ae1d0550d5c30416fadd7dbb0d133b7),
 `Models.Potions/{GlowwaterPotion,LiquidMemories,GigantificationPotion,BeetleJuice,PowderedDemise}.cs`,

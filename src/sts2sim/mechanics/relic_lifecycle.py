@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from random import Random
 
+from sts2sim.content.source_card_pools import SOURCE_CARD_POOLS
 from sts2sim.content.sources import SourceRef
+from sts2sim.engine.rng import random_stream
 
 from .reward_pools import RewardPoolCard
 from .rewards import CardRarity
@@ -32,7 +34,7 @@ ANCIENT_STARTER_RELICS = {
 def scroll_boxes_packs(
     rng: Random, cards: Sequence[RewardPoolCard], *, character_id: str
 ) -> tuple[tuple[str, ...], ...]:
-    """Draw both packs without replacement, then apply Defect's Claw exception.
+    """Roll each pack's Claw exception before its common/common/uncommon draws.
 
     Empty or incomplete source pools are explicit errors rather than invented
     card contents. Character filtering belongs to the supplied reward pool.
@@ -43,11 +45,24 @@ def scroll_boxes_packs(
     )
     if len(common) < 4 or len(uncommon) < 2:
         raise ValueError("Scroll Boxes requires four common and two uncommon source cards.")
-    commons = rng.sample(common, 4)
-    uncommons = rng.sample(uncommon, 2)
-    packs = [(uncommons[index], *commons[index * 2 : index * 2 + 2]) for index in range(2)]
-    if character_id.lower() == "defect":
-        if not any(card.card_id == "claw" for card in cards):
-            raise ValueError("Defect Scroll Boxes requires the source Claw card.")
-        packs = [("claw",) * 3 if rng.random() < 0.01 else pack for pack in packs]
+    order = {card_id: index for index, card_id in enumerate(
+        SOURCE_CARD_POOLS.get(character_id.lower(), ()),
+    )}
+    common.sort(key=lambda card_id: order.get(card_id, len(order)))
+    uncommon.sort(key=lambda card_id: order.get(card_id, len(order)))
+    rewards_rng = random_stream(rng, "rewards")
+    if character_id.lower() == "defect" and not any(card.card_id == "claw" for card in cards):
+        raise ValueError("Defect Scroll Boxes requires the source Claw card.")
+    packs = []
+    for _ in range(2):
+        if character_id.lower() == "defect" and rewards_rng.randrange(100) < 1:
+            packs.append(("claw",) * 3)
+            continue
+        first = rewards_rng.choice(common)
+        common.remove(first)
+        second = rewards_rng.choice(common)
+        common.remove(second)
+        third = rewards_rng.choice(uncommon)
+        uncommon.remove(third)
+        packs.append((first, second, third))
     return tuple(packs)

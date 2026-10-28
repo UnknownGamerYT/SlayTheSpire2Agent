@@ -10,6 +10,7 @@ from combat.test_glam import _end_turn, _play
 
 from sts2sim import legal_actions, serialize, step
 from sts2sim.agent_api import action_space
+from sts2sim.engine import RunPhase
 
 
 def _potion(state, potion_id, target_id=None):
@@ -270,4 +271,40 @@ def test_free_to_play_potions_remove_star_cost_and_restore_at_printed_duration(p
     playable = any(a.type == "play_card" and a.card_instance_id == "costly"
                    for a in legal_actions(state))
     assert playable == (potion_id == "touch_of_insanity")
+
+
+@pytest.mark.parametrize("phase", [RunPhase.MAP, RunPhase.REWARD, RunPhase.EVENT])
+@pytest.mark.parametrize("potion_id", ["blood_potion", "fruit_juice", "entropic_brew"])
+def test_anytime_potions_are_legal_outside_combat_and_preserve_current_flow(phase, potion_id):
+    state = _state(_simple("unused"))
+    player = state.player.model_copy(update={"hp": 40})
+    state = state.model_copy(update={"player": player, "combat": None, "phase": phase})
+    state = _potion(state, potion_id)
+    assert state.phase == phase
+    assert state.combat is None
+    if potion_id == "blood_potion":
+        assert (state.player.hp, state.player.max_hp) == (56, 80)
+    elif potion_id == "fruit_juice":
+        assert (state.player.hp, state.player.max_hp) == (45, 85)
+    else:
+        assert len(state.potions) == 3
+    assert any(e.kind == "potion_used" for e in state.replay_log[-1].events)
+
+
+def test_combat_only_potions_remain_masked_outside_combat():
+    state = _state(_simple("unused"))
+    state = state.model_copy(update={"combat": None, "phase": RunPhase.MAP,
+                                     "potions": ("fire_potion", "fairy_in_a_bottle")})
+    assert not any(a.type == "use_potion" for a in legal_actions(state))
+
+
+@pytest.mark.parametrize("potion_id", ["block_potion", "fortifier"])
+def test_potion_block_respects_source_block_cap(potion_id):
+    state = _state(_simple("unused"))
+    player = state.player.model_copy(update={"block": 999_999_998})
+    state = state.model_copy(update={"player": player, "combat": state.combat.model_copy(
+        update={"player": player},
+    )})
+    state = _potion(state, potion_id)
+    assert state.player.block == 999_999_999
 
