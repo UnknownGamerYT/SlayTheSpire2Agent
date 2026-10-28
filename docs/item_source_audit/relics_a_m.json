@@ -4270,7 +4270,7 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -4278,7 +4278,8 @@
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:_neow",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_kaleidoscope.py:pickup"
       ],
       "retained_tests": [
         "tests/content/test_source_ancient_offers.py::test_neow_matches_independent_c_reference_and_native_normal_run",
@@ -4286,10 +4287,14 @@
         "tests/content/test_relic_handlers.py::test_remaining_non_combat_pickup_relics_return_source_backed_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
         "tests/content/test_ancient_logic.py::test_major_update_neow_relics_are_registered_without_shifting_legacy_seed_pool",
-        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_offers_two_usable_rewards_from_other_characters"
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_offers_two_usable_rewards_from_other_characters",
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_uses_two_pool_shuffles_and_six_full_factories",
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary",
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_manual_groups_apply_silver_crucible_once_per_group"
       ],
       "notes": [
-        "Source creates each three-card group from three distinct shuffled other unlocked character pools, with one RegularEncounter reward from each. Generic mixed other-character pool does not establish this color distribution."
+        "Two manual reward groups now each draw one reward from three distinct other unlocked character pools, using source Niche shuffle and full rarity/selection/upgrade factory draws. Per-factory and manual-group modifier callbacks are preserved.",
+        "Explicit empty custom RerollOptions are serialized and unavailable with source_empty_custom_card_pool diagnostic; source exception/UI handling remains unverified against installed Windows game."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"

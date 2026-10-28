@@ -1341,6 +1341,14 @@ def _ancient_card_reward_state(
     rng: Random,
     resolution: MechanicsAncientResolution,
 ) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
+    if (resolution.choice.relic_id == "kaleidoscope"
+        and _normalized_id(state.character_id) in PLAYABLE_CARD_POOLS):
+        from .source_kaleidoscope import pickup
+
+        result, events = pickup(state.model_copy(update={"reward": None}), rng)
+        return (result.reward or RewardState(
+            reward_id=f"ancient:{resolution.choice.option_id}", source="ancient",
+        )), events, result.flags
     base_choice_count = resolution.choice.card_reward_size
     base_group_count = max(0, resolution.card_reward_count - 1)
     reward_trigger = _reward_generation_result(
@@ -7668,6 +7676,11 @@ def _apply_relic_card_reward_marker(
     count = max(0, marker.amount or 1)
     if count <= 0:
         return state, ()
+    if (_normalized_id(relic_id) == "kaleidoscope"
+        and _normalized_id(state.character_id) in PLAYABLE_CARD_POOLS):
+        from .source_kaleidoscope import pickup
+
+        return pickup(state, rng)
     if _normalized_id(relic_id) == "sea_glass":
         return _apply_sea_glass_card_selection(state, rng)
     if _normalized_id(relic_id) == "arcane_scroll" and _normalized_id(state.character_id) != "test":

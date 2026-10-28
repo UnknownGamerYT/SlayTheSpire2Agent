@@ -7,6 +7,7 @@ import pytest
 
 from sts2sim import legal_actions, load_state, new_run, serialize, step
 from sts2sim.engine import AncientOptionState, AncientState, RewardState, RunPhase, RunState
+from sts2sim.engine.rng import RunRng, capture_random_state
 
 CARD_POOL: tuple[dict[str, Any], ...] = (
     *(
@@ -18,7 +19,7 @@ CARD_POOL: tuple[dict[str, Any], ...] = (
             "target": "Enemy",
             "damage": 6,
         }
-        for color in ("ironclad", "silent", "defect")
+        for color in ("ironclad", "silent", "regent", "necrobinder", "defect")
         for index in range(3)
     ),
     {"id": "SHARED_CARD", "color": "shared", "rarity": "Common", "type": "Skill"},
@@ -31,7 +32,7 @@ CARD_POOL: tuple[dict[str, Any], ...] = (
 OTHER_CHARACTER_IDS = {
     str(card["id"]).lower()
     for card in CARD_POOL
-    if card["color"] in {"silent", "defect"}
+    if card["color"] in {"silent", "regent", "necrobinder", "defect"}
     and card["rarity"] == "Common"
     and card["type"] == "Attack"
 }
@@ -93,6 +94,8 @@ def test_kaleidoscope_offers_two_usable_rewards_from_other_characters(ancient: b
     assert len(groups) == 2
     assert all(len(group) == 3 and len(set(group)) == 3 for group in groups)
     assert all(set(group) <= OTHER_CHARACTER_IDS for group in groups)
+    assert all(len({identifier.rsplit("_card_", 1)[0] for identifier in group}) == 3
+               for group in groups)
 
     initial_deck_size = len(state.master_deck)
     for _ in range(2):
@@ -132,3 +135,47 @@ def test_kaleidoscope_rewards_are_identical_after_json_save_reload(ancient: bool
     assert serialize(_pickup(state, ancient=ancient)) == serialize(
         _pickup(restored, ancient=ancient)
     )
+
+
+@pytest.mark.parametrize("ancient", [False, True])
+def test_kaleidoscope_uses_two_pool_shuffles_and_six_full_factories(ancient: bool) -> None:
+    state = _before_pickup(ancient=ancient)
+    state = state.model_copy(update={"rng": capture_random_state(RunRng(
+        "KALEIDOSCOPE", derivation="sts2.v0.107.1.utf16-djb2-splitmix64",
+    ))})
+    result = _pickup(state, ancient=ancient)
+    assert result.rng.streams["niche"].draws == 6
+    assert result.rng.streams["rewards"].draws == 18
+    assert result.reward.metadata["kaleidoscope_character_pool_groups"] == (
+        ("silent", "necrobinder", "regent"), ("necrobinder", "regent", "defect"),
+    )
+
+
+def test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary() -> None:
+    state = _before_pickup(ancient=False)
+    state = state.model_copy(update={"relics": (*state.relics, "driftwood")})
+    result = load_state(serialize(_pickup(state, ancient=False)))
+    assert not any(action.type == "reroll_reward" for action in legal_actions(result))
+    contexts = result.reward.metadata["card_reroll_contexts"]
+    for key in ("primary", "group:0"):
+        assert contexts[key]["custom_pool"] is True
+        assert tuple(contexts[key]["pools"]) == tuple(contexts[key]["card_ids"]) == ()
+        assert contexts[key]["unsupported_reason"] == "source_empty_custom_card_pool"
+        assert contexts[key]["availability"] == "unsupported"
+
+
+def test_kaleidoscope_manual_groups_apply_silver_crucible_once_per_group() -> None:
+    from sts2sim.engine.rng import random_from_state
+    from sts2sim.engine.source_card_reward_modifiers import apply_card_reward_modifiers
+    from sts2sim.engine.source_kaleidoscope import pickup
+
+    state = _before_pickup(ancient=False)
+    state = state.model_copy(update={"relics": (*state.relics, "silver_crucible")})
+    result, events = pickup(state, random_from_state(state.rng))
+    silver = [event for event in events if event.source_id == "silver_crucible"]
+    assert len(silver) == 2
+    assert all(event.metadata["is_card_reward"] for event in silver)
+    assert result.flags["silver_crucible_times_used"] == 2
+    repeated, events = apply_card_reward_modifiers(result)
+    assert repeated.flags["silver_crucible_times_used"] == 2
+    assert events == ()
