@@ -81,9 +81,12 @@ def test_cli_writes_machine_readable_fingerprint_and_returns_failure_for_wrong_b
     assert result.exit_code == 0, result.output
     assert json.loads(output.read_text())["matches_target_metadata"] is True
     (directory.parent.parent / "appmanifest_2868840.acf").unlink()
-    result = CliRunner().invoke(app, ["inspect-game-installation", "--game-dir", str(directory)])
+    result = CliRunner().invoke(app, [
+        "inspect-game-installation", "--game-dir", str(directory), "--output", str(output),
+    ])
     assert result.exit_code == 1
     assert json.loads(result.output)["matches_target_metadata"] is False
+    assert json.loads(output.read_text())["matches_target_metadata"] is False
 
 
 def test_invalid_release_json_does_not_execute_any_binary(tmp_path: Path) -> None:

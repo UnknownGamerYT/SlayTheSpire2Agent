@@ -3678,7 +3678,11 @@ def inspect_installed_game(
     except (BackendUnavailable, ValueError, RuntimeError, OSError) as exc:
         _backend_error(exc)
     payload = _emit(result)
-    _write_result_if_missing(output_path, payload)
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+        )
     if not payload.get("matches_target_metadata", False):
         raise typer.Exit(1)
 
