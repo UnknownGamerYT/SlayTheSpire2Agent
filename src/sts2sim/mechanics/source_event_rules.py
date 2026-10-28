@@ -56,6 +56,9 @@ class SourceEventRule:
     wongo_points: int = 0
     generated_groups: int = 1
     defer_selection: bool = False
+    reward_relics: bool = False
+    random_potion_rewards: int = 0
+    cards_after_relics: bool = False
 
     def payload(self) -> dict[str, object]:
         return asdict(self)
@@ -107,11 +110,18 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "LIGHT": R(upgrade_random=2, stable_upgrade_shuffle=True),
         "DARK": R(selection="remove"),
     },
-    "DROWNING_BEACON": {"CLIMB": R(N(max_hp_delta=-13), add_relics=("fresnel_lens",))},
-    "FIELD_OF_MAN_SIZED_HOLES": {
-        "RESIST": R(selection="remove", count=2, add_cards=("normality",))
+    "DROWNING_BEACON": {
+        "CLIMB": R(N(max_hp_delta=-13), add_relics=("fresnel_lens",)),
+        "BOTTLE": R(fixed_potion_rewards=("glowwater_potion",)),
     },
-    "GRAVE_OF_THE_FORGOTTEN": {"ACCEPT": R(add_relics=("forgotten_soul",))},
+    "FIELD_OF_MAN_SIZED_HOLES": {
+        "RESIST": R(selection="remove", count=2, add_cards=("normality",)),
+        "ENTER_YOUR_HOLE": R(selection="enchant", enchant="PerfectFit")
+    },
+    "GRAVE_OF_THE_FORGOTTEN": {
+        "ACCEPT": R(add_relics=("forgotten_soul",)),
+        "CONFRONT": R(selection="enchant", enchant="SoulsPower", add_cards=("decay",)),
+    },
     "HUNGRY_FOR_MUSHROOMS": {
         "BIG_MUSHROOM": R(add_relics=("big_mushroom",)),
         "FRAGRANT_MUSHROOM": R(add_relics=("fragrant_mushroom",)),
@@ -130,6 +140,7 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "GRAB_POTIONS": R(fixed_potion_rewards=("foul_potion",) * 3),
         "RANSACK": R(uniform_potion_reward=True, potion_rarity="uncommon"),
     },
+    "PUNCH_OFF": {"NAB": R(add_cards=("injury",), random_relic=True, reward_relics=True)},
     "REFLECTIONS": {
         "TOUCH_A_MIRROR": R(downgrade_random=2, upgrade_random=4),
         "SHATTER": R(add_cards=("bad_luck",), duplicate_deck=True),
@@ -181,7 +192,9 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "NAB_THE_MAP": R(add_cards=("spoils_map",)),
         "SLOWLY_FIND_AN_EXIT": R(N(hp_loss=8), uniform_potion_reward=True),
     },
-    "THIS_OR_THAT": {"ORNATE": R(add_cards=("clumsy",), random_relic=True)},
+    "THIS_OR_THAT": {
+        "ORNATE": R(add_cards=("clumsy",), random_relic=True, cards_after_relics=True)
+    },
     "TRASH_HEAP": {
         "DIVE_IN": R(
             N(hp_loss=8),
@@ -236,9 +249,13 @@ SOURCE_EVENT_RULES: dict[str, dict[str, SourceEventRule]] = {
         "BOTTLE": R(uniform_potion_reward=True),
         "BATHE": R(selection="remove", add_cards=("guilty",)),
     },
-    "WHISPERING_HOLLOW": {"HUG": R(N(hp_loss=9), selection="transform")},
+    "WHISPERING_HOLLOW": {
+        "HUG": R(N(hp_loss=9), selection="transform", selection_first=True),
+        "GOLD": R(random_potion_rewards=2),
+    },
     "WOOD_CARVINGS": {
         "BIRD": R(selection="transform", basic_only=True, target_card="peck"),
+        "SNAKE": R(selection="enchant", enchant="Slither"),
         "TORUS": R(selection="transform", basic_only=True, target_card="toric_toughness"),
     },
     "ZEN_WEAVER": {

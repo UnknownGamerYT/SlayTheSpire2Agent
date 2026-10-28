@@ -312,3 +312,56 @@ def test_fake_merchant_shuffles_six_and_prices_them_before_multiple_purchases():
     assert len(result.event.options) == 6
     assert relic not in result.event.metadata['fake_merchant_unsold_relic_ids']
     assert result.rng.streams['shops'].draws == 6
+
+
+def test_punch_nab_adds_injury_then_offers_front_bag_relic_for_optional_claim():
+    state = _bag(_event('PUNCH_OFF'))
+    result = _choose(state, 'nab')
+    assert result.master_deck[-1].card_id == 'injury'
+    assert result.reward.relic_ids == ('kunai',)
+    assert 'kunai' not in result.relics
+    assert result.rng.streams['PUNCH_OFF'].draws == 1
+    assert result.rng.streams['rewards'].draws == 1
+    assert result.flags['player_relic_bag']['Uncommon'] == ('INK_BOTTLE',)
+
+
+def test_whispering_gold_uses_potion_factory_twice_and_preserves_model_draw():
+    state = _event('WHISPERING_HOLLOW')
+    result = _choose(state, 'gold')
+    assert result.player.gold == 256
+    assert len(result.reward.potion_ids) == 2
+    assert result.rng.streams['WHISPERING_HOLLOW'].draws == 1
+    assert result.rng.streams['rewards'].draws == 4
+
+
+def test_native_other_enchanters_have_explicit_keywords_and_no_extra_rewards():
+    for event_id, option_id, keyword in (
+        ('FIELD_OF_MAN_SIZED_HOLES', 'enter_your_hole', 'PerfectFit'),
+        ('GRAVE_OF_THE_FORGOTTEN', 'confront', 'SoulsPower'),
+        ('WOOD_CARVINGS', 'snake', 'Slither')):
+        state = _event(event_id)
+        if event_id == 'GRAVE_OF_THE_FORGOTTEN':
+            card = state.master_deck[0].model_copy(update={'exhausts': True})
+            state = state.model_copy(update={'master_deck': (card, *state.master_deck[1:])})
+        action = next(action for action in legal_actions(state) if action.target_id == option_id)
+        result = step(state, action)
+        assert any(card.enchantments and card.enchantments[-1].keyword == keyword
+                   for card in result.master_deck)
+        assert result.reward is None
+        if event_id == 'GRAVE_OF_THE_FORGOTTEN':
+            assert result.master_deck[-1].card_id == 'decay'
+
+
+def test_drowning_bottle_offers_fixed_glowwater_without_random_draws():
+    result = _choose(_event('DROWNING_BEACON'), 'bottle')
+    assert result.reward.potion_ids == ('glowwater_potion',)
+    assert all(stream.draws == 0 for stream in result.rng.streams.values())
+
+
+def test_reflections_can_downgrade_and_upgrade_eternal_cards():
+    state = _event('REFLECTIONS')
+    card = e._upgrade_card_instance(state.master_deck[0]).model_copy(update={'tags': ('eternal',)})
+    state = state.model_copy(update={'master_deck': (card,)})
+    result = _choose(state, 'touch_a_mirror')
+    assert result.master_deck[0].upgraded
+    assert result.rng.streams['REFLECTIONS'].draws == 2

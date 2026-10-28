@@ -3467,7 +3467,8 @@ def _choose_source_native_event(
     card_pool = _string_items(rule.get("card_pool"))
     if card_pool:
         add_cards.append(rng.choice(card_pool))
-    for card_id in add_cards:
+    deferred_card_ids = tuple(add_cards) if rule.get("cards_after_relics") else ()
+    for card_id in (() if deferred_card_ids else add_cards):
         spec = _reward_card_spec(next_state, card_id)
         spec["card_id"] = card_id
         card = _with_unique_deck_card_id(_card_from_spec(spec, len(deck) + 1), deck)
@@ -3510,11 +3511,16 @@ def _choose_source_native_event(
             next_state = next_state.model_copy(update={"flags": flags})
         else:
             relic_ids.extend(_draw_event_relic_ids(next_state, rng, 1))
-    for relic_id in relic_ids:
+    for relic_id in (() if rule.get("reward_relics") else relic_ids):
         next_state = next_state.model_copy(update={"rng": capture_random_state(rng)})
         next_state, obtained = _add_event_relic(next_state, relic_id)
         rng = random_stream(random_from_state(next_state.rng), state.event.event_id.upper())
         events.extend(obtained)
+    if deferred_card_ids:
+        next_state, added = _apply_event_flow_markers(next_state, tuple(
+            EventFlowMarker(kind=EventFlowMarkerKind.CARD_ADD, item_id=card_id)
+            for card_id in deferred_card_ids), rng)
+        events.extend(added)
     if rule.get("heal_to_full") and next_state.player.hp > 0:
         healed = next_state.player.max_hp - next_state.player.hp
         next_state = next_state.model_copy(update={"player": next_state.player.model_copy(
@@ -3522,6 +3528,9 @@ def _choose_source_native_event(
         if healed:
             events.append(EffectEvent(kind="event_healed", amount=healed))
     potion_ids = list(_string_items(rule.get("fixed_potion_rewards")))
+    for _ in range(_coerce_int(rule.get("random_potion_rewards"), default=0)):
+        potion_ids.append(draw_source_potion(random_stream(rng, "rewards"),
+            _combat_potion_pool(next_state), _combat_potion_rarities(next_state)))
     if rule.get("uniform_potion_reward"):
         pool = _combat_potion_pool(next_state)
         rarity = str(rule.get("potion_rarity", ""))
@@ -3550,6 +3559,10 @@ def _choose_source_native_event(
                 "card_option_upgraded": (tuple(True for _ in generated_ids)
                     if rule.get("force_generated_upgrade") else generated_upgrades),
                 "card_option_group_upgraded": tuple(upgrade_groups[1:])})
+        events.extend(_reward_generated_events(reward))
+    if relic_ids and rule.get("reward_relics"):
+        reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
+                             source="event", relic_ids=tuple(relic_ids))
         events.extend(_reward_generated_events(reward))
     if potion_ids:
         reward = RewardState(reward_id=f"event:{state.event.event_id}:{option.option_id}",
@@ -4030,7 +4043,10 @@ def _upgrade_all_deck_cards(
     deck = list(state.master_deck)
     events: list[EffectEvent] = []
     for index, card in enumerate(deck):
-        if card.upgraded or _deck_card_mutation_blocked(card):
+        if card.upgraded or (not is_source_rng(state.rng) and _deck_card_mutation_blocked(card)):
+            continue
+        if is_source_rng(state.rng) and card.type not in {
+                CardType.ATTACK, CardType.SKILL, CardType.POWER}:
             continue
         deck[index] = _upgrade_card_instance(card)
         events.append(
@@ -4080,7 +4096,7 @@ def _downgrade_random_deck_cards(
     candidates = [
         index
         for index, card in enumerate(deck)
-        if card.upgraded and not _deck_card_mutation_blocked(card)
+        if card.upgraded and (is_source_rng(rng) or not _deck_card_mutation_blocked(card))
     ]
     if is_source_rng(rng):
         candidates = source_sample(rng, candidates, min(max(0, count), len(candidates)))
@@ -4770,7 +4786,8 @@ def _apply_event_enchants(
         if card.instance_id not in selected:
             deck.append(card)
             continue
-        if _deck_card_mutation_blocked(card):
+        if (_deck_card_mutation_blocked(card) if not is_source_rng(state.rng)
+                else not source_can_enchant(card, keyword)):
             deck.append(card)
             events.append(
                 EffectEvent(
@@ -4834,7 +4851,8 @@ def _eligible_enchant_cards(
     return tuple(
         card
         for card in state.master_deck
-        if not _deck_card_mutation_blocked(card)
+        if (source_can_enchant(card, str(option.metadata.get("enchant_keyword", "")))
+            if is_source_rng(state.rng) else not _deck_card_mutation_blocked(card))
         and (card_type is None or card.type.value == str(card_type))
         and (not allowed_card_ids or _normalized_id(card.card_id) in allowed_card_ids)
         and (not requires_exhaust or card.exhausts or bool(card.effects.get("exhaust_on_play")))
@@ -5081,7 +5099,9 @@ def _upgrade_random_deck_cards(
     candidates = [
         index
         for index, card in enumerate(deck)
-        if not card.upgraded and not _deck_card_mutation_blocked(card)
+        if not card.upgraded and (not _deck_card_mutation_blocked(card) or is_source_rng(rng))
+        and (not is_source_rng(rng) or card.type in {
+            CardType.ATTACK, CardType.SKILL, CardType.POWER})
     ]
     if is_source_rng(rng):
         candidates = source_sample(rng, candidates, min(max(0, count), len(candidates)))
