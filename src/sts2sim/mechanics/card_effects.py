@@ -16,6 +16,7 @@ from typing import Any
 from .card_specials import card_special_plan
 from .powers import normalize_power_id, power_application_effect
 from .source_card_rules import source_execution_steps, source_play_restrictions
+from .source_class_rules import source_class_card_updates, source_class_steps
 from .source_core_rules import source_core_steps
 from .source_resource_rules import source_resource_steps
 
@@ -55,6 +56,7 @@ ENGINE_EFFECT_KEYS = frozenset(
         "set_hand_free_to_play_this_turn",
         "set_hand_cost",
         "self_cost_delta",
+        "source_class",
         "status",
         "status_formula",
         "upgrade_all_combat_cards",
@@ -193,6 +195,7 @@ def card_effect_plan(
             corrected.append(step)
         steps = tuple(corrected)
     steps = source_core_steps(card_spec, steps, card_library=card_library)
+    steps = source_class_steps(card_spec, steps)
     card: dict[str, Any] = {
         "card_id": card_id,
         "name": str(card_spec.get("name", card_id)),
@@ -217,6 +220,7 @@ def card_effect_plan(
         },
     ) + special_plan.events
     card["custom"].update(source_play_restrictions(card_spec))
+    card.update(source_class_card_updates(card_spec))
     if card_spec.get("is_x_cost") or card_spec.get("x_cost"):
         card["custom"]["x_cost"] = True
     if card_spec.get("is_x_star_cost"):

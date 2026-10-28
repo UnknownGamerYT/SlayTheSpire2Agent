@@ -16,7 +16,7 @@ def _soul_payload(*, upgraded: bool = False) -> dict:
             "name": "Soul+" if upgraded else "Soul",
             "type": "Skill",
             "target": "Self",
-            "cost": 1,
+            "cost": 0,
             "draw": draw,
             "description": f"Draw {draw} cards.",
             "keywords_key": ("Exhaust",),

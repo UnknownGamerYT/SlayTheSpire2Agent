@@ -156,6 +156,7 @@ from sts2sim.mechanics.shops import (
     ShopItem,
     ShopItemKind,
 )
+from sts2sim.mechanics.source_class_rules import source_class_card_updates
 from sts2sim.mechanics.source_debuff_rules import unique_debuff_count
 from sts2sim.mechanics.source_resource_rules import permitted_energy_delta
 from sts2sim.mechanics.treasure import (
@@ -173,7 +174,7 @@ from sts2sim.mechanics.triggers import (
 )
 from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
-from . import card_status_hooks, source_core_hooks
+from . import card_status_hooks, source_class_hooks, source_core_hooks
 from .errors import EngineError, IllegalActionError
 from .models import (
     PLAYER_TARGET_ID,
@@ -481,6 +482,8 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
 
 
 def _card_play_restrictions_match(combat: CombatState, card: CardInstance) -> bool:
+    if _normalized_id(card.card_id) == "high_five" and not _osty_state(combat).get("alive", True):
+        return False
     if card.custom.get("requires_attack_only_hand") and any(
         item.type != CardType.ATTACK for item in combat.hand
     ):
@@ -4212,7 +4215,10 @@ def _tinker_custom_card(marker: EventFlowMarker, instance_counter: int) -> CardI
     elif effect == "draw_cards":
         sequence.append({"draw": int(rider.get("draw", 3))})
     elif effect == "add_random_free_card_to_hand":
-        sequence.append({"add_random_card_to_hand": int(rider.get("random_card_count", 1))})
+        sequence.append({"add_random_card_to_hand": {
+            "count": int(rider.get("random_card_count", 1)),
+            "free_to_play_this_turn": True,
+        }})
     elif effect == "gain_strength_and_dexterity":
         sequence.append(
             {
@@ -8829,7 +8835,7 @@ def _draw_opening_hand(
             break
         innate_count += 1
     draw_amount = min(MAX_HAND_SIZE, max(0, amount, innate_count))
-    return _draw_cards(combat, rng_state, draw_amount, relics=relics)
+    return _draw_cards(combat, rng_state, draw_amount, relics=relics, from_hand_draw=True)
 
 
 def _resolve_combat_relic_trigger(
@@ -10901,6 +10907,17 @@ def _choose_card_for_pending_choice(
         combat = _replace_card_in_combat_zone(combat, pending_choice.zone, upgraded_card)
         events.append(EffectEvent(kind="card_upgraded", source_id=pending_choice.source_id,
                                   target_id=chosen.instance_id, amount=1))
+    elif pending_choice.kind == "add_keyword":
+        keyword = str(pending_choice.metadata.get("keyword", "ethereal"))
+        chosen = _card_with_added_keyword(chosen, keyword, 1,
+                                          source_id=pending_choice.source_id or "choice")
+        delta = _coerce_int(pending_choice.metadata.get("cost_delta"), default=0)
+        if delta and chosen.cost is not None and chosen.cost >= 0 and not _card_is_x_cost(chosen):
+            chosen = chosen.model_copy(update={"cost": chosen.cost + delta})
+        combat = _replace_card_in_combat_zone(combat, pending_choice.zone, chosen)
+        events.append(EffectEvent(kind="card_keyword_added", source_id=pending_choice.source_id,
+                                  target_id=chosen.instance_id, amount=1,
+                                  metadata={"keyword": keyword}))
     elif pending_choice.kind == "add_retain":
         custom = dict(chosen.custom)
         if pending_choice.metadata.get("retain_once") and not custom.get("retain"):
@@ -11313,7 +11330,10 @@ def _transformed_combat_card(
         str(card_spec.get("card_id", card_spec.get("id", fallback_card_id)))
     )
     card_spec["instance_id"] = old_card.instance_id
-    if _truthy(pending_choice.metadata.get("source_card_upgraded")):
+    if _truthy(pending_choice.metadata.get("upgrade_result", (
+        pending_choice.metadata.get("source_card_upgraded")
+        and _normalized_id(str(pending_choice.metadata.get("source_card_id", ""))) != "seance"
+    ))):
         card_spec["upgraded"] = True
 
     card_library = _card_library({"cards": _raw_card_pool_items(state)})
@@ -12453,6 +12473,7 @@ def _begin_next_player_turn(
             rng_state,
             draw_count,
             relics=state.relics,
+            from_hand_draw=True,
         )
         events.extend(draw_events)
         if _events_include_draw_pile_shuffle(draw_events):
@@ -15358,6 +15379,7 @@ def _apply_card_effects(
         combat, facing_events = _face_targeted_claw(combat, target_id)
         events.extend(facing_events)
     if is_card_play:
+        combat = source_class_hooks.before_play(combat, card, energy_spent)
         combat, card = _reserve_card_status_play(
             combat, card, energy_spent=energy_spent, move_physical=allow_extra_plays
         )
@@ -15428,6 +15450,7 @@ def _apply_card_effects(
             events.extend(burrow_events)
     if is_card_play:
         combat = card_status_hooks.record_player_attack(combat, card, events)
+        combat = source_class_hooks.after_play(combat, card)
     if signal_boost:
         combat = _queue_card_replay(
             combat, card, target_id=target_id, energy_spent=energy_spent,
@@ -15560,11 +15583,17 @@ def _apply_effect_step(
     )
     if core is not None:
         return core
+    class_payload = effect.get("source_class")
+    if isinstance(class_payload, Mapping):
+        return source_class_hooks.execute(
+            state, combat, rng_state, card, target_id, energy_spent, class_payload, relics,
+        )
     repeat = effect.get("repeat_damage")
     if isinstance(repeat, Mapping):
         basis = str(repeat.get("basis", ""))
         if basis == "energy_spent":
-            hits = energy_spent + _coerce_int(repeat.get("extra_hits"), default=0)
+            hits = _coerce_int(repeat.get("fixed_hits"), default=(
+                energy_spent + _coerce_int(repeat.get("extra_hits"), default=0)))
             threshold = _coerce_int(repeat.get("double_at"), default=0)
             if threshold and hits >= threshold:
                 hits *= 2
@@ -16264,6 +16293,7 @@ def _card_effect_condition_matches(
         "first_play_this_turn": lambda _: card.instance_id not in combat.cards_played_this_turn,
         "hand_has_no_attacks": lambda _: all(item.type != CardType.ATTACK for item in combat.hand),
         "hand_empty": lambda _: not combat.hand,
+        "osty_alive": lambda _: bool(_osty_state(combat).get("alive", True)),
         "exhaust_pile_at_least": lambda value: len(combat.exhaust_pile)
         >= _coerce_int(value, default=0),
         "exhausted_this_turn": lambda _: combat.metadata.get("last_exhaust_turn") == combat.turn,
@@ -17693,6 +17723,7 @@ def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardIn
     update = _mapping_from(updates.get(card.instance_id))
     if not update:
         return card
+    card = source_class_hooks.played_updates(card, update)
 
     card_updates: dict[str, Any] = {}
     cost_delta = _coerce_int(update.get("cost_delta"), default=0)
@@ -17813,6 +17844,7 @@ def _draw_cards(
     amount: int,
     *,
     relics: Sequence[str] = (),
+    from_hand_draw: bool = False,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     if amount <= 0:
         return combat, rng_state, ()
@@ -17913,7 +17945,10 @@ def _draw_cards(
                 "discard_pile": tuple(discard_pile),
                 "hand": tuple(hand),
                 "metadata": {**metadata, "chains_cards_drawn_this_turn": drawn_this_turn,
-                             "source_core_draws": int(metadata.get("source_core_draws", 0)) + drawn_count},
+                             "source_core_draws": int(metadata.get("source_core_draws", 0)) + drawn_count,
+                             "source_class_draws_turn": _metadata_int(
+                                 metadata, "source_class_draws_turn", 0
+                             ) + (0 if from_hand_draw else drawn_count)},
             }
         ),
         capture_random_state(rng),
@@ -18715,7 +18750,10 @@ def _set_pending_card_action_choice(
     action = _normalized_choice_action(payload.get("action"))
     zone = _normalized_choice_zone(payload.get("zone"))
     count = max(0, _int_from_mapping(payload, "count", 1))
+    if payload.get("hand_space_limit"):
+        count = min(count, max(0, MAX_HAND_SIZE - len(combat.hand)))
     if action not in {
+        "add_keyword",
         "add_retain",
         "upgrade",
         "add_sly",
@@ -18776,6 +18814,9 @@ def _set_pending_card_action_choice(
         metadata={
             "source_card_id": source_card.card_id,
             "source_card_upgraded": source_card.upgraded,
+            "upgrade_result": payload.get("upgrade_result"),
+            "keyword": payload.get("keyword"),
+            "cost_delta": payload.get("cost_delta"),
             "action": action,
             "destination": payload.get("destination"),
             "target_card_id": payload.get("target_card_id"),
@@ -18858,6 +18899,9 @@ def _card_matches_choice_payload(
     payload: Mapping[str, Any],
     state: RunState | None,
 ) -> bool:
+    excluded_keyword = str(payload.get("exclude_keyword", ""))
+    if excluded_keyword and _card_has_keyword(card, excluded_keyword):
+        return False
     card_types = {
         str(card_type).strip().lower().replace(" ", "_")
         for card_type in payload.get("card_types", ())
@@ -18923,6 +18967,8 @@ def _generated_choice_cards(
     generated: list[CardInstance] = []
     for index, spec in enumerate(selected, start=1):
         spec = dict(spec)
+        if payload.get("upgraded"):
+            spec["upgraded"] = True
         card_id = _normalized_id(str(spec.get("card_id", spec.get("id", f"choice_{index}"))))
         spec["card_id"] = card_id
         spec["instance_id"] = f"choice_{source_card.instance_id}_{index}_{card_id}"
@@ -22453,7 +22499,7 @@ def _tick_status_map(
     statuses = dict(combatant.statuses)
     events: list[EffectEvent] = []
     for status in ("weak", "vulnerable", "frail", "intangible", "retain_hand", "debilitate",
-                   "no_card_block_gain"):
+                   "no_card_block_gain", "reflect"):
         amount = statuses.get(status, 0)
         if amount <= 0:
             continue
@@ -24524,6 +24570,7 @@ def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     updated["osty_attacks_this_turn"] = 0
     updated["bound_cards_played_this_turn"] = 0
     updated["chains_cards_drawn_this_turn"] = 0
+    updated["source_class_draws_turn"] = 0
     extra_play_queue = tuple(
         item
         for item in _next_card_extra_play_queue(updated)
@@ -25206,6 +25253,7 @@ def _finalize_state_after_combat(
     rng_state: RngState,
     events: Sequence[EffectEvent],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    state, combat = source_class_hooks.persist_growth(state, combat)
     combat, black_hole_events = card_status_hooks.flush_black_hole(combat, relics=state.relics)
     if black_hole_events:
         events = tuple(events) + black_hole_events
@@ -27126,6 +27174,7 @@ def _energy_cost(
         cost += _status_amount(combat.player.statuses, "tangled")
     if combat is not None:
         cost = source_core_hooks.energy_cost(card, combat, cost)
+    cost = source_class_hooks.energy_cost(card, combat, cost)
     return max(0, cost)
 
 
@@ -27262,6 +27311,10 @@ def _card_destination(card: CardInstance, combat: CombatState | None = None) -> 
         return "exhaust"
     if card.exhausts or bool(card.effects.get("exhaust_on_play")):
         return "exhaust"
+    if _normalized_id(card.card_id) == "particle_wall":
+        return "hand"
+    if _normalized_id(card.card_id) == "shining_strike":
+        return "draw_top"
     return "discard"
 
 
@@ -27932,6 +27985,7 @@ def _card_from_spec(
     normalized = normalize_card_spec(source_spec, card_library=card_library)
     merged = dict(normalized)
     merged.update({key: value for key, value in source_spec.items() if key in _CARD_RUNTIME_KEYS})
+    merged.update(source_class_card_updates(source_spec))
     if source_spec.get("is_x_cost") or source_spec.get("is_x_star_cost"):
         merged["cost"] = normalized["cost"]
         merged["target"] = normalized["target"]

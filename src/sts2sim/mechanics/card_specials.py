@@ -1589,7 +1589,7 @@ def _soul_card_payload(*, upgraded: bool) -> Mapping[str, Any]:
             "name": "Soul+" if upgraded else "Soul",
             "type": "Skill",
             "target": "Self",
-            "cost": 1,
+            "cost": 0,
             "draw": draw,
             "description": f"Draw {draw} cards.",
             "keywords_key": ("Exhaust",),
