@@ -31,15 +31,25 @@ Several old synthetic fixtures contradicted the source: Soul cost 1, Furnace
 instead of base 5 plus 5 per previous hit. Their expectations were corrected
 using the referenced constructors and callbacks.
 
-The following limits remain and should not be presented as verified parity:
+Follow-up source contracts now cover saved Mad Science rider effects and
+Innate upgrades, ImprovementPower's distinct combat-end upgrades, Claws upgrade
+and compatible-enchantment preservation, and source shuffle/selection streams.
+Their source hashes and public-action fixtures are recorded in
+`tests/fixtures/source_mad_science.json`, `source_claws.json` and the class-rule
+fixtures. The modifier audit records all seven concrete afflictions and all
+eight CardKeyword enum values; its empty known-gap lists apply to those stated
+single-player contracts, not every combination of cards and powers.
+
+The following validation limits should not be described as known missing
+single-player implementations or as verified game parity:
 
 | Area | Remaining limitation |
 | --- | --- |
 | Multiplayer | Ally dictionaries are not a complete multi-player combat model. Glimpse Beyond and Legion of Bone still require complete teammate pile/Osty ownership and per-player RNG behavior; targeted ally cards and simultaneous choices need live validation. |
 | Trigger ordering | Existing general power/relic dispatch is not an exact implementation of the game's hook priority graph. Nested draws, deaths, generated cards and multiple simultaneous powers require captured traces. |
-| Randomness | Selecting the correct source RNG stream and drawing the correct count are separate requirements. Source stream work must be integrated before claiming seeded parity for generation, transforms and random pile insertion. |
-| Physical card rebuilding | Combat and permanent growth must be retained by upgrade/downgrade adapters. The shared source-card adapter supplies this integration; test the combined branch, particularly Dampen and generated clones. |
-| Noncombat cards | Quest/campfire/event lifecycle behavior is outside these OnPlay fixes. Source-only membership and non-upgradable metadata belong to the source pool registry. |
+| Randomness | Source named streams, shuffle/selection ordering and draw counts are integrated for the retained source contracts. Independent Windows traces are still needed to certify displayed-seed parity and combined runtime ordering. |
+| Physical card rebuilding | Upgrade/downgrade adapters retain the covered growth, cost and enchantment state. Unrecorded historical state from older snapshots and combinations absent from the retained fixtures are not independently certified. |
+| Noncombat cards | This document's review scope is OnPlay and related card callbacks. Separate event, rest, item and source-pool fixtures cover their stated lifecycle contracts; this document does not expand its scope to certify them all. |
 | Platform validation | These are source-contract regressions. They do not replace Windows game traces for turn timing, selection-screen ordering or save conversion. |
 
 There is no assertion here that unknown hooks, unsupported multiplayer state,

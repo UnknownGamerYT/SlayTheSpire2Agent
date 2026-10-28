@@ -1112,7 +1112,7 @@
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_non_combat_passive_pickups_document_runtime_intent",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
-        "tests/run/test_progression_relics.py::test_bowler_and_dragon_fruit_trigger_on_separate_gold_gains_without_recursion",
+        "tests/run/test_progression_relics.py::test_bowler_modifies_one_gain_and_dragon_fruit_observes_one_notification",
         "tests/run/test_progression_relics.py::test_maw_bank_floor_gold_is_available_on_room_entry_and_stops_after_spending",
         "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy"
       ],
@@ -1189,7 +1189,7 @@
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
       ],
       "retained_tests": [
-        "tests/combat/test_relic_engine_integration.py::test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn",
+        "tests/combat/test_relic_engine_integration.py::test_iron_club_counter_draws_and_brilliant_scarf_frees_fifth_manual_card",
         "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules",
         "tests/content/test_source_ancient_offers.py::test_pael_nonupiepe_and_vakuu_match_independent_c_reference",
         "tests/combat/test_source_relic_play_costs.py::test_brilliant_scarf_frees_fifth_manual_card_without_randomizing_other_cards",
@@ -1392,7 +1392,7 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -1400,16 +1400,20 @@
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_pickup_rewards.py:obtain_pickup_reward",
+        "src/sts2sim/engine/source_pickup_rewards.py:resume_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_more_fixed_card_and_reward_pickups_return_source_backed_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
         "tests/rooms/test_treasure_engine.py::test_calling_bell_pickup_adds_curse_and_random_relics",
-        "tests/learning/test_reward_shaping.py::test_curse_burden_penalty_uses_source_relic_compensation"
+        "tests/learning/test_reward_shaping.py::test_curse_burden_penalty_uses_source_relic_compensation",
+        "tests/rewards/test_source_pickup_rewards.py::test_calling_bell_offers_separate_fixed_rarities_and_nested_reward_resumes_parent",
+        "tests/rewards/test_source_pickup_rewards.py::test_exhausted_relic_bag_offers_three_separate_circlets_in_calling_bell"
       ],
       "notes": [
-        "Source offers separate Common, Uncommon and Rare RelicRewards after adding CurseOfTheBell. Generic direct relic gain needs the shared custom reward queue."
+        "Adds CurseOfTheBell before offering separate Common, Uncommon and Rare RelicRewards; indexed claiming/skipping and nested pickup reward frames preserve the parent rewards and distinct Circlet fallback entries."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -1491,7 +1495,7 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
@@ -1499,15 +1503,18 @@
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_default_shop_relic_pool",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_pickup_rewards.py:obtain_pickup_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_reward_and_rule_relics_return_bounded_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rooms/test_treasure_engine.py::test_cauldron_pickup_adds_random_potions_until_slots_are_full"
+        "tests/rooms/test_treasure_engine.py::test_cauldron_pickup_adds_random_potions_until_slots_are_full",
+        "tests/rewards/test_source_pickup_rewards.py::test_cauldron_preserves_five_potion_rewards_when_inventory_is_full",
+        "tests/rewards/test_source_pickup_rewards.py::test_native_event_pickup_preserves_child_reward_and_resolves_parent_page"
       ],
       "notes": [
-        "Source offers five PotionRewards, allowing inventory/discard choices. Generic direct procurement needs the shared custom reward queue."
+        "Offers five independently generated out-of-combat PotionRewards without discarding full-inventory rewards; public potion discard/claim actions and nested reward resume preserve each choice."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Shop"
@@ -1929,7 +1936,7 @@
         "Rarity",
         "CanonicalVars"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
@@ -1938,20 +1945,21 @@
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker",
-        "src/sts2sim/engine/source_run_passives.py"
+        "src/sts2sim/engine/source_run_passives.py",
+        "src/sts2sim/engine/transitions.py:_apply_deck_add_relics"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_reward_and_rule_relics_return_bounded_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_source_run_passives.py"
+        "tests/rewards/test_source_run_passives.py",
+        "tests/rewards/test_source_run_passives.py::test_darkstone_periapt_observes_each_curse_deck_entry_including_bing_copy",
+        "tests/rewards/test_deck_add_relics.py::test_transforms_trigger_deck_observers_and_one_bing_copy_after_reload"
       ],
       "notes": [
-        "Curse deck additions, each Bing Bong copy, actual max HP +6; public reward actions and reloads.",
-        "Transformed Curse entries rely on the shared transform pile-hook follow-up."
+        "Curse Deck entries grant max HP6 each, including Bing copies; transformed Deck replacements now enter the same source observer pipeline. Upgrades and enchantment changes do not create a Deck entry."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Event",
-      "remaining_known_gap": "Transformed Curse entries rely on the shared transform pile-hook follow-up."
+      "source_rarity": "Event"
     },
     {
       "id": "DATA_DISK",
@@ -2137,7 +2145,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
@@ -2145,20 +2153,22 @@
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/source_run_passives.py"
+        "src/sts2sim/engine/source_run_passives.py",
+        "src/sts2sim/engine/source_run_passives.py:modify_reward_pool"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_source_run_passives.py"
+        "tests/rewards/test_source_run_passives.py",
+        "tests/rewards/test_source_run_passives.py::test_dingy_rug_appends_source_ordered_unlocked_colorless_only_for_modifiable_rewards",
+        "tests/rewards/test_source_prismatic_pool.py::test_prismatic_and_dingy_preserve_all_character_then_colorless_pool_order",
+        "tests/rewards/test_source_prismatic_pool.py::test_reroll_pool_extends_before_filter_and_preserves_explicit_custom_scope"
       ],
       "notes": [
-        "Ordered unlocked Colorless append for normal combat/event/Ancient CardReward pools and rerolls; filter exclusions retained.",
-        "Other native CardReward constructors must use the same shared pool modifier at construction."
+        "Ordered unlocked Colorless pool append is connected before source reward filters and rerolls. IsCardReward, NoCardPoolModifications, explicit custom pools and existing Colorless pools preserve the source exclusions. GlassEye uses the shared modifier before its fixed-rarity filter."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Shop",
-      "remaining_known_gap": "Other native CardReward constructors must use the same shared pool modifier at construction."
+      "source_rarity": "Shop"
     },
     {
       "id": "DISTINGUISHED_CAPE",
@@ -2323,7 +2333,7 @@
         "tests/combat/test_combat_lifecycle.py::test_gold_max_hp_passive_cannot_revive_a_failed_combat",
         "tests/content/test_relic_handlers.py::test_non_combat_passive_pickups_document_runtime_intent",
         "tests/content/test_relic_handlers.py::test_registry_includes_remaining_non_combat_relic_batch",
-        "tests/run/test_progression_relics.py::test_bowler_and_dragon_fruit_trigger_on_separate_gold_gains_without_recursion",
+        "tests/run/test_progression_relics.py::test_bowler_modifies_one_gain_and_dragon_fruit_observes_one_notification",
         "tests/run/test_progression_relics.py::test_maw_bank_floor_gold_is_available_on_room_entry_and_stops_after_spending",
         "tests/run/test_progression_relics.py::test_public_reward_pickup_chains_deck_and_gold_relics_once_per_added_copy"
       ],
@@ -2383,21 +2393,27 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/source_reward_reroll.py:legal_reward_rerolls",
+        "src/sts2sim/engine/source_reward_reroll.py:reroll_card_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
-        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers"
+        "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
+        "tests/rewards/test_source_reward_reroll.py::test_combat_driftwood_public_reroll_consumes_factory_draws_once_and_updates_pity",
+        "tests/rewards/test_source_reward_reroll.py::test_nonempty_manual_custom_reroll_still_uses_its_original_explicit_pool",
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary"
       ],
       "notes": [
-        "Source marks every CardReward CanReroll. The public action model currently has no card reward reroll action."
+        "One-use public reroll actions preserve each CardReward creation context, option count and source RNG, including nonempty custom pools.",
+        "Kaleidoscope supplies an explicit empty custom reroll pool in the pinned source. Its source exception/UI behavior requires installed-game comparison; this known boundary is serialized with an unsupported diagnostic and its action is unavailable."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -3514,15 +3530,17 @@
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_pickup_rewards.py:obtain_pickup_reward"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_misc_pickup_relics_return_reward_relic_and_deck_rule_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_source_relic_reward_contracts.py::test_glass_eye_public_pickup_offers_five_rarity_groups_with_reload"
+        "tests/rewards/test_source_relic_reward_contracts.py::test_glass_eye_public_pickup_offers_five_rarity_groups_with_reload",
+        "tests/rewards/test_source_pickup_rewards.py::test_glass_eye_nested_rewards_preserve_parent_and_source_uniform_reroll_contexts"
       ],
       "notes": [
-        "Compared listed source gameplay methods and canonical values with shared runtime marker/consumer scope; no independent full-interaction game oracle is claimed."
+        "Five separate fixed-rarity groups use uniform selection with NoUpgradeRoll inherited from the noncombat factory: Common, Common, Uncommon, Uncommon, Rare. Allowed pool modifications precede the rarity filter; hook upgrades remain allowed. Nested rewards preserve their parent and rarity-specific reroll contexts."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -3539,7 +3557,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
@@ -3548,21 +3566,22 @@
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
-        "src/sts2sim/engine/source_run_passives.py"
+        "src/sts2sim/engine/source_run_passives.py",
+        "src/sts2sim/engine/source_card_reward_modifiers.py:modify_generated_cards"
       ],
       "retained_tests": [
         "tests/content/test_source_ancient_offers.py::test_pael_nonupiepe_and_vakuu_match_independent_c_reference",
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
-        "tests/rewards/test_source_run_passives.py"
+        "tests/rewards/test_source_run_passives.py",
+        "tests/rewards/test_source_run_passives.py::test_glitter_respects_existing_enchantment_and_noncardreward_factory_flags",
+        "tests/rewards/test_source_card_reward_modifiers.py::test_no_modify_hooks_suppresses_all_hooks_and_no_hook_upgrades_only_suppresses_eggs"
       ],
       "notes": [
-        "Late per-option Glam1 helper checks eligibility and previously applied enchantments, supports acquisition-order dispatch.",
-        "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
+        "The shared acquired-order late-hook dispatcher invokes Glitter for each factory batch and persists per-option Glam1. Actual enchantment eligibility and existing enchantments are checked; NoModifyHooks suppresses the callback."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Ancient",
-      "remaining_known_gap": "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
+      "source_rarity": "Ancient"
     },
     {
       "id": "GNARLED_HAMMER",
@@ -4088,7 +4107,7 @@
         "src/sts2sim/engine/transitions.py:_apply_combat_relic_marker"
       ],
       "retained_tests": [
-        "tests/combat/test_relic_engine_integration.py::test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn",
+        "tests/combat/test_relic_engine_integration.py::test_iron_club_counter_draws_and_brilliant_scarf_frees_fifth_manual_card",
         "tests/combat/test_relic_combat.py::test_card_played_relics_cover_type_cost_and_threshold_rules",
         "tests/combat/test_source_relic_play_costs.py::test_iron_club_saved_counter_survives_turn_boundary"
       ],
@@ -4142,21 +4161,23 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
-        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules"
+        "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
+        "src/sts2sim/engine/source_item_selection.py:combat_marker"
       ],
       "retained_tests": [
         "tests/combat/test_relic_engine_integration.py::test_draw_pile_start_relics_move_add_and_upgrade_cards",
-        "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers"
+        "tests/combat/test_relic_combat.py::test_start_of_combat_resource_orb_and_damage_relic_markers",
+        "tests/combat/test_source_item_selection.py::test_source_jeweled_mask_selects_one_power_with_single_draw_and_move_provenance"
       ],
       "notes": [
-        "Source chooses a random Power in the draw pile via CombatCardSelection before hand draw, then frees and moves it to hand. Generic draw-pile selector still needs exact source random selection."
+        "Before hand draw, eligible draw-pile Powers use one CombatCardSelection NextItem draw; the selected physical card is made free and moved to hand. Movement provenance and save/reload are covered."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -4550,7 +4571,7 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "gap",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
         "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
@@ -4558,21 +4579,24 @@
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/relic_combat.py:_resolve_combat_end_dynamic",
-        "src/sts2sim/engine/source_run_passives.py"
+        "src/sts2sim/engine/source_run_passives.py",
+        "src/sts2sim/engine/source_card_reward_modifiers.py:modify_generated_cards",
+        "src/sts2sim/engine/source_run_passives.py:in_combat_room"
       ],
       "retained_tests": [
         "tests/combat/test_relic_combat.py::test_remaining_unknown_start_turn_and_end_relic_markers",
         "tests/combat/test_relic_combat.py::test_remaining_unknown_relics_are_registered_by_hook",
         "tests/rewards/test_remaining_relic_reward_interactions.py::test_lava_lamp_upgrades_combat_card_reward_after_no_damage_fight",
-        "tests/rewards/test_source_run_passives.py"
+        "tests/rewards/test_source_run_passives.py",
+        "tests/rewards/test_source_lava_room_context.py::test_lava_upgrades_nested_other_source_rewards_in_actual_combat_room",
+        "tests/rewards/test_source_lava_room_context.py::test_archived_combat_does_not_make_noncombat_room_eligible",
+        "tests/rewards/test_source_lava_room_context.py::test_nested_combat_rewards_do_not_upgrade_after_blockable_damage"
       ],
       "notes": [
-        "Records positive surviving blockable HP loss, ignores unblockable loss; source late upgradability helper.",
-        "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
+        "The connected late callback upgrades eligible reward options only in the current CombatRoom after no positive blockable HP loss. Nested Source.Other rewards and event-combat subrooms use actual room provenance. Archived CombatState objects after leaving a room do not qualify."
       ],
       "multiplayer": "not independently validated",
-      "source_rarity": "Shop",
-      "remaining_known_gap": "Shared item late modifier dispatcher invokes this helper in a separate integration leaf."
+      "source_rarity": "Shop"
     },
     {
       "id": "LAVA_ROCK",
@@ -5576,5 +5600,7 @@
       "source_rarity": "Shop"
     }
   ],
-  "review_basis": "Finite live A\u2013M relic gameplay-method audit. Source files and private gameplay helpers were read; hashes identify the exact files. reviewed means static method/consumer review, not independent game parity. gap entries identify concrete remaining or separately owned scopes; multiplayer is explicitly outside independent validation."
+  "review_basis": "Finite live A\u2013M relic gameplay-method audit. Source files and private gameplay helpers were read; hashes identify the exact files. reviewed means static method/consumer review, not independent game parity. gap entries identify concrete remaining or separately owned scopes; multiplayer is explicitly outside independent validation.",
+  "certifies_game_parity": false,
+  "reconciliation_scope": "Finite previously reported single-player gaps checked against source hashes, connected runtime consumers, and named retained tests. Fixed means the stated contract is implemented; unknown interactions, multiplayer and installed-game certification remain separate."
 }
