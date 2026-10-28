@@ -161,7 +161,7 @@ from sts2sim.mechanics.triggers import (
 )
 from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
-from . import card_status_hooks
+from . import card_status_hooks, source_core_hooks
 from .errors import EngineError, IllegalActionError
 from .models import (
     PLAYER_TARGET_ID,
@@ -9174,6 +9174,7 @@ def _apply_card_discarded_relics_from_events(
     rng_state: RngState,
     source_events: Sequence[EffectEvent],
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    combat = source_core_hooks.record_discards(combat, source_events)
     events: list[EffectEvent] = []
     for source_event in source_events:
         if source_event.kind != GameTrigger.CARD_DISCARDED.value:
@@ -10792,7 +10793,18 @@ def _choose_card_for_pending_choice(
         )
     ]
 
-    if pending_choice.kind == "add_retain":
+    if pending_choice.kind == "add_sly":
+        chosen = chosen.model_copy(update={"custom": {**chosen.custom, "sly": True,
+            "source_core_temporary_sly": True}})
+        combat = _replace_card_in_combat_zone(combat, pending_choice.zone, chosen)
+        events.append(EffectEvent(kind="card_keyword_added", source_id=pending_choice.source_id,
+                                  target_id=chosen.instance_id, amount=1, metadata={"keyword": "sly"}))
+    elif pending_choice.kind == "upgrade":
+        upgraded_card = _upgrade_card_instance(chosen)
+        combat = _replace_card_in_combat_zone(combat, pending_choice.zone, upgraded_card)
+        events.append(EffectEvent(kind="card_upgraded", source_id=pending_choice.source_id,
+                                  target_id=chosen.instance_id, amount=1))
+    elif pending_choice.kind == "add_retain":
         custom = dict(chosen.custom)
         if pending_choice.metadata.get("retain_once") and not custom.get("retain"):
             custom["temporary_choice_retain"] = True
@@ -12444,6 +12456,9 @@ def _card_after_end_turn_retain(card: CardInstance) -> CardInstance:
 def _card_after_end_turn_cleanup(card: CardInstance) -> CardInstance:
     custom = dict(card.custom)
     changed = False
+    if custom.pop("source_core_temporary_sly", False):
+        custom.pop("sly", None)
+        changed = True
     if custom.pop("temporary_choice_retain", False):
         custom.pop("retain", None)
         changed = True
@@ -14697,6 +14712,8 @@ def _reserve_card_status_play(
     energy_spent: int,
     move_physical: bool,
 ) -> tuple[CombatState, CardInstance]:
+    combat = source_core_hooks.consume_free(combat, card)
+    card = source_core_hooks.dynamic_card(combat, card)
     custom = dict(card.custom)
     custom.pop("lethality_damage_percent", None)
     custom.pop("phantom_blades_damage_bonus", None)
@@ -14788,6 +14805,7 @@ def _apply_card_play_status_triggers(
     card: CardInstance,
     hook_events: Sequence[EffectEvent],
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    combat, rng_state, core_events = source_core_hooks.after_play(state, combat, rng_state, card)
     combat, rng_state, block_events = _apply_block_gain_status_triggers(
         state, combat, rng_state, hook_events
     )
@@ -14795,7 +14813,7 @@ def _apply_card_play_status_triggers(
         state, combat, rng_state, "serpentform",
         _status_amount(combat.player.statuses, "serpent_form"),
     )
-    events: list[EffectEvent] = list(block_events + serpent_events)
+    events: list[EffectEvent] = list(core_events + block_events + serpent_events)
     for index, monster in enumerate(combat.monsters):
         if any(
             trigger.get("bound_status") == "strangle"
@@ -15409,6 +15427,12 @@ def _apply_effect_step(
     effect: Mapping[str, Any],
     relics: Sequence[str] = (),
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
+    core = source_core_hooks.apply_source_core(
+        state=state, combat=combat, rng_state=rng_state, card=card, target_id=target_id,
+        energy_spent=energy_spent, effect=effect, relics=relics,
+    )
+    if core is not None:
+        return core
     repeat = effect.get("repeat_damage")
     if isinstance(repeat, Mapping):
         basis = str(repeat.get("basis", ""))
@@ -17532,6 +17556,8 @@ def _move_played_card_to_destination(
 
 
 def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardInstance:
+    if card.custom.get("free_to_play_this_turn"):
+        card = card.model_copy(update={"custom": {**card.custom, "free_energy_consumed": True}})
     if "rocket_punch_cost_before_discount" in card.custom:
         custom = dict(card.custom)
         cost = custom.pop("rocket_punch_cost_before_discount")
@@ -17545,6 +17571,11 @@ def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardIn
     cost_delta = _coerce_int(update.get("cost_delta"), default=0)
     if cost_delta and card.cost is not None:
         card_updates["cost"] = max(0, card.cost + cost_delta)
+    damage_bonus = _coerce_int(update.get("source_core_damage_bonus"), default=0)
+    if damage_bonus:
+        card_updates["custom"] = {**card.custom, "source_core_damage_bonus": (
+            _coerce_int(card.custom.get("source_core_damage_bonus"), default=0) + damage_bonus
+        )}
     if not card_updates:
         return card
     return card.model_copy(update=card_updates)
@@ -17754,7 +17785,8 @@ def _draw_cards(
                 "draw_pile": tuple(draw_pile),
                 "discard_pile": tuple(discard_pile),
                 "hand": tuple(hand),
-                "metadata": {**metadata, "chains_cards_drawn_this_turn": drawn_this_turn},
+                "metadata": {**metadata, "chains_cards_drawn_this_turn": drawn_this_turn,
+                             "source_core_draws": int(metadata.get("source_core_draws", 0)) + drawn_count},
             }
         ),
         capture_random_state(rng),
@@ -18558,6 +18590,8 @@ def _set_pending_card_action_choice(
     count = max(0, _int_from_mapping(payload, "count", 1))
     if action not in {
         "add_retain",
+        "upgrade",
+        "add_sly",
         "discard",
         "exhaust",
         "move_to_hand",
@@ -18704,6 +18738,10 @@ def _card_matches_choice_payload(
     if card_types and card.type.value not in card_types:
         return False
 
+    if payload.get("action") == "add_sly" and _card_has_keyword(card, "sly"):
+        return False
+    if payload.get("action") == "upgrade" and card.upgraded:
+        return False
     color = payload.get("color")
     if isinstance(color, str) and color:
         source = _card_source_spec(card)
@@ -18764,6 +18802,8 @@ def _generated_choice_cards(
             custom["free_to_play_this_combat"] = True
             spec["custom"] = custom
             spec["cost"] = 0
+        if _truthy(payload.get("upgraded")):
+            spec["upgraded"] = True
         generated.append(_card_from_spec(spec, index, card_library=card_library))
     return tuple(generated)
 
@@ -22254,6 +22294,8 @@ def _tick_status_map(
         "temporary_strength",
         "temporary_dexterity",
         "temporary_focus",
+        "source_core_double_damage",
+        "source_core_colossus",
         "flame_barrier",
         "sicem",
         "no_draw_this_turn",
@@ -26883,7 +26925,9 @@ def _energy_cost(
         return max(0, available_energy)
     if combat is not None and _void_form_applies(combat):
         return 0
-    if _truthy(card.custom.get("free_to_play_this_turn")):
+    if _truthy(card.custom.get("free_to_play_this_turn")) and not _truthy(
+        card.custom.get("free_energy_consumed")
+    ):
         return 0
     if _truthy(card.custom.get("free_to_play_this_combat")):
         return 0
@@ -26900,6 +26944,8 @@ def _energy_cost(
     cost = card.cost or 0
     if combat is not None and card.type == CardType.ATTACK:
         cost += _status_amount(combat.player.statuses, "tangled")
+    if combat is not None:
+        cost = source_core_hooks.energy_cost(card, combat, cost)
     return max(0, cost)
 
 
@@ -28134,6 +28180,8 @@ def _upgrade_card_instance(card: CardInstance) -> CardInstance:
         return upgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
+                "custom": {**upgraded.custom, **{k: v for k, v in card.custom.items()
+                    if k.startswith("source_core_")}},
                 "tags": tuple(sorted(set(upgraded.tags + card.tags))),
             }
         )
@@ -28153,6 +28201,8 @@ def _downgrade_card_instance(card: CardInstance) -> CardInstance:
         return downgraded.model_copy(
             update={
                 "enchantments": card.enchantments,
+                "custom": {**downgraded.custom, **{k: v for k, v in card.custom.items()
+                    if k.startswith("source_core_")}},
                 "tags": tuple(sorted(set(downgraded.tags + card.tags))),
             }
         )
@@ -29825,6 +29875,7 @@ _SUPPORTED_EFFECT_KEYS = {
     "damage",
     "damage_formula",
     "repeat_damage",
+    "source_core",
     "return_next_turn",
     "intangible_if_exhausted",
     "destination",
