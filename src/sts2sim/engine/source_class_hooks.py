@@ -143,7 +143,7 @@ def execute(
             apply({"evoke_orb": {"selector": "rightmost", "amount": 2}})
     elif operation == "target_lightning":
         count = sum(orb.orb_id == "lightning" for orb in combat.orbs)
-        amount = t._orb_amount(3, t._player_focus(combat.player))
+        amount = t._lightning_orb_amount(3, t._player_focus(combat.player), relics)
         for _ in range(count * int(payload["repeats"])):
             monsters, damage_events = t._damage_monsters(
                 combat.monsters,

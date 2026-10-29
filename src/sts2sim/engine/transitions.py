@@ -19545,7 +19545,7 @@ def _apply_orb_passive(
 ) -> tuple[CombatState, tuple[EffectEvent, ...], OrbState]:
     focus = _player_focus(combat.player)
     if orb.orb_id == "lightning":
-        amount = _orb_amount(3, focus)
+        amount = _lightning_orb_amount(3, focus, relics)
         combat, events = _damage_random_monster(
             combat,
             rng,
@@ -19639,7 +19639,7 @@ def _apply_orb_evoke(
         combat, lightning_events = _damage_random_monster(
             combat,
             rng,
-            _orb_amount(8, focus),
+            _lightning_orb_amount(8, focus, relics),
             source_id,
             relics=relics,
             metadata=base_metadata,
@@ -19853,6 +19853,12 @@ def _dark_orb_target(combat: CombatState, target_id: str | None) -> str | None:
 
 def _orb_amount(base: int, focus: int) -> int:
     return max(0, base + focus)
+
+
+def _lightning_orb_amount(base: int, focus: int, relics: Sequence[str]) -> int:
+    # Hook listeners visit the owner's Focus power (which clamps) before
+    # Infused Core. Its +1 therefore survives even extremely negative Focus.
+    return _orb_amount(base, focus) + int(_has_relic_id(relics, "infused_core"))
 
 
 def _player_focus(player: PlayerState) -> int:
