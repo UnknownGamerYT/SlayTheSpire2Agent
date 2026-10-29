@@ -1,0 +1,15 @@
+{
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "source_files": {
+    "decompiled/MegaCrit.Sts2.Core.Rewards/SpecialCardReward.cs": "b2a54906146ebb2caf8408f77dea557b43f3606d4916304bb604ebab10acd372",
+    "decompiled/MegaCrit.Sts2.Core.Models.Powers/SwipePower.cs": "25bc80f818baa5bf58a0aa0c6ece876ab675150f8ff4d9eab86a2f1d07708aac",
+    "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+  },
+  "facts": [
+    "SpecialCardReward inherits Reward, not CardReward; Populate is empty and has no card reward alternatives",
+    "SwipePower.BeforeDeath passes the original stolen DeckVersion to SpecialCardReward",
+    "SpecialCardReward.OnSelect adds that exact card model back to the deck; ordinary deck-entry hooks can still act",
+    "Silver Crucible/Silken Tress/Wing Charm/CardReward upgrades and Paels Wing/Driftwood alternatives do not act on SpecialCardReward"
+  ],
+  "scope": "Returned physical cards, not all custom fixed-card factories; source-derived tests, no installed-game parity claim"
+}

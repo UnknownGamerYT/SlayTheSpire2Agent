@@ -133,8 +133,10 @@ def _groups(reward: RewardState) -> tuple[tuple[str, tuple[str, ...]], ...]:
     excluded = {
         *reward.claimed_card_option_group_indices, *reward.skipped_card_option_group_indices,
     }
+    # A recovered physical card is a SpecialCardReward, not a CardReward.
+    special = {str(index) for index in reward.metadata.get('returned_card_option_specs', {})}
     groups.extend((f'group:{i}', ids) for i, ids in enumerate(reward.card_option_groups)
-                  if ids and i not in excluded)
+                  if ids and i not in excluded and str(i) not in special)
     return tuple(groups)
 
 

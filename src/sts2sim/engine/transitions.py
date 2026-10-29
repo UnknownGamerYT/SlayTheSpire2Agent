@@ -8438,12 +8438,14 @@ def _take_reward_card(
     card_id, fixed_index, group_index = card_target
     returned_specs = _mapping_from(state.reward.metadata.get("returned_card_option_specs"))
     returned_spec = _mapping_from(returned_specs.get(str(group_index)))
+    special_card_reward = group_index is not None and str(group_index) in returned_specs
     card_spec = dict(returned_spec) if returned_spec else _reward_card_spec(state, card_id)
     fixed_upgrades = _source_sequence(state.reward.metadata.get("fixed_card_upgraded"))
     if (fixed_index is not None and fixed_index < len(fixed_upgrades)
             and fixed_upgrades[fixed_index]):
         card_spec["upgraded"] = True
-    card_spec.pop("instance_id", None)
+    if not returned_spec:
+        card_spec.pop("instance_id", None)
     card = _card_from_spec(card_spec, len(state.master_deck) + 1)
     card = _with_unique_deck_card_id(card, state.master_deck)
     option_upgrades = _source_sequence(state.reward.metadata.get("card_option_upgraded"))
@@ -8451,12 +8453,12 @@ def _take_reward_card(
         groups = _source_sequence(state.reward.metadata.get("card_option_group_upgraded"))
         option_upgrades = _source_sequence(groups[group_index]) if group_index < len(groups) else ()
     option_index = _coerce_int(action.target_id.rsplit(":", 1)[-1], default=-1)
-    if (fixed_index is None and 0 <= option_index < len(option_upgrades)
+    if (not special_card_reward and fixed_index is None and 0 <= option_index < len(option_upgrades)
             and _truthy(option_upgrades[option_index])):
         card = _upgrade_card_instance(card)
     enchantment_key = "primary" if group_index is None else f"group:{group_index}"
     reward_enchantments = _mapping_from(state.reward.metadata.get("card_reward_enchantments"))
-    if fixed_index is None and not card.enchantments:
+    if not special_card_reward and fixed_index is None and not card.enchantments:
         for enchantment in _source_sequence(reward_enchantments.get(enchantment_key)):
             spec = _mapping_from(enchantment)
             card = _enchant_card(
@@ -8467,11 +8469,12 @@ def _take_reward_card(
             )
     from .source_card_reward_modifiers import apply_option_modifiers
 
-    card = apply_option_modifiers(
-        card, state.reward, enchantment_key if fixed_index is None else "fixed", option_index,
-    )
+    if not special_card_reward:
+        card = apply_option_modifiers(
+            card, state.reward, enchantment_key if fixed_index is None else "fixed", option_index,
+        )
     reward_upgrade_event: EffectEvent | None = None
-    if _truthy(state.reward.metadata.get("upgrade_card_rewards")):
+    if not special_card_reward and _truthy(state.reward.metadata.get("upgrade_card_rewards")):
         upgraded_card = _upgrade_card_instance(card)
         if upgraded_card.upgraded and not card.upgraded:
             card = upgraded_card
