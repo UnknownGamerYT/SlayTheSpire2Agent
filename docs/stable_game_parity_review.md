@@ -96,12 +96,14 @@ Latest integrated validation is recorded in the pull request and delivered
 validation reports. A short PPO smoke checks the training pipeline; it does not
 produce a capable agent. Start fresh checkpoints after this logic update.
 
-The [29 October report](validation/stable_source_training_2026_10_29.json)
-records 6,419 passing tests at frozen core revision `91e7869`, followed by 206
-passing live-tooling tests and static checks for the bridge-only correction at
-`675da70`. PPO continuation and bounded rollout results retain their core
-revision identity. Final published-head CI is separate evidence for the final
-tree, including its later bridge change.
+The [final 29 October report](validation/stable_source_training_2026_10_29_final.json)
+records the 38-edge closure at `d78cc04`: 83-test intent integration, fresh PPO
+continuation and 60 bounded ordinary/boosted QA runs at `e3fbd1d`, followed by
+227 live-tooling tests and static checks for the UI-only Trial modal correction.
+The [earlier 29 October report](validation/stable_source_training_2026_10_29.json)
+retains 6,419 tests at `91e7869` and 206 live-tooling tests at `675da70`. Those
+earlier results are not attributed to the subsequent DeathBlow engine change.
+Final published-head CI is separate all-tests evidence for the final source.
 
 The [28 October validation report](validation/stable_source_training_2026_10_28.json)
 is historical evidence for its recorded runtime revisions. The closure ledger

@@ -16,16 +16,20 @@ discovered or that the simulator is identical to the game.
 | --- | --- |
 | Potion inventory and generation | Physical slot holes through consumption, discard, Fairy, procurement, generated potions, replay and observations; native removal locks; unique factory batches; Coffer's four preferred new slots; White Beast odds/pity. IDs POT-01–03 and RNG-01. |
 | Merchant and treasure | Explicit missing-rarity failures, Courier slot/type/rarity/exclusion/draw contracts and sale lifecycle; hidden chest preparation, mandatory explicit opening, immediate gold and each Spoils Map copy. IDs SHOP-01–03 and TRS-01–02. |
-| Combat timing and costs | Extra player turns and side-specific expiry; automatic continuation after retention choices; sequential Stampede autoplays; ordered temporary Star and Banshee Energy costs; one-play exhaust; consistent multi-hit totals and one-time live intent modifiers; Royalties, Infused Core, all five orb lifecycles and their awaited callbacks. IDs CBT-01–05, CST-01–02, CRD-01 and INT-01. |
+| Combat timing and costs | Extra player turns and side-specific expiry; automatic continuation after retention choices; sequential Stampede autoplays; ordered temporary Star and Banshee Energy costs; one-play exhaust; consistent multi-hit totals and one-time live intent modifiers; source DeathBlow attack/self-kill semantics; Royalties, Infused Core, all five orb lifecycles and their awaited callbacks. IDs CBT-01–05, CST-01–02, CRD-01 and INT-01–02. |
 | Rewards and events | Manual versus returned physical card rewards; tutorial presets; factory fallback/failure; ordered base, FIFO extra and acquisition-ordered hook rewards; Trial confirm/cancel; serialized native callback awaits and custom reward completion; Wongo run/profile separation. IDs RWD-01–05 and EVT-01–04. |
-| Bridge and policy inputs | Pure GET observations, explicit chest commands, observed all-character combat and relic history import, checkpoint-bound comparison cases, canonical observed action encoding, saved-policy selection across supported noncombat controls, and repeatable chosen event controls. IDs BRG-01–06 and LEARN-01. |
+| Bridge and policy inputs | Pure GET observations, explicit chest commands, observed all-character combat and relic history import, checkpoint-bound comparison cases, canonical observed action encoding, saved-policy selection across supported noncombat controls, repeatable chosen event controls, and the exclusive Trial abandon-confirmation modal. IDs BRG-01–07 and LEARN-01. |
 
-The 36 identified edges are resolved in source revision
-`675da70f6f3726ed2708cf85960821c4deaa487f`, including the two explicitly modeled
-source faults below. Core validation uses frozen revision `91e7869`; the final
-bridge-only repeatable-control correction has separate checks at `675da70`.
-Full-suite, PPO and rollout results from the earlier revision do not validate
-the subsequent bridge edits.
+The 38 identified edges are resolved in source revision
+`d78cc048596855db2f46f01cadb9490a005987b2`, including the two explicitly modeled
+source faults below. The DeathBlow correction recognizes the attack
+subtype used by Gas Bomb and Waterfall Giant, applies its damage before the
+owner dies, and includes its threat in observed features. A finite source scan
+covers 121 monster files and 333 MoveState constructors; their attack lists have
+at most one attack intent. Heterogeneous attack-list rejection is a defensive
+invalid-input check, rather than a missing shipped move implementation.
+The final bridge correction exports Trial's actual abandon-confirmation popup,
+provides Confirm/Cancel commands, and blocks underlying room/potion controls.
 
 ## Intentional source-fault handling
 
@@ -62,48 +66,45 @@ the established evidence.
 
 ## Validation
 
-Frozen core validation revision:
-`91e7869b7dcfb1aaf77a5c3d72c64729f37ae066`.
-
-The full suite passed **6,419 tests**, with one expected skip and two Gymnasium
-checker warnings, in 711 seconds.
-
-Completed checks at this revision include Ruff, strict mypy on 193 source
-files, source/wheel builds, byte-identical packaged source and isolated wheel
-CLI startup. The CPU PPO smoke ran 12 fresh steps and 12 resumed steps with
+Latest source: `d78cc048596855db2f46f01cadb9490a005987b2`.
+Frozen engine validation: `e3fbd1d13c5beaaf08d695c8f6fddd3fcc5941c5`.
+Its intent integration suite passes 83 tests; Ruff and strict mypy on 193 source
+files pass. A fresh CPU PPO smoke ran 12 steps and then 12 resumed steps with
 exact model, optimizer, RNG, rewards and seeds against 24 uninterrupted steps.
 Two repeated held-out evaluations preserved checkpoint bytes and reports, with
-no evaluation errors. Their zero target successes are expected for this short
-pipeline smoke; these weights have not learned useful gameplay. An older
-checkpoint was rejected for the changed simulator logic.
+no evaluation errors. Zero target successes are expected for this short
+pipeline smoke; these weights have not learned useful gameplay. Actual saved
+weights also selected observed map/reward controls without a running game.
 
-Normal random-action QA ran 25 ordinary runs with 1,609 actions and 105 reload
+The ordinary random-action check ran 25 runs with 1,609 actions and 105 reload
 comparisons, with no consistency findings; all 25 runs died. Separate synthetic
 progression used artificial HP, Energy and combat-stat boosts: ten runs traversed
 all three acts, including each A10 double final boss, over 3,194 actions and
-1,096 reload comparisons with no issues. Those synthetic results establish
-bounded consistency rather than a normal-game win rate.
+1,096 reload comparisons with no issues.
 
 Additional bounded random-action QA used only an initial HP/maximum-HP boost to
-10,000: 25 runs, 9,297 actions and 591 reload comparisons had no consistency
-findings. Twenty-one runs reached the 400-action cap and four reached the
+10,000: 25 runs, 9,655 actions and 614 reload comparisons had no consistency
+findings. Twenty-two runs reached the 400-action cap and three reached the
 20-second wall-time cap; the deepest reached Act 2. These are capped robustness
-checks rather than completed ordinary runs.
+checks. Neither boosted suite establishes a normal-game win rate.
 
-The later `675da70` follow-up changes bridge control filtering while preserving
-the engine logic checksum. Its full live-tooling suite passes 206 tests; Ruff
-and strict mypy pass at that revision. A trained
-checkpoint can select Trial's repeatable chosen control, ordinary chosen
-controls remain blocked, and checkpoint bytes remain unchanged. The patched
-bridge source also passes six fresh/repeat/migration preparation cases against
-its pin; it has not been built or game-tested. All-tests CI for the final
-published head is linked from
-[draft PR #2](https://github.com/UnknownGamerYT/SlayTheSpire2Agent/pull/2).
+The UI-only bridge correction at `d78cc04` passes all 227 live-tooling tests,
+Ruff and strict mypy. The actual R3-trained checkpoint selects Confirm and
+Cancel while underlying actions remain blocked; its bytes and engine logic
+checksum remain unchanged. The latest bridge patch passes six preparation and
+migration cases with 81 retained source hashes. It has not been compiled or
+tested in the game.
 
-The JSON ledger and
-[validation report](validation/stable_source_training_2026_10_29.json) retain
-these exact revision scopes. The
-[28 October report](validation/stable_source_training_2026_10_28.json) remains
-historical evidence for its own b3893e0/4004f77 revisions and test-only settings.
-It does not validate later source changes. Fresh checkpoints are required after
-this simulator and observation update.
+Earlier local evidence remains bound to its recorded revisions: 6,419 full-suite
+tests at `91e7869`, followed by 206 live-tooling tests at `675da70`. Those results
+are not attributed to the later DeathBlow engine change. All-tests CI and rebuilt
+distribution verification for the final published head are recorded separately
+in [draft PR #2](https://github.com/UnknownGamerYT/SlayTheSpire2Agent/pull/2)
+and delivered publication metadata.
+
+The [final validation report](validation/stable_source_training_2026_10_29_final.json)
+retains the latest runtime checks. The
+[earlier 29 October report](validation/stable_source_training_2026_10_29.json) and
+[28 October report](validation/stable_source_training_2026_10_28.json) retain
+their actual historical revisions and test-only settings. The final engine
+correction changes the logic checksum; start fresh checkpoints after this update.

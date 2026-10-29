@@ -23,12 +23,16 @@ is historical evidence for its recorded runtime revisions. It does not validate
 later simulator changes. Use the current ledger's linked frozen validation
 report and pull-request CI for the latest integrated code.
 
-The [29 October report](docs/validation/stable_source_training_2026_10_29.json)
-binds 6,419 passing core tests, CPU continuation and bounded QA to `91e7869`.
-The bridge-only repeatable-control follow-up at `675da70` has 206 passing
-live-tooling tests, static checks and unchanged engine logic checksum. The
-final published head's all-tests CI and distribution audit remain distinct
-from those earlier revision-bound results.
+The [final 29 October report](docs/validation/stable_source_training_2026_10_29_final.json)
+records the 38-edge closure at `d78cc04`, with 83-test intent integration,
+fresh CPU continuation and 60 bounded ordinary/boosted QA runs at `e3fbd1d`.
+The subsequent UI-only Trial modal bridge correction has 227 passing live tests,
+strict/static checks and unchanged engine/checkpoint bytes. The DeathBlow
+correction changes the engine logic checksum from the earlier baseline.
+The [earlier 29 October report](docs/validation/stable_source_training_2026_10_29.json)
+retains 6,419 core tests at `91e7869` and 206 live tests at `675da70`; those earlier
+results are not attributed to the later engine source. Final published-head
+all-tests CI and distribution verification are separate evidence.
 
 The training pipeline uses legal masks and policy-visible observations, validates
 source/logic/architecture provenance, supports deterministic CPU continuation,

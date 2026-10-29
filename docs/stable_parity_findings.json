@@ -5,7 +5,7 @@
     "selection": "user-confirmed",
     "installed_build_verified": false
   },
-  "reviewed_base_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+  "reviewed_base_revision": "d78cc048596855db2f46f01cadb9490a005987b2",
   "conclusion": {
     "certifies_game_parity": false,
     "nearly_identical_confirmed": false,
@@ -128,7 +128,7 @@
   "validation_machine": "Windows with Steam installed, supplied by user",
   "finite_followup_ledger": "docs/source_edge_closure_2026_10_29.json",
   "historical_training_validation": "docs/validation/stable_source_training_2026_10_28.json",
-  "current_training_validation": "docs/validation/stable_source_training_2026_10_29.json",
+  "current_training_validation": "docs/validation/stable_source_training_2026_10_29_final.json",
   "historical_online_snapshot_check": {
     "checked_at_utc": "2026-10-28T19:21:43.065949+00:00",
     "endpoints": 17,
