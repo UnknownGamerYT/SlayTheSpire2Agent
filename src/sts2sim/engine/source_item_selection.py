@@ -81,6 +81,30 @@ def phial_potions(
     }) for event in events)
 
 
+def coffer_potions(
+    state: RunState, rng: Random,
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    """Generate four models, then procure only into the four new physical slots."""
+    from . import transitions as t
+    from .potion_inventory import procure_at_slot
+
+    original_slots = t._potion_capacity(state) - 4
+    options, rarities = t._item_potion_generation_pool(state, in_combat=False)
+    identifiers = draw_source_potions(
+        random_stream(rng, "combat_potion_generation"), options, 4, rarities,
+    )
+    events: list[EffectEvent] = []
+    for offset, identifier in enumerate(identifiers):
+        state, emitted = procure_at_slot(
+            state, identifier, preferred_slot=original_slots + offset,
+            source_id="alchemical_coffer",
+        )
+        events.extend(event.model_copy(update={"kind": "relic_potion_obtained"})
+                      if event.kind == "event_potion_obtained" else event
+                      for event in emitted)
+    return state, tuple(events)
+
+
 def combat_marker(
     combat: CombatState, marker: CombatRelicMarker, rng: Random | None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]] | None:

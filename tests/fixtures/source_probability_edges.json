@@ -25,6 +25,14 @@
     "merchant_inventory": {
       "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantInventory.cs",
       "sha256": "82d2442d46c4cc5cbf6ff029ccdc807b982fb2206cfd1eadc03f3eff2a4a6bf1"
+    },
+    "alchemical_coffer": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/AlchemicalCoffer.cs",
+      "sha256": "8d456bbd094b5fee3b9211a371a288cc79b5545e738222124ecf3e94d6d01bbf"
+    },
+    "potion_procurement": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PotionCmd.cs",
+      "sha256": "101e099dcbfe8ef4622e79aee327ad2d6a46e4329ce06a52ddb3ec7fca89979b"
     }
   },
   "contracts": [
@@ -33,7 +41,8 @@
     "PotionRewardOdds.Roll consumes NextFloat even when forced and subtracts binary32 0.1 on every success without clamping",
     "Source reward population consumes odds, base Gold, potion rarity and selection before card factories",
     "PhialHolster generates both distinct potions on CombatPotionGeneration before procurement and any Sozu failures",
-    "Source merchant potion factory throws when the sampled rarity has no candidates; it does not substitute another rarity or silently shorten the requested batch"
+    "Source merchant potion factory throws when the sampled rarity has no candidates; it does not substitute another rarity or silently shorten the requested batch",
+    "Alchemical Coffer increases capacity by four, creates four distinct models before any procurement, and targets only physical slots originalMax+i; prior empty slots are retained, and Sozu still permits all eight generation draws"
   ],
   "regression": "tests/rewards/test_source_potion_factory_edges.py",
   "certifies_installed_game_parity": false

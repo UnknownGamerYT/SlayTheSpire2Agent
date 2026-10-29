@@ -7314,6 +7314,11 @@ def _apply_relic_pickup_effects(
         state, potion_events = source_item_selection.phial_potions(state, rng)
         state = state.model_copy(update={"rng": capture_random_state(rng)})
         events.extend(potion_events)
+    if normalized == "alchemical_coffer" and apply_table_effects and is_source_rng(state.rng):
+        rng = random_from_state(state.rng)
+        state, potion_events = source_item_selection.coffer_potions(state, rng)
+        state = state.model_copy(update={"rng": capture_random_state(rng)})
+        events.extend(potion_events)
     if normalized == "fur_coat":
         map_marker = next(marker for marker in pickup.markers if marker.kind == "mark_map_rooms")
         rng = pickup_rng if pickup_rng is not None else random_from_state(state.rng)

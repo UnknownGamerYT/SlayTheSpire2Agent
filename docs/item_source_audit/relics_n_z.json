@@ -1189,22 +1189,26 @@
       "reviewed_scopes": [
         "source method bodies and canonical values",
         "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
-        "AfterObtained: slot added once, two out-of-combat source potion factories generated before procurement/Sozu using CombatPotionGeneration"
+        "AfterObtained: slot added once, two out-of-combat source potion factories generated before procurement/Sozu using CombatPotionGeneration",
+        "The two-model PotionFactory batch excludes its first selected canonical model before selecting the second; four CombatPotionGeneration draws occur before procurement."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
-        "src/sts2sim/engine/source_item_selection.py:phial_potions"
+        "src/sts2sim/engine/source_item_selection.py:phial_potions",
+        "src/sts2sim/mechanics/source_rng.py:draw_source_potions"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_potion_slot_relics_add_source_backed_capacity",
         "tests/content/test_relic_handlers.py::test_phial_holster_pickup_reports_slot_and_random_potion_marker",
         "tests/content/test_potion_handlers.py::test_potion_capacity_uses_ascension_and_slot_relics",
         "tests/rewards/test_room_rewards.py::test_reward_potion_capacity_uses_ascension_and_slot_relics",
-        "tests/combat/test_source_item_selection.py"
+        "tests/combat/test_source_item_selection.py",
+        "tests/rewards/test_source_potion_factory_edges.py"
       ],
       "notes": [
         "AfterObtained: slot added once, two out-of-combat source potion factories generated before procurement/Sozu using CombatPotionGeneration.",
-        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence."
+        "The listed source-confirmed singleplayer discrepancy is implemented with retained outcome and/or public-action fixtures. This finite review does not certify all ordered interactions or live-game equivalence.",
+        "The two-model PotionFactory batch excludes its first selected canonical model before selecting the second; four CombatPotionGeneration draws occur before procurement."
       ],
       "multiplayer": "not independently validated"
     },
@@ -4465,23 +4469,27 @@
       "source_properties": [
         "Rarity"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "source method bodies and canonical values",
-        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test",
+        "ShouldForcePotionReward controls the normal odds object instead of adding an extra potion; the forced result still consumes one odds roll, decrements binary32 pity and populates exactly one potion before cards."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/mechanics/reward_triggers.py:resolve_reward_generation_triggers",
         "src/sts2sim/engine/transitions.py:_take_reward_card",
         "src/sts2sim/engine/transitions.py:_use_potion",
-        "src/sts2sim/engine/transitions.py:_add_event_potions"
+        "src/sts2sim/engine/transitions.py:_add_event_potions",
+        "src/sts2sim/mechanics/combat_rewards.py:roll_combat_potion_drop"
       ],
       "retained_tests": [
         "tests/rewards/test_reward_triggers.py::test_gold_and_potion_reward_relics_apply_to_combat_rewards",
-        "tests/rewards/test_combat_rewards_engine.py::test_gold_and_potion_relics_modify_combat_reward_state"
+        "tests/rewards/test_combat_rewards_engine.py::test_gold_and_potion_relics_modify_combat_reward_state",
+        "tests/rewards/test_source_potion_factory_edges.py"
       ],
       "notes": [
-        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim."
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "ShouldForcePotionReward controls the normal odds object instead of adding an extra potion; the forced result still consumes one odds roll, decrements binary32 pity and populates exactly one potion before cards."
       ],
       "multiplayer": "not independently validated"
     },

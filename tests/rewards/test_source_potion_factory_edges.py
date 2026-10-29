@@ -60,6 +60,37 @@ def test_phial_holster_public_pickup_does_not_repeat_the_first_model():
     assert result.flags["bonus_potion_slots"] == 1
 
 
+@pytest.mark.parametrize("ascension,original_capacity", [(0, 3), (4, 2)])
+@pytest.mark.parametrize("sozu", [False, True])
+def test_alchemical_coffer_generates_four_before_procurement_into_new_slots(
+    ascension, original_capacity, sozu,
+):
+    state = _reward_state("alchemical_coffer").model_copy(update={
+        "rng": capture_random_state(RunRng("8")), "ascension": ascension,
+        "potions": ("fire_potion",), "relics": ("sozu",) if sozu else (),
+        "flags": {"potion_slot_indices": (original_capacity - 1,)},
+    })
+    action = next(a for a in legal_actions(state) if a.type == "take_reward_relic")
+    result = step(state, action)
+    assert serialize(result) == serialize(step(load_state(serialize(state)), action))
+    assert result.flags["bonus_potion_slots"] == 4
+    assert result.rng.streams["combat_potion_generation"].draws == 8
+    assert result.potions[0] == "fire_potion"
+    assert result.flags["potion_slot_indices"] == (
+        (original_capacity - 1,) if sozu else
+        (original_capacity - 1, *range(original_capacity, original_capacity + 4)))
+    if sozu:
+        assert result.potions == ("fire_potion",)
+        assert sum(e.kind == "potion_procurement_blocked"
+                   for e in result.replay_log[-1].events) == 4
+    else:
+        assert len(result.potions) == 5
+        assert len(set(result.potions[1:])) == 4
+        gained = [e for e in result.replay_log[-1].events if e.kind == "relic_potion_obtained"]
+        assert [e.metadata["potion_slot"] for e in gained] == [
+            f"potion:{i}" for i in range(original_capacity, original_capacity + 4)]
+
+
 def test_forced_source_potion_still_draws_and_lowers_unbounded_pity():
     bank = RunRng("FORCED_POTION")
     rng = random_stream(bank, "rewards")

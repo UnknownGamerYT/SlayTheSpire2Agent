@@ -56,10 +56,11 @@
         "HasUponPickupEffect",
         "CanonicalVars"
       ],
-      "review_status": "reviewed",
+      "review_status": "fixed",
       "reviewed_scopes": [
         "Listed gameplay method bodies and canonical values read from pinned source; cosmetic rendering methods excluded",
-        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts"
+        "Shared runtime hook and marker consumers inspected statically; retained per-ID tests establish only their stated contracts",
+        "AfterObtained now generates the four-model exclusion batch before procurement and uses exact new physical slots; empty prior slots, Sozu and A4 capacity persist through reload."
       ],
       "runtime_entrypoints": [
         "src/sts2sim/engine/transitions.py:_apply_ancient_resolution",
@@ -67,15 +68,19 @@
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
         "src/sts2sim/mechanics/room_rewards.py:_potion_capacity",
-        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects"
+        "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
+        "src/sts2sim/engine/source_item_selection.py:coffer_potions",
+        "src/sts2sim/engine/potion_inventory.py:procure_at_slot"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_potion_slot_relics_add_source_backed_capacity",
         "tests/content/test_potion_handlers.py::test_potion_capacity_uses_ascension_and_slot_relics",
-        "tests/rewards/test_room_rewards.py::test_reward_potion_capacity_uses_ascension_and_slot_relics"
+        "tests/rewards/test_room_rewards.py::test_reward_potion_capacity_uses_ascension_and_slot_relics",
+        "tests/rewards/test_source_potion_factory_edges.py"
       ],
       "notes": [
-        "Compared listed source gameplay methods and canonical values with shared runtime marker/consumer scope; no independent full-interaction game oracle is claimed."
+        "Compared listed source gameplay methods and canonical values with shared runtime marker/consumer scope; no independent full-interaction game oracle is claimed.",
+        "AfterObtained now generates the four-model exclusion batch before procurement and uses exact new physical slots; empty prior slots, Sozu and A4 capacity persist through reload."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
