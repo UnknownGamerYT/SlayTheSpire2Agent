@@ -14790,30 +14790,10 @@ def _execute_monster_turn(
         combat = _combat_with_monster(combat, monster_index, monster)
         events.extend(vigor_events)
     if _monster_move_is_self_destruct(definition, move):
-        monster = monster.model_copy(
-            update={
-                "hp": 0,
-                "block": 0,
-                "intent": None,
-                "intent_damage": 0,
-                "intent_block": 0,
-                "next_move_id": None,
-                "metadata": {
-                    **monster.metadata,
-                    "self_destructed": True,
-                    "self_destruct_move_id": move.move_id,
-                },
-            }
+        combat, destruct_events = _complete_monster_self_destruct(
+            combat, monster_index, move.move_id, move.name,
         )
-        combat = _combat_with_monster(combat, monster_index, monster)
-        events.append(
-            EffectEvent(
-                kind="monster_self_destructed",
-                source_id=monster.monster_id,
-                target_id=monster.monster_id,
-                metadata={"move_id": move.move_id, "move_name": move.name},
-            )
-        )
+        events.extend(destruct_events)
         return combat, tuple(events)
 
     player = combat.player
@@ -16407,6 +16387,26 @@ def _monster_move_is_self_destruct(definition: MonsterDefinition, move: MonsterM
     )
 
 
+def _complete_monster_self_destruct(
+    combat: CombatState, monster_index: int, move_id: str, move_name: str,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    """Finish the source attack-then-owner-kill move without guessing next AI."""
+    monster = combat.monsters[monster_index]
+    metadata = {**monster.metadata, "self_destructed": True, "self_destruct_move_id": move_id}
+    if _normalized_id(metadata.get("source_monster_id", monster.monster_id)) == "waterfall_giant":
+        # The native death script must not enter AboutToBlow a second time.
+        metadata["waterfall_giant_exploded"] = True
+        metadata.pop("waterfall_giant_about_to_blow", None)
+    monster = monster.model_copy(update={
+        "hp": 0, "block": 0, "intent": None, "intent_damage": 0,
+        "intent_block": 0, "next_move_id": None, "metadata": metadata,
+    })
+    return _combat_with_monster(combat, monster_index, monster), (EffectEvent(
+        kind="monster_self_destructed", source_id=monster.monster_id,
+        target_id=monster.monster_id, metadata={"move_id": move_id, "move_name": move_name},
+    ),)
+
+
 def _reset_monster_hit_trigger_flags(monster: MonsterState) -> MonsterState:
     metadata = dict(monster.metadata)
     if metadata.pop("skittish_used_this_turn", None) is None:
@@ -16970,6 +16970,12 @@ def _execute_fallback_monster_turn(
         monster, vigor_events = _consume_monster_vigor(monster)
         combat = _combat_with_monster(combat, monster_index, monster)
         events.extend(vigor_events)
+    live_self_destruct = monster.metadata.get("live_self_destruct_move_id")
+    if isinstance(live_self_destruct, str):
+        combat, destruct_events = _complete_monster_self_destruct(
+            combat, monster_index, live_self_destruct, "Explode",
+        )
+        return combat, tuple(events) + destruct_events
     if monster.hp <= 0:
         return combat, tuple(events)
     if monster.intent_block:

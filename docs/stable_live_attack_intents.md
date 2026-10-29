@@ -19,3 +19,18 @@ Source paths/hashes and finite contracts are retained in
 Strength, Weak, Vulnerable, Intangible, fractional amounts, multiple hits,
 save/reload and a Weak card played after capture. Windows game comparisons
 remain required.
+
+`DeathBlowIntent` inherits the same single-attack calculation while exposing a
+different display type. The two source uses, Gas Bomb and Waterfall Giant's
+Explode moves, attack and then kill their owner. Imported observations retain
+the original display type and use attack semantics for damage, potion timing
+and the known owner-kill continuation. Native potion timing also reads positive
+canonical damage under both DeathBlow and older Special API labels.
+
+The bounded constructor review covered all 121 monster C# files, including the
+115 cached monster models: 333 MoveState constructions contain 161 single,
+54 multi and two DeathBlow attack-intent constructors. Every MoveState has at
+most one attack intent. No shipped move therefore requires a simultaneous
+heterogeneous attack sequence. The defensive rejection of that input is not a
+remaining source move implementation. Counts, reviewed paths and all corpus
+hashes are retained in `tests/fixtures/source_death_blow.json`.

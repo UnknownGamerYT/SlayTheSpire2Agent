@@ -59,11 +59,17 @@ def import_monster_intents(
     shown_damage: int | None = None
     hit_count = 0
     block = 0
+    death_blow = False
     intents = _rows(raw.get("intents"), "enemy.intents")
     if not intents:
         raise ValueError("Live monster requires explicit visible intents")
     for intent in intents:
         kind = str(intent.get("type", "")).lower()
+        if kind.replace("_", "").replace(" ", "") == "deathblow":
+            # DeathBlowIntent inherits SingleAttackIntent but changes its UI
+            # IntentType. Keep the original type in visible metadata below.
+            kind = "attack_death_blow"
+            death_blow = True
         kinds.append(kind)
         if "attack" in kind:
             label = str(intent.get("label", ""))
@@ -103,6 +109,11 @@ def import_monster_intents(
         metadata["source_monster_id"] = str(raw["monster_id"]).lower()
     if base_damage is not None:
         metadata["live_attack_base_per_hit"] = str(base_damage)
+    if death_blow:
+        source = str(raw.get("monster_id", "")).lower()
+        if source not in {"gas_bomb", "waterfall_giant"}:
+            raise ValueError("Live DeathBlow requires its known source monster identity")
+        metadata["live_self_destruct_move_id"] = "EXPLODE"
     result = monster.model_copy(update={
         "intent": "_".join(kinds), "intent_damage": (shown_damage or 0) * hit_count,
         "hit_count": hit_count or 1, "intent_block": block,

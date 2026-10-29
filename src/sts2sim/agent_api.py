@@ -2143,9 +2143,8 @@ def _incoming_combat_damage(combat: Any) -> int:
     for monster in getattr(combat, "monsters", ()):
         if _int(getattr(monster, "hp", 0)) <= 0:
             continue
-        intent = str(getattr(monster, "intent", "") or "").lower()
-        if "attack" not in intent:
-            continue
+        # Canonical damage is the complete displayed total. Source DeathBlow
+        # (and older Special API labels for it) is still a damaging attack.
         total += max(0, _int(getattr(monster, "intent_damage", 0)))
     return total
 
