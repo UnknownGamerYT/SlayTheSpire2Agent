@@ -921,7 +921,10 @@ def _indexed_actions(
     for fallback_index, item in enumerate(items):
         if not isinstance(item, Mapping):
             continue
-        if item.get("is_enabled") is False or item.get("was_chosen") is True:
+        if item.get("is_enabled") is False or item.get("can_choose") is False:
+            continue
+        if (item.get("was_chosen") is True and item.get("can_choose") is not True
+                and item.get("disable_on_chosen") is not False):
             continue
         if enabled_key is not None and bool(item.get(enabled_key)) is not enabled_when:
             continue

@@ -295,6 +295,18 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent/CrystalSphereItem.cs",
       "sha256": "4415610b44c9f1678eb6a8b411f3cf3c7c8878996da75f3cf157963e7352617f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Trial.cs",
+      "sha256": "ca4a1dcf6495ff8e8222b59748dc7425ff01cc0ab217104552d05a94a68acf7f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheArchitect.cs",
+      "sha256": "2b827b6550994a3865939d455e3ce2767eddb8f67fe2fa5942ca9c3ef329b205"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Events/NEventOptionButton.cs",
+      "sha256": "0c8c339b34c803763d5bd445514144039baa8122d95016d1c04001b6a932e048"
     }
   ],
   "contracts": [
@@ -319,7 +331,8 @@
     "Ordinary reward rows expose source selector CanSkip/CanReroll flags without generating alternatives or revealing prepared cards; SpecialCardReward has no ordinary selector",
     "AttackIntent.DamageCalc provides the current selected move raw base; GetSingleDamage applies all hooks and truncates before displaying the label",
     "Crystal Sphere exports numeric remaining divinations and completed reveal history; partial cells do not expose full hidden item bounds",
-    "Additional owned periodic histories and Wongo payout state are source primitive fields, independent of transient display animations"
+    "Additional owned periodic histories and Wongo payout state are source primitive fields, independent of transient display animations",
+    "EventOption.WasChosen records every successful callback entry; DisableOnChosen=false permits repeated choices after a canceled confirmation, including Trial DoubleDown and Architect Proceed"
   ],
   "compiled_against_game": false,
   "installed_game_behavior_validated": false,
@@ -409,5 +422,11 @@
       "gave_relic": "_gaveRelic"
     }
   },
-  "relic_public_history_fields_note": "Only bool/int progress from already observed actions/visible activations; private future random data excluded. Lamp uses triggering CardModel nullness plus finished flag, not TriggeringCardPlay."
+  "relic_public_history_fields_note": "Only bool/int progress from already observed actions/visible activations; private future random data excluded. Lamp uses triggering CardModel nullness plus finished flag, not TriggeringCardPlay.",
+  "event_option_repeatability": {
+    "source_property": "EventOption.DisableOnChosen",
+    "source_chosen_gate": "OnChosen != null && (!DisableOnChosen || !WasChosen)",
+    "exported_effective_gate": "button.IsEnabled && !Option.IsLocked && (!DisableOnChosen || !Option.WasChosen)",
+    "legacy_without_repeatability_flag": "chosen options remain blocked"
+  }
 }

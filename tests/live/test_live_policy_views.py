@@ -177,6 +177,88 @@ def test_disabled_controls_never_become_model_candidates_and_unopened_cards_stay
     assert info["action_space"][0]["reward_choice"]["opens_selection"] is True
 
 
+@pytest.mark.parametrize(
+    "repeat_gate",
+    [
+        {"can_choose": True, "disable_on_chosen": False},
+        {"disable_on_chosen": False},
+    ],
+)
+def test_saved_policy_can_choose_repeatable_trial_option_after_it_was_chosen(
+    live_checkpoint,
+    repeat_gate,
+):
+    raw = _screen(
+        "event",
+        {
+            "event_id": "TRIAL",
+            "options": [
+                {
+                    "index": 0,
+                    "option_id": "DOUBLE_DOWN",
+                    "is_enabled": True,
+                    "was_chosen": True,
+                    **repeat_gate,
+                },
+                {
+                    "index": 1,
+                    "option_id": "ORDINARY_CHOSEN",
+                    "is_enabled": True,
+                    "was_chosen": True,
+                    "disable_on_chosen": True,
+                },
+            ],
+        },
+    )
+    _, info, commands = import_policy_view(raw).inputs()
+    assert commands == {0: {"action": "choose_event_option", "index": 0}}
+    assert info["action_space"][0]["event_option"]["option_id"] == "DOUBLE_DOWN"
+    bridge = Bridge(raw, {"state_type": "game_over"})
+    result = _play(bridge, live_checkpoint)
+    assert bridge.actions == [commands[0]]
+    assert result.steps_taken == 1
+    assert result.steps[0].decision.policy == "masked_ppo"
+
+
+@pytest.mark.parametrize(
+    "gate",
+    [
+        {"can_choose": False, "was_chosen": False},
+        {"can_choose": True, "is_locked": True},
+        {"can_choose": True, "is_enabled": False},
+        {"was_chosen": True},
+        {"was_chosen": True, "disable_on_chosen": True},
+    ],
+)
+def test_event_selection_gate_still_blocks_disabled_locked_and_legacy_chosen_options(gate):
+    raw = _screen(
+        "event",
+        {
+            "event_id": "TRIAL",
+            "options": [
+                {"index": 0, "option_id": "BLOCKED", "is_enabled": True, **gate},
+            ],
+        },
+    )
+    with pytest.raises(ValueError, match="no enabled mapped policy controls"):
+        import_policy_view(raw).inputs()
+
+
+@pytest.mark.parametrize("field", ["can_choose", "disable_on_chosen"])
+def test_event_selection_gate_rejects_non_boolean_flags(field):
+    raw = _screen(
+        "event",
+        {
+            "event_id": "TRIAL",
+            "options": [
+                {"index": 0, "option_id": "BAD_GATE", "is_enabled": True, field: 1},
+            ],
+        },
+    )
+    with pytest.raises(ValueError, match=f"{field} boolean"):
+        import_policy_view(raw)
+
+
 def test_visible_item_and_card_features_retain_actual_prices_modifiers_and_gold():
     raw = _screen(
         "shop",

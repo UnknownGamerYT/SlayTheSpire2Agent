@@ -331,3 +331,27 @@ def test_plain_capture_refuses_identified_legacy_sts2mcp_without_requesting_stat
         with pytest.raises(LiveApiError, match="Read-only observation schema2"):
             capture_live_state(client=client)
     assert calls == ["/"]
+
+
+@pytest.mark.parametrize("repeat_fields,expected", [
+    ({"disable_on_chosen": False, "can_choose": True}, True),
+    ({"disable_on_chosen": False}, True),
+    ({}, False),
+    ({"disable_on_chosen": False, "can_choose": False}, False),
+    ({"disable_on_chosen": False, "can_choose": True, "is_enabled": False}, False),
+])
+def test_client_keeps_repeatable_chosen_event_options_after_confirmation_cancel(
+    repeat_fields: dict[str, Any], expected: bool,
+) -> None:
+    repeat = {"index": 1, "option_id": "TRIAL.pages.REJECT.options.DOUBLE_DOWN",
+              "is_locked": False, "is_enabled": True, "was_chosen": True, **repeat_fields}
+    ordinary = {"index": 0, "option_id": "TRIAL.pages.REJECT.options.ACCEPT",
+                "is_locked": False, "is_enabled": True, "was_chosen": True,
+                "disable_on_chosen": True, "can_choose": False}
+    raw = {"state_type": "event", "event": {"event_id": "TRIAL",
+                                                "options": [ordinary, repeat]}}
+    with httpx.Client(transport=httpx.MockTransport(
+        lambda _: httpx.Response(200, json={})), base_url="http://bridge") as http:
+        client = LiveApiClient(LiveApiConfig(base_url="http://bridge"), client=http)
+        assert client.actions(raw) == (
+            [{"action": "choose_event_option", "index": 1}] if expected else [])

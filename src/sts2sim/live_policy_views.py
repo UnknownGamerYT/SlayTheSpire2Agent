@@ -72,6 +72,21 @@ def _int(row: Mapping[str, Any], key: str, *, minimum: int = 0) -> int:
     return value
 
 
+def _event_option_enabled(row: Mapping[str, Any]) -> bool:
+    for key in ("can_choose", "disable_on_chosen"):
+        if key in row and not isinstance(row[key], bool):
+            raise ValueError(f"Invalid visible event option {key} boolean")
+    if row.get("is_locked") is True or row.get("is_enabled") is False:
+        return False
+    if "can_choose" in row:
+        return row["can_choose"] is True
+    # Older captures have no derived selection gate. Chosen options remain
+    # blocked unless the source explicitly says choosing does not disable them.
+    return row.get("is_enabled") is True and (
+        row.get("was_chosen") is not True or row.get("disable_on_chosen") is False
+    )
+
+
 def _key(action: Action) -> str:
     return json.dumps(action.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
 
@@ -297,11 +312,7 @@ def import_policy_view(
             for row in _rows(payload.get("options"), "event.options"):
                 index = _int(row, "index")
                 identity = str(row.get("option_id") or f"live:option:{index}")
-                enabled = (
-                    row.get("is_enabled") is True
-                    and row.get("is_locked") is not True
-                    and row.get("was_chosen") is not True
-                )
+                enabled = _event_option_enabled(row)
                 options.append(
                     EventOptionState(
                         option_id=identity,
