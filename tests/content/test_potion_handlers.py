@@ -12,12 +12,12 @@ from sts2sim.mechanics import (
 def test_potion_capacity_uses_ascension_and_slot_relics() -> None:
     plain = potion_capacity(
         base_slots=3,
-        ascension_level=11,
+        ascension_level=4,
         current_potions=("FIRE_POTION", "SKILL_POTION"),
     )
     belted = potion_capacity(
         base_slots=3,
-        ascension_level=11,
+        ascension_level=4,
         relics=("POTION_BELT",),
         current_potions=("FIRE_POTION", "SKILL_POTION"),
     )

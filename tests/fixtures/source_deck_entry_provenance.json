@@ -1,0 +1,25 @@
+{
+  "game_version": "0.107.1",
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "scope": "CardCmd.Transform replacement is a Deck entry with clonedBy null, triggering Bing and other deck observers. Relic/event/enchantment clones trigger other observers but clonedBy excludes Bing. Fresnel checks actual Nimble.CanEnchant and never stacks on an already enchanted card.",
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/CardCmd.cs",
+      "sha256": "8520d56b8db0c5c996dd0701f381d4e173e20731e50b056eed96c93ad4551904"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BingBong.cs",
+      "sha256": "da18b6cc23b80747b57f79f110886fc9daa533e5aeb454946e0bbe23ca709595"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FresnelLens.cs",
+      "sha256": "05b7cf19010bdf4beffc4d45a3d374ef160a89f8d8a98739de2609c597880b34"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Enchantments/Nimble.cs",
+      "sha256": "b730c1c94d6ec506575c5db5dd883f98d01880e700111936de1363ded34f685c"
+    }
+  ]
+}

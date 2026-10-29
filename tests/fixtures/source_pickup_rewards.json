@@ -1,0 +1,88 @@
+{
+  "game_version": "0.107.1",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/CallingBell.cs",
+      "sha256": "f986e370f212c579f9490494a816fa5a245b11e2609148693ba88de9f81b64b6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Cauldron.cs",
+      "sha256": "6aaa5a7e8ec692857e14e739ca6a7db417a3fbd60f2a98efdd86b9de89b4b446"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SmallCapsule.cs",
+      "sha256": "ae052e2dbcfc30eed878ec64a6132f7d130273603379c818b547605f0ef6634c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NeowsBones.cs",
+      "sha256": "0dd7a63e3689e8a10b2b280305558904ec4429433cc218c7eb1acdaa00c73bb3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Orrery.cs",
+      "sha256": "1e14f14c3db789ac56b47053661019f25cf20ab2cde218a9ddbab2083ccfd88f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GlassEye.cs",
+      "sha256": "1cf2c74cfc8852970e07f40e2815f605806ba8f5a0d999cbaf4f49d99fe1f011"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/LostCoffer.cs",
+      "sha256": "96579eaef2fdec892f201d1e643f0659d589a6521025339b06e762a5be85b79e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ArcaneScroll.cs",
+      "sha256": "2c4ed3e98daa57d0d689bd0f4af253f2c5c09697190b9f0d6f2d1f3e946c19ba"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsWing.cs",
+      "sha256": "90908efdfa3e6686395fbdc3ae6987a299f1bcdad5e8e128de56c79fe7e977ca"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsTooth.cs",
+      "sha256": "68053c79b69a1b47c3591a6dc9e750c3e032d5b814013c66a20e79aad6f7721d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/TeaOfDiscourtesy.cs",
+      "sha256": "92715bb91a8888fb73935de43ce91631dfb10dd9d7100a4d366f1a68e0414e8a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SilverCrucible.cs",
+      "sha256": "f7495185bb9bedb4a90257a61520f36130af70a01374a2a4c5950febd767aaee"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationFlags.cs",
+      "sha256": "1e43d3793d138f8ede4db48e429d03ef515105f547ee8ced0dd3438cd613bc11"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhiteStar.cs",
+      "sha256": "bca994fd23df8836f549b35fa2d2c2a6039c0a3def7786e223019025c88ab5df"
+    }
+  ],
+  "source_contracts": {
+    "CallingBell": "curse then Common/Uncommon/Rare RelicReward offers",
+    "Cauldron": "five out-of-combat PotionReward offers, populated with Rewards",
+    "NeowsBones": "shuffle eligible AllPossibleOptions; mandatory first two; modifier curse only after rewards complete",
+    "Orrery": "five count3 Other/RegularEncounter CardRewards; upgrade rolls enabled",
+    "LostCoffer": "Other/RegularEncounter count3 CardReward then one PotionReward",
+    "GlassEye": "five count3 uniform fixed-rarity CardRewards; NoUpgradeRoll preserved; pool hooks allowed",
+    "PaelsWing": "Sacrifice alternative completes one CardReward; every second sacrifice obtains front-bag relic",
+    "PaelsTooth": "five upgradable removable cards sorted by ModelId and serialized; one Rewards-selected entry returned/upgraded/removed per surviving combat end",
+    "TeaOfDiscourtesy": "CombatsLeft initial1; two Dazed random Shuffle insertion before Innate prioritization",
+    "SilverCrucible": "first three IsCardReward callbacks upgraded; first treasure entered after obtaining is empty",
+    "WhiteStar": "after Elite room add one separate ForRoom(Boss) count3 CardReward; source Encounter, Boss rarity, upgrade rolls, card-count/pool/late hooks and original Boss reroll profile"
+  }
+}

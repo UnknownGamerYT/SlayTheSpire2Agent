@@ -29,14 +29,20 @@ def new_run(
     ascension: int,
     *,
     act_variant_policy: str = "source_default",
+    rng_algorithm: str | None = None,
     source_data: Any | None = None,
 ) -> Any:
-    """Create a deterministic run state."""
+    """Create a run; integer seeds denote their decimal displayed seed string.
+
+    Normal characters use stable-source xoshiro streams. Explicitly select
+    ``python.random.MT19937`` to reproduce legacy RNG behavior.
+    """
     return new_run_state(
         seed=seed,
         character_id=character_id,
         ascension=ascension,
         source_data=_with_run_options(source_data, act_variant_policy),
+        rng_algorithm=rng_algorithm,
     )
 
 
@@ -48,6 +54,24 @@ def legal_actions(state: Any) -> list[Any]:
 def step(state: Any, action: Any) -> Any:
     """Apply one action and return a transition object."""
     return step_state(state, action)
+
+
+def inspect_reward_reroll_fault(state: Any, group: str = "primary") -> dict[str, Any]:
+    """Return an explicit oracle trace for a known source-faulting reroll.
+
+    This never advances the input run or supplies a normal successor. The
+    trace contains hidden RNG data and is excluded from policy observations.
+    """
+    from sts2sim.engine.source_reward_faults import inspect_reward_reroll_fault as inspect
+
+    return inspect(_load_state(state), group)
+
+
+def inspect_reward_alternative_fault(state: Any, group: str = "primary") -> dict[str, Any]:
+    """Return an oracle trace for the source's card-alternative overflow fault."""
+    from sts2sim.engine.source_reward_faults import inspect_reward_alternative_fault as inspect
+
+    return inspect(_load_state(state), group)
 
 
 def serialize(state: Any) -> dict[str, Any]:
@@ -72,6 +96,7 @@ def replay(
     replay_path: Path | str | None = None,
     path: Path | str | None = None,
     strict: bool = True,
+    rng_algorithm: str | None = None,
     source_data: Any | None = None,
     data_dir: Path | str | None = None,
 ) -> Any:
@@ -89,6 +114,7 @@ def replay(
             max_steps=len(recorded.get("actions", recorded.get("transcript", []))),
             actions=recorded.get("actions") or _actions_from_transcript(recorded),
             source_data=source_data,
+            rng_algorithm=recorded.get("rng_algorithm", rng_algorithm or "python.random.MT19937"),
         )
         matched = regenerated.get("transcript") == recorded.get("transcript")
         if strict and not matched:
@@ -103,7 +129,9 @@ def replay(
 
     if seed is None:
         raise TypeError("seed is required when replay_path/path is not provided")
-    initial = new_run(seed, character_id, ascension, source_data=source_data)
+    initial = new_run(
+        seed, character_id, ascension, source_data=source_data, rng_algorithm=rng_algorithm
+    )
     return replay_actions(initial, actions or [])
 
 
@@ -113,6 +141,7 @@ def play_run(
     ascension: int = 0,
     *,
     policy: str = "random",
+    rng_algorithm: str | None = None,
     max_steps: int | None = None,
     output_path: Path | str | None = None,
     output: Path | str | None = None,
@@ -124,7 +153,9 @@ def play_run(
 ) -> dict[str, Any]:
     """Run a small deterministic episode and optionally write a replay JSON file."""
     del data_dir, act
-    state = new_run(seed, character_id, ascension, source_data=source_data)
+    state = new_run(
+        seed, character_id, ascension, source_data=source_data, rng_algorithm=rng_algorithm
+    )
     rng = random.Random(f"{seed}:{policy}")
     transcript: list[dict[str, Any]] = []
     action_payloads: list[dict[str, Any]] = []
@@ -166,6 +197,7 @@ def play_run(
         "character_id": character_id,
         "ascension": ascension,
         "policy": policy,
+        "rng_algorithm": state.rng.algorithm,
         "actions": action_payloads,
         "transcript": transcript,
         "final": {

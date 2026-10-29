@@ -146,8 +146,8 @@ def _default_potion_effects() -> dict[str, tuple[PotionEffectRule, ...]]:
             PotionEffectRule("status", amount=1, target="self", status="intangible"),
         ),
         "glowwater_potion": (
-            PotionEffectRule("draw", amount=10, target="self"),
             PotionEffectRule("exhaust_hand", target="self", metadata={"mode": "all"}),
+            PotionEffectRule("draw", amount=10, target="self"),
         ),
         "liquid_bronze": (
             PotionEffectRule("status", amount=3, target="self", status="thorns"),

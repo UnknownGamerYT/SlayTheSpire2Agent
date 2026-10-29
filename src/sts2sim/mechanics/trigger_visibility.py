@@ -11,6 +11,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from sts2sim.mechanics.potion_inventory import potion_slot_contents
 from sts2sim.mechanics.potions import potion_capacity as compute_potion_capacity
 from sts2sim.mechanics.relics import (
     DEFAULT_RELIC_HOOK_RULES,
@@ -161,14 +162,11 @@ def potion_slot_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
     capacity = _potion_capacity(payload, filled=len(potions))
     filled = len(potions)
     empty = max(0, capacity - filled)
+    contents = potion_slot_contents(potions, _mapping(payload.get("flags")), capacity)
     slots: list[dict[str, Any]] = [
-        {"slot_index": index, "id": potion_id, "empty": False}
-        for index, potion_id in enumerate(potions)
+        {"slot_index": index, "id": potion_id or "", "empty": potion_id is None}
+        for index, potion_id in enumerate(contents)
     ]
-    slots.extend(
-        {"slot_index": index, "id": "", "empty": True}
-        for index in range(filled, capacity)
-    )
     return {"capacity": capacity, "filled": filled, "empty": empty, "potions": slots}
 
 

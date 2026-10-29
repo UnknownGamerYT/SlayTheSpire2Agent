@@ -50,6 +50,8 @@ class LiveAgentDecision(LiveAgentModel):
     state_type: str
     action: dict[str, Any] | None = None
     reason: str
+    policy: str = "heuristic"
+    policy_details: dict[str, Any] = Field(default_factory=dict)
 
 
 class LiveAgentComparison(LiveAgentModel):
@@ -58,8 +60,7 @@ class LiveAgentComparison(LiveAgentModel):
     ascension: int | None = None
     simulator_seed: int | str = 0
     note: str = (
-        "Baseline snapshot comparison only; bridge actions are not replayed in "
-        "the simulator yet."
+        "Baseline snapshot comparison only; bridge actions are not replayed in the simulator yet."
     )
     live_summary: dict[str, Any] = Field(default_factory=dict)
     simulator_summary: dict[str, Any] = Field(default_factory=dict)
@@ -92,6 +93,11 @@ class LiveAgentResult(LiveAgentModel):
     final_state_type: str | None = None
     steps: tuple[LiveAgentStep, ...] = ()
     output_path: str | None = None
+    policy: str = "heuristic"
+    checkpoint_path: str | None = None
+    device: str | None = None
+    heuristic_fallback: bool = False
+    stopped_decision: LiveAgentDecision | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return self.model_dump(mode="json")
@@ -112,9 +118,20 @@ def play_live_agent(
     settle_timeout_seconds: float = 3.0,
     output_path: Path | str | None = DEFAULT_OUTPUT_PATH,
     client: _LiveClient | None = None,
+    checkpoint_path: Path | str | None = None,
+    device: str = "auto",
+    heuristic_fallback: bool = False,
 ) -> LiveAgentResult:
     """Run a conservative live-game agent and emit a comparison report."""
 
+    model_adapter: Any | None = None
+    if checkpoint_path is not None:
+        from sts2sim.learning.policy import MaskedPpoPolicy
+        from sts2sim.live_policy import LiveMaskedPpoPolicy
+
+        model_adapter = LiveMaskedPpoPolicy(
+            MaskedPpoPolicy(checkpoint_path, device=device), simulator_seed=simulator_seed
+        )
     if client is None and _is_auto_base_url(base_url):
         base_url = detect_live_bridge().base_url
     resolved_base_url = base_url.rstrip("/")
@@ -154,6 +171,7 @@ def play_live_agent(
     rng = random.Random(str(seed))
     steps: list[LiveAgentStep] = []
     stopped_reason = "max_steps"
+    stopped_decision: LiveAgentDecision | None = None
 
     try:
         health = active_client.health()
@@ -178,9 +196,18 @@ def play_live_agent(
                 current_state,
                 simulator_seed=simulator_seed,
             )
-            decision = choose_live_action(current_state, rng=rng)
+            model_decision: Any | None = None
+            if model_adapter is not None:
+                decision, model_decision = _choose_checkpoint_live_action(
+                    model_adapter,
+                    current_state,
+                    heuristic_fallback=heuristic_fallback,
+                )
+            else:
+                decision = choose_live_action(current_state, rng=rng)
             if decision.action is None:
                 stopped_reason = decision.reason
+                stopped_decision = decision
                 break
 
             response = active_client.apply_action(decision.action)
@@ -220,6 +247,8 @@ def play_live_agent(
                 stopped_reason = "action_failed"
                 current_state = next_state
                 break
+            if model_adapter is not None and model_decision is not None:
+                model_adapter.record_transition(current_state, model_decision, next_state)
             current_state = next_state
         else:
             stopped_reason = "max_steps"
@@ -241,8 +270,73 @@ def play_live_agent(
         final=final_summary,
         final_state_type=_optional_string(final_summary.get("state_type")),
         steps=tuple(steps),
+        policy="masked_ppo" if model_adapter is not None else "heuristic",
+        checkpoint_path=str(checkpoint_path) if checkpoint_path is not None else None,
+        device=str(model_adapter.policy.device) if model_adapter is not None else None,
+        heuristic_fallback=heuristic_fallback,
+        stopped_decision=stopped_decision,
     )
     return _write_result(result, output_path)
+
+
+def _choose_checkpoint_live_action(
+    adapter: Any,
+    state: Mapping[str, Any],
+    *,
+    heuristic_fallback: bool,
+) -> tuple[LiveAgentDecision, Any | None]:
+    from sts2sim.learning.policy import PolicyInferenceError
+    from sts2sim.live_policy import LivePolicyUnsupported
+
+    state_type = _state_type(state)
+    if state_type == "game_over":
+        return LiveAgentDecision(
+            state_type=state_type, reason="game_over", policy="masked_ppo"
+        ), None
+    try:
+        model_decision, bridge_action = adapter.choose_action(state)
+    except LivePolicyUnsupported as exc:
+        diagnostic = str(exc)
+        if heuristic_fallback:
+            decision = choose_live_action(state)
+            return decision.model_copy(
+                update={
+                    "policy": "heuristic_fallback",
+                    "reason": f"heuristic_fallback:{decision.reason}",
+                    "policy_details": {"unsupported_model_observation": diagnostic},
+                }
+            ), None
+        return LiveAgentDecision(
+            state_type=state_type,
+            reason="checkpoint_observation_unsupported",
+            policy="masked_ppo",
+            policy_details={"diagnostic": diagnostic},
+        ), None
+    except PolicyInferenceError as exc:
+        return LiveAgentDecision(
+            state_type=state_type,
+            reason="checkpoint_inference_failed",
+            policy="masked_ppo",
+            policy_details={"diagnostic": str(exc)},
+        ), None
+    return LiveAgentDecision(
+        state_type=state_type,
+        action=bridge_action,
+        reason="checkpoint_combat_action"
+        if state_type in {"monster", "elite", "boss"}
+        else "checkpoint_visible_action",
+        policy="masked_ppo",
+        policy_details={
+            "action_id": model_decision.action_id,
+            "simulator_action": model_decision.action,
+            "policy_output": model_decision.policy_output,
+            "supported_bridge_actions": [str(bridge_action.get("action", ""))],
+            "observation_scope": "validated_combat"
+            if state_type in {"monster", "elite", "boss"}
+            else "observed_screen_controls",
+            "memory_mode": "observed_actions_and_deltas_without_learning_rewards",
+        },
+    ), model_decision
 
 
 def choose_live_action(
@@ -531,9 +625,7 @@ def _choose_hand_select_action(state: Mapping[str, Any]) -> LiveAgentDecision:
 def _choose_rewards_action(state: Mapping[str, Any]) -> LiveAgentDecision:
     rewards = _mapping(state.get("rewards"))
     items = [
-        _mapping(item)
-        for item in _sequence(rewards.get("items"))
-        if isinstance(item, Mapping)
+        _mapping(item) for item in _sequence(rewards.get("items")) if isinstance(item, Mapping)
     ]
     potion_slots_available = _potion_slots_available(_mapping(state.get("player")))
     for item in items:
@@ -601,9 +693,7 @@ def _choose_event_action(state: Mapping[str, Any]) -> LiveAgentDecision:
             reason="advance_event_dialogue",
         )
     options = [
-        _mapping(item)
-        for item in _sequence(event.get("options"))
-        if isinstance(item, Mapping)
+        _mapping(item) for item in _sequence(event.get("options")) if isinstance(item, Mapping)
     ]
     proceed = _first_event_option(options, proceed=True)
     choice = proceed or _first_event_option(options, proceed=False)
@@ -620,9 +710,7 @@ def _choose_event_action(state: Mapping[str, Any]) -> LiveAgentDecision:
 def _choose_rest_action(state: Mapping[str, Any]) -> LiveAgentDecision:
     rest = _mapping(state.get("rest_site"))
     options = [
-        _mapping(item)
-        for item in _sequence(rest.get("options"))
-        if isinstance(item, Mapping)
+        _mapping(item) for item in _sequence(rest.get("options")) if isinstance(item, Mapping)
     ]
     rest_option = _first_rest_option(options, "rest")
     choice = rest_option or _first_enabled_option(options)
@@ -658,6 +746,11 @@ def _choose_shop_action(state: Mapping[str, Any], state_type: str) -> LiveAgentD
 
 def _choose_treasure_action(state: Mapping[str, Any]) -> LiveAgentDecision:
     treasure = _mapping(state.get("treasure"))
+    if treasure.get("can_open_chest") is True:
+        return LiveAgentDecision(
+            state_type="treasure", action={"action": "open_chest"},
+            reason="open_selected_treasure_chest",
+        )
     first = _first_mapping_item(_sequence(treasure.get("relics")))
     index = _optional_int(first.get("index")) if first is not None else None
     if index is not None:
@@ -790,9 +883,7 @@ def _live_combat_summary(
     player: Mapping[str, Any],
 ) -> dict[str, Any]:
     enemies = [
-        _mapping(item)
-        for item in _sequence(battle.get("enemies"))
-        if isinstance(item, Mapping)
+        _mapping(item) for item in _sequence(battle.get("enemies")) if isinstance(item, Mapping)
     ]
     return {
         key: value

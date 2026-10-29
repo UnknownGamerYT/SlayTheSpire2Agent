@@ -13,12 +13,14 @@ import json
 import math
 import multiprocessing as mp
 import os
+import pickle
 import queue
 import random
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html import escape as html_escape
 from itertools import count
@@ -51,6 +53,7 @@ from sts2sim.learning.progress import (
     with_moving_averages,
     write_learning_progress_data,
 )
+from sts2sim.learning.provenance import require_training_sources, source_data_snapshot
 from sts2sim.learning.rewards import (
     BREAKDOWN_FIELDS,
     DEFAULT_REWARD_CONFIG,
@@ -73,6 +76,7 @@ from sts2sim.mechanics.synergy import (
 from sts2sim.mechanics.synergy import (
     profile_value_vector as synergy_value_vector,
 )
+from sts2sim.policy_visibility import POLICY_OBSERVATION_SCHEMA_VERSION
 
 NETWORK_SCHEMA_VERSION = 5
 REWARD_SCHEMA_VERSION = 9
@@ -332,6 +336,10 @@ class _Transition:
     reward: float
     done: bool
     teacher_action_index: int | None = None
+    # A time limit ends this rollout but does not terminate the underlying run.
+    # Keep its next-state value separate from the next collected episode.
+    bootstrap_value: float = 0.0
+    teacher_forced: bool = False
 
 
 @dataclass(frozen=True)
@@ -396,7 +404,9 @@ def train_masked_ppo(
 ) -> dict[str, Any]:
     """Train a masked PPO policy over random simulator seeds."""
 
+    require_training_sources(character_id)
     torch, nn, optim = _load_torch()
+    _seed_training_rngs(torch, seed)
     torch_device = _resolve_torch_device(torch, device)
     resolved_rollout_workers = _resolve_rollout_workers(rollout_workers)
     resolved_rollout_inference = _normalize_rollout_inference(rollout_inference)
@@ -1347,9 +1357,11 @@ def _expected_ppo_architecture(
         "planning_head_schema": list(PLANNING_HEAD_SCHEMA),
         "planning_head_dim": PLANNING_HEAD_DIM,
         "network_schema_version": NETWORK_SCHEMA_VERSION,
+        "policy_observation_schema_version": POLICY_OBSERVATION_SCHEMA_VERSION,
         "reward_schema_version": REWARD_SCHEMA_VERSION,
         "reward_config_checksum": _reward_config_checksum(),
         "game_logic_checksum": _game_logic_checksum(),
+        **source_data_snapshot().metadata(),
         **content_vocab_metadata(content_vocab),
         "hidden_size": hidden_size,
         "hidden_layers": max(1, hidden_layers),
@@ -1380,9 +1392,11 @@ def validate_masked_ppo_checkpoint(
             "reason": "checkpoint file not found",
         }
     try:
-        torch, _, _ = _load_torch()
-        payload = torch.load(path, map_location="cpu")
-    except (OSError, RuntimeError, ValueError) as error:
+        torch, nn, _ = _load_torch()
+        payload = _read_ppo_checkpoint(torch, path, "cpu")
+    except (
+        OSError, RuntimeError, ValueError, TypeError, EOFError, pickle.UnpicklingError
+    ) as error:
         return {
             "checkpoint_path": str(path),
             "decision": "fresh",
@@ -1403,6 +1417,22 @@ def validate_masked_ppo_checkpoint(
         activation=activation,
     )
     mismatches = _architecture_mismatches(payload["architecture"], expected)
+    if not mismatches:
+        try:
+            # Validation must not alter subsequent policy sampling or model
+            # initialization in the process that requested the check.
+            with torch.random.fork_rng(devices=[]):
+                model = _masked_actor_critic_class(nn)(
+                    **_model_kwargs_from_architecture(expected)
+                )
+            _validate_model_state(torch, model, payload.get("model_state"))
+        except (ValueError, TypeError, RuntimeError) as error:
+            return {
+                "checkpoint_path": str(path),
+                "decision": "fresh",
+                "compatible": False,
+                "reason": str(error),
+            }
     return {
         "checkpoint_path": str(path),
         "decision": "resume" if not mismatches else "fresh",
@@ -1513,11 +1543,11 @@ def evaluate_masked_ppo_checkpoint(
         head_hidden_layers=head_hidden_layers,
         activation=_normalize_activation_name(activation),
     )
-    payload = torch.load(path, map_location=torch_device)
-    model.load_state_dict(payload["model_state"])
+    payload = _read_ppo_checkpoint(torch, path, torch_device)
+    _load_model_state(torch, model, payload.get("model_state"))
     model.to(torch_device)
     model.eval()
-    validation_rng = random.Random(f"{seed}:checkpoint:{path.name}:{resolved_target.name}")
+    validation_rng = random.Random(f"{seed}:checkpoint:{resolved_target.name}")
     jobs = tuple(
         (index, _random_run_seed(validation_rng))
         for index in range(max(0, eval_runs))
@@ -2250,14 +2280,12 @@ def _batched_policy_decisions(
         mask_tensor = torch.tensor(action_mask, dtype=torch.bool, device=device)
         masked_logits = logits.masked_fill(~mask_tensor, -1.0e9)
         distribution = torch.distributions.Categorical(logits=masked_logits)
-        sampled_indices = distribution.sample()
         greedy_indices = torch.argmax(masked_logits, dim=1)
         deterministic_mask = torch.tensor(
             [bool(request.get("deterministic")) for request in requests],
             dtype=torch.bool,
             device=device,
         )
-        action_indices = torch.where(deterministic_mask, greedy_indices, sampled_indices)
         forced_indices = torch.tensor(
             [
                 _int(request.get("forced_action_index"))
@@ -2268,8 +2296,14 @@ def _batched_policy_decisions(
             dtype=torch.long,
             device=device,
         )
-        forced_mask = (forced_indices >= 0) & (forced_indices < mask_tensor.shape[1])
-        action_indices = torch.where(forced_mask, forced_indices, action_indices)
+        legal_counts = mask_tensor.sum(dim=1)
+        forced_mask = (forced_indices >= 0) & (forced_indices < legal_counts)
+        action_indices = torch.where(forced_mask, forced_indices, greedy_indices)
+        sample_mask = ~deterministic_mask & ~forced_mask
+        if bool(sample_mask.any().item()):
+            action_indices[sample_mask] = torch.distributions.Categorical(
+                logits=masked_logits[sample_mask]
+            ).sample()
         log_probs = distribution.log_prob(action_indices)
         probabilities = distribution.probs
         entropies = distribution.entropy()
@@ -2448,6 +2482,7 @@ def _collect_training_run_with_policy_server(
     truncated = False
     error: str | None = None
     failed_to_continue = False
+    bootstrap_value = 0.0
     observation: dict[str, Any] = {}
     reward_breakdown_totals: dict[str, float] = {}
     diagnostics: dict[str, Any] = {}
@@ -2519,6 +2554,7 @@ def _collect_training_run_with_policy_server(
                     reward=effective_reward,
                     done=done,
                     teacher_action_index=teacher_index if imitation_enabled else None,
+                    teacher_forced=forced_index is not None,
                 )
             )
             _accumulate_run_diagnostics(
@@ -2533,6 +2569,19 @@ def _collect_training_run_with_policy_server(
             info = next_info
             if done:
                 break
+        if transitions and truncated and not terminated and not target.reached(observation):
+            bootstrap_decision = _request_policy_server_decision(
+                worker_id=worker_id,
+                request_queue=request_queue,
+                response_queue=response_queue,
+                request_id=f"{run_index}:train:bootstrap",
+                observation=observation,
+                info=info,
+                deterministic=True,
+                forced_action_index=None,
+            )
+            if bootstrap_decision is not None:
+                bootstrap_value = bootstrap_decision[3]
     except Exception as exc:  # pragma: no cover - defensive runtime capture
         failed_to_continue = True
         error = f"{type(exc).__name__}: {exc}"
@@ -2562,7 +2611,7 @@ def _collect_training_run_with_policy_server(
             decision_summary=_final_run_decision_summary(diagnostics),
             steps=(),
         ),
-        tuple(transitions),
+        _close_training_rollout(transitions, bootstrap_value=bootstrap_value),
     )
 
 
@@ -2809,6 +2858,14 @@ def _seed_worker_torch(torch: Any, seed: int) -> None:
         return
 
 
+def _seed_training_rngs(torch: Any, seed: int | str) -> None:
+    """Seed model initialization, policy sampling, and PPO minibatch ordering."""
+
+    seed_bytes = hashlib.sha256(f"{seed}:ppo-trainer".encode()).digest()
+    torch.manual_seed(int.from_bytes(seed_bytes[:8], byteorder="big"))
+    random.seed(f"{seed}:ppo-trainer")
+
+
 def _worker_jobs(payload: Mapping[str, Any]) -> tuple[tuple[int, int], ...]:
     jobs = []
     for item in _sequence(payload.get("jobs")):
@@ -2937,6 +2994,7 @@ def _collect_training_run(
     truncated = False
     error: str | None = None
     failed_to_continue = False
+    bootstrap_value = 0.0
     observation: dict[str, Any] = {}
     reward_breakdown_totals: dict[str, float] = {}
     diagnostics: dict[str, Any] = {}
@@ -3007,6 +3065,7 @@ def _collect_training_run(
                     reward=effective_reward,
                     done=done,
                     teacher_action_index=teacher_index if imitation_enabled else None,
+                    teacher_forced=forced_index is not None,
                 )
             )
             _accumulate_run_diagnostics(
@@ -3021,6 +3080,17 @@ def _collect_training_run(
             info = next_info
             if done:
                 break
+        if transitions and truncated and not terminated and not target.reached(observation):
+            bootstrap_decision = _choose_action(
+                torch,
+                model,
+                observation,
+                info,
+                deterministic=True,
+                device=device,
+            )
+            if bootstrap_decision is not None:
+                bootstrap_value = bootstrap_decision[3]
     except Exception as exc:  # pragma: no cover - defensive runtime capture
         failed_to_continue = True
         error = f"{type(exc).__name__}: {exc}"
@@ -3050,7 +3120,22 @@ def _collect_training_run(
             decision_summary=_final_run_decision_summary(diagnostics),
             steps=(),
         ),
-        tuple(transitions),
+        _close_training_rollout(transitions, bootstrap_value=bootstrap_value),
+    )
+
+
+def _close_training_rollout(
+    transitions: Sequence[_Transition],
+    *,
+    bootstrap_value: float,
+) -> tuple[_Transition, ...]:
+    """Separate every run, including interrupted runs, before flattening rollouts."""
+
+    if not transitions:
+        return ()
+    return (
+        *transitions[:-1],
+        replace(transitions[-1], done=True, bootstrap_value=bootstrap_value),
     )
 
 
@@ -3198,7 +3283,9 @@ def _teacher_action_index(
     if teacher_agent is None:
         return None
     try:
-        decision = teacher_agent.choose_action(state)
+        from sts2sim.policy_visibility import policy_state
+
+        decision = teacher_agent.choose_action(policy_state(state))
     except Exception:
         return None
     action_id = getattr(decision, "action_id", None)
@@ -3718,7 +3805,11 @@ def _ppo_update(
             masked_logits = logits.masked_fill(~batch["action_mask"], -1.0e9)
             distribution = torch.distributions.Categorical(logits=masked_logits)
             log_prob = distribution.log_prob(batch["action_indices"])
-            ratio = torch.exp(log_prob - batch["old_log_probs"])
+            policy_mask = batch["policy_mask"]
+            log_ratio = torch.where(
+                policy_mask, log_prob - batch["old_log_probs"], torch.zeros_like(log_prob)
+            )
+            ratio = torch.exp(log_ratio)
             unclipped = ratio * batch["advantages"]
             clipped = (
                 torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio)
@@ -3732,9 +3823,7 @@ def _ppo_update(
             )
             entropy_loss = -distribution.entropy()
             losses = (
-                policy_loss
-                + value_coef * value_loss
-                + entropy_coef * entropy_loss
+                value_coef * value_loss
                 + planning_coef * planning_loss
             )
             if imitation_coef > 0.0:
@@ -3747,7 +3836,14 @@ def _ppo_update(
                         torch.zeros_like(imitation_losses),
                     )
             optimizer.zero_grad()
-            loss = losses.mean()
+            # Teacher interventions are useful for imitation and critic targets,
+            # but were not sampled from the policy represented by old_log_prob.
+            # Normalize the actor objective over learner samples only.
+            actor_losses = policy_loss + entropy_coef * entropy_loss
+            actor_loss = torch.where(
+                policy_mask, actor_losses, torch.zeros_like(actor_losses)
+            ).sum() / policy_mask.sum().clamp(min=1)
+            loss = losses.mean() + actor_loss
             loss.backward()
             optimizer.step()
 
@@ -3838,6 +3934,11 @@ def _transition_minibatch(
         ),
         "teacher_indices": torch.tensor(teacher_indices, dtype=torch.long, device=device),
         "teacher_mask": torch.tensor(teacher_mask, dtype=torch.bool, device=device),
+        "policy_mask": torch.tensor(
+            [not transition.teacher_forced for transition in selected],
+            dtype=torch.bool,
+            device=device,
+        ),
     }
 
 
@@ -3854,14 +3955,21 @@ def _returns_and_advantages(
     for index in reversed(range(len(transitions))):
         transition = transitions[index]
         nonterminal = 0.0 if transition.done else 1.0
-        delta = transition.reward + gamma * next_value * nonterminal - transition.value
+        bootstrap = transition.bootstrap_value if transition.done else next_value
+        delta = transition.reward + gamma * bootstrap - transition.value
         advantage = delta + gamma * gae_lambda * nonterminal * next_advantage
         advantages[index] = advantage
         returns[index] = advantage + transition.value
         next_value = transition.value
         next_advantage = advantage
-    mean = sum(advantages) / max(1, len(advantages))
-    variance = sum((value - mean) ** 2 for value in advantages) / max(1, len(advantages))
+    policy_advantages = [
+        value for value, transition in zip(advantages, transitions, strict=True)
+        if not transition.teacher_forced
+    ]
+    mean = sum(policy_advantages) / max(1, len(policy_advantages))
+    variance = sum((value - mean) ** 2 for value in policy_advantages) / max(
+        1, len(policy_advantages)
+    )
     std = math.sqrt(variance) or 1.0
     normalized = tuple((value - mean) / std for value in advantages)
     return tuple(returns), normalized
@@ -5303,6 +5411,102 @@ def _write_highlight_run_history_artifacts(result: Mapping[str, Any]) -> None:
             write_run_history_summary_html(history, summary_html_path, links=summary_links)
 
 
+def _training_rng_state(torch: Any) -> dict[str, Any]:
+    state = {"python": random.getstate(), "torch": torch.get_rng_state()}
+    if torch.cuda.is_available():
+        state["cuda"] = torch.cuda.get_rng_state_all()
+    return state
+
+
+def _restore_training_rng_state(torch: Any, state: object) -> tuple[bool, str | None]:
+    if not isinstance(state, Mapping):
+        return False, "checkpoint has no RNG state; using the requested training seed"
+    previous = _training_rng_state(torch)
+    try:
+        random.setstate(state["python"])
+        torch.set_rng_state(state["torch"].cpu())
+        if "cuda" in state and torch.cuda.is_available():
+            if len(state["cuda"]) != torch.cuda.device_count():
+                raise ValueError("checkpoint CUDA device count differs from this environment")
+            torch.cuda.set_rng_state_all([value.cpu() for value in state["cuda"]])
+    except (KeyError, TypeError, ValueError, RuntimeError, AttributeError) as exc:
+        random.setstate(previous["python"])
+        torch.set_rng_state(previous["torch"])
+        if "cuda" in previous:
+            torch.cuda.set_rng_state_all(previous["cuda"])
+        return False, f"checkpoint RNG state could not load: {exc}"
+    return True, None
+
+
+def _read_ppo_checkpoint(torch: Any, path: Path, device: Any) -> Mapping[str, Any]:
+    with path.open("rb") as handle:
+        if handle.read(128).startswith(b"version https://git-lfs.github.com/spec/v1"):
+            raise ValueError(
+                "checkpoint is a Git LFS pointer; run git lfs pull to fetch its weights"
+            )
+    # Checkpoints contain tensors and plain metadata. Never opt into arbitrary
+    # pickle object execution when a checkpoint is malformed or untrusted.
+    payload = torch.load(path, map_location=device, weights_only=True)
+    if not isinstance(payload, Mapping):
+        raise ValueError("checkpoint payload is not a mapping")
+    return payload
+
+
+def _validate_model_state(torch: Any, model: Any, state: object) -> Mapping[str, Any]:
+    if not isinstance(state, Mapping) or not state:
+        raise ValueError("checkpoint has no model state")
+    expected = model.state_dict()
+    if set(state) != set(expected):
+        raise ValueError("checkpoint model state keys differ from the network")
+    for name, expected_tensor in expected.items():
+        value = state[name]
+        if not torch.is_tensor(value):
+            raise ValueError(f"checkpoint model state {name} is not a tensor")
+        if value.shape != expected_tensor.shape or value.dtype != expected_tensor.dtype:
+            raise ValueError(f"checkpoint model state {name} has an incompatible shape or dtype")
+        if not bool(torch.isfinite(value).all().item()):
+            raise ValueError(f"checkpoint model state {name} contains non-finite values")
+    return state
+
+
+def _load_model_state(torch: Any, model: Any, state: object) -> None:
+    validated = _validate_model_state(torch, model, state)
+    previous = deepcopy(model.state_dict())
+    try:
+        model.load_state_dict(validated)
+    except (RuntimeError, TypeError, ValueError):
+        model.load_state_dict(previous)
+        raise
+
+
+def _load_optimizer_state(
+    torch: Any, optimizer: Any, state: object, device: Any
+) -> tuple[bool, str | None]:
+    if not isinstance(state, Mapping):
+        return False, "checkpoint has no optimizer state; using a fresh optimizer"
+    previous = deepcopy(optimizer.state_dict())
+    try:
+        optimizer.load_state_dict(state)
+        _move_optimizer_state_to_device(optimizer, device)
+        for group in optimizer.param_groups:
+            for parameter in group["params"]:
+                for name, value in optimizer.state.get(parameter, {}).items():
+                    if not torch.is_tensor(value):
+                        raise ValueError(f"optimizer state {name} is not a tensor")
+                    if name == "step":
+                        if value.numel() != 1:
+                            raise ValueError("optimizer step must be a scalar")
+                    elif value.shape != parameter.shape:
+                        raise ValueError(f"optimizer state {name} has an incompatible shape")
+                    if not bool(torch.isfinite(value).all().item()):
+                        raise ValueError(f"optimizer state {name} contains non-finite values")
+    except (KeyError, TypeError, AttributeError, RuntimeError, ValueError) as exc:
+        optimizer.load_state_dict(previous)
+        _move_optimizer_state_to_device(optimizer, device)
+        return False, f"optimizer state could not load; using a fresh optimizer: {exc}"
+    return True, None
+
+
 def _save_ppo_checkpoint(
     *,
     torch: Any,
@@ -5321,6 +5525,7 @@ def _save_ppo_checkpoint(
             "optimizer_state": optimizer.state_dict(),
             "architecture": _checkpoint_architecture(result),
             "result": dict(result),
+            "rng_state": _training_rng_state(torch),
         },
         temporary,
     )
@@ -5338,15 +5543,16 @@ def _restore_ppo_checkpoint(
     """Restore a validated champion after repeated fixed-holdout regression."""
 
     try:
-        payload = torch.load(checkpoint_path, map_location=device)
-        if not isinstance(payload, Mapping):
+        payload = _read_ppo_checkpoint(torch, checkpoint_path, device)
+        previous_model = deepcopy(model.state_dict())
+        _load_model_state(torch, model, payload.get("model_state"))
+        optimizer_restored, _warning = _load_optimizer_state(
+            torch, optimizer, payload.get("optimizer_state"), device
+        )
+        if not optimizer_restored:
+            model.load_state_dict(previous_model)
             return False
-        model.load_state_dict(payload["model_state"])
-        optimizer_state = payload.get("optimizer_state")
-        if optimizer_state is not None:
-            optimizer.load_state_dict(optimizer_state)
-            _move_optimizer_state_to_device(optimizer, device)
-    except (KeyError, OSError, RuntimeError, ValueError):
+    except (OSError, RuntimeError, ValueError, TypeError, EOFError, pickle.UnpicklingError):
         return False
     return True
 
@@ -5958,82 +6164,77 @@ def _load_checkpoint_if_available(
                 }
             )
             continue
-        payload = torch.load(candidate, map_location=device)
-        if isinstance(payload, Mapping):
-            architecture = payload.get("architecture")
-            if isinstance(architecture, Mapping):
-                mismatches = _architecture_mismatches(architecture, expected_architecture)
-                if mismatches:
-                    checks.append(
-                        {
-                            "checkpoint_path": str(candidate),
-                            "decision": "fresh",
-                            "compatible": False,
-                            "reason": "checkpoint hash or schema changed",
-                            "mismatches": list(mismatches),
-                            "matched_keys": _architecture_match_keys(
-                                architecture,
-                                expected_architecture,
-                            ),
-                        }
-                    )
-                    continue
-            else:
-                checks.append(
-                    {
-                        "checkpoint_path": str(candidate),
-                        "decision": "fresh",
-                        "compatible": False,
-                        "reason": "checkpoint has no architecture metadata",
-                    }
-                )
-                continue
-            model_state = payload.get("model_state")
-            optimizer_state = payload.get("optimizer_state")
-            if model_state is not None:
-                try:
-                    model.load_state_dict(model_state)
-                except RuntimeError:
-                    checks.append(
-                        {
-                            "checkpoint_path": str(candidate),
-                            "decision": "fresh",
-                            "compatible": False,
-                            "reason": "model state could not load",
-                        }
-                    )
-                    continue
-            if optimizer_state is not None:
-                try:
-                    optimizer.load_state_dict(optimizer_state)
-                    _move_optimizer_state_to_device(optimizer, device)
-                except ValueError:
-                    optimizer_state = None
-            result = payload.get("result")
+        try:
+            payload = _read_ppo_checkpoint(torch, candidate, device)
+        except (
+            OSError, RuntimeError, ValueError, TypeError, EOFError, pickle.UnpicklingError
+        ) as exc:
             checks.append(
                 {
                     "checkpoint_path": str(candidate),
-                    "decision": "resume",
-                    "compatible": True,
-                    "reason": "all checkpoint hashes and schemas match",
-                    "matched_keys": _architecture_match_keys(
-                        architecture,
-                        expected_architecture,
-                    ),
+                    "decision": "fresh",
+                    "compatible": False,
+                    "reason": f"checkpoint could not be loaded: {exc}",
                 }
             )
-            return _ResumeState(
-                path=str(candidate),
-                result=result if isinstance(result, Mapping) else None,
-                checkpoint_checks=tuple(checks),
+            continue
+        architecture = payload.get("architecture")
+        if not isinstance(architecture, Mapping):
+            checks.append(
+                {
+                    "checkpoint_path": str(candidate),
+                    "decision": "fresh",
+                    "compatible": False,
+                    "reason": "checkpoint has no architecture metadata",
+                }
             )
+            continue
+        mismatches = _architecture_mismatches(architecture, expected_architecture)
+        if mismatches:
+            checks.append(
+                {
+                    "checkpoint_path": str(candidate),
+                    "decision": "fresh",
+                    "compatible": False,
+                    "reason": "checkpoint hash or schema changed",
+                    "mismatches": list(mismatches),
+                    "matched_keys": _architecture_match_keys(architecture, expected_architecture),
+                }
+            )
+            continue
+        try:
+            _load_model_state(torch, model, payload.get("model_state"))
+        except (RuntimeError, TypeError, ValueError) as exc:
+            checks.append(
+                {
+                    "checkpoint_path": str(candidate),
+                    "decision": "fresh",
+                    "compatible": False,
+                    "reason": f"model state could not load: {exc}",
+                }
+            )
+            continue
+        optimizer_restored, optimizer_warning = _load_optimizer_state(
+            torch, optimizer, payload.get("optimizer_state"), device
+        )
+        rng_restored, rng_warning = _restore_training_rng_state(torch, payload.get("rng_state"))
+        result = payload.get("result")
         checks.append(
             {
                 "checkpoint_path": str(candidate),
-                "decision": "fresh",
-                "compatible": False,
-                "reason": "checkpoint payload is not a mapping",
+                "decision": "resume",
+                "compatible": True,
+                "reason": "all checkpoint hashes and schemas match",
+                "matched_keys": _architecture_match_keys(architecture, expected_architecture),
+                "optimizer_restored": optimizer_restored,
+                "rng_restored": rng_restored,
+                "warnings": [warning for warning in (optimizer_warning, rng_warning) if warning],
             }
+        )
+        return _ResumeState(
+            path=str(candidate),
+            result=result if isinstance(result, Mapping) else None,
+            checkpoint_checks=tuple(checks),
         )
     return _ResumeState(checkpoint_checks=tuple(checks))
 
@@ -6094,9 +6295,19 @@ def _checkpoint_architecture(result: Mapping[str, Any]) -> dict[str, Any]:
     metadata = _mapping(result.get("metadata"))
     return {
         "network_schema_version": _int(metadata.get("network_schema_version")),
+        "policy_observation_schema_version": _int(
+            metadata.get("policy_observation_schema_version")
+        ),
         "reward_schema_version": _int(metadata.get("reward_schema_version")),
         "reward_config_checksum": str(metadata.get("reward_config_checksum", "")),
         "game_logic_checksum": str(metadata.get("game_logic_checksum", "")),
+        "source_data_checksum": str(metadata.get("source_data_checksum", "")),
+        "source_data_channel": metadata.get("source_data_channel"),
+        "source_data_game_version": metadata.get("source_data_game_version"),
+        "source_data_provenance_schema_version": metadata.get(
+            "source_data_provenance_schema_version"
+        ),
+        "source_data_datasets": dict(_mapping(metadata.get("source_data_datasets"))),
         "network_contract_checksum": str(metadata.get("network_contract_checksum", "")),
         "observation_dim": _int(metadata.get("observation_dim")),
         "action_feature_dim": _int(metadata.get("action_feature_dim")),
@@ -6157,9 +6368,11 @@ def _architecture_match_keys(
 def _checkpoint_compatibility_keys() -> tuple[str, ...]:
     keys = (
         "network_schema_version",
+        "policy_observation_schema_version",
         "reward_schema_version",
         "reward_config_checksum",
         "game_logic_checksum",
+        "source_data_checksum",
         "network_contract_checksum",
         "observation_dim",
         "action_feature_dim",
@@ -6192,6 +6405,7 @@ def _network_contract_checksum(architecture: Mapping[str, Any]) -> str:
         key: architecture.get(key)
         for key in (
             "network_schema_version",
+            "policy_observation_schema_version",
             "observation_dim",
             "action_feature_dim",
             "content_vocab_schema_version",
@@ -6224,6 +6438,7 @@ def _game_logic_checksum() -> str:
         "api.py",
         "agent_api.py",
         "agent_previews.py",
+        "policy_visibility.py",
         "gymnasium_env.py",
         "replay.py",
         "run_files.py",

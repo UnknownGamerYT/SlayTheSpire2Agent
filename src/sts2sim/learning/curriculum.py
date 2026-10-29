@@ -439,7 +439,10 @@ def train_masked_ppo_curriculum(
                     target_success_rate=target_success_rate,
                     resume=stage_should_resume,
                     resume_from_path=stage_resume_from,
-                    model_output_path=model_path,
+                    model_output_path=latest_model_path,
+                    champion_model_path=champion_model_path,
+                    champion_eval_runs=champion_eval_runs,
+                    champion_patience=champion_patience,
                     output_path=stage_output_path,
                     progress_output_path=stage_progress_path,
                     report_output_path=stage_report_path,
@@ -457,8 +460,19 @@ def train_masked_ppo_curriculum(
             )
             if bool(stage_result.get("reached_target", False)) or not until_stopped:
                 break
-            stage_resume_from = model_path
+            stage_resume_from = latest_model_path
             stage_should_resume = True
+        reached_stage_target = bool(stage_result.get("reached_target", False))
+        if reached_stage_target:
+            # Advancement is based on the fixed-holdout champion. The mutable
+            # training policy can have regressed by the time this call returns.
+            champion = _mapping(stage_result.get("champion"))
+            champion_path = champion.get("checkpoint_path")
+            promotion_source = (
+                Path(str(champion_path)) if champion_path else latest_model_path
+            )
+            _promote_stage_checkpoint(promotion_source, model_path)
+            _promote_stage_checkpoint(model_path, latest_model_path)
         stage_summary = _stage_summary(
             stage_index=stage_index,
             stage_name=stage_name,

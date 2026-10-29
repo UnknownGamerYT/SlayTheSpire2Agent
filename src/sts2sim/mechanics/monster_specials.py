@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
+from .monster_scripts import has_scripted_monster_move
 from .monsters import (
     EncounterDefinition,
     MonsterDefinition,
@@ -49,8 +50,43 @@ _BASIC_STATUS_POWERS = frozenset(
     )
 )
 _SUPPORTED_SPECIAL_INNATE_POWERS = frozenset(
-    ("plating", "curl_up", "skittish", "ravenous", "shriek", "enrage", "slippery")
+    (
+        "plating", "curl_up", "skittish", "ravenous", "shriek", "enrage", "slippery",
+        "withering_presence", "vital_spark", "hardened_shell",
+        "artifact", "personal_hive", "territorial", "high_voltage", "suck", "paper_cuts",
+        "imbalanced", "hard_to_kill", "rampart", "slow", "minion", "crab_rage",
+        "battleworn_dummy_time_limit", "galvanic", "back_attack_left", "back_attack_right",
+        "illusion", "possess_speed", "possess_strength", "escape_artist", "thievery",
+        "ritual",
+        "stock",
+    )
 )
+# These powers are executed by identity-specific engine scripts, rather than
+# generic status hooks. Do not infer support for the same power on other monsters.
+_SUPPORTED_SCRIPTED_INNATE_POWERS = MappingProxyType(
+    {
+        "test_subject": frozenset(("adaptable",)),
+        "lagavulin_matriarch": frozenset(("asleep",)),
+        "decimillipede_segment": frozenset(("reattach",)),
+        "decimillipede_segment_back": frozenset(("reattach",)),
+        "decimillipede_segment_front": frozenset(("reattach",)),
+        "decimillipede_segment_middle": frozenset(("reattach",)),
+        "slumbering_beetle": frozenset(("slumber",)),
+        "gremlin_merc": frozenset(("surprise",)),
+        "phrog_parasite": frozenset(("infested",)),
+    }
+)
+_SUPPORTED_MOVE_POWER_HOOKS = frozenset({
+    "strength", "temporary_strength", "dexterity", "temporary_dexterity", "weak",
+    "vulnerable", "frail", "intangible", "thorns", "hex", "personal_hive", "minion",
+    "nemesis", "painful_stabs", "ritual", "vital_spark", "flutter",
+    "burrowed", "chains_of_binding", "constrict", "soar", "ringing",
+    "smoggy", "tangled", "tender", "vigor",
+})
+_SUPPORTED_SCRIPTED_MOVE_POWERS = MappingProxyType({
+    "ceremonial_beast": frozenset({"plow"}),
+    "waterfall_giant": frozenset({"steam_eruption"}),
+})
 _VERIFIED_ELITE_SOURCE_INTEGRATIONS = frozenset(
     (
         "bygone_effigy",
@@ -75,6 +111,7 @@ _VERIFIED_ELITE_SOURCE_INTEGRATIONS = frozenset(
 )
 _VERIFIED_BOSS_SOURCE_INTEGRATIONS = frozenset(
     (
+        "aeonglass",
         "ceremonial_beast",
         "crusher",
         "kin_follower",
@@ -447,7 +484,11 @@ def _innate_power_requirements(
                 )
             )
             continue
-        if normalized in _SUPPORTED_SPECIAL_INNATE_POWERS:
+        if normalized in _SUPPORTED_SPECIAL_INNATE_POWERS or normalized in (
+            _SUPPORTED_SCRIPTED_INNATE_POWERS.get(
+                _normalized_id(definition.monster_id), frozenset()
+            )
+        ):
             requirements.append(
                 _requirement(
                     definition,
@@ -486,6 +527,24 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
     requirements: list[MonsterSpecialRequirement] = []
     for move in definition.moves:
         normalized_text = _move_text(move)
+        scripted = has_scripted_monster_move(definition.monster_id, move.move_id)
+        intent = _normalized_id(move.intent)
+        missing_effect = (
+            "status" in intent
+            or (any(word in intent for word in ("buff", "debuff")) and not (
+                move.damage_normal or move.block or move.heal or move.powers
+            ))
+        )
+        if missing_effect and not scripted:
+            requirements.append(_requirement(
+                definition, category=ADVANCED_AI,
+                code="move_effect_requires_payload_or_handler",
+                severity=MONSTER_SPECIAL_BLOCKER, source_type="move", source_id=move.move_id,
+                detail=f"{move.name} advertises {move.intent} without a complete effect payload.",
+                blocker="Parsing a move or applying its numeric attack is insufficient: "
+                "its status-card/buff/debuff effect needs a concrete payload or runtime handler.",
+                evidence=(move.intent, move.name),
+            ))
         if _is_self_hatch_move(definition, move):
             requirements.append(
                 _requirement(
@@ -551,19 +610,17 @@ def _move_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialReq
                 _requirement(
                     definition,
                     category=ADVANCED_AI,
-                    code="aeonglass_increasing_intensity_requires_wither_hook",
-                    severity=MONSTER_SPECIAL_BLOCKER,
+                    code="aeonglass_increasing_intensity_supported",
+                    severity=MONSTER_SPECIAL_HINT,
                     source_type="move",
                     source_id=move.move_id,
-                    detail="Increasing Intensity has no concrete source payload for its "
-                    "Wither/Withering Presence behavior.",
-                    blocker="Aeonglass Wither card creation and upgrade behavior needs an "
-                    "explicit boss hook before combat replay is faithful.",
-                    deterministic_hint="Keep the source move as a blocker until Wither status "
-                    "card generation and scaling are modeled.",
+                    detail="Increasing Intensity creates and upgrades Withers and scales Strength.",
+                    deterministic_hint="Track repeated upgrades and Withering Presence's "
+                    "combat-wide card-play counter in serialized monster metadata.",
                     evidence=(move.intent, move.name),
                 )
             )
+
 
         requirements.extend(_move_power_requirements(definition, move))
 
@@ -741,20 +798,32 @@ def _move_power_requirements(
     for power in move.powers:
         normalized = normalize_power_id(power.power_id)
         if normalized != "vital_spark":
+            if normalized and normalized not in _SUPPORTED_MOVE_POWER_HOOKS and normalized not in (
+                _SUPPORTED_SCRIPTED_MOVE_POWERS.get(
+                    _normalized_id(definition.monster_id), frozenset()
+                )
+            ):
+                requirements.append(_requirement(
+                    definition, category=SPECIAL_INNATE_POWER,
+                    code="move_power_requires_runtime_hook", severity=MONSTER_SPECIAL_BLOCKER,
+                    source_type="power", source_id=power.power_id,
+                    detail=f"{move.name} applies named power {power.power_id}.",
+                    blocker="Storing named power stacks does not execute their printed behavior; "
+                    "this move-applied power requires a verified runtime hook.",
+                    evidence=(move.move_id, f"amount={power.amount}"),
+                ))
             continue
         requirements.append(
             _requirement(
                 definition,
                 category=SPECIAL_INNATE_POWER,
-                code="vital_spark_requires_tainted_skill_hook",
-                severity=MONSTER_SPECIAL_BLOCKER,
+                code="vital_spark_tainted_skill_supported",
+                severity=MONSTER_SPECIAL_HINT,
                 source_type="power",
                 source_id=power.power_id,
                 detail="Vital Spark changes Skill cards into Tainted sources.",
-                blocker="Infested Prism's Tainted Skill and per-hit damage race behavior needs "
-                "an explicit combat hook.",
-                deterministic_hint="Track Tainted application from Skill plays and scale the "
-                "player debuff before replaying this move as supported.",
+                deterministic_hint="Each Skill adds Tainted stacks, increasing every attack "
+                "hit until the next player turn; Pulsate increases subsequent Skill stacks.",
                 evidence=(move.move_id, f"amount={power.amount}"),
             )
         )
@@ -812,6 +881,19 @@ def _state_requirements(definition: MonsterDefinition) -> tuple[MonsterSpecialRe
                     )
                 )
         elif normalized_state_type == "conditional" and not state.branches:
+            if (_normalized_id(definition.monster_id), state.state_id) in {
+                ("bowlbug_rock", "POST_HEADBUTT"),
+                ("lagavulin_matriarch", "SLEEP_BRANCH"),
+                ("slumbering_beetle", "SNORE_NEXT"),
+            }:
+                requirements.append(_requirement(
+                    definition, category=CONDITIONAL_BRANCH_DEPENDENCY,
+                    code="scripted_model_state_selector", severity=MONSTER_SPECIAL_HINT,
+                    source_type="state", source_id=state.state_id,
+                    detail="The stable model's sleep/imbalance branch is resolved by its "
+                    "identity-specific turn handler.",
+                ))
+                continue
             if not _state_selector_referenced(definition, state.state_id):
                 requirements.append(
                     _requirement(

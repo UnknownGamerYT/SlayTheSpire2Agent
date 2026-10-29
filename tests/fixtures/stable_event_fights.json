@@ -1,0 +1,104 @@
+{
+  "game_version": "0.107.1",
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/BattlewornDummy.cs",
+      "sha256": "51c34a3b9eb2e9412644c0eee3265aebf7c8879b8c5815d4d37281c0ff34e437",
+      "reviewed_scopes": [
+        "Resume",
+        "StartCombat"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/DenseVegetation.cs",
+      "sha256": "07bfcb3131b1f4cf006fd8d6e1ba2d76aa4cd4385ff60d55015ca59a0764d9f0",
+      "reviewed_scopes": [
+        "Fight"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/PunchOff.cs",
+      "sha256": "efb9357b4754fcb0e416a19b308ab859ee304e9b0ae882d8fa46e568cd7957b8",
+      "reviewed_scopes": [
+        "Fight"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/FakeMerchant.cs",
+      "sha256": "9fbd560f2ced4c604614d3cfb7fe9a3e4ca13610f756b7c997ab58f4a733a808",
+      "reviewed_scopes": [
+        "StartCombat"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheLanternKey.cs",
+      "sha256": "794c74da49770381f1a4e342d50ce91ee08e935de54ac827b8e45f415316cc5b",
+      "reviewed_scopes": [
+        "Fight"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Encounters/BattlewornDummyEventEncounter.cs",
+      "sha256": "8a8c4f85f0a1e616674d02f14a27a7d6dab482bf9cc97c7e325d1fb783574edf",
+      "reviewed_scopes": [
+        "ShouldGiveRewards",
+        "GenerateMonsters"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Encounters/FakeMerchantEventEncounter.cs",
+      "sha256": "838a42bf80c7b23d1db4a9d45ab8428e467349222ac28a4bf380989fbafda36c",
+      "reviewed_scopes": [
+        "MinGoldReward",
+        "MaxGoldReward"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/EventModel.cs",
+      "sha256": "ca991ec5fea146069498065563bbc4a63ee0786ceaafdeae823df822e955f240",
+      "reviewed_scopes": [
+        "EnterCombatWithoutExitingEvent"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rooms/CombatRoom.cs",
+      "sha256": "7d9a37d01976b922e5286bcca96f3b6816ceff1d6a6a8d175798d748ff4b6d02",
+      "reviewed_scopes": [
+        "Complete"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat/CombatManager.cs",
+      "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+      "reviewed_scopes": [
+        "EndCombatInternal"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb",
+      "reviewed_scopes": [
+        "WithRewardsFromRoom",
+        "GenerateRewardsFor"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/RelicCmd.cs",
+      "sha256": "7da9c58b87b37e212a85f1541883d0e627d081c561d6b833ed2e1f89e69c3e51",
+      "reviewed_scopes": [
+        "Obtain"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Circlet.cs",
+      "sha256": "418c9acc19086b59ad09a499534d504f1727a2b79c6901257431171acb31b0be",
+      "reviewed_scopes": [
+        "IsStackable"
+      ]
+    }
+  ],
+  "regression_tests": "tests/events/test_stable_event_fights.py"
+}

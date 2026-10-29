@@ -1,0 +1,418 @@
+{
+  "source_repository": "https://github.com/Razhuo/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "steam_build": "23811903",
+  "source_scope": "All23 source enchantment models, including DeprecatedEnchantment;22 current registered models. This ledger describes reviewed hooks and regressions, not a game-equivalence certification.",
+  "models": [
+    {
+      "source_model": "Adroit",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Adroit.cs",
+      "source_sha256": "17031ea03ed27e9459ceab336f45d10b338ecebef5b86d4b35e8b7bd3dddf95f",
+      "declared_hook_methods": [
+        "OnPlay",
+        "RecalculateValues"
+      ],
+      "combat_rule": "Separate Amount Block command after main effects; receives normal Block modifiers.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Clone",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Clone.cs",
+      "source_sha256": "64fccd17ad5bdc9bc1db2a354557f951daa85072bfca13a08cf79d4016a253c3",
+      "declared_hook_methods": [],
+      "combat_rule": "Marker only in combat; rest option clones each marked card once and preserves enchantment; Amount is unused.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Corrupted",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Corrupted.cs",
+      "source_sha256": "ee1dc925f9e24daddc0139c6acb3b57cb868c84d98375eab67a7e97e464795a9",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "EnchantDamageMultiplicative",
+        "OnPlay"
+      ],
+      "combat_rule": "Base powered damage x1.5 before Strength; after main effects deals2 unpowered unblockable self damage through caps.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "DeprecatedEnchantment",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/DeprecatedEnchantment.cs",
+      "source_sha256": "ba884bfcd4a7456cf4583db956636578118390169600620423f7b516dea315a3",
+      "declared_hook_methods": [],
+      "combat_rule": "No combat hooks.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Glam",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Glam.cs",
+      "source_sha256": "ebaa7dbf63e737db9b23ce5c5f7b3a325d1d0c7abc86040b3b016275bb641618",
+      "declared_hook_methods": [
+        "EnchantPlayCount",
+        "AfterCardPlayed"
+      ],
+      "combat_rule": "One additional play once per physical card per combat, independent of Amount.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py",
+        "tests/combat/test_glam.py"
+      ]
+    },
+    {
+      "source_model": "Goopy",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Goopy.cs",
+      "source_sha256": "9ccd44649456f46e414df96031ce6ecef348f59b48144657db5624cd0d59f711",
+      "declared_hook_methods": [
+        "CanEnchant",
+        "AfterCardPlayed",
+        "EnchantBlockAdditive",
+        "OnEnchant"
+      ],
+      "combat_rule": "Defend-tag eligibility; Exhaust; Block bonus Amount-1; each play increments combat and deck versions.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Imbued",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Imbued.cs",
+      "source_sha256": "46444d4f929ca036a9aec3ce332e04cf53c04671be3362de4939043669d7cb71",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "AfterAutoPrePlayPhaseEntered"
+      ],
+      "combat_rule": "Skill eligibility; starts at bottom; first-turn automatic preplay after opening hand draw.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Inky",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Inky.cs",
+      "source_sha256": "ce54fd4d7ba94949d5836f61a5779644e941a8365d7c9501b6c8619ec4b55399",
+      "declared_hook_methods": [
+        "OnPlay",
+        "EnchantDamageAdditive"
+      ],
+      "combat_rule": "Powered damage+1; one Weak after main effects to selected/all-enemy targets.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Instinct",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Instinct.cs",
+      "source_sha256": "d2fe462be8634c2b35f108e07e7ed3b9a942bfd278a4e8062c2153be9f457d5a",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "EnchantDamageMultiplicative"
+      ],
+      "combat_rule": "Base powered damage x2 before other modifiers, independent of Amount.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Momentum",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Momentum.cs",
+      "source_sha256": "fdfcdc593cd17473289558ceca7f8da2b080f30d1371847f49615dae7ef549de",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "OnPlay",
+        "EnchantDamageAdditive"
+      ],
+      "combat_rule": "Combat-only additive bonus initially0; grows by Amount after main effects every play.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Nimble",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Nimble.cs",
+      "source_sha256": "b730c1c94d6ec506575c5db5dd883f98d01880e700111936de1363ded34f685c",
+      "declared_hook_methods": [
+        "CanEnchant",
+        "EnchantBlockAdditive"
+      ],
+      "combat_rule": "Native GainsBlock eligibility; additive Amount Block before other modifiers.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "PerfectFit",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/PerfectFit.cs",
+      "source_sha256": "034bb8bd5daa7b987c0e4f1127f4d432cd029a10aef0fd7dab821b0a131f7a91",
+      "declared_hook_methods": [
+        "ModifyShuffleOrder"
+      ],
+      "combat_rule": "Top of subsequent shuffles; no ordering change on initial shuffle.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "RoyallyApproved",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/RoyallyApproved.cs",
+      "source_sha256": "52f3ca9b240c7dd21a45c5d7bec899b93032ee0bed1e92dde31ecbd65adb99bc",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "OnEnchant"
+      ],
+      "combat_rule": "Attack/Skill eligibility; Innate and Retain.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Sharp",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Sharp.cs",
+      "source_sha256": "11ad3962e03491d6ef3bf2081d8213e6723c6a73219c4272ee5a4eebb9d89f2a",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "EnchantDamageAdditive"
+      ],
+      "combat_rule": "Additive Amount powered damage before other modifiers.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Slither",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Slither.cs",
+      "source_sha256": "f696fb9ac48cc864dba7100ab8c2d25dcc0142eaca212190b82de6132f805452",
+      "declared_hook_methods": [
+        "CanEnchant",
+        "AfterCardDrawn"
+      ],
+      "combat_rule": "Normal non-X playable eligibility; actual draw sets local combat energy cost to CombatEnergyCosts.NextInt(4).",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "SlumberingEssence",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/SlumberingEssence.cs",
+      "source_sha256": "0246d9680038bb30159e35fc0ca2c43ea33e3f08d99ca722fc60c2a390f874ee",
+      "declared_hook_methods": [
+        "BeforeFlush"
+      ],
+      "combat_rule": "In-hand BeforeFlush reduces local cost1 until played; accumulates across retained turns.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "SoulsPower",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/SoulsPower.cs",
+      "source_sha256": "b14a2c28cbbff4411d4a9199965f10ed7ec5e1792c6368bfc72ceef1ff50614b",
+      "declared_hook_methods": [
+        "CanEnchant",
+        "OnEnchant"
+      ],
+      "combat_rule": "Local Exhaust eligibility and removal; global exhaustion effects remain applicable.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Sown",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Sown.cs",
+      "source_sha256": "cff20c8353deb276569353afd724c2c069768a4b077f11b2ba06d15914359e04",
+      "declared_hook_methods": [
+        "OnPlay"
+      ],
+      "combat_rule": "Gain Amount energy after main effects once per combat; charge consumed even if energy gain forbidden.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Spiral",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Spiral.cs",
+      "source_sha256": "2559092c34b048342088c6a3a02d26e86cb34f1712bd675eb3a155a0c4197edb",
+      "declared_hook_methods": [
+        "CanEnchant",
+        "EnchantPlayCount"
+      ],
+      "combat_rule": "Basic Strike/Defend eligibility; one additional play every physical play, independent of Amount.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Steady",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Steady.cs",
+      "source_sha256": "85831d5f0b55aade756bbaa0d7e1a6c0565682c76d47b5dd1f154fbab7dd7851",
+      "declared_hook_methods": [
+        "OnEnchant"
+      ],
+      "combat_rule": "Retain.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Swift",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Swift.cs",
+      "source_sha256": "a61591150f8808e285d6111c52aec7bbc0d63d591cf5b1fcc830ab424f2d0083",
+      "declared_hook_methods": [
+        "OnPlay"
+      ],
+      "combat_rule": "Draw Amount after main effects once per combat; no energy discount.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "TezcatarasEmber",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/TezcatarasEmber.cs",
+      "source_sha256": "0639f5ebd6cede554ba486be8bfedd119cc1f3290dec6272008a0b39176fc4a9",
+      "declared_hook_methods": [
+        "EnchantDamageAdditive",
+        "OnEnchant"
+      ],
+      "combat_rule": "Normal base energy cost0 and Eternal; powered damage+3 independent of Amount; X unchanged.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    },
+    {
+      "source_model": "Vigorous",
+      "source_path": "MegaCrit.Sts2.Core.Models.Enchantments/Vigorous.cs",
+      "source_sha256": "d3b1738fae73f45744597822ec600104614d833784b433fcb331ffe263de3222",
+      "declared_hook_methods": [
+        "CanEnchantCardType",
+        "EnchantDamageAdditive",
+        "AfterCardPlayed"
+      ],
+      "combat_rule": "Additive Amount powered damage on every hit of first play; disabled before additional replay.",
+      "implementation": [
+        "src/sts2sim/engine/source_enchantment_hooks.py",
+        "src/sts2sim/engine/transitions.py"
+      ],
+      "regressions": [
+        "tests/combat/test_source_enchantments.py",
+        "tests/combat/test_source_enchantment_eligibility.py"
+      ]
+    }
+  ]
+}

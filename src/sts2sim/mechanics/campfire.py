@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from decimal import Decimal
 from enum import Enum
 
 from sts2sim.content.sources import STS1_COMPAT_SOURCE, SourceRef
 
-from .ascension import AscensionFlag, ascension_enabled
+from .ascension import validate_ascension_level
 
 
 class CampfireAction(str, Enum):
@@ -17,13 +18,14 @@ class CampfireAction(str, Enum):
     DIG = "dig"
     LIFT = "lift"
     TOKE = "toke"
+    KINDLE = "kindle"
 
 
 @dataclass(frozen=True, slots=True)
 class CampfireRules:
     rest_heal_fraction: float = 0.30
     ascension_rest_heal_fraction: float = 0.20
-    min_rest_heal: int = 1
+    min_rest_heal: int = 0
     max_lift_count: int = 3
     source: SourceRef = STS1_COMPAT_SOURCE
 
@@ -40,6 +42,8 @@ class CampfireState:
     has_girya: bool = False
     lift_count: int = 0
     has_peace_pipe: bool = False
+    has_pumpkin_candle: bool = False
+    pumpkin_candle_charges: int = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +72,10 @@ def rest_heal_amount(
     ascension_level: int = 0,
     rules: CampfireRules = DEFAULT_CAMPFIRE_RULES,
 ) -> int:
-    fraction = (
-        rules.ascension_rest_heal_fraction
-        if ascension_enabled(ascension_level, AscensionFlag.REDUCED_REST_HEAL)
-        else rules.rest_heal_fraction
+    validate_ascension_level(ascension_level)
+    return max(
+        rules.min_rest_heal, int(Decimal(max_hp) * Decimal(str(rules.rest_heal_fraction))),
     )
-    return max(rules.min_rest_heal, int(max_hp * fraction))
 
 
 def available_campfire_actions(
@@ -93,6 +95,8 @@ def available_campfire_actions(
         actions.add(CampfireAction.LIFT)
     if state.has_peace_pipe and state.removable_card_ids:
         actions.add(CampfireAction.TOKE)
+    if state.has_pumpkin_candle:
+        actions.add(CampfireAction.KINDLE)
     return frozenset(actions)
 
 
@@ -166,5 +170,11 @@ def resolve_campfire_action(
             removed_card_id=choice.target_id,
             source=rules.source,
         )
+
+    if choice.action is CampfireAction.KINDLE:
+        next_state = replace(
+            state, pumpkin_candle_charges=max(0, state.pumpkin_candle_charges) + 5
+        )
+        return CampfireResult(choice=choice, state=next_state, source=rules.source)
 
     raise ValueError(f"Unsupported campfire action: {choice.action.value}")

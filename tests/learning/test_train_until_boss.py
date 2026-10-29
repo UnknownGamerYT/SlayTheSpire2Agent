@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from typer.testing import CliRunner
 
@@ -98,6 +99,8 @@ def test_train_until_boss_cli_smoke(tmp_path) -> None:
 def test_train_until_boss_help_says_resume_is_opt_in() -> None:
     result = CliRunner().invoke(app, ["train-until-boss", "--help"])
 
+    output = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+
     assert result.exit_code == 0
-    assert "--resume" in result.output
-    assert "--no-resume" in result.output
+    assert "--resume" in output
+    assert "--no-resume" in output

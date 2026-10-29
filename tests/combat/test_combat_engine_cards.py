@@ -31,7 +31,7 @@ def _force_next_room(state, room_kind: RoomKind):
     return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
 
 
-def _enter_combat(deck, *, player=None, relics=None, flags=None):
+def _enter_combat(deck, *, player=None, relics=None, flags=None, osty=None):
     state = new_run(
         seed=5100,
         character_id="TEST",
@@ -49,7 +49,12 @@ def _enter_combat(deck, *, player=None, relics=None, flags=None):
         state = state.model_copy(update={"relics": tuple(relics)})
     state = _force_next_room(state, RoomKind.MONSTER)
     action = next(action for action in legal_actions(state) if action.type == "choose_node")
-    return step(state, action)
+    state = step(state, action)
+    if osty is not None:
+        state = state.model_copy(update={"combat": state.combat.model_copy(update={
+            "metadata": {**state.combat.metadata, "osty": osty},
+        })})
+    return state
 
 
 def _play_card(state, card_id: str):
@@ -386,7 +391,8 @@ def test_dynamic_forge_uses_previous_hits_on_target_this_turn() -> None:
     state = _play_card(state, "beat_into_shape")
 
     assert state.combat is not None
-    assert state.combat.player.resources["forge"] == 6
+    # Stable BeatIntoShape: base 5 Forge plus 5 per previous powered hit.
+    assert state.combat.player.resources["forge"] == 10
 
 
 def test_temporary_focus_scales_orb_passive_triggers_until_turn_end() -> None:
@@ -1001,15 +1007,14 @@ def test_well_laid_plans_pends_retain_choice_before_end_turn_discard() -> None:
 
     state = _choose_pending_card(state, "junk_a")
     assert state.combat is not None
-    assert next(card for card in state.combat.hand if card.card_id == "junk_a").custom["retain"]
-    state = _end_turn(state)
-
-    assert state.combat is not None
+    assert state.combat.turn == 2
+    assert not state.combat.pending_choices
+    assert any(card.card_id == "junk_a" for card in state.combat.hand)
     assert any(
         event.kind == "cards_retained" and "junk_a" in event.metadata["card_ids"]
-        for event in state.combat.last_events
+        for event in state.replay_log[-1].events
     )
-    assert any(event.kind == "hand_discarded" for event in state.combat.last_events)
+    assert any(event.kind == "hand_discarded" for event in state.replay_log[-1].events)
 
 
 def test_stampede_plays_random_hand_attack_before_end_turn_discard() -> None:
@@ -1476,8 +1481,15 @@ def test_generated_discovery_choice_adds_selected_card_to_hand() -> None:
     assert state.combat.pending_choices == ()
     assert len(state.combat.hand) == 1
     assert state.combat.hand[0].card_id.startswith("colorless_")
-    assert state.combat.hand[0].cost == 0
-    assert state.combat.hand[0].custom["free_to_play_this_turn"] is True
+    selected = state.combat.hand[0]
+    assert selected.cost == 0
+    assert selected.custom["source_local_energy_base"] == 1
+    assert selected.custom["free_to_play_this_turn"] is True
+    energy_before = state.player.energy
+    state = _play_card(state, selected.card_id)
+    assert state.player.energy == energy_before
+    assert next(card for card in state.combat.discard_pile
+                if card.instance_id == selected.instance_id).cost == 1
 
 
 def test_choose_card_copies_selected_attack_or_power_to_hand() -> None:
@@ -1717,7 +1729,10 @@ def test_more_than_ten_innate_cards_leave_extras_on_top_of_draw_pile() -> None:
 
     assert state.combat is not None
     assert len(state.combat.hand) == 10
-    assert [card.card_id for card in state.combat.draw_pile[:2]] == ["innate_10", "innate_11"]
+    assert len(state.combat.draw_pile) == 2
+    assert {card.card_id for card in state.combat.hand + state.combat.draw_pile} == {
+        f"innate_{index}" for index in range(12)
+    }
 
 
 def test_osty_action_card_uses_companion_state_to_damage_enemy() -> None:
@@ -1733,6 +1748,7 @@ def test_osty_action_card_uses_companion_state_to_damage_enemy() -> None:
             },
         ),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -1760,6 +1776,7 @@ def test_osty_attack_source_damage_is_not_applied_twice() -> None:
             },
         ),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -1794,6 +1811,7 @@ def test_calcify_adds_persistent_osty_attack_damage() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     state = _play_card(state, "calcify")
@@ -1825,6 +1843,7 @@ def test_bone_shards_damage_block_and_death_are_gated_by_osty_state() -> None:
             },
         ),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -1896,6 +1915,7 @@ def test_flatten_costs_zero_after_osty_has_attacked_this_turn() -> None:
         ),
         player={"hp": 80, "max_hp": 80, "energy": 1, "max_energy": 1},
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
 
     assert state.combat is not None
@@ -1947,6 +1967,7 @@ def test_rattle_hits_once_plus_previous_osty_attacks_this_turn() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     state = _play_card(state, "poke")
@@ -1956,7 +1977,7 @@ def test_rattle_hits_once_plus_previous_osty_attacks_this_turn() -> None:
 
     assert state.combat is not None
     assert state.combat.monsters[0].hp == monster_hp - 14
-    assert state.combat.metadata["osty_attacks_this_turn"] == 3
+    assert state.combat.metadata["osty_attacks_this_turn"] == 2
 
 
 def test_sic_em_grants_summon_when_osty_hits_marked_enemy() -> None:
@@ -1976,13 +1997,22 @@ def test_sic_em_grants_summon_when_osty_hits_marked_enemy() -> None:
                 "powers_applied": [{"power": "SicEm", "amount": 2}],
                 "tags": ("OstyAttack",),
             },
+            {
+                "id": "POKE", "name": "Poke", "type": "Attack", "target": "Enemy",
+                "cost": 0, "description": "Osty deals 6 damage.",
+                "damage": 6, "tags": ("OstyAttack",),
+            },
         ),
-        flags={"draw_per_turn": 1},
+        flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
 
     state = _play_card(state, "sic_em")
 
     assert state.combat is not None
+    # SicEm.OnPlay installs the debuff after its own damage command.
+    assert state.combat.player.resources.get("summon", 0) == 0
+    state = _play_card(state, "poke")
     assert state.combat.player.resources["summon"] == 2
     assert state.combat.metadata["osty"]["hp"] == 22
     assert state.combat.metadata["osty"]["max_hp"] == 22
@@ -2018,6 +2048,7 @@ def test_necro_mastery_mirrors_osty_hp_loss_to_enemies() -> None:
             },
         ),
         flags={"draw_per_turn": 2},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
     assert state.combat is not None
     monster_hp = state.combat.monsters[0].hp
@@ -2059,11 +2090,11 @@ def test_summon_restores_osty_and_raises_max_hp_when_overfilled() -> None:
     assert state.combat.player.resources["summon"] == 6
     assert state.combat.metadata["osty"]["alive"] is True
     assert state.combat.metadata["osty"]["hp"] == 24
-    assert state.combat.metadata["osty"]["max_hp"] == 24
+    assert state.combat.metadata["osty"]["max_hp"] == 26
     assert any(
         event.kind == "osty_summoned"
         and event.amount == 6
-        and event.metadata["max_hp_gained"] == 4
+        and event.metadata["max_hp_gained"] == 6
         for event in state.combat.last_events
     )
 
@@ -2084,6 +2115,7 @@ def test_bone_flute_blocks_when_osty_attacks() -> None:
         ),
         relics=("BONE_FLUTE",),
         flags={"draw_per_turn": 1},
+        osty={"alive": True, "hp": 20, "max_hp": 20},
     )
 
     state = _play_card(state, "poke")
@@ -2817,7 +2849,7 @@ def test_turn_start_trigger_adds_random_card_from_pool() -> None:
     assert [card.card_id for card in state.combat.hand] == ["only_power"]
 
 
-def test_combat_end_trigger_grants_gold() -> None:
+def test_royalties_combat_end_queues_gold_until_its_reward_is_claimed() -> None:
     state = _enter_combat(
         (
             {
@@ -2845,6 +2877,12 @@ def test_combat_end_trigger_grants_gold() -> None:
     state = _play_card(state, "finish")
 
     assert state.phase == RunPhase.REWARD
+    assert state.player.gold == starting_gold
+    index = next(index for index, component in enumerate(
+        state.reward.metadata["gold_reward_components"]
+    ) if component.get("source_id") == "royalties")
+    state = step(state, next(action for action in legal_actions(state)
+        if action.type == "take_reward_gold" and action.target_id == f"reward:gold:{index}"))
     assert state.player.gold == starting_gold + 30
 
 

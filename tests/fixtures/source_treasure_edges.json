@@ -1,0 +1,64 @@
+{
+  "target": "stable0.107.1 singleplayer",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Multiplayer.Game/TreasureRoomRelicSynchronizer.cs",
+      "sha256": "3dd1144ba314cb0dc5cb791c33e4db0d30eb2c5e4aa1aab5a7fb489c7d747fcd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rooms/TreasureRoom.cs",
+      "sha256": "0b65d84f86c990e94c35f5f01c748a92355bed824ce4cb6af7a76b698d139e4a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Rooms/NTreasureRoom.cs",
+      "sha256": "824ea2faa5768fdc0bb1c1d76b5a46231ddce2c7c7c3e94e256ccb60ac41e6e7"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Multiplayer.Game/OneOffSynchronizer.cs",
+      "sha256": "6c5d9eebbc5714bce58a2f2284b5757e17b3a1a150ce0db6f61d997a9179279b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SilverCrucible.cs",
+      "sha256": "f7495185bb9bedb4a90257a61520f36130af70a01374a2a4c5950febd767aaee"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/SpoilsMap.cs",
+      "sha256": "bb52465415aa2e7df7024e94b04013f8fca94b01d0af47d2f188619528ef99bc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PlayerCmd.cs",
+      "sha256": "8630f180d829942738c860f96dc6621cae01e7c2402fd33cee871fe21f42f668"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes/NRun.cs",
+      "sha256": "50ae028e70841576ae8a37fe039a7d5a46d12bda8ab1366fc5dcd3d3423976ed"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext/ActiveScreenContext.cs",
+      "sha256": "bdc147ffe51a7c203606a182c50c974359f7330ff5115263894eac31559b7ec8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.Map/NMapScreen.cs",
+      "sha256": "fa862878dcd4b0abc9c9a72c7fa01a6139298e6635b87b70188549509106cf01"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.Map/NMapPoint.cs",
+      "sha256": "69ee6c196d7df7520c75192fd8c3bb40b8736f7ec4ec11e0b78692cbb23b1bf9"
+    }
+  ],
+  "contracts": [
+    "TreasureRoom.EnterInternal invokes BeginRelicPicking before the chest is opened; a shared rarity draw and shared grab-bag pull occur at preparation, even if the revealed relic is later skipped",
+    "Prepared relic identity is hidden until OpenChest; source actor observations exclude the pending offer",
+    "OpenChest immediately grants one Rewards.NextInt(42,53) gold command, with Poverty truncation after the roll; it is not a skippable GoldReward",
+    "First-ever treasure room with NumberOfRuns0 forces Gorget, removes it from the shared bag and still consumes the rarity draw",
+    "Silver Crucible counts room entries and suppresses both relic generation and normal gold/Spoils payout on its first entered treasure room",
+    "OneOffSynchronizer completes every SpoilsMap copy after base chest gold, with one600gold command and card removal per copy",
+    "SpoilsMap.AfterCreated stores zero-based target act1 (engine act2), rather than always targeting the next act",
+    "OPEN_CHEST is appended to the action enum; MT fixture chest behavior remains unchanged",
+    "NRun.SetCurrentRoom invokes ActiveScreenContext.Update after scene insertion; NTreasureRoom.OnActiveScreenChanged disables Proceed until _hasChestBeenOpened is true",
+    "NMapScreen.TravelToMapCoord disables travel before room entry and NMapPoint.IsTravelable requires enabled travel; unopened source chests therefore offer OPEN_CHEST without PROCEED"
+  ],
+  "regression": "tests/rooms/test_source_treasure_opening.py",
+  "does_not_certify_installed_game_parity": true
+}

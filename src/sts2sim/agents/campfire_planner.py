@@ -47,7 +47,7 @@ class CampfirePlanner:
                 category="campfire",
                 reasons=("campfire_remove_improves_deck",),
             )
-        if kind in {"dig", "lift", "recall"}:
+        if kind in {"dig", "lift", "recall", "kindle", "cook", "clone", "hatch", "mend"}:
             return make_score(
                 descriptor,
                 score=14.0,

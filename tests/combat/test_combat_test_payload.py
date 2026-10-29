@@ -30,7 +30,9 @@ def test_combat_payload_starts_in_playable_combat() -> None:
     assert payload["phase"] == "combat"
     assert payload["combat"]["turn"] == 1
     assert len(payload["combat"]["hand"]) == 5
-    assert len(payload["combat"]["monsters"]) == 1
+    # Stable weak encounters are sampled without a preference for fewer enemies.
+    assert payload["combat"]["monsters"]
+    assert all(monster["hp"] > 0 for monster in payload["combat"]["monsters"])
     assert len(payload["master_deck"]) == 10
     assert "burning_blood" in payload["relics"]
     assert {card["card_id"] for card in payload["master_deck"]} == {
@@ -162,7 +164,7 @@ def test_debug_actions_can_add_energy_statuses_and_cards() -> None:
 
 def test_debug_actions_can_channel_and_evoke_orbs() -> None:
     state = combat_test.create_combat_state(seed=124, ascension=0)
-    monster_hp = state.combat.monsters[0].hp
+    total_monster_hp = sum(monster.hp for monster in state.combat.monsters)
 
     state, _ = combat_test.apply_debug_action(
         state,
@@ -186,7 +188,8 @@ def test_debug_actions_can_channel_and_evoke_orbs() -> None:
         },
     )
     assert state.combat.orbs == ()
-    assert state.combat.monsters[0].hp == monster_hp - 8
+    # A source encounter can contain several enemies; Lightning chooses one.
+    assert sum(monster.hp for monster in state.combat.monsters) == total_monster_hp - 8
 
 
 def test_debug_card_can_include_orb_effects() -> None:
@@ -210,6 +213,7 @@ def test_debug_card_can_include_orb_effects() -> None:
 
 def test_debug_actions_can_mutate_and_spawn_enemies() -> None:
     state = combat_test.create_combat_state(seed=125, ascension=0)
+    original_count = len(state.combat.monsters)
     monster_id = state.combat.monsters[0].monster_id
     original_hp = state.combat.monsters[0].hp
 
@@ -234,7 +238,7 @@ def test_debug_actions_can_mutate_and_spawn_enemies() -> None:
         state,
         {"action": "spawn_monster", "monster_id": "debug_sentry", "hp": 22, "damage": 7},
     )
-    assert len(state.combat.monsters) == 2
+    assert len(state.combat.monsters) == original_count + 1
     assert state.combat.monsters[-1].hp == 22
     assert state.combat.monsters[-1].intent_damage == 7
 

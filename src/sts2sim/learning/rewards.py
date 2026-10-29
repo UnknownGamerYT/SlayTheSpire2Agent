@@ -2182,7 +2182,7 @@ def _incoming_hp_damage(payload: Mapping[str, Any]) -> int:
     for monster in _alive_monsters(combat):
         intent = str(monster.get("intent", "") or "").lower()
         if "attack" in intent or _int(monster.get("intent_damage")) > 0:
-            total += _int(monster.get("intent_damage")) * max(1, _int(monster.get("hit_count"), 1))
+            total += max(0, _int(monster.get("intent_damage")))
     block = _int(_player(payload).get("block"))
     return max(0, total - block)
 

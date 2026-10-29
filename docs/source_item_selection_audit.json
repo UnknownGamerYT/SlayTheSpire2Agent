@@ -1,0 +1,129 @@
+{
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "source_repository": "https://github.com/Razhuo/sts2-rl-agent",
+  "game_version": "0.107.1",
+  "steam_build": "23811903",
+  "scope": "Finite item selection-family rules and named-stream consumption. NeowsBones curse helper is shared with its deferred relic-reward callback; complete relic callback coverage is audited separately. No game-equivalence certification.",
+  "models": [
+    {
+      "source_model": "PandorasBox",
+      "source_sha256": "db85af4910816592c10fe4c353a1901f6a91544bc3af9d1790b4b166ee1eb99a",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/PandorasBox.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "PhialHolster",
+      "source_sha256": "2e9e9460a133a4243176c018bf9aa7bce5aaf4744b38997d33be068b3229a63f",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/PhialHolster.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "SereTalon",
+      "source_sha256": "f5988db19bf9cc6334cb0150371d322441e693eccbed27fb774e2019cb3cb48b",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/SereTalon.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "NeowsBones",
+      "source_sha256": "0dd7a63e3689e8a10b2b280305558904ec4429433cc218c7eb1acdaa00c73bb3",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/NeowsBones.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "SandCastle",
+      "source_sha256": "625d4c24adb07bf5332c6dff4c3a76d90ff7cfb20d48833c89d5894c53064b29",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/SandCastle.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "WarPaint",
+      "source_sha256": "14a04cdedec34cfce26aedb1b9d965c7e35bc41b5f54188c1fbf21915d35bca8",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/WarPaint.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "Whetstone",
+      "source_sha256": "dab88b291bed7ecac5a7147d53dcd3f4fe64163c136284f42106d63339cfdc21",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/Whetstone.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "WarHammer",
+      "source_sha256": "06c3653a4b15370a8a08d033c9eb0a4c3e9ffe9ce2797d7169f151dbc36cee7c",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/WarHammer.cs",
+      "declared_methods": [
+        "AfterCombatVictory"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "RoyalStamp",
+      "source_sha256": "db15cac7690e55153f7655e880c5f8bbb91cee5f574afa7de93228e8192c423c",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/RoyalStamp.cs",
+      "declared_methods": [
+        "AfterObtained"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "StoneCracker",
+      "source_sha256": "db55f01feb6e71321b027eb0a3446fac1c1c00fb375b9c7084f3ea85dd673752",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/StoneCracker.cs",
+      "declared_methods": [
+        "AfterRoomEntered"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "PowerCell",
+      "source_sha256": "9b1f7407fb6c5b2c6abc445a31702e0969de862d4cbeab2c1c9d15f221344fd1",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/PowerCell.cs",
+      "declared_methods": [
+        "BeforeSideTurnStart"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    },
+    {
+      "source_model": "JeweledMask",
+      "source_sha256": "5477eac26c75abfcc49a3043a216a1aa0f840cd0a644496224175c7825883725",
+      "source_path": "MegaCrit.Sts2.Core.Models.Relics/JeweledMask.cs",
+      "declared_methods": [
+        "BeforeHandDraw"
+      ],
+      "implementation": "src/sts2sim/engine/source_item_selection.py + narrow transitions.py dispatch",
+      "regressions": "tests/combat/test_source_item_selection.py"
+    }
+  ]
+}

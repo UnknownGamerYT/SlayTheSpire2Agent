@@ -1,0 +1,729 @@
+{
+  "schema_version": 1,
+  "target": {
+    "channel": "stable",
+    "game_version": "0.107.1",
+    "steam_public_build": 23811903,
+    "scope": "singleplayer"
+  },
+  "source_reference": {
+    "repository": "https://github.com/zhiyue/sts2-rl-agent",
+    "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+    "qualification": "Third-party source label and per-file hashes; not installed-binary authentication."
+  },
+  "scope": "Finite known edge queue from the post-baseline source review; not an inventory-wide proof or fidelity percentage.",
+  "known_edge_queue_closed": true,
+  "reviewed_integrated_revision": "d78cc048596855db2f46f01cadb9490a005987b2",
+  "final_validation": {
+    "status": "passed_with_explicit_revision_scopes",
+    "runtime_revision": "d78cc048596855db2f46f01cadb9490a005987b2",
+    "runtime_tree": "965f9e33e8b204de302d771c303041e3334fef1c",
+    "report": "docs/validation/stable_source_training_2026_10_29_final.json",
+    "intent_integration": {
+      "passed": 83,
+      "elapsed_seconds": 37.71,
+      "scope": "Targeted DeathBlow and adjacent live-intent integration regressions",
+      "artifact_file": "v3-final-intent-integration.log",
+      "log_sha256": "fdd7a6cd7c0ef4d9f744c2e0c9582fa3c91c3c3084607ce01f735fd0d24a7736",
+      "runtime_revision": "e3fbd1d13c5beaaf08d695c8f6fddd3fcc5941c5"
+    },
+    "static_checks": {
+      "passed": true,
+      "mypy_source_files": 193,
+      "ruff_log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "mypy_log_sha256": "7c04d2220edb6c4c9abe500fb22d101adfd8dcd85cc852a616a0ee2bed0f8c5d",
+      "runtime_revision": "e3fbd1d13c5beaaf08d695c8f6fddd3fcc5941c5"
+    },
+    "cpu_ppo": {
+      "pipeline_passed": true,
+      "fresh_steps": 12,
+      "resumed_steps": 12,
+      "uninterrupted_steps": 24,
+      "exact_model_optimizer_rng_rewards_seeds": true,
+      "changed_tensors_after_resume": 17,
+      "game_logic_checksum": "298c6e5727c0b5880bc0ad46e1f57db2f5b0130852836fff780b594f8f3ae542",
+      "evaluation_errors": 0,
+      "gameplay_target_successes": 0,
+      "gameplay_target_passed": false,
+      "runtime_revision": "e3fbd1d13c5beaaf08d695c8f6fddd3fcc5941c5"
+    },
+    "qa": {
+      "ordinary_runs": 25,
+      "ordinary_actions": 1609,
+      "ordinary_reload_checks": 105,
+      "ordinary_findings": 0,
+      "all_ordinary_random_runs_died": true,
+      "boosted_progression_runs": 10,
+      "boosted_progression_actions": 3194,
+      "boosted_progression_reload_checks": 1096,
+      "boosted_progression_issues": 0,
+      "boosted_deep_runs": 25,
+      "boosted_deep_actions": 9655,
+      "boosted_deep_reload_checks": 614,
+      "boosted_deep_findings": 0,
+      "boosted_deep_step_caps": 22,
+      "boosted_deep_wall_time_caps": 3,
+      "total_runs": 60,
+      "total_actions": 14458,
+      "total_reload_checks": 1815,
+      "normal_win_rate_proven": false,
+      "runtime_revision": "e3fbd1d13c5beaaf08d695c8f6fddd3fcc5941c5"
+    },
+    "final_published_full_suite": "Verify the actual final head in draft PR #2 checks and delivered publication metadata; historical local full-suite results are not attributed to this later engine source.",
+    "engine_validation_revision": "e3fbd1d13c5beaaf08d695c8f6fddd3fcc5941c5",
+    "engine_validation_tree": "149d8357333a95b9acda8ab06e6bd3cc5b52df2a",
+    "bridge_followup": {
+      "runtime_revision": "d78cc048596855db2f46f01cadb9490a005987b2",
+      "live_tests_passed": 227,
+      "elapsed_seconds": 89.89,
+      "full_strict_mypy_source_files": 193,
+      "ruff_passed": true,
+      "trained_checkpoint_confirm_cancel": true,
+      "underlying_actions_blocked": true,
+      "checkpoint_bytes_unchanged": true,
+      "engine_checksum_unchanged_since_R3": true,
+      "proof_sha256": "6dc6192c91960492aa2c7c271d3d063939144114d7d6002ba5b6dfcda0080e9f",
+      "live_log_sha256": "fe8f395faf39556f3b84e3299c9833daa81ebbf6f6c9a2573b140c8ad06b1338"
+    }
+  },
+  "status_meanings": {
+    "implemented_source_contract": "The identified source rule has an implementation and retained regression. Installed-game agreement remains to be measured.",
+    "modeled_source_fault": "Source-defined exception prefix is modeled in an oracle inspector; normal training masks the faulting choice. Actual game UI/task recovery remains external."
+  },
+  "edges": [
+    {
+      "id": "POT-01",
+      "title": "Physical potion inventory",
+      "status": "implemented_source_contract",
+      "contract": "Use, discard, procurement, Fairy between hits, generated potions, replay and policy descriptors preserve physical slot holes and reject malformed explicit mappings.",
+      "evidence": [
+        "tests/fixtures/source_physical_potion_slots.json"
+      ],
+      "regressions": [
+        "tests/combat/test_source_physical_potion_slots.py",
+        "tests/learning/test_physical_potion_observations.py"
+      ]
+    },
+    {
+      "id": "POT-02",
+      "title": "Potion removal permission",
+      "status": "implemented_source_contract",
+      "contract": "Both use and discard respect native event potion-removal locks, including nested rewards; ordinary source discards do not require a full belt.",
+      "evidence": [
+        "tests/fixtures/source_physical_potion_slots.json",
+        "tests/fixtures/source_native_event_completion.json"
+      ],
+      "regressions": [
+        "tests/combat/test_source_physical_potion_slots.py",
+        "tests/events/test_source_native_event_completion.py"
+      ]
+    },
+    {
+      "id": "POT-03",
+      "title": "Batch potion generation",
+      "status": "implemented_source_contract",
+      "contract": "Phial Holster and Alchemical Coffer generate unique models within a factory batch. Coffer generates exactly four potions before procurement and targets the four newly added physical slots, including Sozu failure paths.",
+      "evidence": [
+        "tests/fixtures/source_probability_edges.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_potion_factory_edges.py"
+      ]
+    },
+    {
+      "id": "RNG-01",
+      "title": "Forced potion reward odds",
+      "status": "implemented_source_contract",
+      "contract": "White Beast Statue still consumes the source odds draw and updates pity; the forced potion is populated before card rewards.",
+      "evidence": [
+        "tests/fixtures/source_probability_edges.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_potion_factory_edges.py"
+      ]
+    },
+    {
+      "id": "SHOP-01",
+      "title": "Missing merchant potion rarity",
+      "status": "implemented_source_contract",
+      "contract": "A source merchant creation with no member of its rolled rarity fails explicitly rather than substituting another rarity.",
+      "evidence": [
+        "tests/fixtures/source_probability_edges.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_potion_factory_edges.py"
+      ]
+    },
+    {
+      "id": "SHOP-02",
+      "title": "Courier restock constraints and draws",
+      "status": "implemented_source_contract",
+      "contract": "Refills retain each card slot type or colorless rarity, use saved player odds without mutating them, exclude existing stock including the old creation result, and consume only the source model/price/upgrade/rarity draws. Potion refills may repeat another stocked potion.",
+      "evidence": [
+        "tests/fixtures/source_merchant_refills.json"
+      ],
+      "regressions": [
+        "tests/rooms/test_source_merchant_refills.py"
+      ]
+    },
+    {
+      "id": "SHOP-03",
+      "title": "Sale-price lifecycle",
+      "status": "implemented_source_contract",
+      "contract": "Initial sale metadata survives item conversion; half-price is applied before Courier/Membership modifiers. A refill clears the sale without rolling another sale index or pricing twice.",
+      "evidence": [
+        "tests/fixtures/source_merchant_refills.json"
+      ],
+      "regressions": [
+        "tests/rooms/test_source_merchant_refills.py"
+      ]
+    },
+    {
+      "id": "TRS-01",
+      "title": "Explicit chest opening",
+      "status": "implemented_source_contract",
+      "contract": "Treasure entry prepares its private relic. Source UI disables Proceed and map travel until explicit Open, which grants base gold before the revealed relic can be skipped. Silver Crucible suppression and source entry RNG remain distinct.",
+      "evidence": [
+        "tests/fixtures/source_treasure_edges.json"
+      ],
+      "regressions": [
+        "tests/rooms/test_source_treasure_opening.py"
+      ]
+    },
+    {
+      "id": "TRS-02",
+      "title": "Spoils Map payout",
+      "status": "implemented_source_contract",
+      "contract": "Spoils Map targets source Act 2 and pays 600 for each held quest-card copy after base chest gold on opening. A Silver Crucible-suppressed chest does not complete the quest.",
+      "evidence": [
+        "tests/fixtures/source_treasure_edges.json"
+      ],
+      "regressions": [
+        "tests/rooms/test_source_treasure_opening.py"
+      ]
+    },
+    {
+      "id": "CBT-01",
+      "title": "Extra player turns and side timing",
+      "status": "implemented_source_contract",
+      "contract": "Pael's Eye dispatches another player turn without an enemy turn or round advance. Owner-side and enemy-side power/relic lifecycles run at their source boundaries.",
+      "evidence": [
+        "tests/fixtures/source_extra_turns.json"
+      ],
+      "regressions": [
+        "tests/combat/test_source_extra_turns.py"
+      ]
+    },
+    {
+      "id": "CBT-02",
+      "title": "End-turn choice continuation",
+      "status": "implemented_source_contract",
+      "contract": "Well-Laid Plans retains at BeforeFlushLate and resumes end-turn automatically. Stampede chooses each fresh autoplay through Shuffle and awaits its child choice before selecting again.",
+      "evidence": [
+        "tests/fixtures/source_turn_choices.json"
+      ],
+      "regressions": [
+        "tests/combat/test_source_turn_choices.py"
+      ]
+    },
+    {
+      "id": "CST-01",
+      "title": "Ordered temporary Star costs",
+      "status": "implemented_source_contract",
+      "contract": "The last surviving temporary Star modifier determines cost; played, turn and combat expiry are distinct, including retained cards, free flags and X costs.",
+      "evidence": [
+        "tests/fixtures/source_local_star_costs.json"
+      ],
+      "regressions": [
+        "tests/combat/test_source_local_star_costs.py"
+      ]
+    },
+    {
+      "id": "CST-02",
+      "title": "Banshee's Cry local discount",
+      "status": "implemented_source_contract",
+      "contract": "Its combat-entry and after-play discounts are ordered local Energy modifiers on the physical card; imported observed discounts are not applied twice.",
+      "evidence": [
+        "tests/fixtures/source_local_star_costs.json",
+        "tests/fixtures/source_live_policy_import.json"
+      ],
+      "regressions": [
+        "tests/live/test_source_live_import.py",
+        "tests/combat/test_source_local_energy_costs.py"
+      ]
+    },
+    {
+      "id": "CRD-01",
+      "title": "One-play exhaust",
+      "status": "implemented_source_contract",
+      "contract": "The source one-play exhaustion flag is consumed independently of the permanent Exhaust keyword and survives the covered replay/reload paths.",
+      "evidence": [
+        "tests/fixtures/source_live_policy_import.json"
+      ],
+      "regressions": [
+        "tests/live/test_source_live_import.py",
+        "tests/combat/test_source_one_play_exhaust.py"
+      ]
+    },
+    {
+      "id": "INT-01",
+      "title": "Multi-hit intent totals",
+      "status": "implemented_source_contract",
+      "contract": "Canonical intent_damage is a total: actor observations, belief, enemy traits and learning reward shaping count it once. The bridge also supplies the selected raw attack base so simulator END_TURN applies Strength, Scare, rounding and Intangible once, retaining separate hit count and display value.",
+      "evidence": [
+        "docs/stable_enemy_source_contracts.md",
+        "tests/fixtures/source_live_attack_intents.json",
+        "docs/stable_live_attack_intents.md"
+      ],
+      "regressions": [
+        "tests/combat/test_combat_engine_monsters.py",
+        "tests/learning/test_enemy_traits.py",
+        "tests/live/test_source_live_import.py",
+        "tests/live/test_live_attack_intents.py"
+      ]
+    },
+    {
+      "id": "RWD-01",
+      "title": "Manual CardReward lifecycle",
+      "status": "implemented_source_contract",
+      "contract": "Manual initial options and reroll options retain distinct IsCardReward flags and the manual constructor does not subscribe to later RelicObtained updates.",
+      "evidence": [
+        "tests/fixtures/source_manual_reward_lifecycle.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_manual_reward_context.py"
+      ]
+    },
+    {
+      "id": "RWD-02",
+      "title": "Returned SpecialCardReward identity",
+      "status": "implemented_source_contract",
+      "contract": "Returned stolen physical cards bypass ordinary CardReward modifiers and alternatives while retaining normal deck-entry hooks and physical identity.",
+      "evidence": [
+        "tests/fixtures/source_special_card_reward.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_special_card_reward_modifiers.py"
+      ]
+    },
+    {
+      "id": "RWD-03",
+      "title": "Tutorial reward presets",
+      "status": "implemented_source_contract",
+      "contract": "Ironclad first-run, explicitly zero-epoch profiles use fixed source card/potion/relic presets and persisted map-point counters; fixed cards do not consume generic factory draws.",
+      "evidence": [
+        "tests/fixtures/source_tutorial_rewards.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_tutorial_reward_primitives.py",
+        "tests/rewards/test_source_reward_population_order.py"
+      ]
+    },
+    {
+      "id": "RWD-04",
+      "title": "Card factory fallback and exhaustion",
+      "status": "implemented_source_contract",
+      "contract": "Rarity fallback follows the source rarity cycle after exclusions, and impossible source pools fail explicitly instead of returning short or fabricated rewards.",
+      "evidence": [
+        "tests/fixtures/source_factory_edges.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_factory_failures.py"
+      ]
+    },
+    {
+      "id": "FLT-01",
+      "title": "Kaleidoscope/Driftwood empty-pool exception",
+      "status": "modeled_source_fault",
+      "contract": "An explicit oracle diagnostic reproduces the spent flag, skipped-choice history, cleared cards, one rarity draw and source exception prefix. Training deliberately masks this action; no successful successor or UI recovery is invented.",
+      "evidence": [
+        "tests/fixtures/source_factory_edges.json",
+        "tests/fixtures/source_kaleidoscope.json",
+        "docs/source_reward_faults.md"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_factory_failures.py",
+        "tests/rewards/test_kaleidoscope.py",
+        "tests/rewards/test_source_reward_reroll.py"
+      ]
+    },
+    {
+      "id": "FLT-02",
+      "title": "Card alternative-count exception",
+      "status": "modeled_source_fault",
+      "contract": "Pael's Wing plus Driftwood can exceed the source limit of two card alternatives. The oracle diagnostic preserves the pre-screen exception boundary; only actions opening that faulting card group are masked, preserving unrelated rewards and reward-set Proceed.",
+      "evidence": [
+        "docs/source_reward_faults.md"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_reward_alternative_fault.py",
+        "tests/rewards/test_source_special_card_reward_modifiers.py"
+      ]
+    },
+    {
+      "id": "EVT-01",
+      "title": "Trial abandon confirmation",
+      "status": "implemented_source_contract",
+      "contract": "Double Down opens an explicit confirm/cancel modal. Cancel consumes no model RNG and returns to repeatable choices; confirm abandons and force-kills without Fairy recovery.",
+      "evidence": [
+        "tests/fixtures/source_trial_confirmation.json"
+      ],
+      "regressions": [
+        "tests/events/test_trial_abandon_confirmation.py"
+      ]
+    },
+    {
+      "id": "EVT-02",
+      "title": "Sequential native-event callbacks",
+      "status": "implemented_source_contract",
+      "contract": "A serialized cursor awaits each relic obtain and child choice before pulling the next relic or adding later cards; source RNG and parent event remain stable across reload.",
+      "evidence": [
+        "tests/fixtures/source_native_event_completion.json"
+      ],
+      "regressions": [
+        "tests/events/test_source_native_event_completion.py"
+      ]
+    },
+    {
+      "id": "EVT-03",
+      "title": "Custom reward completion",
+      "status": "implemented_source_contract",
+      "contract": "Native custom offers immediately enter the reward phase and finish the event only after the offer resolves. Taking the final entry autocloses the child in the same public action.",
+      "evidence": [
+        "tests/fixtures/source_native_event_completion.json"
+      ],
+      "regressions": [
+        "tests/events/test_source_native_event_completion.py"
+      ]
+    },
+    {
+      "id": "EVT-04",
+      "title": "Wongo run/profile points",
+      "status": "implemented_source_contract",
+      "contract": "The event records current-run earned points after the purchased relic callback. It uses the saved profile total for the badge threshold and leaves profile credit to run-result persistence.",
+      "evidence": [
+        "tests/fixtures/source_native_event_completion.json"
+      ],
+      "regressions": [
+        "tests/events/test_source_native_event_completion.py",
+        "tests/events/test_source_native_event_choices.py"
+      ]
+    },
+    {
+      "id": "CBT-03",
+      "title": "Royalties deferred reward",
+      "status": "implemented_source_contract",
+      "contract": "Stackable 30/40 power creates one explicit GoldReward after eligible successful combat, rather than immediately gaining gold or paying twice.",
+      "evidence": [
+        "tests/fixtures/source_royalties.json"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_royalties.py"
+      ]
+    },
+    {
+      "id": "CBT-04",
+      "title": "Infused Core after Focus",
+      "status": "implemented_source_contract",
+      "contract": "Focus clamps the Lightning value first, then the owner's Infused Core adds one across passive, evoke and directed consumers, including negative Focus.",
+      "evidence": [
+        "tests/fixtures/source_infused_core.json"
+      ],
+      "regressions": [
+        "tests/combat/test_source_infused_core.py"
+      ]
+    },
+    {
+      "id": "BRG-01",
+      "title": "Pure bridge observation",
+      "status": "implemented_source_contract",
+      "contract": "The pinned schema patch exports observed state without automatically opening treasure or Fake Merchant on GET. Opening a chest is an explicit command.",
+      "evidence": [
+        "tests/fixtures/bridge_observation_v2_source.json",
+        "docs/live_observation_schema_v2.md"
+      ],
+      "regressions": [
+        "tests/live/test_live_bridges.py"
+      ]
+    },
+    {
+      "id": "BRG-02",
+      "title": "Rich observed combat import",
+      "status": "implemented_source_contract",
+      "contract": "All five source characters import their observed combat resources, card identity/modifiers/local costs, orbs or Osty, potion holes, player-turn/round and floor distinctions. Contradictory or incomplete inputs fail before policy inference.",
+      "evidence": [
+        "tests/fixtures/source_live_policy_import.json"
+      ],
+      "regressions": [
+        "tests/live/test_source_live_import.py"
+      ]
+    },
+    {
+      "id": "LEARN-01",
+      "title": "Canonical observed action encoding",
+      "status": "implemented_source_contract",
+      "contract": "An explicit observed action set uses the same policy descriptor encoding as simulator actions, without inventing private legal actions.",
+      "evidence": [
+        "src/sts2sim/agent_api.py"
+      ],
+      "regressions": [
+        "tests/interfaces/test_explicit_visible_actions.py"
+      ]
+    },
+    {
+      "id": "RWD-05",
+      "title": "Ordered room reward orchestration",
+      "status": "implemented_source_contract",
+      "contract": "Populate base reward objects and FIFO existing room extras before acquisition-ordered Amethyst, Black Star, Lava Rock, Prayer Wheel, White Star and Wongo hooks. Fixed Gold Populate draws, tutorial elite relic-before-card order and ready-Wongo final-boss exception retain their source boundaries.",
+      "evidence": [
+        "tests/fixtures/source_reward_population_order.json",
+        "docs/source_reward_population.md"
+      ],
+      "regressions": [
+        "tests/rewards/test_source_reward_population_order.py"
+      ]
+    },
+    {
+      "id": "CBT-05",
+      "title": "Orb passive/evoke queue lifecycle",
+      "status": "implemented_source_contract",
+      "contract": "All five orb types use the source front/forward queue, passive and multi-evoke timing. Loop/Emotion run after hand draw; Cables affects automatic triggers; Spinner/Metronome preserve source boundaries. Emotion uses !WasFullyBlocked history including zero/Buffer/Tungsten cases. Frost awaits block/Juggernaut callbacks before later orbs or draw/retention and stops after combat ends.",
+      "evidence": [
+        "tests/fixtures/source_orb_lifecycle.json",
+        "docs/stable_orb_lifecycle.md"
+      ],
+      "regressions": [
+        "tests/combat/test_source_orb_lifecycle.py",
+        "tests/combat/test_source_emotion_damage_history.py",
+        "tests/combat/test_source_frost_block_callbacks.py",
+        "tests/combat/test_source_turn_choices.py"
+      ]
+    },
+    {
+      "id": "BRG-03",
+      "title": "Observed relic runtime state",
+      "status": "implemented_source_contract",
+      "contract": "A finite public primitive allowlist imports periodic relic progress, cumulative counters, activation/one-shot history and spent Wongo ticket state. History remains authoritative during activation displays; missing critical or contradictory state fails before inference. Hidden selections and validation RNG are excluded.",
+      "evidence": [
+        "tests/fixtures/source_live_relic_state.json",
+        "tests/fixtures/bridge_observation_v2_source.json"
+      ],
+      "regressions": [
+        "tests/live/test_live_relic_state.py",
+        "tests/live/test_live_policy_views.py"
+      ]
+    },
+    {
+      "id": "BRG-04",
+      "title": "Live comparison case capture/replay",
+      "status": "implemented_source_contract",
+      "contract": "Comparison cases bind an explicit simulator checkpoint to captured before/action/after observations, refuse mismatched initial visible state, and compare declared visible fields and separately captured persistent RNG. Physical potion inventory requires explicit slot evidence, and Regent Stars use the canonical resource key. A sparse match never certifies full-game parity.",
+      "evidence": [
+        "tests/fixtures/bridge_observation_v2_source.json",
+        "src/sts2sim/live_comparison.py"
+      ],
+      "regressions": [
+        "tests/live/test_live_comparison.py",
+        "tests/live/test_live_bridges.py"
+      ]
+    },
+    {
+      "id": "BRG-05",
+      "title": "Observed noncombat checkpoint decisions",
+      "status": "implemented_source_contract",
+      "contract": "Saved policy weights select explicit enabled observed controls for map, event/Ancient, rest, shop, reward opening/taking, card/hand/grid/bundle/relic choices, confirm/cancel, explicit chest opening/relic collection and visible Crystal Sphere tools/cells. These feature views are never stepped as simulator checkpoints and model selection is not replaced by a heuristic.",
+      "evidence": [
+        "tests/fixtures/source_live_policy_views.json"
+      ],
+      "regressions": [
+        "tests/live/test_live_policy_views.py",
+        "tests/live/test_live_ppo_policy.py"
+      ]
+    },
+    {
+      "id": "BRG-06",
+      "title": "Repeatable chosen event controls",
+      "status": "implemented_source_contract",
+      "contract": "A previously chosen event option remains selectable when its actual source DisableOnChosen flag is false, including Trial DoubleDown after cancellation. WasChosen alone does not disable an otherwise enabled observed control.",
+      "evidence": [
+        "tests/fixtures/bridge_observation_v2_source.json"
+      ],
+      "regressions": [
+        "tests/live/test_live_policy_views.py",
+        "tests/live/test_live_comparison.py"
+      ]
+    },
+    {
+      "id": "INT-02",
+      "title": "DeathBlow attack-intent subtype",
+      "status": "implemented_source_contract",
+      "contract": "Gas Bomb and Waterfall Giant EXPLODE use DeathBlowIntent, normalized to an attack subtype for observed features while retaining raw type/base. Public import and enemy-turn execution apply damage before source self-kill and include the threat in incoming-damage features. The finite MoveState constructor corpus has at most one attack intent per move; heterogeneous-list rejection is a defensive invalid-input guard.",
+      "evidence": [
+        "tests/fixtures/source_death_blow.json"
+      ],
+      "regressions": [
+        "tests/live/test_live_death_blow.py",
+        "tests/combat/test_combat_engine_monsters.py"
+      ]
+    },
+    {
+      "id": "BRG-07",
+      "title": "Actual Trial abandon-modal bridge controls",
+      "status": "implemented_source_contract",
+      "contract": "Expose actual NAbandonRunConfirmPopup confirmation/cancellation as enabled raw bridge commands, let the saved policy select those observed controls, and block underlying room/potion controls while the modal is open.",
+      "evidence": [
+        "tests/fixtures/bridge_observation_v2_source.json",
+        "tests/fixtures/source_trial_confirmation.json"
+      ],
+      "regressions": [
+        "tests/live/test_live_policy_views.py",
+        "tests/live/test_live_comparison.py"
+      ]
+    }
+  ],
+  "intentional_compatibility": [
+    {
+      "id": "SYN-01",
+      "scope": "Reserved TEST character and explicit legacy MT19937 saves",
+      "behavior": "Controlled synthetic/legacy offering and RNG behavior remains for compatibility. It is not playable-character seed-parity evidence."
+    },
+    {
+      "id": "SAVE-01",
+      "scope": "Older saves without newly recorded mixed reward order or qualifying damage history",
+      "behavior": "Missing past history cannot be reconstructed. Legacy reward descriptor order is labeled explicitly; old Emotion snapshots retain their prior HP-loss fallback. New runs record the source order and predicate history. Use fresh experiments/checkpoints for this update.",
+      "evidence": [
+        "docs/source_reward_population.md",
+        "docs/stable_orb_lifecycle.md"
+      ]
+    }
+  ],
+  "remaining_installed_game_validation": [
+    {
+      "id": "WIN-01",
+      "work": "Fingerprint the Windows Steam installation and confirm the selected stable version/build/assembly metadata."
+    },
+    {
+      "id": "WIN-02",
+      "work": "Compile and load the pinned patched bridge against the actual installed game assemblies; check its real observations and command results."
+    },
+    {
+      "id": "WIN-03",
+      "work": "Capture real before/action/after cases and compare declared visible fields plus separately captured oracle RNG/state fields. Extend coverage across characters, rooms, cards, items and timing boundaries."
+    },
+    {
+      "id": "WIN-04",
+      "work": "Observe UI/task recovery for the modeled reward exceptions and Trial confirmation using the selected executable."
+    }
+  ],
+  "outside_verified_scope": [
+    "Complete multiplayer synchronization, co-op targeting and all player-count interactions.",
+    "Exhaustive combined card/relic/power orderings and all displayed-seed whole-run traces.",
+    "A trained capable champion or live-game win-rate claim."
+  ],
+  "historical_reports": [
+    {
+      "path": "docs/validation/stable_source_training_2026_10_28.json",
+      "meaning": "Historical bounded validation for its explicitly recorded b3893e0/4004f77 revisions, not validation of this update."
+    },
+    {
+      "path": "docs/validation/stable_source_training_2026_10_29.json",
+      "meaning": "Earlier 29 October R1/R2 validation: 6419 full core tests/PPO/QA at91e7869 and 206live tests at675da70. These do not validate the subsequent DeathBlow engine change."
+    }
+  ],
+  "runtime_tree": "965f9e33e8b204de302d771c303041e3334fef1c",
+  "source_payload_check": {
+    "checked_at_utc": "2026-10-29T08:03:13.305211+00:00",
+    "datasets": 17,
+    "all_match_cached_hashes": true,
+    "scope": "Read-only API canonical bytes compared with existing stable cache; no executable build or behavior certification"
+  },
+  "historical_validation": {
+    "status": "passed_with_explicit_revision_scopes",
+    "runtime_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+    "report": "docs/validation/stable_source_training_2026_10_29.json",
+    "completed_checks": {
+      "ruff": {
+        "result": "passed",
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      },
+      "strict_mypy": {
+        "passed": true,
+        "source_files": 193,
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      },
+      "packaging": {
+        "sdist_and_wheel": "passed",
+        "tracked_package_files_byte_identical": 194,
+        "isolated_wheel_cli": "passed",
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      },
+      "cpu_ppo": {
+        "pipeline_passed": true,
+        "fresh_steps": 12,
+        "resumed_steps": 12,
+        "uninterrupted_steps": 24,
+        "exact_model_optimizer_rng_rewards_seeds": true,
+        "changed_tensors_after_resume": 17,
+        "heldout_runs": 2,
+        "heldout_max_steps": 12,
+        "evaluation_checkpoint_bytes_unchanged": true,
+        "repeated_evaluation_report_identical": true,
+        "evaluation_errors": 0,
+        "gameplay_target_successes": 0,
+        "gameplay_target_passed": false,
+        "older_checkpoint_rejected": "game_logic_checksum",
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      },
+      "normal_random_qa": {
+        "runs": 25,
+        "actions": 1609,
+        "reload_checks": 105,
+        "findings": 0,
+        "all_random_runs_died": true,
+        "synthetic_boosts": false,
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      },
+      "synthetic_progression_qa": {
+        "runs": 10,
+        "actions": 3194,
+        "reload_checks": 1096,
+        "issues": 0,
+        "all_three_acts": true,
+        "all_a10_double_final_bosses": true,
+        "synthetic_boosts": true,
+        "proves_normal_win_rate": false,
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      },
+      "synthetic_deep_qa": {
+        "runs": 25,
+        "actions": 9297,
+        "reload_checks": 591,
+        "findings": 0,
+        "initial_hp_and_max_hp": 10000,
+        "step_cap_outcomes": 21,
+        "wall_time_cap_outcomes": 4,
+        "max_act_seen": 2,
+        "proves_normal_win_rate": false,
+        "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066"
+      }
+    },
+    "full_suite_runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "baseline_full_suite": {
+      "passed": 6419,
+      "skipped": 1,
+      "warnings": 2,
+      "elapsed_seconds": 711.0,
+      "log_sha256": "be06e6c65232277ae3a5c066e4929884006a4cb94da79cd2e648c4a3d2b62beb"
+    },
+    "final_bridge_followup_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+    "engine_game_logic_checksum_unchanged": true,
+    "game_logic_checksum": "5fc103061c76db841ed5c1cf03f95e1a3570d1815d084a15f6e56c46e4511dc7",
+    "final_bridge_followup_live_suite": {
+      "runtime_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+      "scope": "All tests/live",
+      "passed": 206,
+      "elapsed_seconds": 79.52,
+      "log_sha256": "a7ba4f9a08e3e27f3d32eac7df764acfb75adaa0748315e650b044dcf32939dc"
+    }
+  }
+}

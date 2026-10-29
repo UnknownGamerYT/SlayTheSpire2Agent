@@ -1,0 +1,126 @@
+{
+  "target": "stable v0.107.1 singleplayer",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Nunchaku.cs",
+      "sha256": "a92136bd62320001fe02783db5c11ef70aa5df3b4ef5226243df5f1830697243"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PenNib.cs",
+      "sha256": "c2ca39be064bf9504c5d9bf9f0931fbe7158db6b176b303d098d9ee2cf422cde"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/IronClub.cs",
+      "sha256": "39e204592b870eb6aca976923ecaff137c0d7fc6a9503c9d82686d774ca7aaf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/HappyFlower.cs",
+      "sha256": "8ad5559934d60a145251e438a1e0745e4501506f511f42f9f617f68b9a96a080"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FakeHappyFlower.cs",
+      "sha256": "f93bc450daf93f9c678a651f228603febaf43b9e3a01782f632fa322a8d8d1cf"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/JossPaper.cs",
+      "sha256": "97237a51eda6199f48455edf7e83c061a73b97980279ee4a6cfdd149561b6bf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GalacticDust.cs",
+      "sha256": "173a5b84adfd4fc3bf4796d4ba447655f6ba7b4cca7897332beb3963544962d4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Metronome.cs",
+      "sha256": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PumpkinCandle.cs",
+      "sha256": "807de4c900f8d2dc20c55e7eba2bfa554a64f9a667d25bf2425e91da4dc8033a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BurningSticks.cs",
+      "sha256": "7c01f7308ea8d12a84161c069c669dbdadc18fb48ef5f551a5d9adcfbe3e8cf9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/CentennialPuzzle.cs",
+      "sha256": "610d506f51cef90c84cded79e508251f3ce462177fa3e7ccda88b8feac2593aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Permafrost.cs",
+      "sha256": "15f99b67cc992dd3c88839f8eae79d829528b92ad6a57e71266cbf88897cd585"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RuinedHelmet.cs",
+      "sha256": "a88f33545295ad4025ad3c95e7e5bed4f32f892309eb3c10246010e3d8b32ff3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ThrowingAxe.cs",
+      "sha256": "c7bb04ac13201a2ee892bc860caa37c0f2eff33efe31606c762442b3019a4c48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DemonTongue.cs",
+      "sha256": "23a0a62f9b47c0fa786df2e8a56aee86a4223b015c5c4510f1cee5c891010d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MiniRegent.cs",
+      "sha256": "c36490b78249d15effa19b18a9463e7151fbb7a8aa36c42977b26544195fd234"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RedSkull.cs",
+      "sha256": "cf57eb10a81ced7a20a845c53b1f58253fbf980f1b72f76243d57f1cbe165382"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BeltBuckle.cs",
+      "sha256": "1e72315fdaf11e92a555144fa8b255f3735bde2aaf590f92f6ece0288cab2831"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Vambrace.cs",
+      "sha256": "d804bb40a837fa90b9b5e734e7dcdd61643cd0328f35a884ce07d97f1dc4a34a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsLegion.cs",
+      "sha256": "08bc0980dc3b133a256bb39d50881b6888fabb5f47033aaab02b7ccb36381530"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/UnsettlingLamp.cs",
+      "sha256": "f4d772296f344ba05eedcc2131f60435a9bd4afe1166bab435e13bce517cf9b3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Pendulum.cs",
+      "sha256": "47555d0f5375d77d6d193c7e029b29f9fe8eb57f6dbbb1d1a86fb23a5a4438aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PollinousCore.cs",
+      "sha256": "2cff220a8da9873f11751d2480aa5bef18edd74963b49f38b768db21649c5476"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FishingRod.cs",
+      "sha256": "541ac89e243c0e3916d3b6cb4226a090b9e86f1ae5753640ffe3875507ed9938"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BookOfFiveRings.cs",
+      "sha256": "6c04d5b94b3814d04454fc6ce981881272500601fbaf1326b42a581eda5be8f6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WongosMysteryTicket.cs",
+      "sha256": "831872d73d4c25fca471afe636eb65d34677aba0a690239c471573ceb05b8cb9"
+    }
+  ],
+  "contracts": [
+    "Periodic counters encode progress modulo the source period; asynchronous activation animations may display the period even after progress advances. Explicit history remains authoritative.",
+    "IronClub uses cumulative CardsPlayed internally and displays modulo four; runtime history is required to retain the cumulative actor feature.",
+    "Metronome display saturates at seven while source and engine OrbsChanneled continue increasing; the trigger occurs only at exactly seven.",
+    "PaelsLegion source Cooldown can decrement below zero; engine readiness saturates at zero.",
+    "One-shot combat/turn activation flags come from a finite bridge primitive allowlist; generic status does not prove whether a hook ran.",
+    "UnsettlingLamp remembers a triggering card even when a debuff attempt was blocked.",
+    "WongosMysteryTicket GaveRelic history maps to its used-up flag and initialized lifecycle, preventing a repeated payout during live previews.",
+    "No persistent RNG, hidden selections, or validation oracle is accepted by the relic projection."
+  ],
+  "retained_tests": "tests/live/test_live_relic_state.py",
+  "certifies_installed_game_parity": false
+}

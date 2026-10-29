@@ -69,9 +69,9 @@ def test_furnace_and_hammer_time_descriptors_emit_mapping_friendly_events() -> N
     furnace = furnace_forge_descriptor(upgraded=True)
     furnace_events = resolve_forge_descriptor(furnace, ForgeTrigger.TURN_START)
 
-    assert furnace.amount == 6
+    assert furnace.amount == 7
     assert furnace.repeat is True
-    assert furnace_events[0].amount == 6
+    assert furnace_events[0].amount == 7
     assert furnace_events[0].target_id == "player"
     assert furnace_events[0].metadata["duration"] == "combat"
     assert resolve_forge_descriptor(furnace, ForgeTrigger.CARD_PLAYED) == ()

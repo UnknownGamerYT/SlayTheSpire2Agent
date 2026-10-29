@@ -7,6 +7,22 @@ This repository focuses on local simulation and developer tools. Graphics and
 game assets are out of scope. Implementation notes and current project direction
 live in [HANDOFF.md](HANDOFF.md).
 
+The simulator is still undergoing game-fidelity validation. See the
+[current stable parity review](docs/stable_game_parity_review.md) for confirmed
+source-rule corrections and the finite
+[source edge closure ledger](docs/source_edge_closure_2026_10_29.md) for the
+latest implementation and regression scope.
+
+The [28 October baseline report](docs/project_status_2026_10_28.md) records its
+original data refresh and validation revision. Later source changes have their
+own validation evidence. The selected target remains stable v0.107.1; beta is
+a separate data/game channel.
+
+Normal runs use the source xoshiro256** RNG streams and stable run-generation
+rules. [Per-item source reviews](docs/item_source_audit/README.md) and action
+regressions record what was checked. For your Windows Steam installation, use
+[the stable game validation guide](docs/windows_stable_validation.md).
+
 ## Requirements
 
 - Windows or Linux with Python 3.12 or newer.
@@ -60,6 +76,18 @@ uv sync --extra dev --extra rl --link-mode=copy
 
 ## Quick Checks
 
+Create the local source cache before testing or training. It is intentionally
+excluded from Git, so this step is required after cloning:
+
+```powershell
+uv run sts2sim sync-data --data-dir data/cache --manifest data/manifest.json
+uv run sts2sim training-check
+```
+
+`training-check` works offline and exits with code 1 if RL packages, cached files,
+or manifest checksums are missing or inconsistent. A passing check verifies local
+inputs; it does not certify that all simulator mechanics match the game.
+
 ```powershell
 uv run sts2sim --help
 uv run pytest -q
@@ -97,8 +125,8 @@ from sts2sim import legal_actions, load_state, new_run, serialize, step
 
 state = new_run(seed=1, character_id="IRONCLAD", ascension=0)
 action = legal_actions(state)[0]
-transition = step(state, action)
-payload = serialize(transition.state)
+state = step(state, action)
+payload = serialize(state)
 restored = load_state(payload)
 ```
 
@@ -178,6 +206,55 @@ Install RL dependencies first:
 uv sync --extra rl
 ```
 
+First verify a short training run on CPU:
+
+```powershell
+uv run sts2sim training-check
+uv run sts2sim train-masked-ppo --max-batches 1 --train-runs-per-batch 1 --train-max-steps 12 --eval-runs 1 --eval-max-steps 12 --champion-eval-runs 1 --hidden-size 32 --hidden-layers 1 --head-hidden-layers 1 --ppo-epochs 1 --minibatch-size 16 --device cpu --rollout-workers 1 --history-mode off --seed smoke --no-resume --model-output checkpoints/smoke.pt --output reports/smoke.json --progress-output reports/smoke_progress.json --report-output reports/smoke.html
+```
+
+Repeat with `--resume` and the same paths to check continuation. This short run
+checks rollout collection, optimization, evaluation, checkpointing, and reports;
+it is too short to learn useful gameplay. For small CPU experiments, setting
+`OMP_NUM_THREADS=1` and `MKL_NUM_THREADS=1` before launching can reduce thread overhead.
+
+Fresh runs now seed model initialization, action sampling, and minibatch order.
+PPO bootstraps time-limited rollouts from their final state and isolates interrupted
+episodes. Parallel rollout scheduling and CUDA kernels can still introduce
+variation. Teacher-selected actions are excluded from the PPO actor and entropy
+losses. `--imitation-coef` controls the separate teacher loss; use `--teacher-mix 0`
+for an unassisted baseline (also set `--imitation-coef 0` if you previously
+enabled imitation). Policy observations hide RNG state, future draws,
+and queued enemy moves; see [the observation contract](docs/policy_visibility.md).
+
+Checkpoints record source-data hashes, model architecture, observation schema,
+and simulator logic. Resume/inference rejects incompatible, corrupt, nonfinite,
+or Git LFS pointer files before training or sending a game action. Start a fresh
+experiment after changing the simulator or its source snapshot.
+
+Evaluate a saved checkpoint on a fixed, repeatable seed suite without training:
+
+```powershell
+uv run sts2sim evaluate-ppo --checkpoint checkpoints/smoke.pt --seed heldout-v1 --runs 20 --character IRONCLAD --device cpu --output reports/smoke_eval.json
+```
+
+Keep evaluation seeds separate from your training and champion-selection seeds.
+The report records each actual episode seed and leaves checkpoint bytes unchanged.
+
+To use saved weights with the game, follow the
+[live bridge setup guide](docs/live_bridge_setup.md) to download the pinned bridge,
+apply its observation patch, and build/install it against your game. Once a
+supported game decision is visible:
+
+```powershell
+uv run sts2sim doctor-live-bridge --base-url http://localhost:15526
+uv run sts2sim play-live-agent --base-url http://localhost:15526 --checkpoint checkpoints/smoke.pt --device cpu --character IRONCLAD --ascension 0 --max-steps 20 --output traces/live-checkpoint.json
+```
+
+Unsupported observations stop with a diagnostic. The guide explains the explicit
+`--heuristic-fallback` option and how reports distinguish mixed policy play.
+The smoke checkpoint verifies this workflow; it has not learned useful gameplay.
+
 Single-target Act 1 boss training:
 
 ```powershell
@@ -217,10 +294,31 @@ Open a generated report:
 Start-Process reports\ppo_curriculum_latest.html
 ```
 
+## Gymnasium Integration
+
+The existing `Sts2Env` exposes structured observations for the built-in trainer.
+Use the optional numeric adapter with Gymnasium or mask-aware external libraries:
+
+```python
+from sts2sim.gymnasium_adapter import GymnasiumSts2Env
+
+env = GymnasiumSts2Env(character_id="IRONCLAD", max_episode_steps=1000)
+observation, info = env.reset(seed=42)
+action = env.action_space.sample(mask=observation["action_mask"])
+observation, reward, terminated, truncated, info = env.step(action)
+env.close()
+```
+
+Observations contain a float32 `vector` and int8 `action_mask`. Full structured
+observations and action descriptors are in `info["rich_observation"]` and
+`info["action_space"]`. `action_masks()` supports MaskablePPO-style callers.
+Always select actions using the current mask and reset after an episode ends.
+The adapter uses learning rewards by default and supports Gymnasium vectorization.
+
 ## Source Data
 
-The simulator uses Spire Codex as the primary public reference for current
-Slay the Spire 2 data and mechanics:
+The simulator uses the [version-qualified stable source reference](docs/stable_game_parity_review.md#evidence-and-version-binding)
+for implemented rules and Spire Codex for cached content metadata:
 
 - <https://spire-codex.com/docs>
 - <https://spire-codex.com/developers>

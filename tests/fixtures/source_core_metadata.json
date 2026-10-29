@@ -1,0 +1,7320 @@
+[
+  {
+    "id": "abrasive",
+    "source_file": "Abrasive.cs",
+    "input": {
+      "cost": 3,
+      "description": "Gain 1 [gold]Dexterity[/gold].\nGain 4 [gold]Thorns[/gold].",
+      "id": "ABRASIVE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Abrasive",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "thornspower": "+2"
+      },
+      "upgrade_description": "Gain 1 [gold]Dexterity[/gold].\nGain 6 [gold]Thorns[/gold]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "power",
+      "target": "Self",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "accelerant",
+    "source_file": "Accelerant.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Poison[/gold] is triggered 1 additional time.",
+      "id": "ACCELERANT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Accelerant",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "accelerant": "+1"
+      },
+      "upgrade_description": "[gold]Poison[/gold] is triggered 2 additional times."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "accuracy",
+    "source_file": "Accuracy.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Shivs[/gold] deal 4 additional damage.",
+      "id": "ACCURACY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Accuracy",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "accuracypower": "+2"
+      },
+      "upgrade_description": "[gold]Shivs[/gold] deal 6 additional damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "acrobatics",
+    "source_file": "Acrobatics.cs",
+    "input": {
+      "cost": 1,
+      "description": "Draw 3 cards.\nDiscard 1 card.",
+      "id": "ACROBATICS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Acrobatics",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Draw 4 cards.\nDiscard 1 card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "adrenaline",
+    "source_file": "Adrenaline.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain [energy:1].\nDraw 2 cards.",
+      "id": "ADRENALINE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Adrenaline",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Gain [energy:2].\nDraw 2 cards."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "afterimage",
+    "source_file": "Afterimage.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever you play a card, gain 1 [gold]Block[/gold].",
+      "id": "AFTERIMAGE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Afterimage",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "aggression",
+    "source_file": "Aggression.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, put a random Attack from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold] and [gold]Upgrade[/gold] it.",
+      "id": "AGGRESSION",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Aggression",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "alchemize",
+    "source_file": "Alchemize.cs",
+    "input": {
+      "cost": 1,
+      "description": "Procure a random potion.",
+      "id": "ALCHEMIZE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Alchemize",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "anger",
+    "source_file": "Anger.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 6 damage.\nAdd a copy of this card into your [gold]Discard Pile[/gold].",
+      "id": "ANGER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Anger",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 8 damage.\nAdd a copy of this card into your [gold]Discard Pile[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "anointed",
+    "source_file": "Anointed.cs",
+    "input": {
+      "cost": 1,
+      "description": "Put every [gold]Rare[/gold] card from your [gold]Draw Pile[/gold] into your [gold]Hand[/gold].",
+      "id": "ANOINTED",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Anointed",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "add_retain": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "anticipate",
+    "source_file": "Anticipate.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain 2 [gold]Dexterity[/gold] this turn.",
+      "id": "ANTICIPATE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Anticipate",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "dexterity": "+1"
+      },
+      "upgrade_description": "Gain 3 [gold]Dexterity[/gold] this turn."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "armaments",
+    "source_file": "Armaments.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].\n[gold]Upgrade[/gold] a card in your [gold]Hand[/gold].",
+      "id": "ARMAMENTS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Armaments",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Gain 5 [gold]Block[/gold].\n[gold]Upgrade[/gold] ALL cards in your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "ashen_strike",
+    "source_file": "AshenStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage.\nDeals 3 additional damage for each card in your [gold]Exhaust Pile[/gold].",
+      "id": "ASHEN_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Ashen Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "extradamage": "+1"
+      },
+      "upgrade_description": "Deal 6 damage.\nDeals 4 additional damage for each card in your [gold]Exhaust Pile[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "assassinate",
+    "source_file": "Assassinate.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 10 damage.\nApply 1 [gold]Vulnerable[/gold].",
+      "id": "ASSASSINATE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust",
+        "Innate"
+      ],
+      "name": "Assassinate",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3",
+        "vulnerable": "+1"
+      },
+      "upgrade_description": "Deal 13 damage.\nApply 2 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust",
+        "innate"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "automation",
+    "source_file": "Automation.cs",
+    "input": {
+      "cost": 1,
+      "description": "Every 10 cards you draw, gain [energy:1].",
+      "id": "AUTOMATION",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Automation",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "backflip",
+    "source_file": "Backflip.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].\nDraw 2 cards.",
+      "id": "BACKFLIP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Backflip",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 8 [gold]Block[/gold].\nDraw 2 cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "backstab",
+    "source_file": "Backstab.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 11 damage.",
+      "id": "BACKSTAB",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust",
+        "Innate"
+      ],
+      "name": "Backstab",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 15 damage."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust",
+        "innate"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "barricade",
+    "source_file": "Barricade.cs",
+    "input": {
+      "cost": 3,
+      "description": "[gold]Block[/gold] is not removed at the start of your turn.",
+      "id": "BARRICADE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Barricade",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 2
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bash",
+    "source_file": "Bash.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 8 damage.\nApply 2 [gold]Vulnerable[/gold].",
+      "id": "BASH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bash",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2",
+        "vulnerable": "+1"
+      },
+      "upgrade_description": "Deal 10 damage.\nApply 3 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "battle_trance",
+    "source_file": "BattleTrance.cs",
+    "input": {
+      "cost": 0,
+      "description": "Draw 3 cards.\nYou cannot draw additional cards this turn.",
+      "id": "BATTLE_TRANCE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Battle Trance",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Draw 4 cards.\nYou cannot draw additional cards this turn."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "beacon_of_hope",
+    "source_file": "BeaconOfHope.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever you gain [gold]Block[/gold] on your turn, other players gain half that much [gold]Block[/gold].",
+      "id": "BEACON_OF_HOPE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Beacon of Hope",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "beat_down",
+    "source_file": "BeatDown.cs",
+    "input": {
+      "cost": 3,
+      "description": "Play 3 random Attacks from your [gold]Discard Pile[/gold].",
+      "id": "BEAT_DOWN",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Beat Down",
+      "star_cost": null,
+      "tags": null,
+      "target": "RandomEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Play 4 random Attacks from your [gold]Discard Pile[/gold]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "skill",
+      "target": "RandomEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "believe_in_you",
+    "source_file": "BelieveInYou.cs",
+    "input": {
+      "cost": 0,
+      "description": "Another player gains [energy:2].",
+      "id": "BELIEVE_IN_YOU",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Believe in You",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyAlly",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Another player gains [energy:3]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "AnyAlly",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "blade_dance",
+    "source_file": "BladeDance.cs",
+    "input": {
+      "cost": 1,
+      "description": "Add 3 [gold]Shivs[/gold] into your [gold]Hand[/gold].",
+      "id": "BLADE_DANCE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Blade Dance",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Add 4 [gold]Shivs[/gold] into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "blade_of_ink",
+    "source_file": "BladeOfInk.cs",
+    "input": {
+      "cost": 1,
+      "description": "Add 2 [purple]Inky[/purple] [gold]Shivs[/gold] into your [gold]Hand[/gold].",
+      "id": "BLADE_OF_INK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Blade of Ink",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Add 3 [purple]Inky[/purple] [gold]Shivs[/gold] into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "blood_wall",
+    "source_file": "BloodWall.cs",
+    "input": {
+      "cost": 2,
+      "description": "Lose 2 HP.\nGain 16 [gold]Block[/gold].",
+      "id": "BLOOD_WALL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Blood Wall",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+4"
+      },
+      "upgrade_description": "Lose 2 HP.\nGain 20 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bloodletting",
+    "source_file": "Bloodletting.cs",
+    "input": {
+      "cost": 0,
+      "description": "Lose 3 HP.\nGain [energy:2].",
+      "id": "BLOODLETTING",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bloodletting",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Lose 3 HP.\nGain [energy:3]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bludgeon",
+    "source_file": "Bludgeon.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 32 damage.",
+      "id": "BLUDGEON",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bludgeon",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+10"
+      },
+      "upgrade_description": "Deal 42 damage."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "blur",
+    "source_file": "Blur.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].\n[gold]Block[/gold] is not removed at the start of your next turn.",
+      "id": "BLUR",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Blur",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 8 [gold]Block[/gold].\n[gold]Block[/gold] is not removed at the start of your next turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "body_slam",
+    "source_file": "BodySlam.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal damage equal to your [gold]Block[/gold].",
+      "id": "BODY_SLAM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Body Slam",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bolas",
+    "source_file": "Bolas.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 3 damage.\nAt the start of your next turn, return this to your [gold]Hand[/gold].",
+      "id": "BOLAS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bolas",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+1"
+      },
+      "upgrade_description": "Deal 4 damage.\nAt the start of your next turn, return this to your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bouncing_flask",
+    "source_file": "BouncingFlask.cs",
+    "input": {
+      "cost": 2,
+      "description": "Apply 3 [gold]Poison[/gold] to a random enemy 3 times.",
+      "id": "BOUNCING_FLASK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bouncing Flask",
+      "star_cost": null,
+      "tags": null,
+      "target": "RandomEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "repeat": "+1"
+      },
+      "upgrade_description": "Apply 3 [gold]Poison[/gold] to a random enemy 4 times."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "RandomEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "brand",
+    "source_file": "Brand.cs",
+    "input": {
+      "cost": 0,
+      "description": "Lose 1 HP.\n[gold]Exhaust[/gold] 1 card.\nGain 1 [gold]Strength[/gold].",
+      "id": "BRAND",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Brand",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "strength": "+1"
+      },
+      "upgrade_description": "Lose 1 HP.\n[gold]Exhaust[/gold] 1 card.\nGain 2 [gold]Strength[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "break",
+    "source_file": "Break.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 20 damage.\nApply 5 [gold]Vulnerable[/gold].",
+      "id": "BREAK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Break",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+10",
+        "vulnerable": "+2"
+      },
+      "upgrade_description": "Deal 30 damage.\nApply 7 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "breakthrough",
+    "source_file": "Breakthrough.cs",
+    "input": {
+      "cost": 1,
+      "description": "Lose 1 HP.\nDeal 9 damage to ALL enemies.",
+      "id": "BREAKTHROUGH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Breakthrough",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Lose 1 HP.\nDeal 13 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bubble_bubble",
+    "source_file": "BubbleBubble.cs",
+    "input": {
+      "cost": 1,
+      "description": "If the enemy has [gold]Poison[/gold], apply 9 [gold]Poison[/gold].",
+      "id": "BUBBLE_BUBBLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bubble Bubble",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "poison": "+3"
+      },
+      "upgrade_description": "If the enemy has [gold]Poison[/gold], apply 12 [gold]Poison[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bullet_time",
+    "source_file": "BulletTime.cs",
+    "input": {
+      "cost": 3,
+      "description": "You cannot draw additional cards this turn. ALL cards in your [gold]Hand[/gold] are free to play this turn.",
+      "id": "BULLET_TIME",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bullet Time",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 2
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "bully",
+    "source_file": "Bully.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 4 damage.\nDeals 2 additional damage for each [gold]Vulnerable[/gold] on the enemy.",
+      "id": "BULLY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Bully",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "extradamage": "+1"
+      },
+      "upgrade_description": "Deal 4 damage.\nDeals 3 additional damage for each [gold]Vulnerable[/gold] on the enemy."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "burning_pact",
+    "source_file": "BurningPact.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Exhaust[/gold] 1 card.\nDraw 2 cards.",
+      "id": "BURNING_PACT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Burning Pact",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "[gold]Exhaust[/gold] 1 card.\nDraw 3 cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "burst",
+    "source_file": "Burst.cs",
+    "input": {
+      "cost": 1,
+      "description": "This turn, your next Skill is played an extra time.",
+      "id": "BURST",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Burst",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "skills": "+1"
+      },
+      "upgrade_description": "This turn, your next 2 Skills are played an extra time."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "calamity",
+    "source_file": "Calamity.cs",
+    "input": {
+      "cost": 3,
+      "description": "Whenever you play an Attack, add a random Attack into your [gold]Hand[/gold].",
+      "id": "CALAMITY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Calamity",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 2
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "calculated_gamble",
+    "source_file": "CalculatedGamble.cs",
+    "input": {
+      "cost": 0,
+      "description": "Discard your [gold]Hand[/gold],\nthen draw that many cards.",
+      "id": "CALCULATED_GAMBLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Calculated Gamble",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "add_retain": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "cascade",
+    "source_file": "Cascade.cs",
+    "input": {
+      "cost": -1,
+      "description": "Play the top X cards of your [gold]Draw Pile[/gold].",
+      "id": "CASCADE",
+      "is_x_cost": true,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Cascade",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Play the top X+1 cards of your [gold]Draw Pile[/gold]."
+    },
+    "expected": {
+      "cost": -1,
+      "upgraded_cost": -1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "catastrophe",
+    "source_file": "Catastrophe.cs",
+    "input": {
+      "cost": 2,
+      "description": "Play 2 random cards from your [gold]Draw Pile[/gold].",
+      "id": "CATASTROPHE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Catastrophe",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Play 3 random cards from your [gold]Draw Pile[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "cinder",
+    "source_file": "Cinder.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 18 damage.\n[gold]Exhaust[/gold] 1 card at random.",
+      "id": "CINDER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Cinder",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+6"
+      },
+      "upgrade_description": "Deal 24 damage.\n[gold]Exhaust[/gold] 1 card at random."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "cloak_and_dagger",
+    "source_file": "CloakAndDagger.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 6 [gold]Block[/gold].\nAdd 1 [gold]Shiv[/gold] into your [gold]Hand[/gold].",
+      "id": "CLOAK_AND_DAGGER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Cloak and Dagger",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Gain 6 [gold]Block[/gold].\nAdd 2 [gold]Shivs[/gold] into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "colossus",
+    "source_file": "Colossus.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].\nYou receive 50% less damage from [gold]Vulnerable[/gold] enemies this turn.",
+      "id": "COLOSSUS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Colossus",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 8 [gold]Block[/gold].\nYou receive 50% less damage from [gold]Vulnerable[/gold] enemies this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "conflagration",
+    "source_file": "Conflagration.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 2 damage to ALL enemies 4 times.",
+      "id": "CONFLAGRATION",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Conflagration",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "repeat": "+1"
+      },
+      "upgrade_description": "Deal 2 damage to ALL enemies 5 times."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "coordinate",
+    "source_file": "Coordinate.cs",
+    "input": {
+      "cost": 1,
+      "description": "Give another player 5 [gold]Strength[/gold] this turn.",
+      "id": "COORDINATE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Coordinate",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyAlly",
+      "type": "Skill",
+      "upgrade": {
+        "strength": "+3"
+      },
+      "upgrade_description": "Give another player 8 [gold]Strength[/gold] this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyAlly",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "corrosive_wave",
+    "source_file": "CorrosiveWave.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever you draw a card this turn, apply 2 [gold]Poison[/gold] to ALL enemies.",
+      "id": "CORROSIVE_WAVE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Corrosive Wave",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "corrosivewave": "+1"
+      },
+      "upgrade_description": "Whenever you draw a card this turn, apply 3 [gold]Poison[/gold] to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "corruption",
+    "source_file": "Corruption.cs",
+    "input": {
+      "cost": 3,
+      "description": "Skills cost 0 [energy:1].\nWhenever you play a Skill, [gold]Exhaust[/gold] it.",
+      "id": "CORRUPTION",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Corruption",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 2
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "crimson_mantle",
+    "source_file": "CrimsonMantle.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, lose 1 HP and gain 8 [gold]Block[/gold].",
+      "id": "CRIMSON_MANTLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Crimson Mantle",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "crimsonmantlepower": "+2"
+      },
+      "upgrade_description": "At the start of your turn, lose 1 HP and gain 10 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "cruelty",
+    "source_file": "Cruelty.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Vulnerable[/gold] enemies take an additional 25% damage.",
+      "id": "CRUELTY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Cruelty",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "crueltypower": "+25"
+      },
+      "upgrade_description": "[gold]Vulnerable[/gold] enemies take an additional 50% damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dagger_spray",
+    "source_file": "DaggerSpray.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 4 damage to ALL enemies twice.",
+      "id": "DAGGER_SPRAY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Dagger Spray",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 6 damage to ALL enemies twice."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dagger_throw",
+    "source_file": "DaggerThrow.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 9 damage.\nDraw 1 card.\nDiscard 1 card.",
+      "id": "DAGGER_THROW",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Dagger Throw",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 12 damage.\nDraw 1 card.\nDiscard 1 card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dark_embrace",
+    "source_file": "DarkEmbrace.cs",
+    "input": {
+      "cost": 2,
+      "description": "Whenever a card is [gold]Exhausted[/gold],\ndraw 1 card.",
+      "id": "DARK_EMBRACE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Dark Embrace",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dark_shackles",
+    "source_file": "DarkShackles.cs",
+    "input": {
+      "cost": 0,
+      "description": "Enemy loses 9 [gold]Strength[/gold] this turn.",
+      "id": "DARK_SHACKLES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Dark Shackles",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "strengthloss": "+6"
+      },
+      "upgrade_description": "Enemy loses 15 [gold]Strength[/gold] this turn."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "dash",
+    "source_file": "Dash.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain 10 [gold]Block[/gold].\nDeal 10 damage.",
+      "id": "DASH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Dash",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "block": "+3",
+        "damage": "+3"
+      },
+      "upgrade_description": "Gain 13 [gold]Block[/gold].\nDeal 13 damage."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "deadly_poison",
+    "source_file": "DeadlyPoison.cs",
+    "input": {
+      "cost": 1,
+      "description": "Apply 5 [gold]Poison[/gold].",
+      "id": "DEADLY_POISON",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Deadly Poison",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "poison": "+2"
+      },
+      "upgrade_description": "Apply 7 [gold]Poison[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "defend_ironclad",
+    "source_file": "DefendIronclad.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].",
+      "id": "DEFEND_IRONCLAD",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Defend",
+      "star_cost": null,
+      "tags": [
+        "Defend"
+      ],
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 8 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "defend_silent",
+    "source_file": "DefendSilent.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].",
+      "id": "DEFEND_SILENT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Defend",
+      "star_cost": null,
+      "tags": [
+        "Defend"
+      ],
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 8 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "deflect",
+    "source_file": "Deflect.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain 4 [gold]Block[/gold].",
+      "id": "DEFLECT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Deflect",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 7 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "demon_form",
+    "source_file": "DemonForm.cs",
+    "input": {
+      "cost": 3,
+      "description": "At the start of your turn, gain 2 [gold]Strength[/gold].",
+      "id": "DEMON_FORM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Demon Form",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "strengthpower": "+1"
+      },
+      "upgrade_description": "At the start of your turn, gain 3 [gold]Strength[/gold]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "demonic_shield",
+    "source_file": "DemonicShield.cs",
+    "input": {
+      "cost": 0,
+      "description": "Lose 1 HP.\nGive another player [gold]Block[/gold] equal to your [gold]Block[/gold].",
+      "id": "DEMONIC_SHIELD",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Demonic Shield",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyAlly",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "AnyAlly",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "discovery",
+    "source_file": "Discovery.cs",
+    "input": {
+      "cost": 1,
+      "description": "Choose 1 of 3 random cards to add into your [gold]Hand[/gold]. It's free to play this turn.",
+      "id": "DISCOVERY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Discovery",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dismantle",
+    "source_file": "Dismantle.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 8 damage.\nIf the enemy is [gold]Vulnerable[/gold], hits twice.",
+      "id": "DISMANTLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Dismantle",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 10 damage.\nIf the enemy is [gold]Vulnerable[/gold], hits twice."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dodge_and_roll",
+    "source_file": "DodgeAndRoll.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 4 [gold]Block[/gold].\nNext turn, gain 4 [gold]Block[/gold].",
+      "id": "DODGE_AND_ROLL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Dodge and Roll",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+2"
+      },
+      "upgrade_description": "Gain 6 [gold]Block[/gold].\nNext turn, gain 6 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "dominate",
+    "source_file": "Dominate.cs",
+    "input": {
+      "cost": 1,
+      "description": "Apply 1 [gold]Vulnerable[/gold].\nGain 1 [gold]Strength[/gold] for each [gold]Vulnerable[/gold] on the enemy.",
+      "id": "DOMINATE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Dominate",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "vulnerablepower": "+1"
+      },
+      "upgrade_description": "Apply 2 [gold]Vulnerable[/gold].\nGain 1 [gold]Strength[/gold] for each [gold]Vulnerable[/gold] on the enemy."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "dramatic_entrance",
+    "source_file": "DramaticEntrance.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 11 damage to ALL enemies.",
+      "id": "DRAMATIC_ENTRANCE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust",
+        "Innate"
+      ],
+      "name": "Dramatic Entrance",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 15 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [
+        "exhaust",
+        "innate"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "drum_of_battle",
+    "source_file": "DrumOfBattle.cs",
+    "input": {
+      "cost": 1,
+      "description": "Draw 2 cards.\nWhen this card is [gold]Exhausted[/gold], gain [energy:2].",
+      "id": "DRUM_OF_BATTLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Drum of Battle",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Draw 2 cards.\nWhen this card is [gold]Exhausted[/gold], gain [energy:3]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "echoing_slash",
+    "source_file": "EchoingSlash.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 10 damage to ALL enemies.\nRepeat this effect for each enemy killed.",
+      "id": "ECHOING_SLASH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Echoing Slash",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 13 damage to ALL enemies.\nRepeat this effect for each enemy killed."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "entropy",
+    "source_file": "Entropy.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, [gold]Transform[/gold] 1 card in your [gold]Hand[/gold].",
+      "id": "ENTROPY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Entropy",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "envenom",
+    "source_file": "Envenom.cs",
+    "input": {
+      "cost": 2,
+      "description": "Whenever an Attack deals unblocked damage, apply 1 [gold]Poison[/gold].",
+      "id": "ENVENOM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Envenom",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "envenompower": "+1"
+      },
+      "upgrade_description": "Whenever an Attack deals unblocked damage, apply 2 [gold]Poison[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "equilibrium",
+    "source_file": "Equilibrium.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain 13 [gold]Block[/gold].\n[gold]Retain[/gold] your [gold]Hand[/gold] this turn.",
+      "id": "EQUILIBRIUM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Equilibrium",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 16 [gold]Block[/gold].\n[gold]Retain[/gold] your [gold]Hand[/gold] this turn."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "escape_plan",
+    "source_file": "EscapePlan.cs",
+    "input": {
+      "cost": 0,
+      "description": "Draw 1 card.\nIf you draw a Skill, gain 3 [gold]Block[/gold].",
+      "id": "ESCAPE_PLAN",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Escape Plan",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+2"
+      },
+      "upgrade_description": "Draw 1 card.\nIf you draw a Skill, gain 5 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "eternal_armor",
+    "source_file": "EternalArmor.cs",
+    "input": {
+      "cost": 3,
+      "description": "Gain 9 [gold]Plating[/gold].",
+      "id": "ETERNAL_ARMOR",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Eternal Armor",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "platingpower": "+3"
+      },
+      "upgrade_description": "Gain 12 [gold]Plating[/gold]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "evil_eye",
+    "source_file": "EvilEye.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 8 [gold]Block[/gold].\nGain another 8 [gold]Block[/gold] if you have [gold]Exhausted[/gold] a card this turn.",
+      "id": "EVIL_EYE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Evil Eye",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 11 [gold]Block[/gold].\nGain another 11 [gold]Block[/gold] if you have [gold]Exhausted[/gold] a card this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "expect_a_fight",
+    "source_file": "ExpectAFight.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain [energy:1] for each Attack in your [gold]Hand[/gold].\nYou cannot gain\nadditional [energy:1] this turn.",
+      "id": "EXPECT_A_FIGHT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Expect a Fight",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "expertise",
+    "source_file": "Expertise.cs",
+    "input": {
+      "cost": 1,
+      "description": "Draw cards until you have 6 in your [gold]Hand[/gold].",
+      "id": "EXPERTISE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Expertise",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Draw cards until you have 7 in your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "expose",
+    "source_file": "Expose.cs",
+    "input": {
+      "cost": 0,
+      "description": "Remove all [gold]Artifact[/gold] and [gold]Block[/gold] from the enemy.\nApply 2 [gold]Vulnerable[/gold].",
+      "id": "EXPOSE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Expose",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "power": "+1"
+      },
+      "upgrade_description": "Remove all [gold]Artifact[/gold] and [gold]Block[/gold] from the enemy.\nApply 3 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "fan_of_knives",
+    "source_file": "FanOfKnives.cs",
+    "input": {
+      "cost": 2,
+      "description": "[gold]Shivs[/gold] now hit ALL enemies.\nAdd 4 [gold]Shivs[/gold] into your [gold]Hand[/gold].",
+      "id": "FAN_OF_KNIVES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Fan of Knives",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "shivs": "+1"
+      },
+      "upgrade_description": "[gold]Shivs[/gold] now hit ALL enemies.\nAdd 5 [gold]Shivs[/gold] into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "fasten",
+    "source_file": "Fasten.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain an additional 4 [gold]Block[/gold] from Defend cards.",
+      "id": "FASTEN",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Fasten",
+      "star_cost": null,
+      "tags": [
+        "Defend"
+      ],
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "extrablock": "+2"
+      },
+      "upgrade_description": "Gain an additional 6 [gold]Block[/gold] from Defend cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "feed",
+    "source_file": "Feed.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 10 damage.\nIf [gold]Fatal[/gold], raise your Max HP by 3.",
+      "id": "FEED",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Feed",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2",
+        "maxhp": "+1"
+      },
+      "upgrade_description": "Deal 12 damage.\nIf [gold]Fatal[/gold], raise your Max HP by 4."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "feel_no_pain",
+    "source_file": "FeelNoPain.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever a card is [gold]Exhausted[/gold], gain 3 [gold]Block[/gold].",
+      "id": "FEEL_NO_PAIN",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Feel No Pain",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "power": "+1"
+      },
+      "upgrade_description": "Whenever a card is [gold]Exhausted[/gold], gain 4 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "fiend_fire",
+    "source_file": "FiendFire.cs",
+    "input": {
+      "cost": 2,
+      "description": "[gold]Exhaust[/gold] your [gold]Hand[/gold].\nDeal 7 damage for each card [gold]Exhausted[/gold].",
+      "id": "FIEND_FIRE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Fiend Fire",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "[gold]Exhaust[/gold] your [gold]Hand[/gold].\nDeal 10 damage for each card [gold]Exhausted[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "fight_me",
+    "source_file": "FightMe.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 5 damage twice.\nGain 3 [gold]Strength[/gold].\nThe enemy gains 1 [gold]Strength[/gold].",
+      "id": "FIGHT_ME",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Fight Me!",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+1",
+        "strength": "+1"
+      },
+      "upgrade_description": "Deal 6 damage twice.\nGain 4 [gold]Strength[/gold].\nThe enemy gains 1 [gold]Strength[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "finesse",
+    "source_file": "Finesse.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain 4 [gold]Block[/gold].\nDraw 1 card.",
+      "id": "FINESSE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Finesse",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 7 [gold]Block[/gold].\nDraw 1 card."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "finisher",
+    "source_file": "Finisher.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage for each Attack already played this turn.",
+      "id": "FINISHER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Finisher",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 8 damage for each Attack already played this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "fisticuffs",
+    "source_file": "Fisticuffs.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 7 damage.\nGain [gold]Block[/gold] equal to damage dealt.",
+      "id": "FISTICUFFS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Fisticuffs",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 9 damage.\nGain [gold]Block[/gold] equal to damage dealt."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "flame_barrier",
+    "source_file": "FlameBarrier.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain 12 [gold]Block[/gold].\nWhenever you are attacked this turn, deal 4 damage back.",
+      "id": "FLAME_BARRIER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Flame Barrier",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+4",
+        "damageback": "+2"
+      },
+      "upgrade_description": "Gain 16 [gold]Block[/gold].\nWhenever you are attacked this turn, deal 6 damage back."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "flanking",
+    "source_file": "Flanking.cs",
+    "input": {
+      "cost": 2,
+      "description": "The enemy takes double attack damage from other players this turn.",
+      "id": "FLANKING",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Flanking",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "flash_of_steel",
+    "source_file": "FlashOfSteel.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 5 damage.\nDraw 1 card.",
+      "id": "FLASH_OF_STEEL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Flash of Steel",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 8 damage.\nDraw 1 card."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "flechettes",
+    "source_file": "Flechettes.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 5 damage for each Skill in your [gold]Hand[/gold].",
+      "id": "FLECHETTES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Flechettes",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 7 damage for each Skill in your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "flick_flack",
+    "source_file": "FlickFlack.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage to ALL enemies.",
+      "id": "FLICK_FLACK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Flick-Flack",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 8 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "footwork",
+    "source_file": "Footwork.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 2 [gold]Dexterity[/gold].",
+      "id": "FOOTWORK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Footwork",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "dexterity": "+1"
+      },
+      "upgrade_description": "Gain 3 [gold]Dexterity[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "forgotten_ritual",
+    "source_file": "ForgottenRitual.cs",
+    "input": {
+      "cost": 1,
+      "description": "If you [gold]Exhausted[/gold] a card this turn, gain [energy:3].",
+      "id": "FORGOTTEN_RITUAL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Forgotten Ritual",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "If you [gold]Exhausted[/gold] a card this turn, gain [energy:4]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "gang_up",
+    "source_file": "GangUp.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 5 damage.\nDeals 5 additional damage for each time another player has attacked the enemy this turn.",
+      "id": "GANG_UP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Gang Up",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "extradamage": "+2"
+      },
+      "upgrade_description": "Deal 5 damage.\nDeals 7 additional damage for each time another player has attacked the enemy this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "gold_axe",
+    "source_file": "GoldAxe.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal damage equal to the number of cards played this combat.",
+      "id": "GOLD_AXE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Gold Axe",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "add_retain": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": [
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "grand_finale",
+    "source_file": "GrandFinale.cs",
+    "input": {
+      "cost": 0,
+      "description": "Can only be played if there are no cards in your [gold]Draw Pile[/gold]. Deal 60 damage to ALL enemies.",
+      "id": "GRAND_FINALE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Grand Finale",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+15"
+      },
+      "upgrade_description": "Can only be played if there are no cards in your [gold]Draw Pile[/gold]. Deal 75 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "hand_trick",
+    "source_file": "HandTrick.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 7 [gold]Block[/gold].\nAdd [gold]Sly[/gold] to a Skill in your [gold]Hand[/gold] this turn.",
+      "id": "HAND_TRICK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Hand Trick",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 10 [gold]Block[/gold].\nAdd [gold]Sly[/gold] to a Skill in your [gold]Hand[/gold] this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "hand_of_greed",
+    "source_file": "HandOfGreed.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 20 damage.\nIf [gold]Fatal[/gold], gain 20 [gold]Gold[/gold].",
+      "id": "HAND_OF_GREED",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Hand of Greed",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5",
+        "gold": "+5"
+      },
+      "upgrade_description": "Deal 25 damage.\nIf [gold]Fatal[/gold], gain 25 [gold]Gold[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "havoc",
+    "source_file": "Havoc.cs",
+    "input": {
+      "cost": 1,
+      "description": "Play the top card of your [gold]Draw Pile[/gold] and [gold]Exhaust[/gold] it.",
+      "id": "HAVOC",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Havoc",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "haze",
+    "source_file": "Haze.cs",
+    "input": {
+      "cost": 3,
+      "description": "Apply 4 [gold]Poison[/gold] to ALL enemies.",
+      "id": "HAZE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Haze",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Skill",
+      "upgrade": {
+        "poison": "+2"
+      },
+      "upgrade_description": "Apply 6 [gold]Poison[/gold] to ALL enemies."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "skill",
+      "target": "AllEnemies",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "headbutt",
+    "source_file": "Headbutt.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 9 damage.\nPut a card from your [gold]Discard Pile[/gold] on top of your [gold]Draw Pile[/gold].",
+      "id": "HEADBUTT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Headbutt",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 12 damage.\nPut a card from your [gold]Discard Pile[/gold] on top of your [gold]Draw Pile[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "hellraiser",
+    "source_file": "Hellraiser.cs",
+    "input": {
+      "cost": 2,
+      "description": "Whenever you draw a card containing \u201cStrike\u201d, it is played against a random enemy.",
+      "id": "HELLRAISER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Hellraiser",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "hemokinesis",
+    "source_file": "Hemokinesis.cs",
+    "input": {
+      "cost": 1,
+      "description": "Lose 2 HP.\nDeal 15 damage.",
+      "id": "HEMOKINESIS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Hemokinesis",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5"
+      },
+      "upgrade_description": "Lose 2 HP.\nDeal 20 damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "hidden_daggers",
+    "source_file": "HiddenDaggers.cs",
+    "input": {
+      "cost": 0,
+      "description": "Discard 2 cards.\nAdd 2 [gold]Shivs[/gold] into your [gold]Hand[/gold].",
+      "id": "HIDDEN_DAGGERS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Hidden Daggers",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Discard 2 cards.\nAdd 2 [gold]Shivs+[/gold] into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "hidden_gem",
+    "source_file": "HiddenGem.cs",
+    "input": {
+      "cost": 1,
+      "description": "A random card without [gold]Replay[/gold] in your [gold]Draw Pile[/gold] gains [gold]Replay[/gold] 2.",
+      "id": "HIDDEN_GEM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Hidden Gem",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "replay": "+1"
+      },
+      "upgrade_description": "A random card without [gold]Replay[/gold] in your [gold]Draw Pile[/gold] gains [gold]Replay[/gold] 3."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "howl_from_beyond",
+    "source_file": "HowlFromBeyond.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 16 damage to ALL enemies.\nAt the end of your turn, if this is in your [gold]Exhaust Pile[/gold], play it.",
+      "id": "HOWL_FROM_BEYOND",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Howl from Beyond",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5"
+      },
+      "upgrade_description": "Deal 21 damage to ALL enemies.\nAt the end of your turn, if this is in your [gold]Exhaust Pile[/gold], play it."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "huddle_up",
+    "source_file": "HuddleUp.cs",
+    "input": {
+      "cost": 1,
+      "description": "ALL players draw 2 cards.",
+      "id": "HUDDLE_UP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Huddle Up",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllAllies",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "ALL players draw 3 cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AllAllies",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "impatience",
+    "source_file": "Impatience.cs",
+    "input": {
+      "cost": 0,
+      "description": "If you have no Attacks in your [gold]Hand[/gold], draw 2 cards.",
+      "id": "IMPATIENCE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Impatience",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "If you have no Attacks in your [gold]Hand[/gold], draw 3 cards."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "impervious",
+    "source_file": "Impervious.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain 30 [gold]Block[/gold].",
+      "id": "IMPERVIOUS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Impervious",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+10"
+      },
+      "upgrade_description": "Gain 40 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "infernal_blade",
+    "source_file": "InfernalBlade.cs",
+    "input": {
+      "cost": 1,
+      "description": "Add a random Attack into your [gold]Hand[/gold]. It's free to play this turn.",
+      "id": "INFERNAL_BLADE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Infernal Blade",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "inferno",
+    "source_file": "Inferno.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, lose 1 HP.\nWhenever you lose HP on your turn, deal 6 damage to ALL enemies.",
+      "id": "INFERNO",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Inferno",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "infernopower": "+3"
+      },
+      "upgrade_description": "At the start of your turn, lose 1 HP.\nWhenever you lose HP on your turn, deal 9 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "infinite_blades",
+    "source_file": "InfiniteBlades.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, add 1 [gold]Shiv[/gold] into your [gold]Hand[/gold].",
+      "id": "INFINITE_BLADES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Infinite Blades",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "inflame",
+    "source_file": "Inflame.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 2 [gold]Strength[/gold].",
+      "id": "INFLAME",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Inflame",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "strengthpower": "+1"
+      },
+      "upgrade_description": "Gain 3 [gold]Strength[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "intercept",
+    "source_file": "Intercept.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 9 [gold]Block[/gold].\nRedirect all incoming attacks that would be dealt to another player this turn to you.",
+      "id": "INTERCEPT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Intercept",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyAlly",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+4"
+      },
+      "upgrade_description": "Gain 13 [gold]Block[/gold].\nRedirect all incoming attacks that would be dealt to another player this turn to you."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyAlly",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "iron_wave",
+    "source_file": "IronWave.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 5 [gold]Block[/gold].\nDeal 5 damage.",
+      "id": "IRON_WAVE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Iron Wave",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "block": "+2",
+        "damage": "+2"
+      },
+      "upgrade_description": "Gain 7 [gold]Block[/gold].\nDeal 7 damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "jack_of_all_trades",
+    "source_file": "JackOfAllTrades.cs",
+    "input": {
+      "cost": 0,
+      "description": "Add 1 random Colorless card into your [gold]Hand[/gold].",
+      "id": "JACK_OF_ALL_TRADES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Jack of All Trades",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Add 2 random Colorless cards into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "jackpot",
+    "source_file": "Jackpot.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 25 damage.\nAdd 3 random 0[energy:1] cards into your [gold]Hand[/gold].",
+      "id": "JACKPOT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Jackpot",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5"
+      },
+      "upgrade_description": "Deal 30 damage.\nAdd 3 random [gold]Upgraded[/gold] 0[energy:1] cards into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "juggernaut",
+    "source_file": "Juggernaut.cs",
+    "input": {
+      "cost": 2,
+      "description": "Whenever you gain [gold]Block[/gold], deal 6 damage to a random enemy.",
+      "id": "JUGGERNAUT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Juggernaut",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "juggernautpower": "+2"
+      },
+      "upgrade_description": "Whenever you gain [gold]Block[/gold], deal 8 damage to a random enemy."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "juggling",
+    "source_file": "Juggling.cs",
+    "input": {
+      "cost": 1,
+      "description": "Add a copy of the third [gold]Attack[/gold] you play each turn into your [gold]Hand[/gold].",
+      "id": "JUGGLING",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Juggling",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "knife_trap",
+    "source_file": "KnifeTrap.cs",
+    "input": {
+      "cost": 2,
+      "description": "Play every [gold]Shiv[/gold] in your [gold]Exhaust Pile[/gold] on the enemy.",
+      "id": "KNIFE_TRAP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Knife Trap",
+      "star_cost": null,
+      "tags": [
+        "Shiv"
+      ],
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "[gold]Upgrade[/gold] and play every [gold]Shiv[/gold] in your [gold]Exhaust Pile[/gold] on the enemy."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "knockdown",
+    "source_file": "Knockdown.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 10 damage.\nThe enemy takes double damage from other players this turn.",
+      "id": "KNOCKDOWN",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Knockdown",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4",
+        "knockdownpower": "+1"
+      },
+      "upgrade_description": "Deal 14 damage.\nThe enemy takes triple damage from other players this turn."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "leading_strike",
+    "source_file": "LeadingStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 3 damage.\nAdd 2 [gold]Shivs[/gold] into your [gold]Hand[/gold].",
+      "id": "LEADING_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Leading Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 6 damage.\nAdd 2 [gold]Shivs[/gold] into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "leg_sweep",
+    "source_file": "LegSweep.cs",
+    "input": {
+      "cost": 2,
+      "description": "Apply 2 [gold]Weak[/gold].\nGain 11 [gold]Block[/gold].",
+      "id": "LEG_SWEEP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Leg Sweep",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3",
+        "weak": "+1"
+      },
+      "upgrade_description": "Apply 3 [gold]Weak[/gold].\nGain 14 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "lift",
+    "source_file": "Lift.cs",
+    "input": {
+      "cost": 1,
+      "description": "Give another player 11 [gold]Block[/gold].",
+      "id": "LIFT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Lift",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyAlly",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+5"
+      },
+      "upgrade_description": "Give another player 16 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyAlly",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "malaise",
+    "source_file": "Malaise.cs",
+    "input": {
+      "cost": 0,
+      "description": "Enemy loses X [gold]Strength[/gold]. Apply X [gold]Weak[/gold].",
+      "id": "MALAISE",
+      "is_x_cost": true,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Malaise",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Enemy loses X+1 [gold]Strength[/gold]. Apply X+1 [gold]Weak[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "mangle",
+    "source_file": "Mangle.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 15 damage.\nEnemy loses 10 [gold]Strength[/gold] this turn.",
+      "id": "MANGLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Mangle",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5",
+        "strengthloss": "+5"
+      },
+      "upgrade_description": "Deal 20 damage.\nEnemy loses 15 [gold]Strength[/gold] this turn."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "master_planner",
+    "source_file": "MasterPlanner.cs",
+    "input": {
+      "cost": 2,
+      "description": "When you play a Skill, it gains [gold]Sly[/gold].",
+      "id": "MASTER_PLANNER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Master Planner",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "master_of_strategy",
+    "source_file": "MasterOfStrategy.cs",
+    "input": {
+      "cost": 0,
+      "description": "Draw 3 cards.",
+      "id": "MASTER_OF_STRATEGY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Master of Strategy",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Draw 4 cards."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "mayhem",
+    "source_file": "Mayhem.cs",
+    "input": {
+      "cost": 2,
+      "description": "At the start of your turn, play the top card of your [gold]Draw Pile[/gold].",
+      "id": "MAYHEM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Mayhem",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "memento_mori",
+    "source_file": "MementoMori.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 9 damage.\nDeals 4 additional damage for each card discarded this turn.",
+      "id": "MEMENTO_MORI",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Memento Mori",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "calculationbase": "+2",
+        "extradamage": "+1"
+      },
+      "upgrade_description": "Deal 9 damage.\nDeals 5 additional damage for each card discarded this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "mimic",
+    "source_file": "Mimic.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain [gold]Block[/gold] equal to the [gold]Block[/gold] on another player.",
+      "id": "MIMIC",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Mimic",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyAlly",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyAlly",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "mind_blast",
+    "source_file": "MindBlast.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal damage equal to the number of cards in your [gold]Draw Pile[/gold].",
+      "id": "MIND_BLAST",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Innate"
+      ],
+      "name": "Mind Blast",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "innate"
+      ],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "mirage",
+    "source_file": "Mirage.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain [gold]Block[/gold] equal to [gold]Poison[/gold] on ALL enemies.",
+      "id": "MIRAGE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Mirage",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "molten_fist",
+    "source_file": "MoltenFist.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 10 damage.\nDouble the enemy's [gold]Vulnerable[/gold].",
+      "id": "MOLTEN_FIST",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Molten Fist",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 14 damage.\nDouble the enemy's [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "murder",
+    "source_file": "Murder.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 1 damage.\nDeals 1 additional damage for each card drawn this combat.",
+      "id": "MURDER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Murder",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "cost": 2
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "neutralize",
+    "source_file": "Neutralize.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 3 damage.\nApply 1 [gold]Weak[/gold].",
+      "id": "NEUTRALIZE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Neutralize",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+1",
+        "weak": "+1"
+      },
+      "upgrade_description": "Deal 4 damage.\nApply 2 [gold]Weak[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "nightmare",
+    "source_file": "Nightmare.cs",
+    "input": {
+      "cost": 3,
+      "description": "Choose a card.\nNext turn, add 3 copies of that card into your [gold]Hand[/gold].",
+      "id": "NIGHTMARE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Nightmare",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 2
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "nostalgia",
+    "source_file": "Nostalgia.cs",
+    "input": {
+      "cost": 1,
+      "description": "The first Attack or Skill you play each turn is placed on top of your [gold]Draw Pile[/gold].",
+      "id": "NOSTALGIA",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Nostalgia",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "not_yet",
+    "source_file": "NotYet.cs",
+    "input": {
+      "cost": 2,
+      "description": "Heal 10 HP.",
+      "id": "NOT_YET",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Not Yet",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "heal": "+3"
+      },
+      "upgrade_description": "Heal 13 HP."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "noxious_fumes",
+    "source_file": "NoxiousFumes.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, apply 2 [gold]Poison[/gold] to ALL enemies.",
+      "id": "NOXIOUS_FUMES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Noxious Fumes",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "poisonperturn": "+1"
+      },
+      "upgrade_description": "At the start of your turn, apply 3 [gold]Poison[/gold] to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "offering",
+    "source_file": "Offering.cs",
+    "input": {
+      "cost": 0,
+      "description": "Lose 6 HP.\nGain [energy:2].\nDraw 3 cards.",
+      "id": "OFFERING",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Offering",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+2"
+      },
+      "upgrade_description": "Lose 6 HP.\nGain [energy:2].\nDraw 5 cards."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "omnislice",
+    "source_file": "Omnislice.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 8 damage.\nDamage ALL other enemies equal to the damage dealt.",
+      "id": "OMNISLICE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Omnislice",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 11 damage.\nDamage ALL other enemies equal to the damage dealt."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "one_two_punch",
+    "source_file": "OneTwoPunch.cs",
+    "input": {
+      "cost": 1,
+      "description": "This turn, your next Attack is played an extra time.",
+      "id": "ONE_TWO_PUNCH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "One-Two Punch",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "attacks": "+1"
+      },
+      "upgrade_description": "This turn, your next 2 Attacks are played an extra time."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "outbreak",
+    "source_file": "Outbreak.cs",
+    "input": {
+      "cost": 1,
+      "description": "Every 3 times you apply [gold]Poison[/gold], deal 11 damage to ALL enemies.",
+      "id": "OUTBREAK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Outbreak",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "outbreakpower": "+4"
+      },
+      "upgrade_description": "Every 3 times you apply [gold]Poison[/gold], deal 15 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "pacts_end",
+    "source_file": "PactsEnd.cs",
+    "input": {
+      "cost": 0,
+      "description": "If you have 3 or more cards in your [gold]Exhaust Pile[/gold],\ndeal 17 damage to ALL enemies.",
+      "id": "PACTS_END",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Pact's End",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+6"
+      },
+      "upgrade_description": "If you have 3 or more cards in your [gold]Exhaust Pile[/gold],\ndeal 23 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "panache",
+    "source_file": "Panache.cs",
+    "input": {
+      "cost": 0,
+      "description": "Every time you play 5 cards in a single turn, deal 10 damage to ALL enemies.",
+      "id": "PANACHE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Panache",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "panachedamage": "+4"
+      },
+      "upgrade_description": "Every time you play 5 cards in a single turn, deal 14 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "panic_button",
+    "source_file": "PanicButton.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain 30 [gold]Block[/gold].\nYou cannot gain [gold]Block[/gold] from cards for 2 turns.",
+      "id": "PANIC_BUTTON",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Panic Button",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+10"
+      },
+      "upgrade_description": "Gain 40 [gold]Block[/gold].\nYou cannot gain [gold]Block[/gold] from cards for 2 turns."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "perfected_strike",
+    "source_file": "PerfectedStrike.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 6 damage.\nDeals 2 additional damage for ALL your cards containing \u201cStrike\u201d.",
+      "id": "PERFECTED_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Perfected Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "extradamage": "+1"
+      },
+      "upgrade_description": "Deal 6 damage.\nDeals 3 additional damage for ALL your cards containing \u201cStrike\u201d."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "phantom_blades",
+    "source_file": "PhantomBlades.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Shivs[/gold] gain [gold]Retain[/gold].\nThe first [gold]Shiv[/gold] you play each turn deals 9 additional damage.",
+      "id": "PHANTOM_BLADES",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Phantom Blades",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "phantombladespower": "+3"
+      },
+      "upgrade_description": "[gold]Shivs[/gold] gain [gold]Retain[/gold].\nThe first [gold]Shiv[/gold] you play each turn deals 12 additional damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "piercing_wail",
+    "source_file": "PiercingWail.cs",
+    "input": {
+      "cost": 1,
+      "description": "ALL enemies lose 6 [gold]Strength[/gold] this turn.",
+      "id": "PIERCING_WAIL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Piercing Wail",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Skill",
+      "upgrade": {
+        "strengthloss": "+2"
+      },
+      "upgrade_description": "ALL enemies lose 8 [gold]Strength[/gold] this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AllEnemies",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "pillage",
+    "source_file": "Pillage.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage.\nDraw cards until you draw a non-Attack card.",
+      "id": "PILLAGE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Pillage",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 9 damage.\nDraw cards until you draw a non-Attack card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "pinpoint",
+    "source_file": "Pinpoint.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 15 damage.\nCosts 1 less [energy:1] for each Skill played this turn.",
+      "id": "PINPOINT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Pinpoint",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 19 damage.\nCosts 1 less [energy:1] for each Skill played this turn."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "poisoned_stab",
+    "source_file": "PoisonedStab.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage.\nApply 3 [gold]Poison[/gold].",
+      "id": "POISONED_STAB",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Poisoned Stab",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2",
+        "poison": "+1"
+      },
+      "upgrade_description": "Deal 8 damage.\nApply 4 [gold]Poison[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "pommel_strike",
+    "source_file": "PommelStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 9 damage.\nDraw 1 card.",
+      "id": "POMMEL_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Pommel Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "cards": "+1",
+        "damage": "+1"
+      },
+      "upgrade_description": "Deal 10 damage.\nDraw 2 cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "pounce",
+    "source_file": "Pounce.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 14 damage.\nThe next Skill you play costs 0 [energy:1].",
+      "id": "POUNCE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Pounce",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+6"
+      },
+      "upgrade_description": "Deal 20 damage.\nThe next Skill you play costs 0 [energy:1]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "precise_cut",
+    "source_file": "PreciseCut.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 13 damage.\nDeals 2 less damage for each other card in your [gold]Hand[/gold].",
+      "id": "PRECISE_CUT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Precise Cut",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "calculationbase": "+3"
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "predator",
+    "source_file": "Predator.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 15 damage.\nNext turn, draw 2 cards.",
+      "id": "PREDATOR",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Predator",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5"
+      },
+      "upgrade_description": "Deal 20 damage.\nNext turn, draw 2 cards."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "prep_time",
+    "source_file": "PrepTime.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, gain 4 [gold]Vigor[/gold].",
+      "id": "PREP_TIME",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Prep Time",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "preptimepower": "+2"
+      },
+      "upgrade_description": "At the start of your turn, gain 6 [gold]Vigor[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "prepared",
+    "source_file": "Prepared.cs",
+    "input": {
+      "cost": 0,
+      "description": "Draw 1 card.\nDiscard 1 card.",
+      "id": "PREPARED",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Prepared",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Draw 2 cards.\nDiscard 2 cards."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "primal_force",
+    "source_file": "PrimalForce.cs",
+    "input": {
+      "cost": 0,
+      "description": "Transform all Attacks in your [gold]Hand[/gold] into [gold]Giant Rock[/gold].",
+      "id": "PRIMAL_FORCE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Primal Force",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Transform all Attacks in your [gold]Hand[/gold] into [gold]Giant Rock+[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "production",
+    "source_file": "Production.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain [energy:2].",
+      "id": "PRODUCTION",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Production",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Gain [energy:3]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "prolong",
+    "source_file": "Prolong.cs",
+    "input": {
+      "cost": 0,
+      "description": "Next turn, gain [gold]Block[/gold] equal to your current [gold]Block[/gold].",
+      "id": "PROLONG",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Prolong",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "prowess",
+    "source_file": "Prowess.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 1 [gold]Strength[/gold].\nGain 1 [gold]Dexterity[/gold].",
+      "id": "PROWESS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Prowess",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "dexterity": "+1",
+        "strength": "+1"
+      },
+      "upgrade_description": "Gain 2 [gold]Strength[/gold].\nGain 2 [gold]Dexterity[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "purity",
+    "source_file": "Purity.cs",
+    "input": {
+      "cost": 0,
+      "description": "Exhaust up to 3 cards in your [gold]Hand[/gold].",
+      "id": "PURITY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust",
+        "Retain"
+      ],
+      "name": "Purity",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+2"
+      },
+      "upgrade_description": "Exhaust up to 5 cards in your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust",
+        "retain"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "pyre",
+    "source_file": "Pyre.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain [energy:1] at the start of each turn.",
+      "id": "PYRE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Pyre",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Gain [energy:2] at the start of each turn."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "rage",
+    "source_file": "Rage.cs",
+    "input": {
+      "cost": 0,
+      "description": "Whenever you play an Attack this turn, gain 3 [gold]Block[/gold].",
+      "id": "RAGE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Rage",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "power": "+2"
+      },
+      "upgrade_description": "Whenever you play an Attack this turn, gain 5 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "rally",
+    "source_file": "Rally.cs",
+    "input": {
+      "cost": 2,
+      "description": "ALL players gain 12 [gold]Block[/gold].",
+      "id": "RALLY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Rally",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllAllies",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+5"
+      },
+      "upgrade_description": "ALL players gain 17 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "AllAllies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "rampage",
+    "source_file": "Rampage.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 9 damage.\nIncrease this card's damage by 5 this combat.",
+      "id": "RAMPAGE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Rampage",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "increase": "+4"
+      },
+      "upgrade_description": "Deal 9 damage.\nIncrease this card's damage by 9 this combat."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "reflex",
+    "source_file": "Reflex.cs",
+    "input": {
+      "cost": 3,
+      "description": "Draw 2 cards.",
+      "id": "REFLEX",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Reflex",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Draw 3 cards."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "rend",
+    "source_file": "Rend.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 15 damage.\nDeals 5 additional damage for each unique debuff on the enemy.",
+      "id": "REND",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Rend",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "calculationbase": "+3",
+        "extradamage": "+3"
+      },
+      "upgrade_description": "Deal 15 damage.\nDeals 8 additional damage for each unique debuff on the enemy."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "restlessness",
+    "source_file": "Restlessness.cs",
+    "input": {
+      "cost": 0,
+      "description": "If your [gold]Hand[/gold] is empty, draw 2 cards and gain [energy:2].",
+      "id": "RESTLESSNESS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Retain"
+      ],
+      "name": "Restlessness",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1",
+        "energy": "+1"
+      },
+      "upgrade_description": "If your [gold]Hand[/gold] is empty, draw 3 cards and gain [energy:3]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "retain"
+      ],
+      "upgraded_keywords": [
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "ricochet",
+    "source_file": "Ricochet.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 3 damage to a random enemy 4 times.",
+      "id": "RICOCHET",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Ricochet",
+      "star_cost": null,
+      "tags": null,
+      "target": "RandomEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "repeat": "+1"
+      },
+      "upgrade_description": "Deal 3 damage to a random enemy 5 times."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "RandomEnemy",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "rolling_boulder",
+    "source_file": "RollingBoulder.cs",
+    "input": {
+      "cost": 3,
+      "description": "At the start of your turn, deal 5 damage to ALL enemies and increase this damage by 5.",
+      "id": "ROLLING_BOULDER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Rolling Boulder",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "rollingboulderpower": "+5"
+      },
+      "upgrade_description": "At the start of your turn, deal 10 damage to ALL enemies and increase this damage by 5."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "rupture",
+    "source_file": "Rupture.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever you lose HP on your turn, gain 1 [gold]Strength[/gold].",
+      "id": "RUPTURE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Rupture",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "strength": "+1"
+      },
+      "upgrade_description": "Whenever you lose HP on your turn, gain 2 [gold]Strength[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "salvo",
+    "source_file": "Salvo.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 12 damage.\n[gold]Retain[/gold] your [gold]Hand[/gold] this turn.",
+      "id": "SALVO",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Salvo",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 16 damage.\n[gold]Retain[/gold] your [gold]Hand[/gold] this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "scare",
+    "source_file": "Scare.cs",
+    "input": {
+      "cost": 0,
+      "description": "Apply 1 [gold]Weak[/gold] to ALL enemies.",
+      "id": "SCARE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Scare",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "AllEnemies",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "scrawl",
+    "source_file": "Scrawl.cs",
+    "input": {
+      "cost": 1,
+      "description": "Draw cards until your [gold]Hand[/gold] is full.",
+      "id": "SCRAWL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Scrawl",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "add_retain": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust",
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "second_wind",
+    "source_file": "SecondWind.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Exhaust[/gold] all non-Attack cards in your [gold]Hand[/gold]. Gain 5 [gold]Block[/gold] for each card [gold]Exhausted[/gold].",
+      "id": "SECOND_WIND",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Second Wind",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+2"
+      },
+      "upgrade_description": "[gold]Exhaust[/gold] all non-Attack cards in your [gold]Hand[/gold]. Gain 7 [gold]Block[/gold] for each card [gold]Exhausted[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "secret_technique",
+    "source_file": "SecretTechnique.cs",
+    "input": {
+      "cost": 0,
+      "description": "Put a Skill from your [gold]Draw Pile[/gold] into your [gold]Hand[/gold].",
+      "id": "SECRET_TECHNIQUE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Secret Technique",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "secret_weapon",
+    "source_file": "SecretWeapon.cs",
+    "input": {
+      "cost": 0,
+      "description": "Put an Attack from your [gold]Draw Pile[/gold] into your [gold]Hand[/gold].",
+      "id": "SECRET_WEAPON",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Secret Weapon",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "seeker_strike",
+    "source_file": "SeekerStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 9 damage.\nChoose 1 of 3 cards in your [gold]Draw Pile[/gold] to add into your [gold]Hand[/gold].",
+      "id": "SEEKER_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Seeker Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 12 damage.\nChoose 1 of 3 cards in your [gold]Draw Pile[/gold] to add into your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "serpent_form",
+    "source_file": "SerpentForm.cs",
+    "input": {
+      "cost": 3,
+      "description": "Whenever you play a card, deal 4 damage to a random enemy.",
+      "id": "SERPENT_FORM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Serpent Form",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "serpentformpower": "+2"
+      },
+      "upgrade_description": "Whenever you play a card, deal 6 damage to a random enemy."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "setup_strike",
+    "source_file": "SetupStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 7 damage.\nGain 2 [gold]Strength[/gold] this turn.",
+      "id": "SETUP_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Setup Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2",
+        "strength": "+1"
+      },
+      "upgrade_description": "Deal 9 damage.\nGain 3 [gold]Strength[/gold] this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "shadow_step",
+    "source_file": "ShadowStep.cs",
+    "input": {
+      "cost": 1,
+      "description": "Discard your [gold]Hand[/gold].\nNext turn, Attacks deal double damage.",
+      "id": "SHADOW_STEP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Shadow Step",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "shadowmeld",
+    "source_file": "Shadowmeld.cs",
+    "input": {
+      "cost": 1,
+      "description": "Double your [gold]Block[/gold] gain this turn.",
+      "id": "SHADOWMELD",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Shadowmeld",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "shockwave",
+    "source_file": "Shockwave.cs",
+    "input": {
+      "cost": 2,
+      "description": "Apply 3 [gold]Weak[/gold] and [gold]Vulnerable[/gold] to ALL enemies.",
+      "id": "SHOCKWAVE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Shockwave",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Skill",
+      "upgrade": {
+        "power": "+2"
+      },
+      "upgrade_description": "Apply 5 [gold]Weak[/gold] and [gold]Vulnerable[/gold] to ALL enemies."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "AllEnemies",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "shrug_it_off",
+    "source_file": "ShrugItOff.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 8 [gold]Block[/gold].\nDraw 1 card.",
+      "id": "SHRUG_IT_OFF",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Shrug It Off",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 11 [gold]Block[/gold].\nDraw 1 card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "skewer",
+    "source_file": "Skewer.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 8 damage X times.",
+      "id": "SKEWER",
+      "is_x_cost": true,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Skewer",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 11 damage X times."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "slice",
+    "source_file": "Slice.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 6 damage.",
+      "id": "SLICE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Slice",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 9 damage."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "snakebite",
+    "source_file": "Snakebite.cs",
+    "input": {
+      "cost": 2,
+      "description": "Apply 7 [gold]Poison[/gold].",
+      "id": "SNAKEBITE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Retain"
+      ],
+      "name": "Snakebite",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "poison": "+3"
+      },
+      "upgrade_description": "Apply 10 [gold]Poison[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [
+        "retain"
+      ],
+      "upgraded_keywords": [
+        "retain"
+      ]
+    }
+  },
+  {
+    "id": "sneaky",
+    "source_file": "Sneaky.cs",
+    "input": {
+      "cost": 2,
+      "description": "Whenever another player attacks an enemy, gain 1 [gold]Block[/gold].",
+      "id": "SNEAKY",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Sneaky",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "sneakypower": "+1"
+      },
+      "upgrade_description": "Whenever another player attacks an enemy, gain 2 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "speedster",
+    "source_file": "Speedster.cs",
+    "input": {
+      "cost": 2,
+      "description": "Whenever you draw a card during your turn, deal 2 damage to ALL enemies.",
+      "id": "SPEEDSTER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Speedster",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "add_innate": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "spite",
+    "source_file": "Spite.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 5 damage.\nIf you lost HP this turn,\nhits 2 times.",
+      "id": "SPITE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Spite",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "repeat": "+1"
+      },
+      "upgrade_description": "Deal 5 damage.\nIf you lost HP this turn,\nhits 3 times."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "splash",
+    "source_file": "Splash.cs",
+    "input": {
+      "cost": 1,
+      "description": "Choose 1 of 3 random Attacks from another character to add into your [gold]Hand[/gold]. It's free to play this turn.",
+      "id": "SPLASH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Splash",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Choose 1 of 3 random [gold]Upgraded[/gold] Attacks from another character to add into your [gold]Hand[/gold]. It's free to play this turn."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "stampede",
+    "source_file": "Stampede.cs",
+    "input": {
+      "cost": 2,
+      "description": "At the end of your turn, 1 random Attack in your [gold]Hand[/gold] is played against a random enemy.",
+      "id": "STAMPEDE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Stampede",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "stoke",
+    "source_file": "Stoke.cs",
+    "input": {
+      "cost": 1,
+      "description": "[gold]Exhaust[/gold] your [gold]Hand[/gold].\nAdd 1 random card into your [gold]Hand[/gold] for each card [gold]Exhausted[/gold].",
+      "id": "STOKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Stoke",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "[gold]Exhaust[/gold] your [gold]Hand[/gold].\nAdd 1 random [gold]Upgraded[/gold] card into your [gold]Hand[/gold] for each card [gold]Exhausted[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "stomp",
+    "source_file": "Stomp.cs",
+    "input": {
+      "cost": 3,
+      "description": "Deal 12 damage to ALL enemies.\nCosts 1 less [energy:1] for each Attack played this turn.",
+      "id": "STOMP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Stomp",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 15 damage to ALL enemies.\nCosts 1 less [energy:1] for each Attack played this turn."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "stone_armor",
+    "source_file": "StoneArmor.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 4 [gold]Plating[/gold].",
+      "id": "STONE_ARMOR",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Stone Armor",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "platingpower": "+2"
+      },
+      "upgrade_description": "Gain 6 [gold]Plating[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "storm_of_steel",
+    "source_file": "StormOfSteel.cs",
+    "input": {
+      "cost": 1,
+      "description": "Discard your [gold]Hand[/gold].\nAdd 1 [gold]Shiv[/gold] into your [gold]Hand[/gold] for each card discarded.",
+      "id": "STORM_OF_STEEL",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Storm of Steel",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "description_changed": 1
+      },
+      "upgrade_description": "Discard your [gold]Hand[/gold].\nAdd 1 [gold]Shiv+[/gold] into your [gold]Hand[/gold] for each card discarded."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "strangle",
+    "source_file": "Strangle.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 8 damage.\nWhenever you play a card this turn, the enemy loses 2 HP.",
+      "id": "STRANGLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Strangle",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2",
+        "stranglepower": "+1"
+      },
+      "upgrade_description": "Deal 10 damage.\nWhenever you play a card this turn, the enemy loses 3 HP."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "stratagem",
+    "source_file": "Stratagem.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever you shuffle your [gold]Draw Pile[/gold], choose a card from it to put into your [gold]Hand[/gold].",
+      "id": "STRATAGEM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Stratagem",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "strike_ironclad",
+    "source_file": "StrikeIronclad.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage.",
+      "id": "STRIKE_IRONCLAD",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 9 damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "strike_silent",
+    "source_file": "StrikeSilent.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 6 damage.",
+      "id": "STRIKE_SILENT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 9 damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "sucker_punch",
+    "source_file": "SuckerPunch.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 8 damage.\nApply 1 [gold]Weak[/gold].",
+      "id": "SUCKER_PUNCH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Sucker Punch",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2",
+        "weak": "+1"
+      },
+      "upgrade_description": "Deal 10 damage.\nApply 2 [gold]Weak[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "suppress",
+    "source_file": "Suppress.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 11 damage.\nApply 3 [gold]Weak[/gold].",
+      "id": "SUPPRESS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Innate"
+      ],
+      "name": "Suppress",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+6",
+        "weak": "+2"
+      },
+      "upgrade_description": "Deal 17 damage.\nApply 5 [gold]Weak[/gold]."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "innate"
+      ],
+      "upgraded_keywords": [
+        "innate"
+      ]
+    }
+  },
+  {
+    "id": "survivor",
+    "source_file": "Survivor.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 8 [gold]Block[/gold].\nDiscard 1 card.",
+      "id": "SURVIVOR",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Survivor",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 11 [gold]Block[/gold].\nDiscard 1 card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "sword_boomerang",
+    "source_file": "SwordBoomerang.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 3 damage to a random enemy 3 times.",
+      "id": "SWORD_BOOMERANG",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Sword Boomerang",
+      "star_cost": null,
+      "tags": null,
+      "target": "RandomEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "repeat": "+1"
+      },
+      "upgrade_description": "Deal 3 damage to a random enemy 4 times."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "RandomEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "tactician",
+    "source_file": "Tactician.cs",
+    "input": {
+      "cost": 3,
+      "description": "Gain [energy:1].",
+      "id": "TACTICIAN",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Tactician",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "energy": "+1"
+      },
+      "upgrade_description": "Gain [energy:2]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "tag_team",
+    "source_file": "TagTeam.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 11 damage.\nThe next Attack another player plays on the enemy is played an extra time.",
+      "id": "TAG_TEAM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Tag Team",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 15 damage.\nThe next Attack another player plays on the enemy is played an extra time."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "tank",
+    "source_file": "Tank.cs",
+    "input": {
+      "cost": 1,
+      "description": "Take double damage from enemies.\nAllies take half damage from enemies.",
+      "id": "TANK",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Tank",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "taunt",
+    "source_file": "Taunt.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 7 [gold]Block[/gold].\nApply 1 [gold]Vulnerable[/gold].",
+      "id": "TAUNT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Taunt",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+1",
+        "vulnerable": "+1"
+      },
+      "upgrade_description": "Gain 8 [gold]Block[/gold].\nApply 2 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "tear_asunder",
+    "source_file": "TearAsunder.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 5 damage.\nHits an additional time for each time you lost HP this combat.",
+      "id": "TEAR_ASUNDER",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Tear Asunder",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 7 damage.\nHits an additional time for each time you lost HP this combat."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "the_bomb",
+    "source_file": "TheBomb.cs",
+    "input": {
+      "cost": 2,
+      "description": "At the end of 3 turns, deal 40 damage to ALL enemies.",
+      "id": "THE_BOMB",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "The Bomb",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "bombdamage": "+10"
+      },
+      "upgrade_description": "At the end of 3 turns, deal 50 damage to ALL enemies."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "the_gambit",
+    "source_file": "TheGambit.cs",
+    "input": {
+      "cost": 0,
+      "description": "Gain 50 [gold]Block[/gold].\nIf you take unblocked attack damage this combat, die.",
+      "id": "THE_GAMBIT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "The Gambit",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+25"
+      },
+      "upgrade_description": "Gain 75 [gold]Block[/gold].\nIf you take unblocked attack damage this combat, die."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "the_hunt",
+    "source_file": "TheHunt.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 10 damage.\nIf [gold]Fatal[/gold], gain an additional card reward.",
+      "id": "THE_HUNT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "The Hunt",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+5"
+      },
+      "upgrade_description": "Deal 15 damage.\nIf [gold]Fatal[/gold], gain an additional card reward."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "thinking_ahead",
+    "source_file": "ThinkingAhead.cs",
+    "input": {
+      "cost": 0,
+      "description": "Draw 2 cards.\nPut 1 card from your [gold]Hand[/gold] on top of your [gold]Draw Pile[/gold].",
+      "id": "THINKING_AHEAD",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Thinking Ahead",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "remove_exhaust": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "thrash",
+    "source_file": "Thrash.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 4 damage twice.\n[gold]Exhaust[/gold] a random Attack in your [gold]Hand[/gold] and add its damage to this card.",
+      "id": "THRASH",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Thrash",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 6 damage twice.\n[gold]Exhaust[/gold] a random Attack in your [gold]Hand[/gold] and add its damage to this card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "thrumming_hatchet",
+    "source_file": "ThrummingHatchet.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 11 damage.\nAt the start of your next turn, return this to your [gold]Hand[/gold].",
+      "id": "THRUMMING_HATCHET",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Thrumming Hatchet",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 14 damage.\nAt the start of your next turn, return this to your [gold]Hand[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "thunderclap",
+    "source_file": "Thunderclap.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 4 damage and apply 1 [gold]Vulnerable[/gold] to ALL enemies.",
+      "id": "THUNDERCLAP",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Thunderclap",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 7 damage and apply 1 [gold]Vulnerable[/gold] to ALL enemies."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "tools_of_the_trade",
+    "source_file": "ToolsOfTheTrade.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the start of your turn, draw 1 card and discard 1 card.",
+      "id": "TOOLS_OF_THE_TRADE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Tools of the Trade",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 0
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 0,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "tracking",
+    "source_file": "Tracking.cs",
+    "input": {
+      "cost": 2,
+      "description": "[gold]Weak[/gold] enemies take double damage from Attacks.",
+      "id": "TRACKING",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Tracking",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "tremble",
+    "source_file": "Tremble.cs",
+    "input": {
+      "cost": 1,
+      "description": "Apply 3 [gold]Vulnerable[/gold].",
+      "id": "TREMBLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Exhaust"
+      ],
+      "name": "Tremble",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Skill",
+      "upgrade": {
+        "vulnerable": "+1"
+      },
+      "upgrade_description": "Apply 4 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "AnyEnemy",
+      "keywords": [
+        "exhaust"
+      ],
+      "upgraded_keywords": [
+        "exhaust"
+      ]
+    }
+  },
+  {
+    "id": "true_grit",
+    "source_file": "TrueGrit.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 7 [gold]Block[/gold].\n[gold]Exhaust[/gold] 1 card at random.",
+      "id": "TRUE_GRIT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "True Grit",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+2"
+      },
+      "upgrade_description": "Gain 9 [gold]Block[/gold].\n[gold]Exhaust[/gold] 1 card."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "twin_strike",
+    "source_file": "TwinStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 5 damage twice.",
+      "id": "TWIN_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Twin Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+2"
+      },
+      "upgrade_description": "Deal 7 damage twice."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "ultimate_defend",
+    "source_file": "UltimateDefend.cs",
+    "input": {
+      "cost": 1,
+      "description": "Gain 11 [gold]Block[/gold].",
+      "id": "ULTIMATE_DEFEND",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Ultimate Defend",
+      "star_cost": null,
+      "tags": [
+        "Defend"
+      ],
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+4"
+      },
+      "upgrade_description": "Gain 15 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "ultimate_strike",
+    "source_file": "UltimateStrike.cs",
+    "input": {
+      "cost": 1,
+      "description": "Deal 14 damage.",
+      "id": "ULTIMATE_STRIKE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Ultimate Strike",
+      "star_cost": null,
+      "tags": [
+        "Strike"
+      ],
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+6"
+      },
+      "upgrade_description": "Deal 20 damage."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "unmovable",
+    "source_file": "Unmovable.cs",
+    "input": {
+      "cost": 2,
+      "description": "The first time you gain [gold]Block[/gold] from a card each turn, double the amount gained.",
+      "id": "UNMOVABLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Unmovable",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cost": 1
+      },
+      "upgrade_description": null
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "unrelenting",
+    "source_file": "Unrelenting.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 14 damage.\nThe next Attack you play costs 0 [energy:1].",
+      "id": "UNRELENTING",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Unrelenting",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+6"
+      },
+      "upgrade_description": "Deal 20 damage.\nThe next Attack you play costs 0 [energy:1]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "untouchable",
+    "source_file": "Untouchable.cs",
+    "input": {
+      "cost": 2,
+      "description": "Gain 6 [gold]Block[/gold].",
+      "id": "UNTOUCHABLE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": [
+        "Sly"
+      ],
+      "name": "Untouchable",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "block": "+3"
+      },
+      "upgrade_description": "Gain 9 [gold]Block[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [
+        "sly"
+      ],
+      "upgraded_keywords": [
+        "sly"
+      ]
+    }
+  },
+  {
+    "id": "up_my_sleeve",
+    "source_file": "UpMySleeve.cs",
+    "input": {
+      "cost": 2,
+      "description": "Add 3 [gold]Shivs[/gold] into your [gold]Hand[/gold].\nReduce this card's cost by 1.",
+      "id": "UP_MY_SLEEVE",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Up My Sleeve",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Skill",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Add 4 [gold]Shivs[/gold] into your [gold]Hand[/gold].\nReduce this card's cost by 1."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "skill",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "uppercut",
+    "source_file": "Uppercut.cs",
+    "input": {
+      "cost": 2,
+      "description": "Deal 13 damage.\nApply 1 [gold]Weak[/gold].\nApply 1 [gold]Vulnerable[/gold].",
+      "id": "UPPERCUT",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Uppercut",
+      "star_cost": null,
+      "tags": null,
+      "target": "AnyEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "power": "+1"
+      },
+      "upgrade_description": "Deal 13 damage.\nApply 2 [gold]Weak[/gold].\nApply 2 [gold]Vulnerable[/gold]."
+    },
+    "expected": {
+      "cost": 2,
+      "upgraded_cost": 2,
+      "type": "attack",
+      "target": "AnyEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "vicious",
+    "source_file": "Vicious.cs",
+    "input": {
+      "cost": 1,
+      "description": "Whenever you apply [gold]Vulnerable[/gold], draw 1 card.",
+      "id": "VICIOUS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Vicious",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "cards": "+1"
+      },
+      "upgrade_description": "Whenever you apply [gold]Vulnerable[/gold], draw 2 cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "volley",
+    "source_file": "Volley.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 10 damage to a random enemy X times.",
+      "id": "VOLLEY",
+      "is_x_cost": true,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Volley",
+      "star_cost": null,
+      "tags": null,
+      "target": "RandomEnemy",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+4"
+      },
+      "upgrade_description": "Deal 14 damage to a random enemy X times."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "RandomEnemy",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "well_laid_plans",
+    "source_file": "WellLaidPlans.cs",
+    "input": {
+      "cost": 1,
+      "description": "At the end of your turn, [gold]Retain[/gold] up to 1 card.",
+      "id": "WELL_LAID_PLANS",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Well-Laid Plans",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "retainamount": "+1"
+      },
+      "upgrade_description": "At the end of your turn, [gold]Retain[/gold] up to 2 cards."
+    },
+    "expected": {
+      "cost": 1,
+      "upgraded_cost": 1,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "whirlwind",
+    "source_file": "Whirlwind.cs",
+    "input": {
+      "cost": 0,
+      "description": "Deal 5 damage to ALL enemies X times.",
+      "id": "WHIRLWIND",
+      "is_x_cost": true,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Whirlwind",
+      "star_cost": null,
+      "tags": null,
+      "target": "AllEnemies",
+      "type": "Attack",
+      "upgrade": {
+        "damage": "+3"
+      },
+      "upgrade_description": "Deal 8 damage to ALL enemies X times."
+    },
+    "expected": {
+      "cost": 0,
+      "upgraded_cost": 0,
+      "type": "attack",
+      "target": "AllEnemies",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  },
+  {
+    "id": "wraith_form",
+    "source_file": "WraithForm.cs",
+    "input": {
+      "cost": 3,
+      "description": "Gain 2 [gold]Intangible[/gold].\nAt the start of your turn, lose 1 [gold]Dexterity[/gold].",
+      "id": "WRAITH_FORM",
+      "is_x_cost": null,
+      "is_x_star_cost": null,
+      "keywords_key": null,
+      "name": "Wraith Form",
+      "star_cost": null,
+      "tags": null,
+      "target": "Self",
+      "type": "Power",
+      "upgrade": {
+        "intangiblepower": "+1"
+      },
+      "upgrade_description": "Gain 3 [gold]Intangible[/gold].\nAt the start of your turn, lose 1 [gold]Dexterity[/gold]."
+    },
+    "expected": {
+      "cost": 3,
+      "upgraded_cost": 3,
+      "type": "power",
+      "target": "Self",
+      "keywords": [],
+      "upgraded_keywords": []
+    }
+  }
+]

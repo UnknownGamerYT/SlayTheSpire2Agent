@@ -1,0 +1,571 @@
+{
+  "repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "steam_build_id": 23811903,
+  "release_info_commit": "59260271",
+  "main_assembly_hash": -1555940892,
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BeetleJuice.cs",
+      "sha256": "53c71ca25af8eb3d5cf71410eebd8f70d2b1b39a4fe43bed10d028352d880254"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PowderedDemise.cs",
+      "sha256": "e778c3da95db369db6683ed8e1d06ef1a092578dbdbf7d11f07035da2f231f65"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GlowwaterPotion.cs",
+      "sha256": "201605ea46f20f58afd2edb51a76218ae39411f8d4646021fdd06f0433210c56"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GigantificationPotion.cs",
+      "sha256": "8bdc58a35c79edf462f4723a953a7c31a7d57c2d250c3a899255ffba038ebf00"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/LiquidMemories.cs",
+      "sha256": "415d8c7878c4b631b02c0d857fd9ae44590196a2786a8ed7dbc49f894b084a90"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ShrinkPower.cs",
+      "sha256": "e007fb069c7e9364e165d7ba74d29b582adaa8fb00d12c8940a928fb9eb5acfb"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/DemisePower.cs",
+      "sha256": "be71652f4440d981f36b1bb0509cea5693ce8810cbe3e972293e42e9f1289348"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/GigantificationPower.cs",
+      "sha256": "644db8e55cc75924a5a703539cb88cccc82a0a5d6a5b94d8c34410f23de0a0a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FurCoat.cs",
+      "sha256": "254d18b35af9316f668623f656aa08f136b91dc4606a71c2e56db874d1bbd803"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Map/ActMap.cs",
+      "sha256": "9cc0453e2e464dc24508fc87d35b5d01f1b2bc9106788fba687b864defa0bb27"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Map/MapPointType.cs",
+      "sha256": "d344987983962509629398e99a4089bbfcd8f4c50228ead11e1ee8b07de1b6fe"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Monsters/TestSubject.cs",
+      "sha256": "b7e6e24a3633e53c5e272001d4ea0f973122e7d69e20370e76da872301c8b675"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BlockPotion.cs",
+      "sha256": "580c18cd744735b84b486937268bcb5ba4e4fb572be1b6b3128c2994c48a79b4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ShipInABottle.cs",
+      "sha256": "e7186ac626546066a14ff28bb488ad79d4ad4d2bbd1d0f8512a5e56581a8c5a0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FlexPotion.cs",
+      "sha256": "684ff43aaeeefeb347618e60a079b7e17ceab3b3e7e0118ce3345a5fd37aaeb2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SpeedPotion.cs",
+      "sha256": "b9ad495f23c386c86044bdfa33e54c19fa9d8fc8a8ea8164932ce4869f83344b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/TouchOfInsanity.cs",
+      "sha256": "81a6232ea522148063d6fb3d3448824c22e0dea467be8990548793562c9188f4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/AttackPotion.cs",
+      "sha256": "c106048eb42fea06b85da5e079a40352782b64c1f9bef98b241cf92b8d6b3e1c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SkillPotion.cs",
+      "sha256": "79a811feaffb87dccde0901f6c558be5a7d45b45402e2bb18df330aac7fe2e7c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PowerPotion.cs",
+      "sha256": "34f47ec805e475e76d657753af03e51722f3a3804f27c3048f9605813a09fa0c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ColorlessPotion.cs",
+      "sha256": "cd4dd713158bc23e298687dab9497537dede29071ef33253c50328ec4e56ae4e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/CosmicConcoction.cs",
+      "sha256": "c5a1337227300935b51d23fa547a3364ea299d5d818e4a5b97f44c795524aea6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/OrobicAcid.cs",
+      "sha256": "773cc3f5e0df11cf0e008b9b60b8b0dd89fba461696d1bff81fc6d0a65454acc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TemporaryStrengthPower.cs",
+      "sha256": "c6b426e4bb0b195133970959fa5c0441ba7c5166bf21feeb3318df1e614aa637"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TemporaryDexterityPower.cs",
+      "sha256": "0f2b4a7f1060b543a38837e4e98a87d435b1aef8b14fe03b43a70510e7a3db4a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/BlockNextTurnPower.cs",
+      "sha256": "cd97a64ecf79b7259101d74d03ff2fa37b1bd40d39ae1c35477a32c60a45cec4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RuinedHelmet.cs",
+      "sha256": "a88f33545295ad4025ad3c95e7e5bed4f32f892309eb3c10246010e3d8b32ff3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs",
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Extensions/IEnumerableExtensions.cs",
+      "sha256": "d6062ab2a496c6d21aba6bdd48937a1097858f46197f2c17f2cbac7177b494a5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BloodPotion.cs",
+      "sha256": "1c4e95aa8373a3d62a7e607479c73dfb1fc2f0cf3733a4912e358df85e9f45f3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FruitJuice.cs",
+      "sha256": "63737f83ad6ff0565a4257ab7236060b35767a176d27c841cdb832860d2106d1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/EntropicBrew.cs",
+      "sha256": "3bc1c6a4176e7bc53f4693832df5ce40e6575aaddc6f1efe11a79e2094950203"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Fortifier.cs",
+      "sha256": "837b3ed1d6c58533548e794e51ba08f2a79fc91c9bbfac441d807844c3737ee8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ScrollBoxes.cs",
+      "sha256": "0199d9370fac6d20d9dffeeb668dac478a3983fdac5ded24ea0f98711ad3d1cc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Fiddle.cs",
+      "sha256": "2326900ac466ae4a1847b3ceb1a37d635cdc9c93730fc387109cd83342acd037"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SturdyClamp.cs",
+      "sha256": "5b9ad3cff05c51540b6559891a2e1cb87022834d9fc68f9f6be336f6f52834df"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RedSkull.cs",
+      "sha256": "cf57eb10a81ced7a20a845c53b1f58253fbf980f1b72f76243d57f1cbe165382"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BurningSticks.cs",
+      "sha256": "7c01f7308ea8d12a84161c069c669dbdadc18fb48ef5f551a5d9adcfbe3e8cf9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/CentennialPuzzle.cs",
+      "sha256": "610d506f51cef90c84cded79e508251f3ce462177fa3e7ccda88b8feac2593aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DemonTongue.cs",
+      "sha256": "23a0a62f9b47c0fa786df2e8a56aee86a4223b015c5c4510f1cee5c891010d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Metronome.cs",
+      "sha256": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MiniRegent.cs",
+      "sha256": "c36490b78249d15effa19b18a9463e7151fbb7a8aa36c42977b26544195fd234"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsLegion.cs",
+      "sha256": "08bc0980dc3b133a256bb39d50881b6888fabb5f47033aaab02b7ccb36381530"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Permafrost.cs",
+      "sha256": "15f99b67cc992dd3c88839f8eae79d829528b92ad6a57e71266cbf88897cd585"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ThrowingAxe.cs",
+      "sha256": "c7bb04ac13201a2ee892bc860caa37c0f2eff33efe31606c762442b3019a4c48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/UnsettlingLamp.cs",
+      "sha256": "f4d772296f344ba05eedcc2131f60435a9bd4afe1166bab435e13bce517cf9b3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Vambrace.cs",
+      "sha256": "d804bb40a837fa90b9b5e734e7dcdd61643cd0328f35a884ce07d97f1dc4a34a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GalacticDust.cs",
+      "sha256": "173a5b84adfd4fc3bf4796d4ba447655f6ba7b4cca7897332beb3963544962d4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/JossPaper.cs",
+      "sha256": "97237a51eda6199f48455edf7e83c061a73b97980279ee4a6cfdd149561b6bf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Bloodletting.cs",
+      "sha256": "02dbb861ed91dc7dc58d1509fbe80dd0fa50e20bb293ee4a5bf1c7e34e7fe4d3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/BloodWall.cs",
+      "sha256": "9634914026afa0cdab3d7c03e0569c2c942239bed2f513d52de93ebc69c4681a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Offering.cs",
+      "sha256": "fa615e1a41ee749779ce89dab2d542ac3e4c8d2cb7b0d3d196b83ad64a218534"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/IroncladPotionPool.cs",
+      "sha256": "4594ab398b7199a81f61b423e4a12f8b5e5832edfa450b864511c9e542e7c187"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/SilentPotionPool.cs",
+      "sha256": "82087e8002478846db5991b1d21d92df117c08f9f2129ef64dadefd5a375d917"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/RegentPotionPool.cs",
+      "sha256": "cc5ffe9d0f5b09d65bff530d8193667d1d149c183e1e49ae586ea3b6945f4d44"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/NecrobinderPotionPool.cs",
+      "sha256": "3611bc6b6b9ba00ddc8961e10e39d3d800ca3db79075a014e769beec5f7f5ecf"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/DefectPotionPool.cs",
+      "sha256": "68f4abaf6a78b0eb33ec57b24acaee0195842f5b963bd64c240dd72726d9e6ce"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.PotionPools/SharedPotionPool.cs",
+      "sha256": "2e2d2d53b81772047dc6fd22e6f55d69a2792ac8d22fffd46977eb508b8b6c52"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Ironclad4Epoch.cs",
+      "sha256": "5e446a42280f58a283ad36dd0e6d98b3828b5151725011f142c1765f3dfdb421"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Silent4Epoch.cs",
+      "sha256": "76b5af7bb858a3cc5a47d2d40b96a22501ae9346afe9aad0c09215483394644f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Regent4Epoch.cs",
+      "sha256": "35c881e1c57f177414f4ae4561ddb779e247d94dbe773687396806f502692fc0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Necrobinder4Epoch.cs",
+      "sha256": "ff41e4b73300c9afa5ee25594854cc39a06bb1e7b1da0238ebb0bbe501912c89"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Defect4Epoch.cs",
+      "sha256": "6647376b4bd62272c4647e96fa371c6049f1d509075a5aa3f8e839d2765225c1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Potion1Epoch.cs",
+      "sha256": "9b52e661073d104f6236617cbfe617b32cdeb52cbf2b77c4bf8e09f699d63b31"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Timeline.Epochs/Potion2Epoch.cs",
+      "sha256": "74dbfce7772e5e591840e6907516b2fb57877999e3c47d1ada146519f1fdb3f4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/PotionFactory.cs",
+      "sha256": "1687ca4ceedeb04089122f8ff673cc33639873e98f210e5b6cd0dbc40c5b3aa3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DustyTome.cs",
+      "sha256": "077a4d84772a1c4f6a98bd3e43112a69d2caa7cbc48e8e28dc1b45aab53bf4b5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SeaGlass.cs",
+      "sha256": "6833f9402cf40a44b2844589ef2b8391519c8181ad557ac8af2d9a1ebaa32665"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FairyInABottle.cs",
+      "sha256": "f1cf24bf8230d51b14d9d105ff39690e9ba85c2cc8ceaccb3dae000dbf13911b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PotionModel.cs",
+      "sha256": "78b161c2e578894935b57bc17a99349aeefd7509a094cc3534b406c40258b8a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BeltBuckle.cs",
+      "sha256": "1e72315fdaf11e92a555144fa8b255f3735bde2aaf590f92f6ece0288cab2831"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ReptileTrinket.cs",
+      "sha256": "73dfefc29119cc91bab25f406d8ab6b40611067b812b0629354106efd740c241"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/CreatureCmd.cs",
+      "sha256": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PlayerCmd.cs",
+      "sha256": "8630f180d829942738c860f96dc6621cae01e7c2402fd33cee871fe21f42f668"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Ectoplasm.cs",
+      "sha256": "064fca6868e0ff78c19ed523f448fd0307df40625f431b1bed43c74025635815"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BowlerHat.cs",
+      "sha256": "87159fa44b87c32f66fa4b6c49989d6d8245a08e48d0465d24c3a0505f6729c0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DragonFruit.cs",
+      "sha256": "582419724356f96b29ebe7e2f17e61a84495890137df14892f77580916a48941"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NewLeaf.cs",
+      "sha256": "2f7b9b9549120353bcf6b219eeafd3ec821e76da0e41b4bfec3687b209bb6ec4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Clarity.cs",
+      "sha256": "1b0dfabd142d9fd5d73a008e1cdfe22a1986f6911930019c80b33219a1f68d9b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/RadiantTincture.cs",
+      "sha256": "45e36e3668f5b54a6d7a4195bdeac8981ed5cc49ea055599e29d33035dd6911a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SoldiersStew.cs",
+      "sha256": "d4d1d958e7477aadbf281610092c3b0fdedc32fd8f9a02cd75be8e23d08884ee"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SneckoOil.cs",
+      "sha256": "1cf94d78db62d8973208535c690fb680ec36a68ac7f8082076fb01c472431f98"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/RegenPotion.cs",
+      "sha256": "0adeee5f2055e46ed5a38b3be6ff5b8bfbe91e7a902505a00ebbe31aaa8529c6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/HeartOfIron.cs",
+      "sha256": "12c271642fcf66b45431263962d631c92893af9ebd4a446708c3d662840d404b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ClarityPower.cs",
+      "sha256": "5bdcc464468e318c2e4f196e093b44318a3a7b3a001a5febb4a0d9d336b34034"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/RadiancePower.cs",
+      "sha256": "c62191ff61c078fe096901da2a272b884468c12aea287c65bf5ed6037e30a364"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/RegenPower.cs",
+      "sha256": "3d95e7b15142a38ac8c32500b7656dc123570cd6a573b4545bd07b7ada3c3d95"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/PlatingPower.cs",
+      "sha256": "d3cd1402c704dcc379caf0981595356d449ccd81da10ff043836e0c1644cc2f1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NeowsTalisman.cs",
+      "sha256": "14359161e3d0b400712b19e30f37562b7ca78835b00cad111dd097cb2f3b2197"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/NutritiousSoup.cs",
+      "sha256": "c75f5cc395bf71ec6e2282bf34dc59bbd6c6ef734a44e84529e1852eee719a82"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsClaw.cs",
+      "sha256": "666d40b2d85e26e2272d51779c51fc36c8085067ca7dad0d267762f1af9e7be1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsGrowth.cs",
+      "sha256": "0ff5728cf4d9cd9861c51329f795afd985521aa4b4136cb10e59f55cb1a52155"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Sozu.cs",
+      "sha256": "e4526ab54c41f21ad2aa135a7a41dff433b2f9b586041b319676b81011fc0c77"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SpikedGauntlets.cs",
+      "sha256": "f68af9cb8e3369692db2538a06e81460a51fde3b66648e4bc2ccc9f472aa8faa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SneckoEye.cs",
+      "sha256": "7b27d2c6246f9c377d403c052c882cdb146a46e8251197608707b8c9b78d135d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsFlesh.cs",
+      "sha256": "48c5cd87a93b07237770cb66b849e1e187c127f9ab2cfd3f6e1954e4aeb06cde"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ConfusedPower.cs",
+      "sha256": "d38af5402c260325c9371b0ab688f66242b97ece96e6d6c32dfb8413638fc603"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/PotionReward.cs",
+      "sha256": "0e10a1901cfac2046ac1750e593df89f5341e6a4fb76c17e4d847c8b36297819"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantPotionEntry.cs",
+      "sha256": "79ec91e3b6a1349e7d0d9f3330f11348e794d613e0a4e65784b9428047bd19c1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BloodSoakedRose.cs",
+      "sha256": "6738e21d8bab474b0e1755711d4d2d0df06aaecac02564260c3093d6da4d0bed"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BlessedAntler.cs",
+      "sha256": "a1510a9be4bb28f9d34cce3977fcea155ee6a09be7b5e5d1dc68f2a7cf6ceb59"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Bread.cs",
+      "sha256": "06d6fdc5af92ae6c7b28f540fe7e46fc52b8dc31d08369ccfd34dff29ee3e85d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PumpkinCandle.cs",
+      "sha256": "807de4c900f8d2dc20c55e7eba2bfa554a64f9a667d25bf2425e91da4dc8033a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PhilosophersStone.cs",
+      "sha256": "71c53c9bac96a1ebfda53a04a3b36bcfdbd0cffea0ef02d45ee58bd777d1784a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PrismaticGem.cs",
+      "sha256": "c247a9dae925e6cac3e4e3743470f60e8eec35e09ab605b73a6a0a4f58723196"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/VelvetChoker.cs",
+      "sha256": "418c2070e88c5f9145a55a393978a7f993ffd29ab4a1a9b514549294deb24140"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhisperingEarring.cs",
+      "sha256": "4d4a67823048a590d8d7984dd328fe44973da1c945277e262c6d722acc564bba"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/UnmovablePower.cs",
+      "sha256": "b267db119bf6d000e1ccc146584cc1d648566a82a4ac7ef34bc2dd53ff5306a6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce"
+    }
+  ],
+  "cached_source_rows": {
+    "potions": [
+      {
+        "compendium_order": 40,
+        "description": "Enemy's attacks deal [blue]30%[/blue] less damage for the next [blue]4[/blue] turns.",
+        "description_raw": "Enemy's attacks deal [blue]{DamageDecrease}%[/blue] less damage {Repeat:plural:next turn|for the next [blue]{}[/blue] turns}.",
+        "id": "BEETLE_JUICE",
+        "image_url": "/static/images/potions/beetle_juice.webp",
+        "name": "Beetle Juice",
+        "pool": "shared",
+        "rarity": "Rare",
+        "rarity_key": "Rare"
+      },
+      {
+        "compendium_order": 50,
+        "description": "The next Attack you play deals triple damage.",
+        "description_raw": "The next Attack you play deals triple damage.",
+        "id": "GIGANTIFICATION_POTION",
+        "image_url": "/static/images/potions/gigantification_potion.webp",
+        "name": "Gigantification Potion",
+        "pool": "shared",
+        "rarity": "Rare",
+        "rarity_key": "Rare"
+      },
+      {
+        "compendium_order": 61,
+        "description": "[gold]Exhaust[/gold] your [gold]Hand[/gold]. Draw [blue]10[/blue] cards.",
+        "description_raw": "[gold]Exhaust[/gold] your [gold]Hand[/gold]. Draw [blue]{Cards}[/blue] cards.",
+        "id": "GLOWWATER_POTION",
+        "image_url": "/static/images/potions/glowwater_potion.webp",
+        "name": "Glowwater Potion",
+        "pool": "event",
+        "rarity": "Event",
+        "rarity_key": "Event"
+      },
+      {
+        "compendium_order": 51,
+        "description": "Put a card from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold]. It's free to play this turn.",
+        "description_raw": "Put a card from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold]. It's free to play this turn.",
+        "id": "LIQUID_MEMORIES",
+        "image_url": "/static/images/potions/liquid_memories.webp",
+        "name": "Liquid Memories",
+        "pool": "shared",
+        "rarity": "Rare",
+        "rarity_key": "Rare"
+      },
+      {
+        "compendium_order": 35,
+        "description": "Enemy loses [blue]9[/blue] HP at the end of each of its turns.",
+        "description_raw": "Enemy loses [blue]{Demise}[/blue] HP at the end of each of its turns.",
+        "id": "POWDERED_DEMISE",
+        "image_url": "/static/images/potions/powdered_demise.webp",
+        "name": "Powdered Demise",
+        "pool": "shared",
+        "rarity": "Uncommon",
+        "rarity_key": "Uncommon"
+      }
+    ],
+    "relics": [
+      {
+        "compendium_order": 186,
+        "description": "Upon pickup, mark [blue]7[/blue] random combats. Enemies in those rooms have [blue]1[/blue] HP.",
+        "description_raw": "Upon pickup, mark [blue]{Combats}[/blue] random combats. Enemies in those rooms have [blue]1[/blue] HP.",
+        "flavor": "[red]Details for this relic will be revealed in the future...[/red]",
+        "id": "FUR_COAT",
+        "image_url": "/static/images/relics/fur_coat.webp",
+        "image_variants": null,
+        "merchant_price": null,
+        "name": "Fur Coat",
+        "name_variants": null,
+        "notes": null,
+        "pool": "shared",
+        "rarity": "Ancient Relic",
+        "rarity_key": "Ancient"
+      }
+    ],
+    "powers": [
+      {
+        "allow_negative": null,
+        "description": "At the end of [gold]this creature[/gold]'s turn, it loses [blue][Amount][/blue] HP.",
+        "description_raw": "At the end of [gold]{OwnerName}[/gold]'s turn, it loses [blue]{Amount}[/blue] HP.",
+        "id": "DEMISE",
+        "image_url": "/static/images/powers/demise_power.webp",
+        "name": "Demise",
+        "stack_type": "Counter",
+        "type": "Debuff"
+      },
+      {
+        "allow_negative": null,
+        "description": "The next [blue]2[/blue] Attacks you play deal triple damage.",
+        "description_raw": "The next {Amount:plural:Attack you play deals|[blue]{}[/blue] Attacks you play deal} triple damage.",
+        "id": "GIGANTIFICATION",
+        "image_url": "/static/images/powers/gigantification_power.webp",
+        "name": "Gigantification",
+        "stack_type": "Counter",
+        "type": "Buff"
+      },
+      {
+        "allow_negative": true,
+        "description": "[gold]This creature's[/gold] Attacks deal [blue]30%[/blue] less damage.",
+        "description_raw": "{ApplierName.StringValue:cond:While {} is alive, your|[gold]{OwnerName}'s[/gold]} Attacks deal [blue]{DamageDecrease}%[/blue] less damage{Amount:cond:==1? next turn|>1? for the next [blue]{}[/blue] turns|}.",
+        "id": "SHRINK",
+        "image_url": "/static/images/powers/shrink_power.webp",
+        "name": "Shrink",
+        "stack_type": "None",
+        "type": "Debuff"
+      }
+    ]
+  },
+  "qualifications": [
+    "Version/build identification is repository author evidence, not a local installed DLL check.",
+    "Only selected source contracts are verified; item registration is not full item parity.",
+    "Source DEMISE is unpowered, unblockable Damage; Intangible/Slippery and HP-loss caps still apply.",
+    "Fur Coat samples all Monster/Elite grid points column-major, without completed/future filtering, uses independent relic RNG, and only sets current HP.",
+    "Fur Coat does not retrigger on Test Subject same-creature Revive.",
+    "Core-card helper patch owns free Energy until the first play; potion/shared marker code owns free Stars for the turn or combat."
+  ]
+}

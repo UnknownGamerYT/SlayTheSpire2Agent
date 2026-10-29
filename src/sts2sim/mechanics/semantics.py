@@ -231,6 +231,49 @@ def action_mechanic_profile(descriptor: Mapping[str, Any]) -> dict[str, object]:
         )
     elif action_type == "rest":
         profiles.append(_profile({"heal": 1.0}, tags=("campfire", "heal"), summary=("Rest",)))
+    elif action_type == "kindle":
+        profiles.append(
+            _profile(
+                {"energy": 1.0},
+                tags=("campfire", "gain_energy", "relic_counter"),
+                summary=("Add 5 combats of Pumpkin Candle energy",),
+            )
+        )
+    elif action_type == "cook":
+        profiles.append(
+            _profile(
+                {"card_remove": 2.0, "max_hp_delta": 9.0},
+                tags=("campfire", "remove_card", "gain_max_hp"),
+                summary=("Remove two cards and gain 9 Max HP",),
+            )
+        )
+    elif action_type == "clone":
+        count = _float(_mapping(descriptor.get("payload")).get("clone_count"))
+        profiles.append(
+            _profile(
+                {"card_gain": count},
+                tags=("campfire", "duplicate_card"),
+                summary=("Duplicate every Clone enchanted card",),
+            )
+        )
+    elif action_type == "hatch":
+        count = _float(_mapping(descriptor.get("payload")).get("hatch_count"))
+        profiles.append(
+            _profile(
+                {"card_transform": count, "relic_gain": 1.0},
+                tags=("campfire", "transform_card", "gain_relic"),
+                summary=("Hatch Byrdonis Eggs into Byrd Swoop and gain Byrdpip",),
+            )
+        )
+    elif action_type == "mend":
+        target = _mapping(descriptor.get("target"))
+        heal = min(
+            max(0.0, _float(target.get("max_hp")) - _float(target.get("hp"))),
+            _float(target.get("max_hp")) * 30 // 100,
+        )
+        profiles.append(
+            _profile({"heal": heal}, tags=("campfire", "heal_ally"), summary=("Mend an ally",))
+        )
     elif action_type == "dig":
         profiles.append(
             _profile(
@@ -856,6 +899,14 @@ def _effects_profile(effects: Mapping[str, Any], *, target: str = "") -> Mechani
     def walk(value: object, parent_key: str = "") -> None:
         if isinstance(value, Mapping):
             value_map = cast(Mapping[str, Any], value)
+            repeat_damage = value_map.get("repeat_damage")
+            if isinstance(repeat_damage, Mapping):
+                profiles.append(_profile(
+                    values={"damage": _float(repeat_damage.get("amount")), "repeating_effect": 1.0},
+                    tags=("damage", "multi_hit", f"scales_with:{repeat_damage.get('basis', '')}"),
+                ))
+            if value_map.get("return_next_turn"):
+                profiles.append(_rule_profile(kind="next_turn", amount=1))
             kind = _normalized_id(str(value_map.get("kind", value_map.get("type", parent_key))))
             if kind:
                 metadata_payload = {

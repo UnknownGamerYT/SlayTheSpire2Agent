@@ -280,6 +280,8 @@ def _modifier_applies(
     modifier: RewardModifierSpec,
     context: RewardGenerationContext,
 ) -> bool:
+    if modifier.content_id == "amethyst_aubergine" and context.metadata.get("final_act_boss"):
+        return False
     if modifier.apply_to_sources and context.source not in modifier.apply_to_sources:
         return False
     encounter = context.normalized_encounter_type
@@ -395,8 +397,8 @@ DEFAULT_REWARD_MODIFIERS: tuple[RewardModifierSpec, ...] = (
     RewardModifierSpec(
         content_id="lava_rock",
         kind="reward_extra_relic",
-        amount=1,
-        relic_count_delta=1,
+        amount=2,
+        relic_count_delta=2,
         apply_to_sources=frozenset({"combat"}),
         apply_to_encounters=frozenset({"boss"}),
         metadata_equals={"act": 1},

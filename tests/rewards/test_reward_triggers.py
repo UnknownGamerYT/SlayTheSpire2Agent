@@ -77,7 +77,7 @@ def test_lava_rock_adds_extra_act_one_boss_relic_reward() -> None:
         RewardGenerationContext(
             source="combat",
             encounter_type="boss",
-            relic_count=1,
+            relic_count=0,
             owned_relics=("lava_rock",),
             metadata={"act": 1},
         )
@@ -101,10 +101,10 @@ def test_lava_rock_adds_extra_act_one_boss_relic_reward() -> None:
         )
     )
 
-    assert act_one_boss.relic_count_delta == 1
+    assert act_one_boss.relic_count_delta == 2
     assert act_one_boss.relic_count == 2
     assert [(effect.kind, effect.amount, effect.content_id) for effect in act_one_boss.effects] == [
-        ("reward_extra_relic", 1, "lava_rock")
+        ("reward_extra_relic", 2, "lava_rock")
     ]
     assert act_one_boss.effects[0].metadata["metadata_equals"] == {"act": 1}
     assert act_two_boss.effects == ()

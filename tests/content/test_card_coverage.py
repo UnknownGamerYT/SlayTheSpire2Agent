@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sts2sim.content import card_coverage
 from sts2sim.content.card_coverage import (
     CardCoverageStatus,
     audit_card_coverage_from_sources,
@@ -129,3 +130,33 @@ def test_card_coverage_report_filters_and_summarizes_entries() -> None:
     assert report.entries_for(status="missing", color="silent")[0].content_id == "MYSTERY_CARD"
     assert report.sample_missing_ids == ("MYSTERY_CARD",)
     assert report.as_dict()["counts_by_color"]["silent"]["missing"] == 1
+
+
+def test_registered_effect_coverage_exposes_scope_without_certifying_card_parity() -> None:
+    report = audit_card_coverage_from_sources(cards=({
+        "id": "NAMED_STATUS", "type": "Power", "cost": 1,
+        "effects": {"apply_status": {"target": "self", "arbitrary_named_status": 1}},
+    },))
+
+    assert report.entry_for("NAMED_STATUS").is_implemented
+    assert report.scope == "registered_execution_surface"
+    payload = report.as_dict()
+    assert payload["scope"] == report.scope
+    assert payload["certifies_game_parity"] is False
+    assert any("timing" in limitation for limitation in report.limits)
+
+
+def test_known_source_runtime_gap_remains_partial_with_registered_effect_keys(monkeypatch) -> None:
+    monkeypatch.setattr(card_coverage, "KNOWN_CARD_RUNTIME_GAPS", {
+        "recorded_gap": "Stored printed power lacks its verified runtime consumer.",
+    })
+    report = audit_card_coverage_from_sources(cards=({
+        "id": "RECORDED_GAP", "type": "Power", "cost": 1,
+        "effects": {"apply_status": {"target": "self", "printed_power": 1}},
+    },))
+
+    entry = report.entry_for("RECORDED_GAP")
+    assert entry.status is CardCoverageStatus.PARTIAL
+    assert entry.executable_keys
+    assert "known_runtime_gap" in entry.blocker_kinds
+    assert any("verified runtime consumer" in reason for reason in entry.reasons)

@@ -1,0 +1,58 @@
+{
+  "game_version": "0.107.1",
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "source_scopes": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RoyalPoison.cs",
+      "sha256": "ddbb27b4723f3646672d78d24807eab8da79bfa7b3ce9210bcb3a282f3ca2161",
+      "reviewed_scopes": [
+        "AfterPlayerTurnStart damage: unpowered, unblockable, first owner turn"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PrecariousShears.cs",
+      "sha256": "5dacf53deca7adc8fe1faf8185f1adb1997c2aad83d00987779219eb44ff54df",
+      "reviewed_scopes": [
+        "AfterObtained removal selection before unpowered blockable damage"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SelfFormingClay.cs",
+      "sha256": "19ee66ecf2f4fbfb2cf1f6c15323e86977d32dd894253d429fb4b927f7b8d5a7",
+      "reviewed_scopes": [
+        "AfterDamageReceived positive HP loss, skip lethal callback"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/StrikeDummy.cs",
+      "sha256": "973198a95c6a9d30c0a97d75363e3d7cf0a91ef81fce13f5c2c95e4148d64342",
+      "reviewed_scopes": [
+        "ModifyDamageAdditive actual Strike tag"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FakeStrikeDummy.cs",
+      "sha256": "4c122525079879310ee5618d8e07076ac1f28036f49b8316daa6a7a18f98e7f9",
+      "reviewed_scopes": [
+        "ModifyDamageAdditive actual Strike tag"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/VitruvianMinion.cs",
+      "sha256": "157b4b527c3c43854dba79e638d8cb402efbfccb5597ff065c2e8c2dd18439f5",
+      "reviewed_scopes": [
+        "ModifyDamageMultiplicative and ModifyBlockMultiplicative actual Minion tag"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ShadowmeldPower.cs",
+      "sha256": "5192775e12e165e0b4634e39a206c2247cb8592c96246b9c638c37e5d456c18f",
+      "reviewed_scopes": [
+        "ModifyBlockMultiplicative 2^Amount all origins",
+        "AfterSideTurnEnd owner removal"
+      ]
+    }
+  ]
+}

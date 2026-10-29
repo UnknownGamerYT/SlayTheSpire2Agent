@@ -1,0 +1,73 @@
+{
+  "target_version": "v0.107.1",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "scope": "Powered Osty damage dealer and card-owner predicates; ReaperForm DamageResult.TotalDamage excludes overkill and includes Block. AttackCommand queue boundaries have separate fixtures.",
+  "files": {
+    "MegaCrit.Sts2.Core.Models.Powers/DoubleDamagePower.cs": {
+      "sha256": "beb745098b5bc5b099de36c04fbbef7e9f07d322dadb8a4673d9e564dae642a3",
+      "methods": [
+        "ModifyDamageMultiplicative"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/TrackingPower.cs": {
+      "sha256": "42711604bae5d1eb79b855149fdb491609e1a7de1bc2d6a25dcd8ec4e9baf377",
+      "methods": [
+        "ModifyDamageMultiplicative"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/LethalityPower.cs": {
+      "sha256": "891afd6fa84ff68411677149d255ebb4cda9d1d5b876a9fdc6ed59a7e204e67b",
+      "methods": [
+        "ModifyDamageMultiplicative"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/StrengthPower.cs": {
+      "sha256": "62ceb1d76bb5369a9d38d4d153584799cb5f0a46d22ba93ae0675072399193db",
+      "methods": [
+        "ModifyDamageAdditive"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/WeakPower.cs": {
+      "sha256": "631e963cbc39801fd98236e18e2fc645a12b3c118e82b4133cdb93afc9bfaaca",
+      "methods": [
+        "ModifyDamageMultiplicative"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/MonarchsGazePower.cs": {
+      "sha256": "1aa07a1b268d90c96ad73c2dffb60096f15acb7d9c15250a08edbf7d24d22995",
+      "methods": [
+        "AfterDamageGiven"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/EnvenomPower.cs": {
+      "sha256": "de38f8bf32de6b0cc01a49a9dbad77cd357f73afe4ee36a569871127d1597ce9",
+      "methods": [
+        "AfterDamageGiven"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Powers/ReaperFormPower.cs": {
+      "sha256": "e43456f81028caf823f4a1c1e788b9bee7edfef1ed1a5c26bdc0dd28fa5a73ad",
+      "methods": [
+        "AfterDamageGiven"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Entities.Creatures/DamageResult.cs": {
+      "sha256": "33128b75cbb7863e8d56d116b0e517064500579284c1f9b668c07553b688dc49",
+      "methods": [
+        "TotalDamage"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Models.Relics/VitruvianMinion.cs": {
+      "sha256": "157b4b527c3c43854dba79e638d8cb402efbfccb5597ff065c2e8c2dd18439f5",
+      "methods": [
+        "ModifyDamageMultiplicative"
+      ]
+    },
+    "MegaCrit.Sts2.Core.Commands.Builders/AttackCommand.cs": {
+      "sha256": "b846ba848f7d9a456294004cfe18255a7b919244443ca8498f812f796e9e01c3",
+      "methods": [
+        "FromOsty"
+      ]
+    }
+  }
+}

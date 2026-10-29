@@ -1,0 +1,271 @@
+{
+  "game_version": "0.107.1",
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "scope": "Finite comparison of the 36 power models overriding ModifyDamage* or ModifyBlock*. This is a source review of arithmetic, predicates and relevant command boundaries, not an exhaustive power lifecycle or live-game differential certification.",
+  "single_player_limit": "Multiplayer-only creature protection/redistribution and allied-player stat ownership remain outside normal single-player content pools. Leadership has no producer in the pinned source and is not claimed implemented.",
+  "validation": [
+    "tests/combat/test_source_power_boundaries.py",
+    "tests/combat/test_source_attack_commands.py",
+    "tests/combat/test_stable_item_contracts.py",
+    "tests/combat/test_source_item_math.py",
+    "tests/combat/test_source_core_cards.py",
+    "tests/combat/test_source_class_rules.py",
+    "tests/combat/test_card_status_runtime.py"
+  ],
+  "powers": [
+    {
+      "power": "AccuracyPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/AccuracyPower.cs",
+      "sha256": "8e1f630a6ab74a8dcb34b78e2cf2508302397c78f90423277fcda96f55ea8195",
+      "reviewed_predicate": "Owner-dealt powered attacks tagged Shiv add Amount.",
+      "runtime_mapping_or_scope_limit": "_modified_card_damage"
+    },
+    {
+      "power": "CalcifyPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/CalcifyPower.cs",
+      "sha256": "465680b7b99bdde626255b014da955c8baf3145e6b266b0838ba83b1f10cd434",
+      "reviewed_predicate": "Only powered attacks by the owner’s Osty add Amount; owner attacks do not.",
+      "runtime_mapping_or_scope_limit": "source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "ColossusPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ColossusPower.cs",
+      "sha256": "9430dede8bf297d2b2f1f905b74823394b879d3168e43656323b3563382667c2",
+      "reviewed_predicate": "Owner receives half powered attack damage only when the dealer is Vulnerable.",
+      "runtime_mapping_or_scope_limit": "_damage_combat_player"
+    },
+    {
+      "power": "ConquerorPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ConquerorPower.cs",
+      "sha256": "af7923f35220e02f0316b530a2fc98c22f27d7ce9e3a02e693ced1771d29784e",
+      "reviewed_predicate": "Target doubles powered attack damage only from SovereignBlade.",
+      "runtime_mapping_or_scope_limit": "_incoming_monster_damage"
+    },
+    {
+      "power": "CoveredPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/CoveredPower.cs",
+      "sha256": "bbd9150d643c68771cf914e9f17da9ac44e10f3db16610d229c34aa6fa22c997",
+      "reviewed_predicate": "Owner receives zero powered attack damage; Intercept redistribution is a multiplayer creature relationship.",
+      "runtime_mapping_or_scope_limit": "multiplayer_only_excluded"
+    },
+    {
+      "power": "DexterityPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/DexterityPower.cs",
+      "sha256": "40117b7d813af37ed580a278f516ce276d15cc89dd1ccaaa8876a0681f754096",
+      "reviewed_predicate": "Signed additive stat belongs to card owner or, without a card, the receiver; only powered Move Block.",
+      "runtime_mapping_or_scope_limit": "_modified_card_block / _modified_monster_block_gain; Entrench unpowered exception"
+    },
+    {
+      "power": "DiamondDiademPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/DiamondDiademPower.cs",
+      "sha256": "6a4dd464474dbd0518ef639a0e655140b30f97ff65dcf7190fea548adb06a75b",
+      "reviewed_predicate": "Owner halves powered attack damage; source item activates its power after low-card-count owner turn.",
+      "runtime_mapping_or_scope_limit": "_incoming_player_damage / _end_turn"
+    },
+    {
+      "power": "DoubleDamagePower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/DoubleDamagePower.cs",
+      "sha256": "beb745098b5bc5b099de36c04fbbef7e9f07d322dadb8a4673d9e564dae642a3",
+      "reviewed_predicate": "Powered attacks by owner or owner’s pets multiply by two.",
+      "runtime_mapping_or_scope_limit": "_modified_card_damage / source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "FastenPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/FastenPower.cs",
+      "sha256": "a7d67c5fa1269971bec979bd63e6c0100c1482f636c641741d512edcfa7cd6ac",
+      "reviewed_predicate": "Powered Move Block adds Amount only for Defend-tagged card sources or no card source.",
+      "runtime_mapping_or_scope_limit": "_modified_card_block defend_block_bonus / _modified_monster_block_gain"
+    },
+    {
+      "power": "FlankingPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/FlankingPower.cs",
+      "sha256": "a6d10416ebcc7933f9b92f233d59f6431c3a04c3c08dbef6b6b7326acefa692f",
+      "reviewed_predicate": "Powered attacks by a creature other than the instance’s applier multiply by Amount.",
+      "runtime_mapping_or_scope_limit": "card_status_hooks.other_player_damage_multiplier; multiplayer_only_excluded"
+    },
+    {
+      "power": "FlutterPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/FlutterPower.cs",
+      "sha256": "dff75dafff2079fc4be49c830d6b06caf6fb4838fdd6fcac18ba1e57ee2efa1c",
+      "reviewed_predicate": "Target receives half powered attack damage; other damage is unaffected.",
+      "runtime_mapping_or_scope_limit": "_incoming_monster_damage"
+    },
+    {
+      "power": "FrailPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/FrailPower.cs",
+      "sha256": "0c1090da7732348da9a8c5ab595b0ed11e30079298c94c51983f5660c65cc4dd",
+      "reviewed_predicate": "Receiver’s powered Move Block is multiplied by 0.75.",
+      "runtime_mapping_or_scope_limit": "_modified_card_block / _modified_monster_block_gain; Entrench unpowered exception"
+    },
+    {
+      "power": "GigantificationPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/GigantificationPower.cs",
+      "sha256": "644db8e55cc75924a5a703539cb88cccc82a0a5d6a5b94d8c34410f23de0a0a9",
+      "reviewed_predicate": "Card-owner powered Attack commands multiply by three; lock first command, decrement after its complete hit/target batch, including zero hits.",
+      "runtime_mapping_or_scope_limit": "source_attack_hooks / _queued_damage_multiplier / source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "GuardedPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/GuardedPower.cs",
+      "sha256": "7c57b0a601d5d4e7dcb3e703b08e11803839d0dc6766868c17968d6bfbbbcd0d",
+      "reviewed_predicate": "Owner receives half powered attack damage.",
+      "runtime_mapping_or_scope_limit": "multiplayer_only_excluded"
+    },
+    {
+      "power": "HangPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/HangPower.cs",
+      "sha256": "5c161595e7d3023a635aceacf779920f0ffd0ffb29119454f06dcfaa9c37047f",
+      "reviewed_predicate": "Only Hang card powered attacks multiply by target Amount; card doubles target stacks afterward.",
+      "runtime_mapping_or_scope_limit": "_incoming_monster_damage; public Hang regression"
+    },
+    {
+      "power": "HardToKillPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/HardToKillPower.cs",
+      "sha256": "a5c6ec0b52940cb28eed69afe0353428f5383b6bc2e764d3ee41ce1f4afa5e97",
+      "reviewed_predicate": "All damage to owner is capped at Amount before Block; Exoskeleton starts with nine.",
+      "runtime_mapping_or_scope_limit": "_incoming_monster_damage / _cap_monster_hp_loss"
+    },
+    {
+      "power": "IntangiblePower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/IntangiblePower.cs",
+      "sha256": "40c86b71a68a50769c41b78fae9e46af0a2305ebf31d1239d541b25963416759",
+      "reviewed_predicate": "All damage cap one before Block plus owner HP-loss cap one after Osty interception.",
+      "runtime_mapping_or_scope_limit": "_incoming_player_damage / _incoming_monster_damage / _damage_combat_player"
+    },
+    {
+      "power": "InterceptPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/InterceptPower.cs",
+      "sha256": "60d9028d54c01605d40fc6a8e99aa5969177b65fdb12db0903176a577cc85234",
+      "reviewed_predicate": "Owner receives powered attack multiplier equal to covered-creature count plus one; covered-player relationships are multiplayer.",
+      "runtime_mapping_or_scope_limit": "multiplayer_only_excluded"
+    },
+    {
+      "power": "KnockdownPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/KnockdownPower.cs",
+      "sha256": "522f4ca5fe11a12872f927d235356fc50467452aec4e08129ce33f33c1a93cdd",
+      "reviewed_predicate": "Like Flanking, only powered attacks by a creature other than the applier multiply by instance Amount.",
+      "runtime_mapping_or_scope_limit": "card_status_hooks.other_player_damage_multiplier; multiplayer_only_excluded"
+    },
+    {
+      "power": "LeadershipPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/LeadershipPower.cs",
+      "sha256": "3a4945680fc4d76e4a37913aa8e521a7c686e109b1bd9b6ee5110d441834273d",
+      "reviewed_predicate": "Adds Amount to powered attacks by a different friendly creature. No producer found in pinned card/monster/relic/potion/event source.",
+      "runtime_mapping_or_scope_limit": "unreachable_prototype_not_claimed_implemented"
+    },
+    {
+      "power": "LethalityPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/LethalityPower.cs",
+      "sha256": "891afd6fa84ff68411677149d255ebb4cda9d1d5b876a9fdc6ed59a7e204e67b",
+      "reviewed_predicate": "Owner card-source first Attack play gets Amount percent damage; replay index and previously started attacks exclude it.",
+      "runtime_mapping_or_scope_limit": "_reserve_card_status_play / _modified_card_damage / source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "NoBlockPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/NoBlockPower.cs",
+      "sha256": "72c475f498ed9559ceac3bff15a2caeb10a0d738d1f4a7c50444aa8d48b7e419",
+      "reviewed_predicate": "Zeroes card-source Block except Unpowered; null card source is explicitly exempt.",
+      "runtime_mapping_or_scope_limit": "_gain_player_block; Entrench unpowered exception"
+    },
+    {
+      "power": "PhantomBladesPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/PhantomBladesPower.cs",
+      "sha256": "869b003b85cdbc4aa548abb44519ac830f322fd36e1d1c8573d6896e42c5c36e",
+      "reviewed_predicate": "Owner-dealt powered Shiv damage adds Amount until the first Shiv CardPlayFinished this turn.",
+      "runtime_mapping_or_scope_limit": "_reserve_card_status_play / _modified_card_damage"
+    },
+    {
+      "power": "ShadowmeldPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ShadowmeldPower.cs",
+      "sha256": "5192775e12e165e0b4634e39a206c2247cb8592c96246b9c638c37e5d456c18f",
+      "reviewed_predicate": "Every owner Block gain, including Unpowered, multiplies by 2^Amount.",
+      "runtime_mapping_or_scope_limit": "_gain_player_block / _unpowered_player_block_gain / _modified_monster_block_gain"
+    },
+    {
+      "power": "ShrinkPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/ShrinkPower.cs",
+      "sha256": "e007fb069c7e9364e165d7ba74d29b582adaa8fb00d12c8940a928fb9eb5acfb",
+      "reviewed_predicate": "Owner-dealt powered attack damage multiplies by 0.7; infinite source-linked negative sentinel remains active.",
+      "runtime_mapping_or_scope_limit": "_modified_card_damage / _modified_monster_attack_damage; source-linked expiry"
+    },
+    {
+      "power": "SlowPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/SlowPower.cs",
+      "sha256": "825ed779d3a42bd83ef6799d8ceee47299e75342b298b4858c44bc6e49d050b3",
+      "reviewed_predicate": "Target powered attack damage multiplier is one plus 0.1 per card played this turn.",
+      "runtime_mapping_or_scope_limit": "_apply_monster_slow_on_card_play / _incoming_monster_damage"
+    },
+    {
+      "power": "SoarPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/SoarPower.cs",
+      "sha256": "a1b35adba4b08d7c4e0334cce2ce935aeaa71c0f9211592780a8a3d9d4370298",
+      "reviewed_predicate": "Target receives half powered attack damage; other damage is unaffected.",
+      "runtime_mapping_or_scope_limit": "_incoming_monster_damage"
+    },
+    {
+      "power": "StrengthPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/StrengthPower.cs",
+      "sha256": "62ceb1d76bb5369a9d38d4d153584799cb5f0a46d22ba93ae0675072399193db",
+      "reviewed_predicate": "Signed additive stat affects powered attacks by the stat owner, not their pet.",
+      "runtime_mapping_or_scope_limit": "_modified_card_damage / _modified_monster_attack_damage / source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "SurroundedPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/SurroundedPower.cs",
+      "sha256": "e45d9c106a130f991f1c56ca620de9cf97f57096e1b5c400fc7d86acf0227971",
+      "reviewed_predicate": "Back-facing dealer multiplies all dealer-backed damage by 1.5, including unpowered damage; no PoweredAttack guard.",
+      "runtime_mapping_or_scope_limit": "_back_attack_multiplier / _damage_combat_player; public thorns regression"
+    },
+    {
+      "power": "TaintedPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TaintedPower.cs",
+      "sha256": "8fe1472f3568d306ad521e2a7b10df4c45dcc74c40ca40192805e08eac1c9d64",
+      "reviewed_predicate": "Powered attacks against the power owner add Amount before multiplicative modifiers, including attacks from pets.",
+      "runtime_mapping_or_scope_limit": "_modified_card_damage / _damage_combat_player / source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "TankPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TankPower.cs",
+      "sha256": "c6034a225c7840fac73c41c9372fbfb09447914dd42864e9fb61df43a3caf04c",
+      "reviewed_predicate": "Owner receives double powered attack damage.",
+      "runtime_mapping_or_scope_limit": "_incoming_player_damage"
+    },
+    {
+      "power": "TrackingPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/TrackingPower.cs",
+      "sha256": "42711604bae5d1eb79b855149fdb491609e1a7de1bc2d6a25dcd8ec4e9baf377",
+      "reviewed_predicate": "Owner or pet powered card-source attacks against Weak targets multiply by Amount.",
+      "runtime_mapping_or_scope_limit": "_incoming_monster_damage / source_osty_hooks.damage_amount"
+    },
+    {
+      "power": "UnmovablePower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/UnmovablePower.cs",
+      "sha256": "b267db119bf6d000e1ccc146584cc1d648566a82a4ac7ef34bc2dd53ff5306a6",
+      "reviewed_predicate": "Move Block doubles while fewer than Amount prior OTHER CardPlay BlockGainedEntry records exist; all chunks of current CardPlay share eligibility; monster targets excluded.",
+      "runtime_mapping_or_scope_limit": "_apply_item_card_block_multipliers / source_card_block_entry_counts"
+    },
+    {
+      "power": "VigorPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/VigorPower.cs",
+      "sha256": "4422ba55e4d4e0bd85b06b95e5c88bceb6947374255d9d5587c3933c86efc11e",
+      "reviewed_predicate": "Owner-dealt powered command locks first command; every hit adds current Amount, then subtracts the starting Amount after command. Owner pet attacks neither use nor consume owner Vigor.",
+      "runtime_mapping_or_scope_limit": "source_attack_hooks / _modified_card_damage; source_osty_hooks uses pet Vigor"
+    },
+    {
+      "power": "VulnerablePower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/VulnerablePower.cs",
+      "sha256": "d4cc015ea3ab96f8245de67d7a5a64799d5ba09f8d77ccaf7a9708065be9d204",
+      "reviewed_predicate": "Target powered attacks multiply by 1.5, with PaperPhrog and Cruelty from the dealer creature and Debilitate from target.",
+      "runtime_mapping_or_scope_limit": "_incoming_player_damage / _incoming_monster_damage; pet dealer modifiers reviewed separately"
+    },
+    {
+      "power": "WeakPower",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/WeakPower.cs",
+      "sha256": "631e963cbc39801fd98236e18e2fc645a12b3c118e82b4133cdb93afc9bfaaca",
+      "reviewed_predicate": "Dealer powered attack multiplier 0.75, modified by target-player PaperKrane and dealer Debilitate.",
+      "runtime_mapping_or_scope_limit": "_modified_card_damage / _modified_monster_attack_damage / source_osty_hooks.damage_amount"
+    }
+  ]
+}

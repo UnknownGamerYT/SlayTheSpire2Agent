@@ -1,0 +1,528 @@
+{
+  "schema_version": 2,
+  "target": {
+    "channel": "stable",
+    "game_version": "0.107.1",
+    "steam_public_build": 23811903,
+    "installed_game_behavior_validated": false
+  },
+  "source_reference": {
+    "repository": "https://github.com/zhiyue/sts2-rl-agent",
+    "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+    "qualification": "Third-party version-qualified source; no installed-binary authentication."
+  },
+  "scope": "Finite source contracts, software consistency and bounded training checks; no fidelity percentage, gameplay capability or installed-game certification.",
+  "validation_revision_binding": {
+    "frozen_runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "frozen_runtime_tree": "6977986582e214d1e089bc678da65f413201e4a8",
+    "full_suite_training_qa_and_packaging_apply_to": "The exact frozen runtime above, not later bridge edits.",
+    "final_bridge_followup_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+    "final_bridge_followup_status": "passed",
+    "final_published_ci": "All-tests verification of the final published branch revision is recorded by the actual draft PR checks and delivered publication metadata.",
+    "final_bridge_followup_tree": "ed731a21e48aeb672847fe3ad226116454df0f79",
+    "game_logic_checksum_unchanged": true
+  },
+  "full_suite_results": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "status": "passed",
+    "command": "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/pytest -o addopts= -q -ra",
+    "passed": 6419,
+    "skipped": 1,
+    "warnings": 2,
+    "elapsed_seconds": 711.0,
+    "log_sha256": "be06e6c65232277ae3a5c066e4929884006a4cb94da79cd2e648c4a3d2b62beb",
+    "skip_reason": "Missing-PyTorch-path test skipped because PyTorch is installed",
+    "warnings_scope": "Gymnasium checker unbounded Box minimum/maximum"
+  },
+  "static_checks": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "passed": true,
+    "mypy_source_files": 193,
+    "checks": [
+      {
+        "label": "ruff",
+        "artifact_file": "v2-final-ruff.log",
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+        "result": "passed"
+      },
+      {
+        "label": "mypy",
+        "artifact_file": "v2-final-mypy.log",
+        "sha256": "7c04d2220edb6c4c9abe500fb22d101adfd8dcd85cc852a616a0ee2bed0f8c5d",
+        "result": "Success: no issues found in 193 source files"
+      },
+      {
+        "label": "build",
+        "artifact_file": "v2-final-build.log",
+        "sha256": "160f76da35b4b6562f608b06ac2055f57e9902db69a2cbc4ec7879b0c50dff6b",
+        "result": "Source distribution and wheel built successfully"
+      }
+    ]
+  },
+  "packaging": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "tracked_package_files_verified": 194,
+    "wheel_source_byte_identical": true,
+    "sdist_source_byte_identical": true,
+    "isolated_wheel_cli_help_exit": 0,
+    "new_comparison_cli_present": true,
+    "artifacts": {
+      "sts2sim-0.1.0-py3-none-any.whl": "b0b423da38e0a9cca41216cec720b95201d2111ccb6dfbb8227ae05cd305ccc8",
+      "sts2sim-0.1.0.tar.gz": "e7e0b92576d9d7c7f408fd78b6e6e6eddb6c17158f68a0fe12354b0510dc9c44"
+    },
+    "verification_report_sha256": "9048113dbb49984c7c04e07f0a92a3e4faeb25def836f134725e2595160ffd8e"
+  },
+  "source_payloads": {
+    "checked_at_utc": "2026-10-29T08:03:13.305211+00:00",
+    "datasets": 17,
+    "all_match": true,
+    "scope": "Read-only API canonical bytes compared with existing stable cache; no executable build or behavior certification",
+    "artifact_file": "v2-online-source-check.json",
+    "report_sha256": "855c53e6d0a7dd70a0de150724ce4ce76112c107e6dd6a111f441a67c5f8e768",
+    "dataset_hashes": {
+      "eng/acts": {
+        "sha256": "768ccb7ab7231c8b7584eca5a0a6e4932c67dc671f0f286bb8226f2ec02a51e5",
+        "count": 4
+      },
+      "eng/afflictions": {
+        "sha256": "b55258f2f86d28e7160bb0d3e01de035cde98c9a851ff15e65ae48ab5122e848",
+        "count": 7
+      },
+      "eng/ascensions": {
+        "sha256": "f9342d130bf18981b6bc34df91da6c04379acced3e3e3105405aea1bfc0e43da",
+        "count": 11
+      },
+      "eng/cards": {
+        "sha256": "ae1bf6a2f52d6a80327de818c2c6c93749f97faccbf1f7df0d72164539b5f0ef",
+        "count": 577
+      },
+      "eng/characters": {
+        "sha256": "9be5d05020b896f438eb5356166b2e097343d0c6a842fb749ff411cf9488fe69",
+        "count": 5
+      },
+      "eng/enchantments": {
+        "sha256": "78289bf6efb95dc7d8923563fc8f0c6aa616d09f8bac3fbdf5e742522cf5c515",
+        "count": 22
+      },
+      "eng/encounters": {
+        "sha256": "a24589ba6560dc6c120d75068b46933fd7337699a0a67e7e7254582d25eb0c04",
+        "count": 87
+      },
+      "eng/events": {
+        "sha256": "37be0fc3457e3e0745f098b304b49bc95c067f222a5e0af50680d5ffec69bec0",
+        "count": 66
+      },
+      "eng/intents": {
+        "sha256": "5b2543cc0ba7bda7080ca8e50de2bf46684f67e7337ae0ce84854194f85eba07",
+        "count": 14
+      },
+      "eng/keywords": {
+        "sha256": "1646574b348ed66eac63bf0b9639e64664b4d61cf12ac7764bd8f9b2f6d5e48f",
+        "count": 7
+      },
+      "eng/mechanics_constants": {
+        "sha256": "5bbd658f5b7d10e7c50c883adf2f2cf454757bf69007d55983a0c38f6f1efd35",
+        "count": 7
+      },
+      "eng/mechanics_sections": {
+        "sha256": "33ac3898bfeca90f9061f367db7e58cff4214f92f76326809b32165257dba832",
+        "count": 27
+      },
+      "eng/monsters": {
+        "sha256": "7be9b2b075e09cba1f46cad387581ca2b347d31821fe9e9f22dee4a9dd4372d1",
+        "count": 115
+      },
+      "eng/orbs": {
+        "sha256": "dea78e4a9dcaa922cdc26c18565befcadc1264b74012469654075ebb00710923",
+        "count": 5
+      },
+      "eng/potions": {
+        "sha256": "b3acfc172172201470a3386b5bff37651f4476ddcb4f34b9b10661665ed1afbe",
+        "count": 63
+      },
+      "eng/powers": {
+        "sha256": "58659b3f69f33a846ddfa9f36f4ccb9d2b9e6d7d4aeb45582c34c008af9348be",
+        "count": 257
+      },
+      "eng/relics": {
+        "sha256": "ba7c9ce8db46c798437ce8899b9b805e7b1dd7d6d6e977a3ac6635c2f78425da",
+        "count": 296
+      }
+    },
+    "manifest_game_version": null
+  },
+  "training": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "pipeline_passed": true,
+    "source_report_sha256": "9090dd0a4fe65584f825fd7beced55fb0c7e9da194a1ed72b11f2a5c6f5f96f2",
+    "python": "3.12.14",
+    "game_logic_checksum": "5fc103061c76db841ed5c1cf03f95e1a3570d1815d084a15f6e56c46e4511dc7",
+    "source_data_checksum": "26a8c3d2c14141ebfb6e9491ef97722510229a2ad1a43d5da338b6dee4624506",
+    "settings": {
+      "character": "IRONCLAD",
+      "ascension": 0,
+      "device": "cpu",
+      "rollout_workers": 1,
+      "train_max_steps_per_batch": 12,
+      "fresh_batches": 1,
+      "resumed_batches": 1,
+      "uninterrupted_batches": 2,
+      "teacher_mix": 0,
+      "imitation_coefficient": 0,
+      "history_mode": "off",
+      "synthetic_boosts": false
+    },
+    "changed_tensor_count_after_resume": 17,
+    "uninterrupted_comparison": {
+      "equal_average_training_reward": true,
+      "equal_eval_episode_seeds": true,
+      "equal_steps": true,
+      "equal_train_episode_seeds": true,
+      "model_state": true,
+      "optimizer_state": true,
+      "rng_state": true
+    },
+    "evaluation": {
+      "checkpoint_bytes_unchanged": true,
+      "checkpoint_sha256_after": "7610f981f5e5b4c139a7d36c42510fdcb3a4a9392765e3714da23a9c39724156",
+      "checkpoint_sha256_before": "7610f981f5e5b4c139a7d36c42510fdcb3a4a9392765e3714da23a9c39724156",
+      "compatible": true,
+      "episode_seeds": [
+        238749616,
+        1545084737
+      ],
+      "eval_runs": 2,
+      "evaluation_errors": 0,
+      "evaluation_max_steps": 12,
+      "identical_repeat_report": true,
+      "passed": false,
+      "seed": "final-independent-heldout-1",
+      "target_successes": 0
+    },
+    "inference_action_count": 12,
+    "all_inference_actions_masked_and_legal": true,
+    "visible_input_inference": [
+      {
+        "action_id": 0,
+        "command": {
+          "action": "choose_map_node",
+          "index": 0
+        },
+        "enabled_choices": 2,
+        "game_used": false,
+        "legal": true,
+        "state_type": "map",
+        "trained_checkpoint_inference": true
+      },
+      {
+        "action_id": 1,
+        "command": {
+          "action": "claim_reward",
+          "index": 1
+        },
+        "enabled_choices": 3,
+        "game_used": false,
+        "legal": true,
+        "state_type": "rewards",
+        "trained_checkpoint_inference": true
+      }
+    ],
+    "older_checkpoint": {
+      "bytes_unchanged": true,
+      "reason": "Cannot use PPO checkpoint /workspace/final-ppo-checkpoint.pt: checkpoint hash or schema changed: game_logic_checksum",
+      "rejected": true,
+      "sha256": "68abc2fe3d01b29661488ab03d77b0598b0e29467382e5c74c6ee882c24e618f"
+    },
+    "limitations": [
+      "This is a bounded CPU software smoke, not evidence of gameplay skill or a trained champion.",
+      "No game process or live bridge was used. No source files or shared cache bytes were modified.",
+      "Training used ordinary IRONCLAD ascension0 source state with no synthetic HP/resource boosts."
+    ]
+  },
+  "normal_random_qa": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "runtime_tree": "6977986582e214d1e089bc678da65f413201e4a8",
+    "artifact_file": "v2-final-normal-qa.json",
+    "report_sha256": "ae7ac03184983d830d76c2d2ab8383042e61765db33c55c1214e90df403ca833",
+    "summary": {
+      "findings": 0,
+      "findings_by_kind": {},
+      "max_floor": 11,
+      "outcomes": {
+        "failed": 25
+      },
+      "reload_checks": 105,
+      "runs": 25,
+      "steps": 1609
+    },
+    "settings": {
+      "also_reload_for": [
+        "open_chest"
+      ],
+      "ascension": 0,
+      "characters": [
+        "IRONCLAD",
+        "SILENT",
+        "REGENT",
+        "NECROBINDER",
+        "DEFECT"
+      ],
+      "policy": "uniform choice of legal action; random.Random(\"qa:{character}:{seed}\")",
+      "reload_interval": 17,
+      "seeds": [
+        3,
+        7,
+        19,
+        42,
+        137
+      ],
+      "step_cap": 400,
+      "synthetic_boosts": false
+    },
+    "notes": [
+      "Random deaths are expected; no full-game-win claim.",
+      "Permanent deck IDs and aggregate combat-zone IDs checked separately.",
+      "Run/combat player equality checked only during active combat; archived combat state may differ after rewards/cleanup.",
+      "All selected actions are generated by public legal_actions()."
+    ]
+  },
+  "synthetic_deep_qa": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "runtime_tree": "6977986582e214d1e089bc678da65f413201e4a8",
+    "artifact_file": "v2-final-deep-qa.json",
+    "report_sha256": "9013b61ad4ceff703cc30cc39019946bcb61969ea7c94b2ee741c20af391e543",
+    "summary": {
+      "findings": 0,
+      "findings_by_kind": {},
+      "max_act": 2,
+      "max_floor": 16,
+      "outcomes": {
+        "step_cap": 21,
+        "wall_time_cap": 4
+      },
+      "reload_checks": 591,
+      "runs": 25,
+      "steps": 9297
+    },
+    "settings": {
+      "also_reload_for": [
+        "open_chest"
+      ],
+      "ascension": 0,
+      "characters": [
+        "IRONCLAD",
+        "SILENT",
+        "REGENT",
+        "NECROBINDER",
+        "DEFECT"
+      ],
+      "harness_sha256": "cf43314a22c452273d5cffae2c0d33f7240999b967eab5d219500e21dd2b5fbc",
+      "policy": "uniform choice of legal action; random.Random(\"qa:{character}:{seed}\")",
+      "reload_interval": 17,
+      "seeds": [
+        3,
+        7,
+        19,
+        42,
+        137
+      ],
+      "step_cap": 400,
+      "synthetic_boosts": true,
+      "test_only_initial_hp_and_max_hp": 10000,
+      "wall_time_cap_per_run_seconds": 20
+    },
+    "notes": [
+      "One initial test-only HP/max-HP increase to 10000 enables deeper random transitions; no performance/win claim.",
+      "20-second wall-time cap per character/seed; at most 400 actions.",
+      "Permanent deck IDs and aggregate combat-zone IDs checked separately.",
+      "Run/combat player equality checked only during active combat; archived combat state may differ after rewards/cleanup.",
+      "All selected actions are generated by public legal_actions().",
+      "Extra HP is a synthetic harness change, not a character/game balance change or a win-rate benchmark.",
+      "This bounded audit does not establish source/game parity or run-seed equivalence."
+    ]
+  },
+  "synthetic_progression_qa": {
+    "runtime_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "runtime_tree": "6977986582e214d1e089bc678da65f413201e4a8",
+    "artifact_file": "v2-final-progression-qa.json",
+    "report_sha256": "0cbf3224ce9bda11ab26afc8ffe1b07acbf6a5ad870998a7ec0d24619d8d1423",
+    "summary": {
+      "runs": 10,
+      "actions": 3194,
+      "reload_checks": 1096,
+      "transition_replay_checks": 1096,
+      "issues": 0,
+      "statuses": {
+        "complete": 10
+      },
+      "all_three_acts_seen": true,
+      "act3_boss_combats": [
+        {
+          "character_id": "DEFECT",
+          "ascension": 0,
+          "count": 1
+        },
+        {
+          "character_id": "IRONCLAD",
+          "ascension": 0,
+          "count": 1
+        },
+        {
+          "character_id": "NECROBINDER",
+          "ascension": 0,
+          "count": 1
+        },
+        {
+          "character_id": "REGENT",
+          "ascension": 0,
+          "count": 1
+        },
+        {
+          "character_id": "SILENT",
+          "ascension": 0,
+          "count": 1
+        },
+        {
+          "character_id": "DEFECT",
+          "ascension": 10,
+          "count": 2
+        },
+        {
+          "character_id": "IRONCLAD",
+          "ascension": 10,
+          "count": 2
+        },
+        {
+          "character_id": "NECROBINDER",
+          "ascension": 10,
+          "count": 2
+        },
+        {
+          "character_id": "REGENT",
+          "ascension": 10,
+          "count": 2
+        },
+        {
+          "character_id": "SILENT",
+          "ascension": 10,
+          "count": 2
+        }
+      ]
+    },
+    "settings": {
+      "characters": [
+        "IRONCLAD",
+        "SILENT",
+        "REGENT",
+        "NECROBINDER",
+        "DEFECT"
+      ],
+      "ascensions": [
+        0,
+        10
+      ],
+      "max_actions_per_run": 700,
+      "seed_template": "SYNTHETICPROGRESSION{character_index_1_to_5}A{ascension}",
+      "source_data_override": {
+        "player": {
+          "hp": 1000000,
+          "max_hp": 1000000,
+          "energy": 99,
+          "max_energy": 99,
+          "statuses": {
+            "strength": 10000,
+            "focus": 1000,
+            "dexterity": 10000
+          }
+        },
+        "data_cache_dir": "/workspace/SlayTheSpire2Agent/data/cache"
+      },
+      "combat_entry_override": {
+        "hp": 1000000,
+        "max_hp": 1000000,
+        "energy": 99,
+        "max_energy": 99,
+        "statuses": {
+          "strength": 10000,
+          "focus": 1000,
+          "dexterity": 10000
+        }
+      },
+      "injection_rule": "Initial player override and once after each combat_started transition. No RNG draws, deck/map/enemy/phase/outcome mutations.",
+      "policy": "Deterministic legal-action policy: direct attacks, then draw/damage/power/skills; source rewards; character-specific combat vs event/shop map preference. Prefer fight event options and explicit chest opening. One optional shop purchase. No potion spam.",
+      "reload_checks": "Every 11 actions, every choose_node/choose_ancient/proceed/open_chest: exact serialized-state round-trip, identical legal-action order, and identical next action state/events/RNG."
+    },
+    "notes": []
+  },
+  "qa_audit": {
+    "report_sha256": "7abfb766b3706f4b5c311930db35240b3a93f3324e8186691dee967065db6fe7",
+    "runtime_sources_clean": true,
+    "all_report_revisions_and_trees_match": true,
+    "all_source_cache_metadata_match": true,
+    "all_harness_hashes_match": true
+  },
+  "closure_ledger": "docs/source_edge_closure_2026_10_29.json",
+  "remaining_external_validation": [
+    "Fingerprint the Windows Steam installation.",
+    "Compile/load the patched bridge against the selected installed assemblies.",
+    "Compare actual game before/action/after traces, including source-defined reward exception UI/task recovery."
+  ],
+  "not_established": [
+    "Exhaustive card/relic/power ordering and whole-run seed equivalence.",
+    "Complete multiplayer synchronization or co-op interactions.",
+    "A capable trained champion or normal/live-game win rate."
+  ],
+  "historical_report": "docs/validation/stable_source_training_2026_10_28.json",
+  "bridge_followup": {
+    "revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+    "baseline_validation_revision": "91e7869b7dcfb1aaf77a5c3d72c64729f37ae066",
+    "game_logic_checksum": "5fc103061c76db841ed5c1cf03f95e1a3570d1815d084a15f6e56c46e4511dc7",
+    "game_logic_unchanged": true,
+    "checkpoint_compatible": true,
+    "checkpoint_sha256_before": "7610f981f5e5b4c139a7d36c42510fdcb3a4a9392765e3714da23a9c39724156",
+    "checkpoint_sha256_after": "7610f981f5e5b4c139a7d36c42510fdcb3a4a9392765e3714da23a9c39724156",
+    "trained_repeatable_choice": {
+      "action": "choose_event_option",
+      "index": 1
+    },
+    "ordinary_chosen_choice_blocked": true,
+    "game_used": false,
+    "passed": true,
+    "source_paths_changed_since_baseline": [
+      "src/sts2sim/live_capture.py",
+      "src/sts2sim/live_policy_views.py"
+    ],
+    "validation_report_sha256": "3eded3019eb80d8978bcb5b90aca2b8eb7d657eecfea62934c53b9d95c3b20df",
+    "source_freeze_sha256": "af8c9a35b710e787a7c40600e877ecadc5d2af232586ebc2eea3d6da189988fa",
+    "static_checks": {
+      "ruff": {
+        "passed": true,
+        "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      "mypy": {
+        "passed": true,
+        "source_files": 193,
+        "log_sha256": "7c04d2220edb6c4c9abe500fb22d101adfd8dcd85cc852a616a0ee2bed0f8c5d"
+      }
+    },
+    "scope": "Repeatable event controls honor actual source can_choose/DisableOnChosen. Frozen full/PPO/QA and wheel evidence above remains bound to R; the changed bridge is separately checked and final published all-tests CI is recorded by its actual head.",
+    "live_suite": {
+      "runtime_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+      "scope": "All tests/live",
+      "passed": 206,
+      "elapsed_seconds": 79.52,
+      "log_sha256": "a7ba4f9a08e3e27f3d32eac7df764acfb75adaa0748315e650b044dcf32939dc"
+    }
+  },
+  "bridge_preparation": {
+    "revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
+    "pinned_bridge_commit": "55e064850a68f3b4cde7e5fd525bf9b2dec4e885",
+    "patch_sha256": "1df38bdacffe835d4c266785cbc9646af767b58ca6bf5f6a93175bc671bd79b1",
+    "migration_cases_passed": 6,
+    "source_path_hashes_verified": 76,
+    "source_state_builder_has_no_action_invocations": true,
+    "built": false,
+    "game_tested": false,
+    "report_sha256": "b936c40ea0cce095badff268d93180ce54e328c3c406d8232ba2aff0c626d21b"
+  }
+}

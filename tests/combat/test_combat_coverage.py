@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sts2sim.content import combat_coverage
 from sts2sim.content.combat_coverage import (
     CombatCoverageCategory,
     CombatCoverageStatus,
@@ -116,6 +117,55 @@ def test_combat_coverage_entries_expose_reasons_and_keys() -> None:
     assert mystery.unknown_keys == ("summon_golem",)
     assert report.as_dict()["counts_by_category"]["cards"]["unknown"] == 1
     assert report.as_dict()["sample_blocked_ids"]["cards"] == ["BLOCKED_CARD"]
+
+
+def test_combat_registered_surface_report_does_not_certify_runtime_parity() -> None:
+    report = audit_combat_coverage_from_sources(cards=({
+        "id": "NAMED_STATUS", "type": "Power", "cost": 1,
+        "effects": {"apply_status": {"target": "self", "arbitrary_named_status": 1}},
+    },))
+
+    assert report.entry_for("cards", "NAMED_STATUS").status is CombatCoverageStatus.IMPLEMENTED
+    assert report.scope == "registered_execution_surface"
+    payload = report.as_dict()
+    assert payload["scope"] == report.scope
+    assert payload["certifies_game_parity"] is False
+    assert list(report.limits) == payload["limits"]
+
+
+def test_known_source_runtime_gap_is_blocked_with_registered_effect_keys(monkeypatch) -> None:
+    monkeypatch.setattr(combat_coverage, "KNOWN_CARD_RUNTIME_GAPS", {
+        "recorded_gap": "Stored printed power lacks its verified runtime consumer.",
+    })
+    report = audit_combat_coverage_from_sources(cards=({
+        "id": "RECORDED_GAP", "type": "Power", "cost": 1,
+        "effects": {"apply_status": {"target": "self", "printed_power": 1}},
+    },))
+
+    entry = report.entry_for("cards", "RECORDED_GAP")
+    assert entry.status is CombatCoverageStatus.BLOCKED
+    assert any("verified runtime consumer" in reason for reason in entry.reasons)
+
+
+def test_marker_only_relic_registration_does_not_claim_executable_coverage(monkeypatch) -> None:
+    from sts2sim.mechanics import relics
+
+    rules = {hook: dict(entries) for hook, entries in relics.DEFAULT_RELIC_HOOK_RULES.items()}
+    for hook in (relics.RelicHook.PICKUP, relics.RelicHook.SHOP_PURCHASE):
+        rules[hook]["unfinished_relic"] = relics.RelicHookRule(markers=(
+            relics.RelicMarkerSpec("no_effect", metadata={"needed_subsystem": "missing_runtime"}),
+        ))
+    monkeypatch.setattr(relics, "DEFAULT_RELIC_HOOK_RULES", rules)
+    report = audit_combat_coverage_from_sources(relics=(
+        {"id": "UNFINISHED_RELIC", "name": "Unfinished Relic"},
+        {"id": "ANCHOR", "name": "Anchor"},
+    ))
+
+    unfinished = report.entry_for("relics", "UNFINISHED_RELIC")
+    assert unfinished.status is CombatCoverageStatus.BLOCKED
+    assert "missing_runtime" in unfinished.reasons[0]
+    assert len(unfinished.reasons) == 2
+    assert report.entry_for("relics", "ANCHOR").status is CombatCoverageStatus.IMPLEMENTED
 
 
 def test_combat_coverage_blocks_monsters_with_unintegrated_special_requirements() -> None:

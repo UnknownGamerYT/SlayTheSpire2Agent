@@ -162,4 +162,6 @@ def test_compare_live_state_to_simulator_reports_baseline_gaps() -> None:
     assert report.supported is True
     assert report.character_id == "IRONCLAD"
     assert report.mismatch_count > 0
-    assert {mismatch.path for mismatch in report.mismatches} >= {"phase", "player.gold"}
+    mismatch_paths = {mismatch.path for mismatch in report.mismatches}
+    assert "phase" in mismatch_paths
+    assert "player.gold" not in mismatch_paths

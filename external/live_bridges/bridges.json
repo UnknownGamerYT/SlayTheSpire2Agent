@@ -1,24 +1,73 @@
 {
-  "downloaded_at": "2026-06-19",
+  "downloaded_at": "2026-10-28",
   "repos_dir": "external/live_bridges/repos",
   "bridges": [
     {
       "name": "STS2MCP",
       "local_path": "external/live_bridges/repos/STS2MCP",
       "source": "https://github.com/Gennadiyev/STS2MCP",
-      "commit": "20eadeb",
+      "commit": "55e064850a68f3b4cde7e5fd525bf9b2dec4e885",
       "default_base_url": "http://localhost:15526",
       "kind": "rest-and-mcp",
-      "notes": "Best first choice for live state/actions."
+      "notes": "Preferred STS2MCP protocol. Published release lacks exact combat pile/master-deck identity; prepare the pinned source patch for PPO observations. README reports testing against game v0.103.2; installed-game compatibility remains unverified.",
+      "release": {
+        "tag": "0.4.0",
+        "published": "2026-05-05T06:29:50Z",
+        "url": "https://github.com/Gennadiyev/STS2MCP/releases/tag/0.4.0",
+        "assets": [
+          {
+            "name": "STS2_MCP.dll",
+            "url": "https://github.com/Gennadiyev/STS2MCP/releases/download/0.4.0/STS2_MCP.dll",
+            "size": 194560,
+            "sha256": "f429e781d1bfc7fb24b20b6d88bda78c40a29ac0da658349eb4d0f861b325810"
+          },
+          {
+            "name": "STS2_MCP.json",
+            "url": "https://github.com/Gennadiyev/STS2MCP/releases/download/0.4.0/STS2_MCP.json",
+            "size": 228,
+            "sha256": "ae6fa24cb037406bfbae82aa25b86cb66b7e7080d0b6ef59a0a0a9d1b19510df"
+          }
+        ]
+      },
+      "ppo_observation_ready": false,
+      "source_reviewed_at": "2026-10-28",
+      "ppo_patch": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations.patch",
+      "ppo_patch_sha256": "0a61072b33e2ae4614b3811fcd29691cba647ef00b5cb0cc257830c420313b98",
+      "previous_ppo_patches": [
+        {
+          "path": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations-v1.patch",
+          "sha256": "a81f2bc643a71258ba9e088b8bf50906ad43cdf5bb2cfe7e2c38491049280dee"
+        },
+        {
+          "path": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations-v2-initial.patch",
+          "sha256": "629886a93cd201de75b42d60eec380bdff74f335eb236e4a420245b712c27181"
+        }
+      ],
+      "observation_schema_version": 2
     },
     {
       "name": "STS2-Agent",
       "local_path": "external/live_bridges/repos/STS2-Agent",
       "source": "https://github.com/CharTyr/STS2-Agent",
-      "commit": "2617fb1",
+      "commit": "89d5fd3d56c25d7d87a09dfbaa283485a6c3e1b1",
       "default_base_url": "http://127.0.0.1:8080",
       "kind": "rest-and-mcp",
-      "notes": "Alternative live state/actions bridge; health endpoint documented at /health."
+      "notes": "Alternative state-capture bridge. Different state/action protocol; checkpoint control is not implemented for this bridge. Windows release archive.",
+      "release": {
+        "tag": "v0.17.0",
+        "published": "2026-10-28T07:17:14Z",
+        "url": "https://github.com/CharTyr/STS2-Agent/releases/tag/v0.17.0",
+        "assets": [
+          {
+            "name": "sts2-ai-agent-v0.17.0-windows.zip",
+            "url": "https://github.com/CharTyr/STS2-Agent/releases/download/v0.17.0/sts2-ai-agent-v0.17.0-windows.zip",
+            "size": 832523,
+            "sha256": "0f45c9f5fb023b76daba5145f832a820c659b7aa7551e5eb70371a327762f783"
+          }
+        ]
+      },
+      "ppo_observation_ready": false,
+      "source_reviewed_at": "2026-10-28"
     },
     {
       "name": "BoberInSpire",
@@ -38,5 +87,7 @@
       "kind": "cli-bridge-reference",
       "notes": "Useful reference for normalized command-line game control."
     }
-  ]
+  ],
+  "schema_version": 2,
+  "downloads_dir": "external/live_bridges/downloads"
 }

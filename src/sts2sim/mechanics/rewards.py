@@ -57,6 +57,8 @@ class RewardContext:
 class RewardPityState:
     card_non_rare_count: int = 0
     potion_chance_bonus: int = 0
+    card_rarity_offset: float | None = None
+    potion_current_value: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,9 +258,8 @@ def roll_gold_reward(
         raise ValueError(f"Invalid gold range for {context.encounter.value}: {(low, high)}")
     base_amount = rng.randint(low, high)
     amount = base_amount
-    if (
-        context.encounter is EncounterType.BOSS
-        and ascension_enabled(context.ascension_level, AscensionFlag.POORER_BOSS_REWARDS)
+    if context.encounter is EncounterType.BOSS and ascension_enabled(
+        context.ascension_level, AscensionFlag.POORER_BOSS_REWARDS
     ):
         amount = int(amount * model.poorer_boss_reward_multiplier)
     return GoldReward(amount=amount, base_amount=base_amount, source=model.source)

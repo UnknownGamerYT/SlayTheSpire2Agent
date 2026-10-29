@@ -1,0 +1,48 @@
+{
+  "source_repository": "zhiyue/sts2-rl-agent",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "source_files": {
+    "MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e",
+    "MegaCrit.Sts2.Core.Combat/CombatManager.cs": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+    "MegaCrit.Sts2.Core.Combat/CombatState.cs": "b3150c69fae0c33b48b7957c3a67bc4e5867d1641e05062cd3f5edd0a9d9f2e2",
+    "MegaCrit.Sts2.Core.Hooks/Hook.cs": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588",
+    "MegaCrit.Sts2.Core.Entities.Players/PlayerCombatState.cs": "c908ea3144a466dc0d979ec44ade207dd692d6b23b9512afbcccae3468fea123",
+    "MegaCrit.Sts2.Core.Models.Powers/PlatingPower.cs": "d3cd1402c704dcc379caf0981595356d449ccd81da10ff043836e0c1644cc2f1",
+    "MegaCrit.Sts2.Core.Models.Powers/RampartPower.cs": "89acacd7c482efce7773b5c1980a84f5825ddcdade6f35a6f672db854f22931a",
+    "MegaCrit.Sts2.Core.Models.Powers/SlowPower.cs": "825ed779d3a42bd83ef6799d8ceee47299e75342b298b4858c44bc6e49d050b3",
+    "MegaCrit.Sts2.Core.Models.Powers/HardenedShellPower.cs": "81ebdd1312d4e08d1a901981776349c1c09456b7dd51c93de424b32b92fe42d8",
+    "MegaCrit.Sts2.Core.Models.Powers/NemesisPower.cs": "26f4d0934e270d6cc6ac3dbccf6174d61687f7ec798910fe7093d6a772a4c22e",
+    "MegaCrit.Sts2.Core.Models.Powers/WeakPower.cs": "631e963cbc39801fd98236e18e2fc645a12b3c118e82b4133cdb93afc9bfaaca",
+    "MegaCrit.Sts2.Core.Models.Powers/VulnerablePower.cs": "d4cc015ea3ab96f8245de67d7a5a64799d5ba09f8d77ccaf7a9708065be9d204",
+    "MegaCrit.Sts2.Core.Models.Powers/FrailPower.cs": "0c1090da7732348da9a8c5ab595b0ed11e30079298c94c51983f5660c65cc4dd",
+    "MegaCrit.Sts2.Core.Models.Powers/IntangiblePower.cs": "40c86b71a68a50769c41b78fae9e46af0a2305ebf31d1239d541b25963416759",
+    "MegaCrit.Sts2.Core.Models.Powers/DoubleDamagePower.cs": "beb745098b5bc5b099de36c04fbbef7e9f07d322dadb8a4673d9e564dae642a3",
+    "MegaCrit.Sts2.Core.Models.Powers/ColossusPower.cs": "9430dede8bf297d2b2f1f905b74823394b879d3168e43656323b3563382667c2",
+    "MegaCrit.Sts2.Core.Models.Powers/RetainHandPower.cs": "1ff9604e0cbc7bb8f13fa843f3b1e716cb43f954aab7eb87b41108ae983b2ba4",
+    "MegaCrit.Sts2.Core.Models.Powers/NoDrawPower.cs": "21aedfb76a47719d32f82129b65116ea9526b49d5b4a8b6a0cd08330ed30d6ef",
+    "MegaCrit.Sts2.Core.Models.Powers/BorrowedTimePower.cs": "4e815b8173ad252159e8aaa354cc9e832f83e0cc7cffd68f36afc64a059f4b97",
+    "MegaCrit.Sts2.Core.Models.Powers/SicEmPower.cs": "31ddcb9797340e32597032080b46e4d2c74d9743ba56e0a42803559f14a53942",
+    "MegaCrit.Sts2.Core.Models.Powers/ReflectPower.cs": "4d5154519018b757b1b5b7c5cc30b11ef6a758ac5aa64e770f888024b08f0b60",
+    "MegaCrit.Sts2.Core.Models.Powers/TemporaryStrengthPower.cs": "c6b426e4bb0b195133970959fa5c0441ba7c5166bf21feeb3318df1e614aa637",
+    "MegaCrit.Sts2.Core.Models.Powers/TemporaryDexterityPower.cs": "0f2b4a7f1060b543a38837e4e98a87d435b1aef8b14fe03b43a70510e7a3db4a",
+    "MegaCrit.Sts2.Core.Models.Powers/TemporaryFocusPower.cs": "ac9f3437ac904f15c72e1bb60610ff5ba35806be14ff1685414bfaf69c5a26b9",
+    "MegaCrit.Sts2.Core.Models.Powers/RitualPower.cs": "b8917547dbef7e61619523c35d30c478645b8eea612fbcc20e15eacac10f1912"
+  },
+  "contracts": {
+    "registered_extra_turn_givers": "PaelsEye is the only registered live ShouldTakeExtraTurn override; MockExtraTurnPower is a test-only source model.",
+    "switch": "After complete player end/flush/after-end hooks, take the extra player turn before any enemy turn hooks or moves. Increment player TurnNumber, not RoundNumber.",
+    "scope": "Player setup and owner-side expiry run again; enemy poison, intent/move state, block clear, duration ticks, hatch and Nemesis do not advance.",
+    "first_round_plating": "BeforeSideTurnStart player-side block applies on each player start in round1, including an extra turn; first enemy turn still does not reduce plating.",
+    "rampart": "AfterSideTurnStart explicitly excludes PlayersTakingExtraTurn.",
+    "durations": "DoubleDamage, RetainHand, Debilitate and Conqueror decrement on owner-side end; Weak/Frail/Vulnerable/Intangible/Colossus/NoBlock decrement only after enemy side. Counter amounts are durations, not a reason to remove the whole stack.",
+    "temporary_stats": "Owner-side temporary stat reversal happens before the extra player turn and still uses incoming power modifiers. Ritual and recovery preserve owner power application order.",
+    "reflect": "Owner-side start decrements Reflect, including an extra player turn; enemy Reflect does not tick on the player extra turn."
+  },
+  "regression": "tests/combat/test_source_extra_turns.py",
+  "game_behavior_validated": false,
+  "limitations": [
+    "Finite independently implemented source contracts; no installed-game comparisons or complete interaction certification.",
+    "Existing saves without an explicit source round retain their legacy turn-derived round until taking a newly modeled extra turn."
+  ]
+}

@@ -52,6 +52,7 @@ DEFAULT_ACTION_PATHS = (
 STS2MCP_ACTION_NAMES = frozenset(
     {
         "advance_dialogue",
+        "cancel_abandon_run",
         "cancel_bundle_selection",
         "cancel_selection",
         "choose_event_option",
@@ -61,6 +62,7 @@ STS2MCP_ACTION_NAMES = frozenset(
         "claim_treasure_relic",
         "combat_confirm_selection",
         "combat_select_card",
+        "confirm_abandon_run",
         "confirm_bundle_selection",
         "confirm_selection",
         "crystal_sphere_click_cell",
@@ -69,11 +71,13 @@ STS2MCP_ACTION_NAMES = frozenset(
         "discard_potion",
         "end_turn",
         "menu_select",
+        "open_chest",
         "play_card",
         "proceed",
         "select_bundle",
         "select_card",
         "select_card_reward",
+        "select_card_reward_alternative",
         "select_relic",
         "shop_purchase",
         "skip_card_reward",
@@ -170,6 +174,10 @@ class LiveApiClient:
         )
 
     def actions(self, state_payload: Mapping[str, Any] | None = None) -> list[Any]:
+        source = _unwrap_payload(state_payload or {})
+        if source.get("state_type") == "abandon_run_confirmation":
+            # An empty modal action set must not fall back to underlying endpoints.
+            return _extract_sts2mcp_actions(source)
         from_state = _extract_actions(state_payload or {})
         if from_state:
             return from_state
@@ -245,6 +253,7 @@ def capture_live_state(
     active_client = client or LiveApiClient(config)
     try:
         health = active_client.health()
+        _reject_legacy_sts2mcp_observer(health)
         state = active_client.state()
     finally:
         if client is None:
@@ -424,10 +433,27 @@ def _should_wait_for_actions(state: Mapping[str, Any]) -> bool:
     return state_type in {"monster", "elite", "boss"}
 
 
+def _reject_legacy_sts2mcp_observer(health: Mapping[str, Any] | None) -> None:
+    """Block identified legacy STS2MCP GETs that can click source UI controls."""
+    if health is None:
+        return
+    identity = str(health.get("message", "")).lower().replace(" ", "")
+    is_sts2mcp = "sts2mcp" in identity or "observation_schema_version" in health
+    if is_sts2mcp and not (
+        health.get("observation_schema_version") == 2
+        and health.get("observer_actions_are_explicit") is True
+    ):
+        raise LiveApiError(
+            "Read-only observation schema2 is unconfirmed for STS2MCP; "
+            "prepare and load the reviewed source patch before state capture."
+        )
+
+
 def probe_live_bridges(
     *,
     base_urls: Sequence[str] | None = None,
     timeout_seconds: float = 1.0,
+    require_readonly_observer: bool = False,
 ) -> tuple[LiveBridgeProbe, ...]:
     urls = tuple(base_urls or KNOWN_BRIDGE_BASE_URLS)
     probes: list[LiveBridgeProbe] = []
@@ -442,14 +468,30 @@ def probe_live_bridges(
             health = client.health()
         except Exception as exc:  # pragma: no cover - defensive local bridge probe.
             errors.append(f"health: {exc}")
+        legacy_observer = False
         try:
-            state = client.state()
-        except Exception as exc:
-            errors.append(f"state: {exc}")
+            _reject_legacy_sts2mcp_observer(health)
+        except LiveApiError as exc:
+            legacy_observer = True
+            errors.append(str(exc))
+        readonly_confirmed = bool(
+            isinstance(health, Mapping) and health.get("observation_schema_version") == 2
+            and health.get("observer_actions_are_explicit") is True
+        )
         try:
-            actions = client.actions(state)
-        except Exception as exc:
-            errors.append(f"actions: {exc}")
+            if legacy_observer:
+                pass  # The known legacy GET invokes game actions; do not request it.
+            elif require_readonly_observer and not readonly_confirmed:
+                errors.append("Read-only observation schema2 is not confirmed by bridge health")
+            else:
+                try:
+                    state = client.state()
+                except Exception as exc:
+                    errors.append(f"state: {exc}")
+                try:
+                    actions = client.actions(state)
+                except Exception as exc:
+                    errors.append(f"actions: {exc}")
         finally:
             client.close()
         probes.append(
@@ -669,6 +711,9 @@ def _choose_action(
 
 
 def _extract_actions(payload: Mapping[str, Any]) -> list[Any]:
+    source = _unwrap_payload(payload)
+    if source.get("state_type") == "abandon_run_confirmation":
+        return _extract_sts2mcp_actions(source)
     sts2mcp_actions = _extract_sts2mcp_actions(payload)
     if sts2mcp_actions:
         return sts2mcp_actions
@@ -705,6 +750,14 @@ def _extract_sts2mcp_actions(payload: Mapping[str, Any]) -> list[dict[str, Any]]
     if state_type is None:
         return []
     actions: list[dict[str, Any]] = []
+
+    if state_type == "abandon_run_confirmation":
+        popup = _first_mapping(payload, "abandon_run_confirmation") or {}
+        return [
+            {"action": f"{choice}_abandon_run"}
+            for choice in ("confirm", "cancel")
+            if popup.get(f"can_{choice}") is True
+        ]
 
     if state_type in {"menu", "game_over"}:
         options = _first_sequence(payload, "options")
@@ -780,6 +833,14 @@ def _extract_sts2mcp_actions(payload: Mapping[str, Any]) -> list[dict[str, Any]]
                 index_key="card_index",
             )
         )
+        alternatives = tuple(
+            row for row in _first_sequence(card_reward, "alternatives")
+            if not (isinstance(row, Mapping)
+                    and str(row.get("option_id", "")).lower() == "skip"
+                    and card_reward.get("can_skip") is True)
+        )
+        actions.extend(_indexed_actions(
+            "select_card_reward_alternative", alternatives, enabled_key="is_enabled"))
         if bool(card_reward.get("can_skip")):
             actions.append({"action": "skip_card_reward"})
         return actions
@@ -853,6 +914,8 @@ def _extract_sts2mcp_actions(payload: Mapping[str, Any]) -> list[dict[str, Any]]
 
     if state_type == "treasure":
         treasure = _first_mapping(payload, "treasure") or {}
+        if treasure.get("can_open_chest") is True:
+            actions.append({"action": "open_chest"})
         actions.extend(
             _indexed_actions("claim_treasure_relic", _first_sequence(treasure, "relics"))
         )
@@ -874,6 +937,11 @@ def _indexed_actions(
     actions: list[dict[str, Any]] = []
     for fallback_index, item in enumerate(items):
         if not isinstance(item, Mapping):
+            continue
+        if item.get("is_enabled") is False or item.get("can_choose") is False:
+            continue
+        if (item.get("was_chosen") is True and item.get("can_choose") is not True
+                and item.get("disable_on_chosen") is not False):
             continue
         if enabled_key is not None and bool(item.get(enabled_key)) is not enabled_when:
             continue

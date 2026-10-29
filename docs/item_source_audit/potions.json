@@ -1,0 +1,2315 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "kind": "potion",
+  "entries": [
+    {
+      "id": "ASHWATER",
+      "source_class": "Ashwater",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Ashwater.cs",
+      "source_sha256": "9f5365207e75b1642dd0d4719ed73b52a21c57e6ca9bc9256c6f965c31fd9721",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_combat_coverage.py::test_combat_coverage_counts_registry_blockers_and_unknown_samples"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "ATTACK_POTION",
+      "source_class": "AttackPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/AttackPotion.cs",
+      "source_sha256": "c106048eb42fea06b85da5e079a40352782b64c1f9bef98b241cf92b8d6b3e1c",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_combat_coverage.py::test_default_combat_catalog_reflects_current_mechanics_registries",
+        "tests/combat/test_potion_use_engine.py::test_attack_potion_generates_free_card_choice",
+        "tests/combat/test_stable_item_contracts.py::test_card_choice_potions_are_optional_exclude_invalid_cards_and_restore_costs",
+        "tests/content/test_potion_specials.py::test_classifies_random_card_duplication_generation_and_escape_blockers",
+        "tests/content/test_potion_specials.py::test_potion_special_coverage_summarizes_steps_and_blockers",
+        "tests/learning/test_agent_action_encoding.py::test_potion_actions_expose_tactical_timing_context"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "BEETLE_JUICE",
+      "source_class": "BeetleJuice",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BeetleJuice.cs",
+      "source_sha256": "53c71ca25af8eb3d5cf71410eebd8f70d2b1b39a4fe43bed10d028352d880254",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_beetle_juice_applies_four_turns_of_shrink",
+        "tests/combat/test_stable_item_contracts.py::test_beetle_juice_target_artifact_and_four_enemy_sides",
+        "tests/combat/test_stable_item_contracts.py::test_beetle_juice_stacks_duration_and_multiplies_weak_before_rounding",
+        "tests/content/test_source_potion_pools.py::test_source_potion_pool_order_and_epoch_unlocks"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "BLESSING_OF_THE_FORGE",
+      "source_class": "BlessingOfTheForge",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BlessingOfTheForge.cs",
+      "source_sha256": "6a6bde7e1523bcd4bbf861fd856dba9c3b05fea5bcbe2eca8f982ac4bf6e7861",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_later_same_target_potion_slot_remains_legal_after_slot_mismatch"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "BLOCK_POTION",
+      "source_class": "BlockPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BlockPotion.cs",
+      "source_sha256": "580c18cd744735b84b486937268bcb5ba4e4fb572be1b6b3128c2994c48a79b4",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_block_energy_and_strength_potions_apply_player_effects",
+        "tests/combat/test_source_resource_fidelity.py::test_panic_button_allows_block_from_potions",
+        "tests/combat/test_stable_item_contracts.py::test_potion_block_is_unpowered_and_does_not_spend_card_block_bonuses",
+        "tests/combat/test_stable_item_contracts.py::test_potion_block_respects_source_block_cap",
+        "tests/combat/test_stable_item_contracts.py::test_belt_buckle_last_potion_discard_and_use_track_inventory_once",
+        "tests/combat/test_stable_item_contracts.py::test_unpowered_potion_and_zero_card_block_do_not_consume_first_card_multipliers",
+        "tests/content/test_potion_triggers.py::test_generic_potion_modifier_specs_emit_markers_and_deltas",
+        "tests/content/test_potion_specials.py::test_classifies_block_plated_armor_and_artifact_like_markers",
+        "tests/content/test_potion_handlers.py::test_pickup_and_discard_decisions_are_bounded_and_pure",
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories",
+        "tests/learning/test_planning_context.py::test_reward_plan_summary_keeps_mixed_visible_reward_context",
+        "tests/learning/test_masked_ppo.py::test_reward_pickup_diagnostics_count_presented_items_once"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "BLOOD_POTION",
+      "source_class": "BloodPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BloodPotion.cs",
+      "source_sha256": "1c4e95aa8373a3d62a7e607479c73dfb1fc2f0cf3733a4912e358df85e9f45f3",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_anytime_potions_are_legal_outside_combat_and_preserve_current_flow",
+        "tests/combat/test_stable_item_contracts.py::test_red_skull_removal_can_be_blocked_by_artifact_on_healing",
+        "tests/combat/test_stable_item_contracts.py::test_blood_potion_small_max_hp_has_no_minimum_heal_in_or_out_of_combat",
+        "tests/combat/test_stable_item_contracts.py::test_sozu_claims_forbidden_potion_reward_even_with_full_inventory",
+        "tests/rewards/test_relic_run_state_effects.py::test_delicate_frond_fills_empty_potion_slots_at_combat_start"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "BONE_BREW",
+      "source_class": "BoneBrew",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BoneBrew.cs",
+      "source_sha256": "3adb8f99f60d6fd634556f2c6e21dac8204048e31e4edde50a1a0de1188be310",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "BOTTLED_POTENTIAL",
+      "source_class": "BottledPotential",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/BottledPotential.cs",
+      "source_sha256": "b33d62737643543772c7313a7b8a99fc6302d7d6224843af8993dea853dc6ffc",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_bottled_potential_shuffles_piles_then_draws_five"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "CLARITY",
+      "source_class": "Clarity",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Clarity.cs",
+      "source_sha256": "1b0dfabd142d9fd5d73a008e1cdfe22a1986f6911930019c80b33219a1f68d9b",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_clarity_stacks_duration_and_modifies_fiddle_normal_hand_draw",
+        "tests/content/test_potion_specials.py::test_classifies_draw_energy_and_timed_turn_partials"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "COLORLESS_POTION",
+      "source_class": "ColorlessPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ColorlessPotion.cs",
+      "source_sha256": "cd4dd713158bc23e298687dab9497537dede29071ef33253c50328ec4e56ae4e",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_card_choice_potions_are_optional_exclude_invalid_cards_and_restore_costs"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "COSMIC_CONCOCTION",
+      "source_class": "CosmicConcoction",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/CosmicConcoction.cs",
+      "source_sha256": "c5a1337227300935b51d23fa547a3364ea299d5d818e4a5b97f44c795524aea6",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_cosmic_concoction_adds_distinct_upgraded_colorless_cards"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "CUNNING_POTION",
+      "source_class": "CunningPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/CunningPotion.cs",
+      "source_sha256": "6002d378b1afae32295dc21eba67ddfbe5e446efa127a8e748b1a37e70cbd8c1",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "CURE_ALL",
+      "source_class": "CureAll",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/CureAll.cs",
+      "source_sha256": "94ebfc9713c739957b84759679cce6e3d1925e634afe0c2e36fb63d23a6c0a95",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_cure_all_draws_and_glowwater_exhausts_then_draws_hand",
+        "tests/content/test_potion_specials.py::test_classifies_draw_energy_and_timed_turn_partials",
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "DEXTERITY_POTION",
+      "source_class": "DexterityPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/DexterityPotion.cs",
+      "source_sha256": "d7990f15b1c53ea4b430064b9e528885c39794dd1f6fadbced61a6dd9de008e8",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_later_same_target_potion_slot_remains_legal_after_slot_mismatch",
+        "tests/content/test_potion_specials.py::test_classifies_strength_dexterity_temporary_and_enemy_status_potions",
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "DISTILLED_CHAOS",
+      "source_class": "DistilledChaos",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/DistilledChaos.cs",
+      "source_sha256": "84249c4ff1a600140477173966385a7953541714359d774f3b28f01bbcf0788d",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_distilled_chaos_plays_top_three_draw_cards"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "DROPLET_OF_PRECOGNITION",
+      "source_class": "DropletOfPrecognition",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/DropletOfPrecognition.cs",
+      "source_sha256": "d93ba54b8180d2cd1f49c0f7751b6ff44ce9c4536e63cec6c6838ef3c113bf77",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "DUPLICATOR",
+      "source_class": "Duplicator",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Duplicator.cs",
+      "source_sha256": "97ed710c9a9df5b3c1ce41ff96763c6c69b1e2c7c23a8dd48fc4287029b17830",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_duplicator_replays_next_card_and_gigantification_triples_next_attack",
+        "tests/content/test_potion_specials.py::test_classifies_random_card_duplication_generation_and_escape_blockers"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "ENERGY_POTION",
+      "source_class": "EnergyPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/EnergyPotion.cs",
+      "source_sha256": "350184099602f99cac52a3b564b428620575f79ee1042b5faf63c1b21b1698e2",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_block_energy_and_strength_potions_apply_player_effects",
+        "tests/combat/test_source_resource_fidelity.py::test_expect_a_fight_blocks_energy_formulas_and_potions",
+        "tests/content/test_potion_specials.py::test_potion_special_coverage_summarizes_steps_and_blockers",
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "ENTROPIC_BREW",
+      "source_class": "EntropicBrew",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/EntropicBrew.cs",
+      "source_sha256": "3bc1c6a4176e7bc53f4693832df5ce40e6575aaddc6f1efe11a79e2094950203",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_entropic_brew_fills_open_slots_after_consuming_itself",
+        "tests/combat/test_stable_item_contracts.py::test_anytime_potions_are_legal_outside_combat_and_preserve_current_flow",
+        "tests/combat/test_stable_item_contracts.py::test_belt_buckle_last_potion_discard_and_use_track_inventory_once",
+        "tests/combat/test_stable_item_contracts.py::test_sozu_entropic_rolls_once_then_stops_at_forbidden_procurement",
+        "tests/content/test_potion_specials.py::test_classifies_random_card_duplication_generation_and_escape_blockers"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "ESSENCE_OF_DARKNESS",
+      "source_class": "EssenceOfDarkness",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/EssenceOfDarkness.cs",
+      "source_sha256": "7f5ca516215bd2013c3f17780403ebfc5cf015b7d90789031fec8c7e99346854",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_orb_potions_add_slots_and_channel_dark_for_each_slot",
+        "tests/content/test_potion_specials.py::test_classifies_orb_slot_and_channel_potions_as_executable",
+        "tests/content/test_potion_handlers.py::test_orb_potion_use_normalization"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "EXPLOSIVE_AMPOULE",
+      "source_class": "ExplosiveAmpoule",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ExplosiveAmpoule.cs",
+      "source_sha256": "8182a485d092852d770f950f2e725160a46b058c041910751499b241917b4bd0",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FAIRY_IN_A_BOTTLE",
+      "source_class": "FairyInABottle",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FairyInABottle.cs",
+      "source_sha256": "f1cf24bf8230d51b14d9d105ff39690e9ba85c2cc8ceaccb3dae000dbf13911b",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse",
+        "ShouldDie",
+        "AfterPreventingDeath"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanBeGeneratedInCombat"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_combat_coverage.py::test_default_combat_catalog_reflects_current_mechanics_registries",
+        "tests/combat/test_combat_lifecycle.py::test_fairy_revival_keeps_combat_powers_and_resources",
+        "tests/combat/test_potion_use_engine.py::test_passive_fairy_is_not_manual_use_but_can_be_discarded",
+        "tests/combat/test_potion_use_engine.py::test_fairy_in_a_bottle_revives_and_consumes_passive_potion",
+        "tests/combat/test_potion_use_engine.py::test_only_one_fairy_in_a_bottle_triggers_per_lethal_check",
+        "tests/combat/test_stable_item_contracts.py::test_combat_only_potions_remain_masked_outside_combat",
+        "tests/combat/test_stable_item_contracts.py::test_source_alchemize_excludes_combat_restricted_potions_and_uses_own_rng_stream",
+        "tests/combat/test_stable_item_contracts.py::test_fairy_revives_between_enemy_hits_and_dispatches_potion_used_with_reload",
+        "tests/combat/test_stable_item_contracts.py::test_multiple_fairies_are_consumed_per_hit_and_later_hit_can_kill",
+        "tests/combat/test_stable_item_contracts.py::test_fairy_resolves_between_card_hp_loss_steps_and_skips_lethal_received_power",
+        "tests/combat/test_stable_item_contracts.py::test_lethal_potion_damage_consumes_fairy_and_runs_both_potion_callbacks",
+        "tests/content/test_potion_specials.py::test_classifies_fairy_as_passive_revive_without_blocker"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FIRE_POTION",
+      "source_class": "FirePotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FirePotion.cs",
+      "source_sha256": "a3fd3de89e2e7329d0e34afa758c7528cde030721379a85028ede52f315f3b09",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/interfaces/test_agent_potion_capacity.py::test_permanent_potion_slot_pickup_is_not_counted_again_when_relic_is_owned_or_melts",
+        "tests/combat/test_autoplay_lifecycle.py::test_parent_and_autoplayed_child_both_generate_potions",
+        "tests/combat/test_relic_engine_integration.py::test_more_start_combat_relics_create_cards_and_apply_enemy_statuses",
+        "tests/combat/test_relic_engine_integration.py::test_runtime_exhaust_shuffle_and_potion_hooks_apply_returned_markers",
+        "tests/combat/test_relic_engine_integration.py::test_start_combat_potion_relics_fill_only_open_potion_slots",
+        "tests/combat/test_combat_coverage.py::test_combat_coverage_counts_registry_blockers_and_unknown_samples",
+        "tests/combat/test_combat_coverage.py::test_default_combat_catalog_reflects_current_mechanics_registries",
+        "tests/combat/test_monster_source_debuffs.py::test_soar_halves_attacks_but_not_potions_and_ends_when_owl_lands",
+        "tests/combat/test_combat_engine_cards.py::test_alchemize_generates_random_potion_into_open_slot",
+        "tests/combat/test_potion_use_engine.py::test_fire_potion_is_legal_and_damages_target_from_belt_slot",
+        "tests/combat/test_potion_use_engine.py::test_toy_ornithopter_heals_when_potion_is_used",
+        "tests/combat/test_potion_use_engine.py::test_later_same_target_potion_slot_remains_legal_after_slot_mismatch"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FLEX_POTION",
+      "source_class": "FlexPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FlexPotion.cs",
+      "source_sha256": "684ff43aaeeefeb347618e60a079b7e17ceab3b3e7e0118ce3345a5fd37aaeb2",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_temporary_potion_stat_expiration_is_artifact_blockable_at_player_side_end",
+        "tests/combat/test_stable_item_contracts.py::test_flex_expiry_preserves_actual_additional_strength_from_ruined_helmet",
+        "tests/content/test_potion_specials.py::test_classifies_strength_dexterity_temporary_and_enemy_status_potions"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FOCUS_POTION",
+      "source_class": "FocusPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FocusPotion.cs",
+      "source_sha256": "5dd6523ff3966b4ddac09f4d5cf9af57e1d817bc8218e07dbe9a79a76fa1e7aa",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_additional_status_and_targeted_potions_apply_player_and_enemy_effects",
+        "tests/combat/test_potion_use_engine.py::test_orb_potions_add_slots_and_channel_dark_for_each_slot",
+        "tests/rooms/test_shop_rooms.py::test_basic_shop_inventory_prices_are_seed_deterministic"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FORTIFIER",
+      "source_class": "Fortifier",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/Fortifier.cs",
+      "source_sha256": "837b3ed1d6c58533548e794e51ba08f2a79fc91c9bbfac441d807844c3737ee8",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_potion_block_respects_source_block_cap"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FOUL_POTION",
+      "source_class": "FoulPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FoulPotion.cs",
+      "source_sha256": "dff3b7f714ea975f3bee9114a38fb13619fc7c8860ceea94cf43d8f76c506e48",
+      "registry_status": "registered",
+      "source_rarity": "Event",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_foul_potion_damages_player_and_all_enemies",
+        "tests/combat/test_stable_item_contracts.py::test_lethal_potion_damage_consumes_fairy_and_runs_both_potion_callbacks",
+        "tests/content/test_source_potion_pools.py::test_source_potion_pool_order_and_epoch_unlocks",
+        "tests/content/test_potion_handlers.py::test_pickup_and_discard_decisions_are_bounded_and_pure",
+        "tests/content/test_potion_handlers.py::test_has_open_potion_slot_respects_capacity_relics",
+        "tests/content/test_potion_handlers.py::test_foul_potion_merchant_throw_normalizes_to_gold_marker",
+        "tests/rooms/test_shop_engine.py::test_shop_foul_potion_can_be_thrown_at_real_merchant_for_gold",
+        "tests/rooms/test_shop_engine.py::test_full_potion_slots_block_shop_potion_buy_until_discard",
+        "tests/rooms/test_shop_engine.py::test_potion_belt_allows_two_extra_potion_slots",
+        "tests/rooms/test_shop_test_payload.py::test_shop_payload_explains_full_potion_belt_block",
+        "tests/run/test_run_progression.py::test_combat_reward_potion_is_visible_but_requires_open_slot",
+        "tests/run/test_run_progression.py::test_event_reward_potion_uses_same_visible_offer_rules"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FRUIT_JUICE",
+      "source_class": "FruitJuice",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FruitJuice.cs",
+      "source_sha256": "63737f83ad6ff0565a4257ab7236060b35767a176d27c841cdb832860d2106d1",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanBeGeneratedInCombat",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_fruit_juice_raises_current_hp_with_max_hp",
+        "tests/combat/test_stable_item_contracts.py::test_anytime_potions_are_legal_outside_combat_and_preserve_current_flow",
+        "tests/combat/test_stable_item_contracts.py::test_source_alchemize_excludes_combat_restricted_potions_and_uses_own_rng_stream"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "FYSH_OIL",
+      "source_class": "FyshOil",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FyshOil.cs",
+      "source_sha256": "f5b3a13806026b5b0f4911824d4b92c692e84a9bb9cad4055cdd459af4e5a266",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "GAMBLERS_BREW",
+      "source_class": "GamblersBrew",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GamblersBrew.cs",
+      "source_sha256": "4c69e0aba2eb7b8d63cced1ba3b7b269cc0f8a6459ee3b667925149fbc9fd0aa",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_gamblers_brew_discards_choice_then_draws_that_many_on_proceed"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "GHOST_IN_A_JAR",
+      "source_class": "GhostInAJar",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GhostInAJar.cs",
+      "source_sha256": "143d97d69edc884b93c55daa036994c31a39713c799b319c89b56618818dc8e4",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "GIGANTIFICATION_POTION",
+      "source_class": "GigantificationPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GigantificationPotion.cs",
+      "source_sha256": "8bdc58a35c79edf462f4723a953a7c31a7d57c2d250c3a899255ffba038ebf00",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_duplicator_replays_next_card_and_gigantification_triples_next_attack",
+        "tests/combat/test_stable_item_contracts.py::test_gigantification_survives_turn_end_skips_skills_and_counts_next_attacks"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "GLOWWATER_POTION",
+      "source_class": "GlowwaterPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/GlowwaterPotion.cs",
+      "source_sha256": "201605ea46f20f58afd2edb51a76218ae39411f8d4646021fdd06f0433210c56",
+      "registry_status": "registered",
+      "source_rarity": "Event",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_cure_all_draws_and_glowwater_exhausts_then_draws_hand",
+        "tests/combat/test_stable_item_contracts.py::test_glowwater_exhausts_original_hand_then_draws_with_exhaust_hooks_and_reload",
+        "tests/content/test_source_potion_pools.py::test_source_potion_pool_order_and_epoch_unlocks",
+        "tests/run/test_run_progression.py::test_cached_event_choice_handles_fixed_potions_and_max_hp_loss",
+        "tests/events/test_event_catalog_primitives.py::test_random_relic_potion_fixed_relic_and_fixed_potion_primitives"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "HEART_OF_IRON",
+      "source_class": "HeartOfIron",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/HeartOfIron.cs",
+      "source_sha256": "12c271642fcf66b45431263962d631c92893af9ebd4a446708c3d662840d404b",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_heart_of_iron_plating_decays_once_at_owner_turn_start_and_not_per_hit",
+        "tests/content/test_potion_specials.py::test_classifies_block_plated_armor_and_artifact_like_markers"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "KINGS_COURAGE",
+      "source_class": "KingsCourage",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/KingsCourage.cs",
+      "source_sha256": "d7af6798d297343aaecceca9d0c46d2ad538a842f5db5c304c72cc1d56a2702a",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "LIQUID_BRONZE",
+      "source_class": "LiquidBronze",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/LiquidBronze.cs",
+      "source_sha256": "ca947b1b31789b7fd9d84aa9e0d6a3fd8486ac083b3b3fc160f7aef39d597758",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_additional_status_and_targeted_potions_apply_player_and_enemy_effects"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "LIQUID_MEMORIES",
+      "source_class": "LiquidMemories",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/LiquidMemories.cs",
+      "source_sha256": "415d8c7878c4b631b02c0d857fd9ae44590196a2786a8ed7dbc49f894b084a90",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_liquid_memories_moves_discarded_card_to_hand_free_for_turn",
+        "tests/combat/test_stable_item_contracts.py::test_liquid_memories_discount_expires_on_retained_card_after_turn",
+        "tests/combat/test_stable_item_contracts.py::test_free_to_play_potions_remove_star_cost_and_restore_at_printed_duration"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "LUCKY_TONIC",
+      "source_class": "LuckyTonic",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/LuckyTonic.cs",
+      "source_sha256": "437f845d51020ef01a72e69eedb764d48aecbb92b18435f8fe8138b42c642849",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state",
+        "tests/content/test_potion_specials.py::test_classifies_block_plated_armor_and_artifact_like_markers"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "MAZALETHS_GIFT",
+      "source_class": "MazalethsGift",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/MazalethsGift.cs",
+      "source_sha256": "d422c35de5c3afc21a3917081fb6565490e933401856af8ac0bfff68e384266b",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "OROBIC_ACID",
+      "source_class": "OrobicAcid",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/OrobicAcid.cs",
+      "source_sha256": "773cc3f5e0df11cf0e008b9b60b8b0dd89fba461696d1bff81fc6d0a65454acc",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POISON_POTION",
+      "source_class": "PoisonPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PoisonPotion.cs",
+      "source_sha256": "d0c81d7980e4bfa71537f1147b41113a97b8b86795cf53d84388c89d34c1681f",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_additional_status_and_targeted_potions_apply_player_and_enemy_effects"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POT_OF_GHOULS",
+      "source_class": "PotOfGhouls",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PotOfGhouls.cs",
+      "source_sha256": "55b5c8853be741b8e613fe6a829f26581479d3ff43fe559dd95e5e7402682e0f",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POTION_OF_BINDING",
+      "source_class": "PotionOfBinding",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PotionOfBinding.cs",
+      "source_sha256": "61cbf688a03ddaaf616bdec4e7da9310cc51787f0ec75c1230507e69ab0c8f47",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_additional_status_and_targeted_potions_apply_player_and_enemy_effects",
+        "tests/content/test_potion_specials.py::test_classifies_strength_dexterity_temporary_and_enemy_status_potions"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POTION_OF_CAPACITY",
+      "source_class": "PotionOfCapacity",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PotionOfCapacity.cs",
+      "source_sha256": "bf7978d756d6d69a2204c9ddae333bad34d6f26a4b4a6065d80070631bf4d88a",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_orb_potions_add_slots_and_channel_dark_for_each_slot",
+        "tests/content/test_potion_specials.py::test_classifies_orb_slot_and_channel_potions_as_executable",
+        "tests/content/test_potion_specials.py::test_potion_special_coverage_summarizes_steps_and_blockers",
+        "tests/content/test_potion_handlers.py::test_orb_potion_use_normalization"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POTION_OF_DOOM",
+      "source_class": "PotionOfDoom",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PotionOfDoom.cs",
+      "source_sha256": "e59df343b60d3be672d6cdd13bff2463d8efb8d3104746cd13513ddee26b4da6",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POTION_SHAPED_ROCK",
+      "source_class": "PotionShapedRock",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PotionShapedRock.cs",
+      "source_sha256": "3f34134dc80ee18e9956a196b5b511f5c2221e35a2c62a2ab9331f444b212a3d",
+      "registry_status": "registered",
+      "source_rarity": "Token",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_relic_engine_integration.py::test_start_combat_potion_relics_fill_only_open_potion_slots",
+        "tests/combat/test_relic_combat.py::test_remaining_unknown_start_turn_and_end_relic_markers",
+        "tests/content/test_source_potion_pools.py::test_source_potion_pool_order_and_epoch_unlocks",
+        "tests/rewards/test_relic_run_state_effects.py::test_petrified_toad_adds_potion_shaped_rock_at_combat_start"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POWDERED_DEMISE",
+      "source_class": "PowderedDemise",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PowderedDemise.cs",
+      "source_sha256": "e778c3da95db369db6683ed8e1d06ef1a092578dbdbf7d11f07035da2f231f65",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_powdered_demise_targets_one_enemy_stacks_and_waits_for_enemy_side_end",
+        "tests/combat/test_stable_item_contracts.py::test_powdered_demise_is_unblockable_unpowered_damage_with_hp_caps",
+        "tests/content/test_source_potion_pools.py::test_source_potion_pool_order_and_epoch_unlocks"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "POWER_POTION",
+      "source_class": "PowerPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/PowerPotion.cs",
+      "source_sha256": "34f47ec805e475e76d657753af03e51722f3a3804f27c3048f9605813a09fa0c",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_card_choice_potions_are_optional_exclude_invalid_cards_and_restore_costs"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "RADIANT_TINCTURE",
+      "source_class": "RadiantTincture",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/RadiantTincture.cs",
+      "source_sha256": "45e36e3668f5b54a6d7a4195bdeac8981ed5cc49ea055599e29d33035dd6911a",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_radiance_stacks_six_turns_of_one_energy_instead_of_three_turns_of_two"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "REGEN_POTION",
+      "source_class": "RegenPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/RegenPotion.cs",
+      "source_sha256": "0adeee5f2055e46ed5a38b3be6ff5b8bfbe91e7a902505a00ebbe31aaa8529c6",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanBeGeneratedInCombat",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_source_alchemize_excludes_combat_restricted_potions_and_uses_own_rng_stream",
+        "tests/combat/test_stable_item_contracts.py::test_regen_potion_heals_and_decrements_at_owner_side_end_before_enemy_attack"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SHACKLING_POTION",
+      "source_class": "ShacklingPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ShacklingPotion.cs",
+      "source_sha256": "53e86052e754b0aec57e2c4d45c17f690d434e7f97ec8e0a7ab7cd4f4a599953",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SHIP_IN_A_BOTTLE",
+      "source_class": "ShipInABottle",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/ShipInABottle.cs",
+      "source_sha256": "e7186ac626546066a14ff28bb488ad79d4ad4d2bbd1d0f8512a5e56581a8c5a0",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_potion_block_is_unpowered_and_does_not_spend_card_block_bonuses",
+        "tests/content/test_potion_specials.py::test_classifies_block_plated_armor_and_artifact_like_markers"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SKILL_POTION",
+      "source_class": "SkillPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SkillPotion.cs",
+      "source_sha256": "79a811feaffb87dccde0901f6c558be5a7d45b45402e2bb18df330aac7fe2e7c",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_relic_engine_integration.py::test_start_combat_potion_relics_fill_only_open_potion_slots",
+        "tests/combat/test_potion_use_engine.py::test_entropic_brew_fills_open_slots_after_consuming_itself",
+        "tests/combat/test_stable_item_contracts.py::test_card_choice_potions_are_optional_exclude_invalid_cards_and_restore_costs",
+        "tests/content/test_potion_handlers.py::test_potion_capacity_uses_ascension_and_slot_relics",
+        "tests/content/test_potion_handlers.py::test_pickup_and_discard_decisions_are_bounded_and_pure",
+        "tests/content/test_potion_handlers.py::test_has_open_potion_slot_respects_capacity_relics",
+        "tests/content/test_ancient_logic.py::test_ancient_resolution_reports_state_deltas_and_effect_markers",
+        "tests/rooms/test_shop_engine.py::test_full_potion_slots_block_shop_potion_buy_until_discard",
+        "tests/rooms/test_shop_engine.py::test_potion_belt_allows_two_extra_potion_slots",
+        "tests/rooms/test_shop_engine.py::test_ascension_potion_slot_reduction_blocks_third_potion",
+        "tests/rooms/test_campfire_relics.py::test_mailbox_potions_stay_available_when_belt_is_full",
+        "tests/rooms/test_shop_test_payload.py::test_shop_payload_explains_full_potion_belt_block"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SNECKO_OIL",
+      "source_class": "SneckoOil",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SneckoOil.cs",
+      "source_sha256": "1cf94d78db62d8973208535c690fb680ec36a68ac7f8082076fb01c472431f98",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_snecko_oil_draws_then_randomizes_hand_costs_until_turn_end",
+        "tests/combat/test_stable_item_contracts.py::test_snecko_oil_uses_energy_cost_rng_and_restores_cost_after_physical_play",
+        "tests/combat/test_stable_item_contracts.py::test_snecko_latest_energy_override_takes_precedence_over_prior_free_override",
+        "tests/content/test_potion_specials.py::test_potion_special_coverage_summarizes_steps_and_blockers"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SOLDIERS_STEW",
+      "source_class": "SoldiersStew",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SoldiersStew.cs",
+      "source_sha256": "d4d1d958e7477aadbf281610092c3b0fdedc32fd8f9a02cd75be8e23d08884ee",
+      "registry_status": "registered",
+      "source_rarity": "Rare",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_soldiers_stew_adds_replay_to_strikes_across_combat_piles",
+        "tests/combat/test_stable_item_contracts.py::test_soldiers_stew_uses_source_strike_tag_and_adds_base_replay_without_enchanting"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SPEED_POTION",
+      "source_class": "SpeedPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SpeedPotion.cs",
+      "source_sha256": "b9ad495f23c386c86044bdfa33e54c19fa9d8fc8a8ea8164932ce4869f83344b",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_temporary_potion_stat_expiration_is_artifact_blockable_at_player_side_end",
+        "tests/content/test_potion_specials.py::test_classifies_strength_dexterity_temporary_and_enemy_status_potions"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "STABLE_SERUM",
+      "source_class": "StableSerum",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/StableSerum.cs",
+      "source_sha256": "865bd368cd2e2aba93a774707c78628e16f29359dffe87fdf0d77783f3bf8d13",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_later_same_target_potion_slot_remains_legal_after_slot_mismatch",
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "STAR_POTION",
+      "source_class": "StarPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/StarPotion.cs",
+      "source_sha256": "e81563582948647296361481fa4857c2605b11cdaac132d300c6133f3a3d859b",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_combat_coverage.py::test_default_combat_catalog_reflects_current_mechanics_registries",
+        "tests/combat/test_potion_use_engine.py::test_resource_and_status_potions_apply_combat_state",
+        "tests/combat/test_source_radiate_fidelity.py::test_radiate_counts_potion_star_gains"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "STRENGTH_POTION",
+      "source_class": "StrengthPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/StrengthPotion.cs",
+      "source_sha256": "45fb9e35a16b06190b483f7fcc8972a8fc81c88765ddadc63e148ccc7a908c03",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_potion_use_engine.py::test_block_energy_and_strength_potions_apply_player_effects",
+        "tests/content/test_potion_specials.py::test_classifies_strength_dexterity_temporary_and_enemy_status_potions",
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "SWIFT_POTION",
+      "source_class": "SwiftPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/SwiftPotion.cs",
+      "source_sha256": "8c662f8e3cb9adba655763d4e42bbeda976ba0427e1ed3fac5c5a31369180522",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_fiddle_allows_opening_and_turn_hand_draw_but_blocks_potion_draw",
+        "tests/combat/test_stable_item_contracts.py::test_confused_randomizes_drawn_costs_for_combat_and_consumes_roll_for_x_card",
+        "tests/content/test_potion_triggers.py::test_potion_use_context_dispatches_custom_trigger_handlers",
+        "tests/content/test_potion_specials.py::test_classifies_draw_energy_and_timed_turn_partials",
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories",
+        "tests/learning/test_trigger_visibility.py::test_potion_capacity_pressure_for_three_of_five_slots",
+        "tests/learning/test_trigger_visibility.py::test_potion_capacity_uses_default_ascension_and_relic_slots"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "TOUCH_OF_INSANITY",
+      "source_class": "TouchOfInsanity",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/TouchOfInsanity.cs",
+      "source_sha256": "81a6232ea522148063d6fb3d3448824c22e0dea467be8990548793562c9188f4",
+      "registry_status": "registered",
+      "source_rarity": "Uncommon",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType"
+      ],
+      "review_status": "fixed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/combat/test_stable_item_contracts.py::test_free_to_play_potions_remove_star_cost_and_restore_at_printed_duration"
+      ],
+      "notes": [
+        "Source-specific correction has retained public-action tests; no claim of all interaction parity.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "VULNERABLE_POTION",
+      "source_class": "VulnerablePotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/VulnerablePotion.cs",
+      "source_sha256": "adbaf97f893c1fe6a16e42f471e1bf13ebe8664337db990f3c7d693eacb456bf",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "No retained per-ID contract test identified; shared generic tests do not prove this item contract.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    },
+    {
+      "id": "WEAK_POTION",
+      "source_class": "WeakPotion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/WeakPotion.cs",
+      "source_sha256": "3f573de421ca22fa942dde5e87d54006eeecdf078ad14d36bca0f8c48d4c1730",
+      "registry_status": "registered",
+      "source_rarity": "Common",
+      "source_methods": [
+        "OnUse"
+      ],
+      "source_properties": [
+        "Rarity",
+        "Usage",
+        "TargetType",
+        "CanonicalVars"
+      ],
+      "review_status": "reviewed",
+      "reviewed_scopes": [
+        "source method bodies and canonical values",
+        "shared runtime adapter and source-specific branches; ordered interactions only where covered by retained test"
+      ],
+      "runtime_entrypoints": [
+        "src/sts2sim/engine/transitions.py:_use_potion",
+        "src/sts2sim/engine/transitions.py:_potion_effects",
+        "src/sts2sim/engine/transitions.py:_apply_effect_step"
+      ],
+      "retained_tests": [
+        "tests/content/test_potion_handlers.py::test_basic_potion_use_normalization_for_common_categories"
+      ],
+      "notes": [
+        "Listed source method bodies and canonical values were read; shared adapter/consumer scope was inspected statically. This is not a gameplay-oracle parity claim.",
+        "Single-player use, usage/target, numerical effect, rarity and generation eligibility compared. Dependent power ordering uses shared consumers; multiplayer targeting/scaling not independently tested."
+      ],
+      "multiplayer": "not independently validated"
+    }
+  ]
+}

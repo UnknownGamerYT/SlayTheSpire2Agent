@@ -10,6 +10,7 @@ from random import Random
 from sts2sim.content.sources import STS1_COMPAT_SOURCE, SourceRef
 
 from .rewards import CardRarity, PotionRarity, RelicRarity
+from .source_rng import float32, is_source_rng, source_float
 
 
 class ShopItemKind(str, Enum):
@@ -58,9 +59,7 @@ def _default_relic_prices() -> dict[RelicRarity, tuple[int, int]]:
 
 @dataclass(frozen=True, slots=True)
 class ShopPricingRules:
-    card_prices: Mapping[CardRarity, tuple[int, int]] = field(
-        default_factory=_default_card_prices
-    )
+    card_prices: Mapping[CardRarity, tuple[int, int]] = field(default_factory=_default_card_prices)
     colorless_card_prices: Mapping[CardRarity, tuple[int, int]] = field(
         default_factory=_default_colorless_prices
     )
@@ -144,6 +143,27 @@ def roll_base_shop_price(
         raise ValueError(f"Cannot roll base price for {kind.value}.")
     if low > high:
         raise ValueError(f"Invalid price range for {kind.value}/{rarity}: {(low, high)}")
+    if is_source_rng(rng) and rules is DEFAULT_SHOP_PRICING_RULES:
+        if kind is ShopItemKind.RELIC:
+            assert isinstance(rarity, RelicRarity)
+            base = {
+                RelicRarity.COMMON: 175,
+                RelicRarity.UNCOMMON: 225,
+                RelicRarity.RARE: 275,
+                RelicRarity.SHOP: 200,
+            }[rarity]
+            return round(float32(base * source_float(rng, 0.85, 1.15)))
+        if kind is ShopItemKind.POTION:
+            assert isinstance(rarity, PotionRarity)
+            base = {PotionRarity.COMMON: 50, PotionRarity.UNCOMMON: 75, PotionRarity.RARE: 100}[
+                rarity
+            ]
+        else:
+            assert isinstance(rarity, CardRarity)
+            base = {CardRarity.COMMON: 50, CardRarity.UNCOMMON: 75, CardRarity.RARE: 150}[rarity]
+            if kind is ShopItemKind.COLORLESS_CARD:
+                base = round(float32(base * float32(1.15)))
+        return round(float32(base * source_float(rng, 0.95, 1.05)))
     return rng.randint(low, high)
 
 
@@ -196,9 +216,7 @@ def build_shop_inventory(
 
     selected_colored_cards = list(colored_cards[: plan.colored_cards])
     sale_index = (
-        rng.randrange(len(selected_colored_cards))
-        if len(selected_colored_cards) >= 5
-        else None
+        rng.randrange(len(selected_colored_cards)) if len(selected_colored_cards) >= 5 else None
     )
     selected: list[ShopItem] = []
     selected.extend(selected_colored_cards)

@@ -1,0 +1,25 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "scope": "Per-tile Crystal Sphere gold reward generation and independent deferred claims. No whole-game parity certification.",
+  "certifies_game_parity": false,
+  "sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent.CrystalSphereItems/CrystalSphereGold.cs",
+      "sha256": "4034153a32baf39cbc5e39cca88600561f2053bef3671bcebd831b89f4b56cbc",
+      "reviewed_methods": [
+        "Amount",
+        "ToReward: each tile creates an independent GoldReward with the Sphere RNG override"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/GoldReward.cs",
+      "sha256": "1dd118ee26d178cb72ec56dc449d37bf46930bab6a175fcdfe06ccca6bfd97bf",
+      "reviewed_methods": [
+        "Populate: fixed amounts still consume one draw",
+        "OnSelect: GainGold is deferred to each reward claim"
+      ]
+    }
+  ]
+}

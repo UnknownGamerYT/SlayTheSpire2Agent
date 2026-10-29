@@ -1,6 +1,51 @@
 # SlayTheSpire2Agent Handoff
 
-Last updated: 2026-07-05
+Last updated: 2026-10-29
+
+## Current fidelity status
+
+Target: stable v0.107.1, public Steam build23811903. Normal playable characters
+now use the source xoshiro256** seed/stream contracts and source run generation.
+The [current fidelity review](docs/stable_game_parity_review.md) links retained
+card, modifier, enemy, item, event and RNG evidence. Source review is separate
+from installed-game equivalence; no overall fidelity percentage is claimed.
+
+The [source edge closure ledger](docs/source_edge_closure_2026_10_29.md) tracks
+the finite discrepancies found after the original source review, including
+physical potion slots, reward/event continuations, card costs, turn timing,
+merchant/chest flows and observed policy inputs. Its status and linked evidence
+determine whether that known queue is closed. Per-ID item audits retain their
+finite method/test scope and interaction/multiplayer qualifications. `TEST` is
+an explicit synthetic fixture, and saved MT19937 states remain compatible.
+
+The [28 October bounded report](docs/validation/stable_source_training_2026_10_28.json)
+is historical evidence for its recorded runtime revisions. It does not validate
+later simulator changes. Use the current ledger's linked frozen validation
+report and pull-request CI for the latest integrated code.
+
+The [final 29 October report](docs/validation/stable_source_training_2026_10_29_final.json)
+records the 38-edge closure at `d78cc04`, with 83-test intent integration,
+fresh CPU continuation and 60 bounded ordinary/boosted QA runs at `e3fbd1d`.
+The subsequent UI-only Trial modal bridge correction has 227 passing live tests,
+strict/static checks and unchanged engine/checkpoint bytes. The DeathBlow
+correction changes the engine logic checksum from the earlier baseline.
+The [earlier 29 October report](docs/validation/stable_source_training_2026_10_29.json)
+retains 6,419 core tests at `91e7869` and 206 live tests at `675da70`; those earlier
+results are not attributed to the later engine source. Final published-head
+all-tests CI and distribution verification are separate evidence.
+
+The training pipeline uses legal masks and policy-visible observations, validates
+source/logic/architecture provenance, supports deterministic CPU continuation,
+and evaluates checkpoints without updating them. Older checkpoints must start a
+new experiment after the simulator logic changes. Source data remains excluded
+from Git: run `uv sync --locked --extra dev --extra rl`, `uv run sts2sim sync-data`
+and `uv run sts2sim training-check` after cloning.
+
+The user has a Windows Steam installation for external validation. The
+[Windows guide](docs/windows_stable_validation.md) identifies the exact target
+metadata and bridge steps. The cloud has no game assemblies or running game;
+bridge compilation and real before/action/after comparisons remain external.
+Do not interpret internal replay consistency or smoke training as game win rate.
 
 ## Goal
 
@@ -42,7 +87,7 @@ strategy without graphics.
   - `expected_hp_loss`
   - `expected_turns_to_kill`
   - `boss_readiness`
-- Rich observations include state, action semantics, content identity vocab,
+- Rich observations include policy-visible state, action semantics, content identity vocab,
   mechanic tags, reward/path summaries, enemy traits, card/status atoms, and
   previous agent memory.
 

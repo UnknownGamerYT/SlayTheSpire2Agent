@@ -1,0 +1,53 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "target": "stable v0.107.1 singleplayer",
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs",
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/LocalCostModifier.cs",
+      "sha256": "9a0b85175a292ad467b970718004c1aed487b61da228562de1add8ae7444f15f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/LocalCostModifierExpiration.cs",
+      "sha256": "c2675d7e4a53b6d2bb1a0d0ed481daf94f6c9ba79522682e804339534a1e5aef"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/TemporaryCardCost.cs",
+      "sha256": "895840f375c4a1cb27308e594ffc1b59dd94b43743198d1068a507a24b7be599"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Players/PlayerCombatState.cs",
+      "sha256": "c908ea3144a466dc0d979ec44ade207dd692d6b23b9512afbcccae3468fea123"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardPlay.cs",
+      "sha256": "44c93c83efe9fbbe37cbff4b438d80e65aeec9a6defce5ff16c38ea0755c91dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Wither.cs",
+      "sha256": "93988fd6ccfeb8d1af7449128a5f2e5dafa5266ca1213a5de2f47c9d3fe5e7c4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Orbs/GlassOrb.cs",
+      "sha256": "d447adb85ac8b0415cb131cea336cf9636f8ffa84c0fdd209ec4f64f1e69e2d9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Monsters/Osty.cs",
+      "sha256": "ac145cfe8b32f3ef7a9765da44fd62a8211362a45aaaf763880775345662251c"
+    }
+  ],
+  "contracts": [
+    "CardModel.CurrentUpgradeLevel cannot exceed MaxUpgradeLevel; Wither MaxUpgradeLevel is zero and its separate fake upgrade count affects its damage.",
+    "Physical card identity, singular enchantment and affliction slots, ordered local energy and temporary star costs are carried independently of current effective costs.",
+    "Source expiry Combat=0,Turn=2,Played=4 translates to simulator saved Combat=4,Turn=2,Played=1.",
+    "Glass raw passive accumulator differs from Focus-modified displayed passive/evoke values. Dark retains its evoke accumulator.",
+    "Finished card history distinguishes auto plays and replay indices; only non-auto play index zero counts manual cards.",
+    "Live attack intent labels contain per-hit damage; simulator MonsterState.intent_damage stores total damage with hit_count separately.",
+    "Necrobinder Osty exists independently of whether it is currently alive; explicit zero HP is preserved."
+  ],
+  "retained_tests": "tests/live/test_source_live_import.py",
+  "certifies_installed_game_parity": false
+}

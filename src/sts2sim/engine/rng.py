@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import operator
 import random
-from collections.abc import Mapping, MutableSequence, Sequence
+from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar, overload
 
-from .models import RngState
+from sts2sim.mechanics.source_rng import is_source_rng, source_float, source_sample
+from sts2sim.mechanics.source_sort import dotnet_sorted
+
+from .models import RngState, RngStreamState
 
 T = TypeVar("T")
 Seed = int | str
@@ -17,10 +21,21 @@ XoshiroAlgorithm = Literal["xoshiro256**"]
 PYTHON_RANDOM_ALGORITHM: PythonRandomAlgorithm = "python.random.MT19937"
 XOSHIRO256STARSTAR_ALGORITHM: XoshiroAlgorithm = "xoshiro256**"
 XOSHIRO_ADAPTER_DERIVATION = "sts2sim.sha256-splitmix64.v1"
+STS2_SOURCE_PORT_DERIVATION = "sts2.v0.107.1.ascii-djb2-splitmix64.source-port"
+STS2_STABLE_DERIVATION = "sts2.v0.107.1.utf16-djb2-splitmix64"
+STS2_RNG_SOURCE_URL = (
+    "https://github.com/tckmn/sts2-seed-search/blob/"
+    "cedcb540eca0c5393b883cd847d975df5e97bf64/cleaned-v0.107.1.c"
+)
 STS2_RUN_SEED_DERIVATION_BLOCKER = (
-    "STS2 v0.107.1 uses xoshiro256**, but local sources do not yet include the "
-    "exact run-seed-to-stream derivation used by the game. The adapter in this "
-    "module is a stable simulator derivation only."
+    "Version-pinned decompiled v0.107.1 source documents UTF-16 displayed seeds, "
+    "uint32 stream mixing and sample-based bounded draws. This exact run-seed-to-stream "
+    "derivation has not been checked against an independent installed stable game. "
+    "The original SHA256 adapter remains a stable simulator derivation only."
+)
+STS2_STABLE_SOURCE_ROOT = (
+    "https://github.com/zhiyue/sts2-rl-agent/blob/"
+    "5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/"
 )
 
 _MASK_64 = (1 << 64) - 1
@@ -129,9 +144,11 @@ class GameRng:
         seed: Seed = 0,
         stream: str = "root",
         state: Xoshiro256StarStarState | Mapping[str, object] | Sequence[int] | None = None,
+        *,
+        derivation: str = XOSHIRO_ADAPTER_DERIVATION,
     ) -> None:
         snapshot = (
-            xoshiro_state_from_seed(seed, stream)
+            xoshiro_state_from_seed(seed, stream, derivation=derivation)
             if state is None
             else _coerce_xoshiro_state(state)
         )
@@ -174,7 +191,7 @@ class GameRng:
         if self.seed is None:
             raise ValueError("cannot fork a xoshiro stream without the original seed")
         child_stream = f"{self.stream}/{stream}" if self.stream else stream
-        return type(self)(seed=self.seed, stream=child_stream)
+        return type(self)(seed=self.seed, stream=child_stream, derivation=self.derivation)
 
     def next_u64(self) -> int:
         self._draws += 1
@@ -201,6 +218,9 @@ class GameRng:
         bound = operator.index(upper)
         if bound <= 0:
             raise ValueError("upper must be positive")
+
+        if self.derivation in {STS2_SOURCE_PORT_DERIVATION, STS2_STABLE_DERIVATION}:
+            return int(self.random() * bound)
 
         bits = (bound - 1).bit_length()
         while True:
@@ -246,12 +266,262 @@ DeterministicRng = GameRng
 Rng = GameRng
 
 
-def xoshiro_state_from_seed(seed: Seed, stream: str = "root") -> Xoshiro256StarStarState:
+def xoshiro_state_from_seed(
+    seed: Seed, stream: str = "root", *, derivation: str = XOSHIRO_ADAPTER_DERIVATION
+) -> Xoshiro256StarStarState:
+    if derivation in {STS2_SOURCE_PORT_DERIVATION, STS2_STABLE_DERIVATION}:
+        if not isinstance(seed, str):
+            raise ValueError("stable derivation requires a displayed seed string")
+        if derivation == STS2_SOURCE_PORT_DERIVATION and (not seed.isascii() or "\0" in seed):
+            raise ValueError("source-port derivation supports ASCII seeds without NUL only")
+        material = (
+            stable_seed_hash(seed) + (stable_seed_hash(stream) if stream else 0)
+        ) & 0xFFFFFFFF
+    elif derivation == XOSHIRO_ADAPTER_DERIVATION:
+        material = _seed_material(seed, stream)
+    else:
+        raise ValueError(f"unsupported xoshiro seed derivation: {derivation!r}")
     return Xoshiro256StarStarState(
-        state=Xoshiro256StarStar.from_seed(seed, stream).state_tuple(),
+        state=Xoshiro256StarStar.from_seed_material(material).state_tuple(),
         seed=seed,
         stream=stream,
+        derivation=derivation,
     )
+
+
+def stable_seed_hash(value: str) -> int:
+    """Unsigned StringHelper.GetDeterministicHashCode over C# UTF-16 chars."""
+    first = second = 352654597
+    encoded = value.encode("utf-16-le", errors="surrogatepass")
+    for index in range(0, len(encoded), 2):
+        char = int.from_bytes(encoded[index : index + 2], "little")
+        if index % 4:
+            second = ((second * 33) ^ char) & 0xFFFFFFFF
+        else:
+            first = ((first * 33) ^ char) & 0xFFFFFFFF
+    return (first + second * 1566083941) & 0xFFFFFFFF
+
+
+class RunRng(random.Random):
+    """Random-compatible runtime with serialized independent xoshiro streams.
+
+    All views share the stream bank; capturing any view captures the complete
+    bank. Stream names and call-site consumption remain separately reviewable.
+    Python's sample/choices helpers remain simulator algorithms.
+    """
+
+    run_seed: Seed | None
+    gauss_next: float | None
+
+    def __init__(self, seed: Seed = 0, *, derivation: str | None = None) -> None:
+        super().__init__(0)
+        # The game accepts a displayed string seed. This API's integer shorthand
+        # denotes its decimal displayed string, e.g. 123 means the seed "123".
+        self.run_seed = str(seed)
+        self.derivation = derivation or STS2_STABLE_DERIVATION
+        self._active_stream = "root"
+        self._streams = {"root": GameRng(self.run_seed, "", derivation=self.derivation)}
+
+    @classmethod
+    def from_snapshot(cls, state: RngState) -> RunRng:
+        if state.algorithm != XOSHIRO256STARSTAR_ALGORITHM:
+            raise ValueError("RunRng requires a xoshiro runtime state")
+        if state.derivation not in {
+            XOSHIRO_ADAPTER_DERIVATION,
+            STS2_SOURCE_PORT_DERIVATION,
+            STS2_STABLE_DERIVATION,
+        }:
+            raise ValueError(f"unsupported xoshiro seed derivation: {state.derivation!r}")
+        # Restoring words is independent of seed conversion. The seed is needed
+        # only if a previously unused stream is requested later.
+        rng = cls.__new__(cls)
+        random.Random.__init__(rng, 0)
+        rng.run_seed = state.seed
+        rng.derivation = state.derivation
+        rng._active_stream = "root"
+        rng._streams = {}
+        all_states = {
+            "root": RngStreamState(internal_state=state.internal_state, draws=state.draws),  # type: ignore[arg-type]
+            **state.streams,
+        }
+        for name, stream_state in all_states.items():
+            rng._streams[name] = GameRng.from_state(
+                Xoshiro256StarStarState(
+                    state=stream_state.internal_state,
+                    draws=stream_state.draws,
+                    seed=state.seed,
+                    stream="" if name == "root" else name,
+                    derivation=state.derivation,
+                )
+            )
+        rng.gauss_next = state.gauss_next
+        return rng
+
+    def for_stream(self, stream: str) -> RunRng:
+        name = stream or "root"
+        if name not in self._streams:
+            if self.run_seed is None:
+                raise ValueError("cannot create a new stream without the original run seed")
+            self._streams[name] = GameRng(self.run_seed, name, derivation=self.derivation)
+        view = self.__class__.__new__(self.__class__)
+        random.Random.__init__(view, 0)
+        view.run_seed = self.run_seed
+        view.derivation = self.derivation
+        view._streams = self._streams
+        view._active_stream = name
+        return view
+
+    def reset_stream(self, stream: str) -> RunRng:
+        if self.run_seed is None:
+            raise ValueError("cannot reset a stream without the original run seed")
+        name = stream or "root"
+        self._streams[name] = GameRng(
+            self.run_seed, "" if name == "root" else name, derivation=self.derivation
+        )
+        return self.for_stream(name)
+
+    def snapshot(self) -> RngState:
+        root = self._streams["root"].getstate()
+        return RngState(
+            algorithm=XOSHIRO256STARSTAR_ALGORITHM,
+            version=1,
+            internal_state=root.state,
+            draws=root.draws,
+            seed=self.run_seed,
+            derivation=self.derivation,
+            fidelity=(
+                "source_decompiled"
+                if self.derivation == STS2_STABLE_DERIVATION
+                else "source_port"
+                if self.derivation == STS2_SOURCE_PORT_DERIVATION
+                else "simulator_seeded"
+            ),
+            routing="partial_source_singleplayer",
+            gauss_next=self.gauss_next,
+            streams={
+                name: RngStreamState(internal_state=rng.getstate().state, draws=rng.draws)
+                for name, rng in self._streams.items()
+                if name != "root"
+            },
+        )
+
+    def random(self) -> float:
+        return self._streams[self._active_stream].random()
+
+    def getrandbits(self, k: int) -> int:
+        return self._streams[self._active_stream].getrandbits(k)
+
+    def next_float(self, minimum_or_maximum: float = 1.0, maximum: float | None = None) -> float:
+        if maximum is None:
+            return source_float(self, 0.0, minimum_or_maximum)
+        return source_float(self, minimum_or_maximum, maximum)
+
+    def next_bool(self) -> bool:
+        return self.randrange(2) == 0
+
+    def sample(
+        self, population: Sequence[T], k: int, *, counts: Iterable[int] | None = None
+    ) -> list[T]:
+        # Simulator convenience for explicit NextItem/Remove loops. The game's
+        # IEnumerable.TakeRandom is a separate full-shuffle operation.
+        if counts is not None:
+            raise ValueError("game source sampling does not support repeated population counts")
+        return source_sample(self, population, k)
+
+    def _randbelow(self, n: int) -> int:
+        return self._streams[self._active_stream].randbelow(n)
+
+    def getstate(self) -> tuple[Any, ...]:
+        return (100, self.snapshot().model_dump(), self._active_stream)
+
+    def setstate(self, state: tuple[Any, ...]) -> None:
+        if len(state) != 3 or state[0] != 100:
+            raise ValueError("RunRng.setstate requires a complete xoshiro runtime snapshot")
+        restored = self.from_snapshot(RngState.model_validate(state[1]))
+        active_stream = str(state[2])
+        if active_stream not in restored._streams:
+            raise ValueError("restored active stream is missing from the stream bank")
+        if (restored.run_seed, restored.derivation) != (self.run_seed, self.derivation):
+            raise ValueError(
+                "cannot replace a shared RNG bank with a different run seed or derivation"
+            )
+        # Preserve the bank identity for existing stream views.
+        self._streams.clear()
+        self._streams.update(restored._streams)
+        self.run_seed = restored.run_seed
+        self.derivation = restored.derivation
+        self.gauss_next = restored.gauss_next
+        self._active_stream = active_stream
+
+
+def random_stream(rng: random.Random, stream: str) -> random.Random:
+    """Select a shared named stream, retaining single-stream legacy MT behavior."""
+    return rng.for_stream(stream) if isinstance(rng, RunRng) else rng
+
+
+def reset_random_stream(rng: random.Random, stream: str) -> random.Random:
+    return rng.reset_stream(stream) if isinstance(rng, RunRng) else rng
+
+
+def model_random(
+    rng: random.Random, model_id: str, *, player_slot: int = 0, mixin: int = 0
+) -> random.Random:
+    """Independent Rng(player, ModelId, mixin), without consuming the run bank.
+
+    Pass the exact ModelId.Entry (normally upper snake case). Recreating the
+    same model RNG intentionally starts the sequence again, as in the game.
+    """
+    if not isinstance(rng, RunRng):
+        return rng
+    if rng.run_seed is None:
+        raise ValueError("model RNG requires the original displayed run seed")
+    if rng.derivation != STS2_STABLE_DERIVATION:
+        raise ValueError("model RNG requires the stable game seed derivation")
+    seed = (
+        stable_seed_hash(str(rng.run_seed)) + player_slot + stable_seed_hash(model_id) + mixin
+    ) & 0xFFFFFFFF
+    result = RunRng(str(rng.run_seed))
+    result._streams["root"] = GameRng.from_state(
+        Xoshiro256StarStarState(
+            state=Xoshiro256StarStar.from_seed_material(seed).state_tuple(),
+            seed=str(rng.run_seed),
+            stream=model_id,
+            derivation=STS2_STABLE_DERIVATION,
+        )
+    )
+    return result
+
+
+def stable_gaussian_int(
+    rng: random.Random, mean: int, std_dev: int, minimum: int, maximum: int
+) -> int:
+    """v0.107.1 Rng.NextGaussianInt: reject outside bounds, ties-to-even round."""
+    if minimum > maximum or std_dev < 0 or (std_dev == 0 and not minimum <= mean <= maximum):
+        raise ValueError("invalid bounded Gaussian parameters")
+    while True:
+        first = 1.0 - rng.random()
+        second = 1.0 - rng.random()
+        sample = math.sqrt(-2.0 * math.log(first)) * math.sin(2.0 * math.pi * second)
+        value = round(mean + std_dev * sample)
+        if minimum <= value <= maximum:
+            return value
+
+
+def stable_shuffle(items: Sequence[T], rng: random.Random, *, key: Any = None) -> list[T]:
+    """Sort before Fisher-Yates, mirroring ListExtensions.StableShuffle."""
+    result = dotnet_sorted(items, key=key) if is_source_rng(rng) else sorted(items, key=key)
+    rng.shuffle(result)
+    return result
+
+
+def run_random_from_seed(
+    seed: Seed, *, algorithm: str = XOSHIRO256STARSTAR_ALGORITHM
+) -> random.Random:
+    if algorithm == XOSHIRO256STARSTAR_ALGORITHM:
+        return RunRng(seed)
+    if algorithm == PYTHON_RANDOM_ALGORITHM:
+        return random.Random(seed)
+    raise ValueError(f"unsupported RNG algorithm: {algorithm!r}")
 
 
 def capture_game_rng_state(rng: GameRng | Xoshiro256StarStar) -> Xoshiro256StarStarState:
@@ -267,8 +537,7 @@ def game_rng_from_state(
 
 
 @overload
-def random_from_seed(seed: Seed) -> random.Random:
-    ...
+def random_from_seed(seed: Seed) -> random.Random: ...
 
 
 @overload
@@ -277,8 +546,7 @@ def random_from_seed(
     *,
     algorithm: PythonRandomAlgorithm,
     stream: str = "root",
-) -> random.Random:
-    ...
+) -> random.Random: ...
 
 
 @overload
@@ -287,8 +555,7 @@ def random_from_seed(
     *,
     algorithm: XoshiroAlgorithm,
     stream: str = "root",
-) -> GameRng:
-    ...
+) -> GameRng: ...
 
 
 def random_from_seed(
@@ -305,6 +572,8 @@ def random_from_seed(
 
 
 def capture_random_state(rng: random.Random) -> RngState:
+    if isinstance(rng, RunRng):
+        return rng.snapshot()
     version, internal_state, gauss_next = rng.getstate()
     return RngState(
         version=version,
@@ -320,20 +589,29 @@ def capture_rng_state(rng: random.Random | GameRng) -> RngState | Xoshiro256Star
 
 
 @overload
-def random_from_state(state: RngState) -> random.Random:
-    ...
+def random_from_state(state: RngState) -> random.Random: ...
 
 
 @overload
-def random_from_state(state: Xoshiro256StarStarState | Mapping[str, object]) -> GameRng:
-    ...
+def random_from_state(state: Xoshiro256StarStarState) -> GameRng: ...
+
+
+@overload
+def random_from_state(state: Mapping[str, object]) -> random.Random | GameRng: ...
 
 
 def random_from_state(
     state: RngState | Xoshiro256StarStarState | Mapping[str, object],
 ) -> random.Random | GameRng:
-    if _state_algorithm(state) == XOSHIRO256STARSTAR_ALGORITHM:
-        return game_rng_from_state(state)  # type: ignore[arg-type]
+    algorithm = _state_algorithm(state)
+    if algorithm == XOSHIRO256STARSTAR_ALGORITHM:
+        if isinstance(state, RngState):
+            return RunRng.from_snapshot(state)
+        if isinstance(state, Mapping) and "internal_state" in state:
+            return RunRng.from_snapshot(RngState.model_validate(state))
+        return game_rng_from_state(state)
+    if algorithm != PYTHON_RANDOM_ALGORITHM:
+        raise ValueError(f"unsupported RNG algorithm: {algorithm!r}")
 
     rng = random.Random()
     rng.setstate(
@@ -347,8 +625,7 @@ def random_from_state(
 
 
 @overload
-def new_rng_state(seed: Seed) -> RngState:
-    ...
+def new_rng_state(seed: Seed) -> RngState: ...
 
 
 @overload
@@ -357,8 +634,7 @@ def new_rng_state(
     *,
     algorithm: PythonRandomAlgorithm,
     stream: str = "root",
-) -> RngState:
-    ...
+) -> RngState: ...
 
 
 @overload
@@ -367,8 +643,7 @@ def new_rng_state(
     *,
     algorithm: XoshiroAlgorithm,
     stream: str = "root",
-) -> Xoshiro256StarStarState:
-    ...
+) -> Xoshiro256StarStarState: ...
 
 
 def new_rng_state(
@@ -412,9 +687,7 @@ def _splitmix64_words(seed_material: int, count: int) -> tuple[int, ...]:
 
 def _seed_material(seed: Seed, stream: str) -> int:
     seed_kind = "int" if isinstance(seed, int) else "str"
-    payload = (
-        f"{XOSHIRO_ADAPTER_DERIVATION}\0seed:{seed_kind}:{seed}\0stream:{stream}"
-    ).encode()
+    payload = (f"{XOSHIRO_ADAPTER_DERIVATION}\0seed:{seed_kind}:{seed}\0stream:{stream}").encode()
     return int.from_bytes(hashlib.sha256(payload).digest()[:8], "little")
 
 
@@ -451,9 +724,7 @@ def _state_algorithm(state: RngState | Xoshiro256StarStarState | Mapping[str, ob
     return str(getattr(state, "algorithm", PYTHON_RANDOM_ALGORITHM))
 
 
-def _state_value(
-    state: RngState | Xoshiro256StarStarState | Mapping[str, object], key: str
-) -> Any:
+def _state_value(state: RngState | Xoshiro256StarStarState | Mapping[str, object], key: str) -> Any:
     if isinstance(state, Mapping):
         return state[key]
     return getattr(state, key)

@@ -1,0 +1,33 @@
+{
+  "target": "stable0.107.1 singleplayer",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "does_not_certify_installed_game_parity": true,
+  "scope": "Current visible attack damage primitives; not future monster AI or an authenticated game checkpoint",
+  "contracts": [
+    "AttackIntent.DamageCalc() returns current unmodified decimal attack base; GetSingleDamage applies all source damage hooks before integer truncation and nonnegative clamp.",
+    "SingleAttackIntent and MultiAttackIntent labels use that modified per-hit value; MultiAttackIntent separately displays Repeats.",
+    "Observed source base_damage and repeats remain distinct from final displayed total; never invert rounded Weak/Vulnerable labels.",
+    "Fallback execution and refresh apply monster/player damage modifiers to retained base exactly once, including visible powers applied after capture.",
+    "Missing base telemetry on a powered attack and inconsistent base/repeats/display values fail closed; source-free unmodified legacy fixtures remain compatible.",
+    "Only declared current intent fields enter imported visible metadata; oracle/debug/future fields are omitted."
+  ],
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/AttackIntent.cs",
+      "sha256": "4fcc072d4957ee7664c5ec292bf67a809c43846a0481b15cece51d706b905ad0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/SingleAttackIntent.cs",
+      "sha256": "46df819021c729f3bbdc98295360a1b78275b25ae42e304298a54a1330dfdbff"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/MultiAttackIntent.cs",
+      "sha256": "25d3a02d5296677af58010a25b9fa14c4fc1b458f11e2b3b9deebae78c749af6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Scare.cs",
+      "sha256": "08f9ab4a97c5117050549b71493b0a2637d9994246353fdc630a228ece9dc0ff"
+    }
+  ],
+  "regression": "tests/live/test_live_attack_intents.py"
+}

@@ -1,0 +1,31 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs",
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/TemporaryCardCost.cs",
+      "sha256": "895840f375c4a1cb27308e594ffc1b59dd94b43743198d1068a507a24b7be599"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/LocalCostModifierExpiration.cs",
+      "sha256": "c2675d7e4a53b6d2bb1a0d0ed481daf94f6c9ba79522682e804339534a1e5aef"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/BansheesCry.cs",
+      "sha256": "1f6e03cb66c77146b694dc4f2ac831691136de781615006eef08a58001fe2c83"
+    }
+  ],
+  "contracts": [
+    "CurrentStarCost uses last remaining temporary row, retaining negative base when a zero override would otherwise introduce a star cost",
+    "TemporaryCardCost UntilPlayed clears on play; ThisTurn clears on play or turn end; ThisCombat clears at combat end",
+    "GetStarCostWithModifiers resolves HasStarCostX before temporary scalar costs",
+    "SetToFreeThisTurn applies both local-energy until-played and temporary-star until-played-or-turn costs",
+    "Legacy free_energy_consumed must prevent re-adoption of an expired star-free marker",
+    "BansheesCry reduces energy through ordered AddThisCombat entries after Ethereal plays, and later absolute cost setters override earlier reductions"
+  ],
+  "scope": "Independent functional implementation and public/serialization tests; no installed-game execution claimed"
+}

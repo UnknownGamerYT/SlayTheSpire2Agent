@@ -2,7 +2,16 @@
 
 from sts2sim.agent_api import action_mask, action_space, decode_action, encode_observation
 from sts2sim.agents import StrategicAgent, analyze_run, play_strategic_run
-from sts2sim.api import legal_actions, load_state, new_run, replay, serialize, step
+from sts2sim.api import (
+    inspect_reward_alternative_fault,
+    inspect_reward_reroll_fault,
+    legal_actions,
+    load_state,
+    new_run,
+    replay,
+    serialize,
+    step,
+)
 from sts2sim.gymnasium_env import SlayTheSpire2Env, Sts2Env, make_env
 from sts2sim.history import (
     RunHistory,
@@ -62,6 +71,8 @@ __all__ = [
     "evaluate_agent_baselines",
     "evaluate_learning_agent",
     "import_run_file",
+    "inspect_reward_alternative_fault",
+    "inspect_reward_reroll_fault",
     "legal_actions",
     "live_play",
     "load_learning_progress",

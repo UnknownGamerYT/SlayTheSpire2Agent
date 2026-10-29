@@ -1,0 +1,310 @@
+{
+  "schema_version": 1,
+  "runtime_revision": "b3893e050dd9e3944a686c490c988f80d85d5914",
+  "target": {
+    "channel": "stable",
+    "game_version": "0.107.1",
+    "steam_build": 23811903,
+    "installed_game_behavior_validated": false
+  },
+  "source_reference": "zhiyue/sts2-rl-agent@5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "scope": "Finite source contracts, software consistency and bounded training checks; no fidelity percentage or installed-game certification",
+  "static_checks": {
+    "revision": "b3893e050dd9e3944a686c490c988f80d85d5914",
+    "passed": true,
+    "checks": [
+      {
+        "label": "ruff",
+        "argv": [
+          "/workspace/SlayTheSpire2Agent/.venv/bin/ruff",
+          "check",
+          "."
+        ],
+        "exit_code": 0,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "label": "mypy",
+        "argv": [
+          "/workspace/SlayTheSpire2Agent/.venv/bin/mypy"
+        ],
+        "exit_code": 0,
+        "sha256": "6f888496f6afa100a0d3bb1c279642e037ca23c6cde4115952291d9e8559b11c"
+      },
+      {
+        "label": "build",
+        "argv": [
+          "uv",
+          "build",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "sha256": "e9fd3c9290b39a7e4437a7aa57a8dfab8272634b54bcb425a3435ded1a44dbc6"
+      }
+    ],
+    "mypy": "Success: no issues found in 175 source files"
+  },
+  "source_payloads": {
+    "report": "stable_payload_hashes_2026_10_28.json",
+    "checked_at_utc": "2026-10-28T19:21:43.065949+00:00",
+    "datasets": 17,
+    "all_match": true
+  },
+  "item_review_status_counts": {
+    "relics_a_m": {
+      "reviewed": 120,
+      "fixed": 40
+    },
+    "relics_n_z": {
+      "fixed": 56,
+      "reviewed": 80
+    },
+    "potions": {
+      "reviewed": 37,
+      "fixed": 26
+    }
+  },
+  "training": {
+    "revision": "b3893e050dd9e3944a686c490c988f80d85d5914",
+    "passed": true,
+    "uninterrupted_comparison": {
+      "equal_average_training_reward": true,
+      "equal_eval_episode_seeds": true,
+      "equal_steps": true,
+      "equal_train_episode_seeds": true,
+      "model_state": true,
+      "optimizer_state": true,
+      "rng_state": true
+    },
+    "changed_tensor_count_after_resume": 17,
+    "evaluation": {
+      "checkpoint_bytes_unchanged": true,
+      "checkpoint_sha256_after": "68abc2fe3d01b29661488ab03d77b0598b0e29467382e5c74c6ee882c24e618f",
+      "checkpoint_sha256_before": "68abc2fe3d01b29661488ab03d77b0598b0e29467382e5c74c6ee882c24e618f",
+      "compatible": true,
+      "episode_seeds": [
+        238749616,
+        1545084737
+      ],
+      "eval_runs": 2,
+      "evaluation_errors": 0,
+      "evaluation_max_steps": 12,
+      "identical_repeat_report": true,
+      "passed": false,
+      "seed": "final-independent-heldout-1",
+      "target_successes": 0
+    },
+    "inference_actions": 12,
+    "all_inference_actions_legal": true,
+    "older_checkpoint_rejected": true,
+    "game_logic_checksum": "a98d2763a312412ea06da79cea6f196a4cbbd18bf57473d5b7319e6ac9802054",
+    "limitations": [
+      "This is a bounded CPU software smoke, not evidence of gameplay skill or a trained champion.",
+      "No game process or live bridge was used. No source files or shared cache bytes were modified.",
+      "Training used ordinary IRONCLAD ascension0 source state with no synthetic HP/resource boosts."
+    ]
+  },
+  "normal_random_qa": {
+    "revision": "b3893e050dd9e3944a686c490c988f80d85d5914",
+    "summary": {
+      "findings": 0,
+      "findings_by_kind": {},
+      "max_floor": 11,
+      "outcomes": {
+        "failed": 25
+      },
+      "reload_checks": 103,
+      "runs": 25,
+      "steps": 1570
+    },
+    "settings": {
+      "ascension": 0,
+      "characters": [
+        "IRONCLAD",
+        "SILENT",
+        "REGENT",
+        "NECROBINDER",
+        "DEFECT"
+      ],
+      "policy": "uniform choice of legal action; random.Random(\"qa:{character}:{seed}\")",
+      "reload_interval": 17,
+      "seeds": [
+        3,
+        7,
+        19,
+        42,
+        137
+      ],
+      "step_cap": 400,
+      "synthetic_boosts": false
+    },
+    "limitation": "All 25 random-policy runs died. Consistency evidence only."
+  },
+  "synthetic_deep_qa": {
+    "revision": "4004f77daf417adfe238639fe2b8e7f725e37316",
+    "summary": {
+      "findings": 0,
+      "findings_by_kind": {},
+      "max_act": 2,
+      "max_floor": 16,
+      "outcomes": {
+        "step_cap": 3,
+        "wall_time_cap": 2
+      },
+      "reload_checks": 167,
+      "runs": 5,
+      "steps": 2778
+    },
+    "settings": {
+      "ascension": 0,
+      "characters": [
+        "IRONCLAD",
+        "SILENT",
+        "REGENT",
+        "NECROBINDER",
+        "DEFECT"
+      ],
+      "harness_sha256": "3beb59984b23f16ba72a4cf3af34eed4231a565fe9e8be9a6a05437b73759903",
+      "policy": "uniform choice of legal action; random.Random(\"qa:{character}:{seed}\")",
+      "reload_interval": 17,
+      "seeds": [
+        1
+      ],
+      "step_cap": 600,
+      "synthetic_boosts": true,
+      "test_only_initial_hp_and_max_hp": 10000,
+      "wall_time_cap_per_run_seconds": 30
+    },
+    "limitation": "Initial test-only HP boost; bounded consistency, not win rate or parity."
+  },
+  "synthetic_progression_qa": {
+    "revision": "4004f77daf417adfe238639fe2b8e7f725e37316",
+    "config": {
+      "characters": [
+        "IRONCLAD",
+        "SILENT",
+        "REGENT",
+        "NECROBINDER",
+        "DEFECT"
+      ],
+      "ascensions": [
+        0,
+        10
+      ],
+      "max_actions_per_run": 700,
+      "seed_template": "SYNTHETICPROGRESSION{character_index_1_to_5}A{ascension}",
+      "source_data_override": {
+        "player": {
+          "hp": 1000000,
+          "max_hp": 1000000,
+          "energy": 99,
+          "max_energy": 99,
+          "statuses": {
+            "strength": 10000,
+            "focus": 1000,
+            "dexterity": 10000
+          }
+        }
+      },
+      "combat_entry_override": {
+        "hp": 1000000,
+        "max_hp": 1000000,
+        "energy": 99,
+        "max_energy": 99,
+        "statuses": {
+          "strength": 10000,
+          "focus": 1000,
+          "dexterity": 10000
+        }
+      },
+      "injection_rule": "Initial player override and once after each combat_started transition. No RNG draws, deck/map/enemy/phase/outcome mutations.",
+      "policy": "Deterministic legal-action policy: direct attacks, then draw/damage/power/skills; source rewards; character-specific combat vs event/shop map preference. Prefer fight event options. One optional shop purchase. No potion spam.",
+      "reload_checks": "Every 11 actions, every choose_node/choose_ancient/proceed: exact serialized-state round-trip, identical legal-action order, and identical next action state/events/RNG.",
+      "policy_versions": {
+        "v1_initial_deterministic_policy": "Original nine completed runs use this policy. Defect A10 reached bound choosing Linger repeatedly; this was a harness policy issue, with a legal Exit Baths option retained.",
+        "v2_exit_and_repeated_event_guard": "Defect A10 rerun uses the same seed/stats and legality policy, adding Exit recognition and choosing an alternative after two identical event/page/option choices."
+      },
+      "state_override_limitations": "Combat-entry state injections interrupt the original whole-run replay digest chain. Each tested action instead compares the identical injected state before/after JSON reload, including events and RNG. This is synthetic progression evidence, not a replay of an unmodified game run.",
+      "harness_path": "/workspace/run_synthetic_progression.py",
+      "harness_sha256": "38fbe2a24723be712e5f3ce325ae147b61cf05e1ad473fa7762a4ed417eb3ee9"
+    },
+    "summary": {
+      "completed_runs": 10,
+      "legal_actions": 3018,
+      "combat_starts": 279,
+      "reload_state_checks": 1054,
+      "reload_legal_action_checks": 1054,
+      "identical_next_transition_checks": 1054,
+      "normal_final_boss_completions": 5,
+      "a10_double_final_boss_completions": 5,
+      "phases_seen": [
+        "ancient",
+        "combat",
+        "complete",
+        "event",
+        "map",
+        "rest",
+        "reward",
+        "shop",
+        "treasure"
+      ],
+      "simulator_regressions_observed": [],
+      "harness_policy_issues_observed": 1,
+      "caveat": "Artificial HP/energy/Strength/Focus/Dexterity and a deterministic legality policy. No normal win rate, game balance, full content coverage, or installed-game parity is established."
+    },
+    "harness_issue_resolution": {
+      "diagnostic_state_path": "/workspace/progression_qa/defect_a10_state.json",
+      "legal_exit_action": {
+        "type": "choose_event",
+        "card_instance_id": null,
+        "target_id": "EXIT_BATHS",
+        "payload": {}
+      },
+      "phase_before": "event",
+      "exit_page_after": "EXIT_BATHS",
+      "phase_after_exit": "event",
+      "act": 1,
+      "floor": 10,
+      "transition_replay_identical": true,
+      "event_kinds": [
+        "event_option_chosen"
+      ],
+      "followup_legal_actions": [
+        {
+          "type": "proceed",
+          "card_instance_id": null,
+          "target_id": null,
+          "payload": {}
+        }
+      ],
+      "classification": "Harness policy loop; legal Exit Baths leaves the repeatable Linger page.",
+      "followup_actions": [
+        {
+          "type": "proceed",
+          "card_instance_id": null,
+          "target_id": null,
+          "payload": {}
+        }
+      ],
+      "phase_after_followup": "map"
+    }
+  },
+  "full_suite_results": {
+    "runtime_revision": "b3893e050dd9e3944a686c490c988f80d85d5914",
+    "passed": 6071,
+    "skipped": 1,
+    "warnings": 2,
+    "elapsed_seconds": 563.46,
+    "skip_reason": "Missing-PyTorch-path test skipped because PyTorch is installed",
+    "warnings_scope": "Gymnasium checker unbounded Box minimum/maximum",
+    "log_sha256": "da8fc175ae245682aea343b02e2c46ec2832d8845953fda0335e3fe3d2db83dd",
+    "command": "PYTHONPATH=src OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 pytest -o addopts= -q -ra",
+    "installed_game_parity": false
+  },
+  "remaining_external_validation": [
+    "Fingerprint the user Windows Steam installation",
+    "Compile/load bridge against the selected installed assembly",
+    "Compare actual stable before/action/after game traces",
+    "Whole-run RNG/ordered interactions and complete multiplayer remain unverified"
+  ]
+}

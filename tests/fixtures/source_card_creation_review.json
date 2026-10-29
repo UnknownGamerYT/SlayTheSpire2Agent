@@ -1,0 +1,556 @@
+{
+  "game_version": "0.107.1",
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "review_scope": "Finite constructor/flag and runtime-consumer comparison of all source relic/event CardCreationOptions creation paths, plus ordinary reward core paths and explicitly excluded custom modifiers. This is not live-game differential certification.",
+  "runtime_snapshot": "4004f77daf417adfe238639fe2b8e7f725e37316 (integrated stable simulator source snapshot; no installed-game differential certification).",
+  "constructor_facts": {
+    "new_options": "Both public overloads start Flags=0. The custom CardModel pool overload rejects nonempty single-rarity pools unless odds are Uniform; empty pools are permitted at construction but cannot draw a card.",
+    "for_room": "Monster/Elite/Boss => Source.Encounter with corresponding rarity odds. Shop => Source.Shop/Shop odds. Other valid rooms => Source.Other/RegularEncounter. Event room throws. No built-in flags.",
+    "for_noncombat_default": "Both CardPool and custom CardModel overloads use Source.Other/RegularEncounter and OR NoUpgradeRoll.",
+    "for_noncombat_uniform": "CardPool overload uses Source.Other/Uniform and OR NoUpgradeRoll.",
+    "with_flags": "Flags |= supplied flags. It never replaces or clears existing flags.",
+    "card_reward_options_constructor": "OR IsCardReward into the supplied mutable options for both initial generation and reroll.",
+    "card_reward_manual_constructor": "Initial options are empty-custom Other/requested source, Uniform, NoPool|NoModel|IsCardReward. RerollOptions are retained verbatim and are not ORed with IsCardReward.",
+    "no_modify_hooks": "CardFactory still dispatches ModifyCardRewardCreationOptions before selection. NoModifyHooks suppresses the final normal+late TryModifyCardRewardOptions batch only.",
+    "no_card_model_modifications": "Independent flag, not NoModifyHooks. No pinned source consumer checks this flag, so it does not suppress Egg, Wing, Crucible, Tress, Glitter or Fresnel late callbacks.",
+    "no_rarity_modification": "Does not suppress CardFactory built-in rarity RNG; interpreted by creation-option hooks such as custom modifier BigGameHunter.",
+    "no_upgrade_roll": "Suppresses built-in random upgrade RNG only. Does not imply NoHookUpgrades or disable late callbacks.",
+    "upgrade_draw": "When enabled, RollForUpgrade consumes its RNG draw before testing whether the chosen card is upgradable.",
+    "source_other": "Non-Uniform factories use base rarity odds and do not change encounter rarity offset unless ForceRarityOddsChange is set.",
+    "core_rewards": "RewardsSet ordinary Monster/Elite/Boss generation wraps ForRoom in CardReward. Tutorial manual rewards use the manual constructor and supplied ForRoom reroll options. Saved extra rewards reconstruct new options from saved pool/source/odds, then CardReward adds IsCardReward; game save wire-format parity is outside this review."
+  },
+  "infrastructure_sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationFlags.cs",
+      "sha256": "1e43d3793d138f8ede4db48e429d03ef515105f547ee8ced0dd3438cd613bc11"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/Reward.cs",
+      "sha256": "97cb231aefb107d5f6df9d445e235d5d6b70c243c0067fe667930048d0656b87"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Hooks/Hook.cs",
+      "sha256": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588"
+    }
+  ],
+  "paths": [
+    {
+      "id": "arcane_scroll",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ArcaneScroll.cs",
+      "sha256": "2c4ed3e98daa57d0d689bd0f4af253f2c5c09697190b9f0d6f2d1f3e946c19ba",
+      "actual_constructor": "new(pool own, Other, Uniform, rarity Rare); direct factory count1",
+      "effective_flags": [
+        "NoUpgradeRoll"
+      ],
+      "runtime_consumer": "transitions._apply_relic_card_reward_marker / source_card_reward_modifiers.modify_generated_cards",
+      "comparison": "reviewed_profile_matches",
+      "detail": "No IsCardReward: no Dingy/Prismatic, Crucible or Tress. Wing/Egg/Glitter/Fresnel callbacks run and their per-card modifications are retained before deck add.",
+      "implementation_commit": "e5ce87d"
+    },
+    {
+      "id": "hefty_tablet",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/HeftyTablet.cs",
+      "sha256": "80f6caa9dd2738a9dd51878ee6f5c817642e8359c907dc2d8e5e811f9bec0d1d",
+      "actual_constructor": "new(pool own, Other, Uniform, rarity Rare); direct factory count3; simple optional selector",
+      "effective_flags": [
+        "NoUpgradeRoll"
+      ],
+      "runtime_consumer": "source_creation_consumers.pickup / choose",
+      "comparison": "corrected_by_this_leaf",
+      "detail": "No random upgrades or CardReward alternatives. Add Injury after selection even on skip. Factory late hooks receive false IsCardReward.",
+      "implementation_commit": "730e2ab"
+    },
+    {
+      "id": "lead_paperweight",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/LeadPaperweight.cs",
+      "sha256": "3631dcf67276d245a1613031a97b95be33c3c0fdf83b2cf17fac22f10744f8b4",
+      "actual_constructor": "new(pool Colorless, Other, RegularEncounter); direct factory count2; simple optional selector",
+      "effective_flags": [],
+      "runtime_consumer": "source_creation_consumers.pickup / choose",
+      "comparison": "corrected_by_this_leaf",
+      "detail": "Upgrade roll is enabled. Source.Other uses base rarity odds and leaves encounter rarity pity unchanged. No IsCardReward.",
+      "implementation_commit": "730e2ab"
+    },
+    {
+      "id": "massive_scroll",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MassiveScroll.cs",
+      "sha256": "64e229d8a505fe13a546df808e8b4a7a82a9e80e10093e8717b9792776e6ecfd",
+      "actual_constructor": "new(custom multiplayer-only own+Colorless cards, Other, RegularEncounter); direct factory count3",
+      "effective_flags": [],
+      "runtime_consumer": "normal single-player relic pool excludes this relic",
+      "comparison": "outside_regular_single_player_scope",
+      "detail": "Source IsAllowed requires more than one player; custom-pool constructor invariant still applies."
+    },
+    {
+      "id": "dream_catcher",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DreamCatcher.cs",
+      "sha256": "8b0d1e60c9d2b41151cd2e523df3dccd7af610f56b15cac30bdc286aee645af9",
+      "actual_constructor": "ForRoom(Monster); CardReward count3",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_rest_runtime.execute_rest_heal",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Source Encounter/RegularEncounter, random upgrades and encounter rarity pity apply despite the reward originating at a rest site.",
+      "implementation_commit": "8562865"
+    },
+    {
+      "id": "orrery",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Orrery.cs",
+      "sha256": "1e14f14c3db789ac56b47053661019f25cf20ab2cde218a9ddbab2083ccfd88f",
+      "actual_constructor": "new(pool own, Other, RegularEncounter); five CardReward count3",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_pickup_rewards.obtain_pickup_reward",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Explicit constructor does not include NoUpgradeRoll; five blacklists and callback batches, one per nested CardReward.",
+      "implementation_commit": "e5ce87d"
+    },
+    {
+      "id": "lost_coffer",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/LostCoffer.cs",
+      "sha256": "96579eaef2fdec892f201d1e643f0659d589a6521025339b06e762a5be85b79e",
+      "actual_constructor": "new(pool own, Other, RegularEncounter); CardReward count3 plus PotionReward",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_pickup_rewards.obtain_pickup_reward",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Explicit constructor enables upgrades. It is not ForNonCombatWithDefaultOdds; card and potion are offered in a nested RewardsSet.",
+      "implementation_commit": "e5ce87d"
+    },
+    {
+      "id": "glass_eye",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GlassEye.cs",
+      "sha256": "1cf2c74cfc8852970e07f40e2815f605806ba8f5a0d999cbaf4f49d99fe1f011",
+      "actual_constructor": "ForNonCombatWithUniformOdds(own, rarity filter); five CardReward count3",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_pickup_rewards.obtain_pickup_reward / transitions._apply_glass_eye_rewards",
+      "comparison": "reviewed_profile_matches",
+      "detail": "WithFlags OR preserves NoUpgradeRoll. Exactly15 selection draws before extra callback RNG. Pool hooks allowed before preserved rarity filter; two Common, two Uncommon, one Rare groups.",
+      "implementation_commit": "e5ce87d"
+    },
+    {
+      "id": "sea_glass",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/SeaGlass.cs",
+      "sha256": "6833f9402cf40a44b2844589ef2b8391519c8181ad557ac8af2d9a1ebaa32665",
+      "actual_constructor": "ForNonCombatWithUniformOdds(other character, C/U/R filter); three direct count5 factories",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification",
+        "NoCardPoolModifications"
+      ],
+      "runtime_consumer": "transitions._apply_sea_glass_card_selection / generated callbacks",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Exactly15 selection draws before callback RNG; no IsCardReward. Three separate callback batches, not one fifteen-card batch.",
+      "implementation_commit": "f3767a4"
+    },
+    {
+      "id": "scroll_boxes",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ScrollBoxes.cs",
+      "sha256": "0199d9370fac6d20d9dffeeb668dac478a3983fdac5ded24ea0f98711ad3d1cc",
+      "actual_constructor": "ForNonCombatWithUniformOdds(own, Common/Uncommon filter), then GetPossibleCards and direct RNG picks",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification"
+      ],
+      "runtime_consumer": "relic_lifecycle.scroll_boxes_packs",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Not a CardFactory.CreateForReward call. No random upgrades and no factory reward modification batch. Creation-options pool hooks see IsCardReward=false; Defect Claw exception handled separately."
+    },
+    {
+      "id": "kaleidoscope.initial_factories",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Kaleidoscope.cs",
+      "sha256": "d1c25e9cef95078e7e60795144ae97a4c41c62088596d6a0c091ddf8181f502e",
+      "actual_constructor": "new(each selected other-character pool, Other, RegularEncounter); six separate count1 factories",
+      "effective_flags": [
+        "NoCardPoolModifications"
+      ],
+      "runtime_consumer": "source_kaleidoscope.pickup",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Upgrade rolls enabled. These first factories have no IsCardReward, but Egg/Wing/Fresnel/Glitter callbacks still run.",
+      "implementation_commit": "e80fee4"
+    },
+    {
+      "id": "kaleidoscope.manual_populate",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Kaleidoscope.cs",
+      "sha256": "d1c25e9cef95078e7e60795144ae97a4c41c62088596d6a0c091ddf8181f502e",
+      "actual_constructor": "CardReward(manual3 cards, Other, rerollOptions); internal new(empty custom, Other, Uniform)",
+      "effective_flags": [
+        "NoCardPoolModifications",
+        "NoCardModelModifications",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_kaleidoscope.pickup / modify_generated_cards",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Second callback batch per displayed reward. NoCardModelModifications does not imply NoModifyHooks; pinned late relics do not test NoCardModelModifications.",
+      "implementation_commit": "e80fee4"
+    },
+    {
+      "id": "kaleidoscope.reroll",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Kaleidoscope.cs",
+      "sha256": "d1c25e9cef95078e7e60795144ae97a4c41c62088596d6a0c091ddf8181f502e",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(empty custom CardModel[]) passed to manual CardReward",
+      "effective_flags": [
+        "NoUpgradeRoll"
+      ],
+      "runtime_consumer": "source_kaleidoscope / source_reward_reroll unsupported source-empty-pool descriptor",
+      "comparison": "explicit_source_invalid_edge",
+      "detail": "Manual CardReward constructor does not OR IsCardReward into rerollOptions. Empty custom pool cannot produce a card; simulator masks the known source-error reroll edge pending installed-game comparison.",
+      "implementation_commit": "e80fee4"
+    },
+    {
+      "id": "lasting_candy.extra_factory",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/LastingCandy.cs",
+      "sha256": "66b57fa6350bd39c568093feeeb220d2be09e01826d43ea3b16f8e00e3dbb530",
+      "actual_constructor": "new(custom remaining Power pool, Other, original rarity odds); direct factory count1",
+      "effective_flags": [
+        "NoModifyHooks",
+        "NoCardPoolModifications"
+      ],
+      "runtime_consumer": "source_run_passives.append_lasting_candy_power",
+      "comparison": "source_invalid_pool_rejected_before_rng",
+      "detail": "NoModifyHooks suppresses recursive final callbacks, not creation-options dispatch. Upgrades remain enabled. Source rejects nonempty single-rarity custom pools with non-Uniform odds; simulator raises EngineError before RNG instead of silently changing odds. Ordinary mixed-rarity Power pools remain valid.",
+      "implementation_commit": "9228551"
+    },
+    {
+      "id": "prayer_wheel",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PrayerWheel.cs",
+      "sha256": "381a30c20ccef43ba13d43ae7b00ea5f5665ac63369649486408c4b3aa69c8fc",
+      "actual_constructor": "ForRoom(Monster); extra CardReward count3",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "reward_triggers / transitions._combat_extra_card_option_groups",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Separate normal encounter factory and blacklist; regular encounter pity/upgrade behavior."
+    },
+    {
+      "id": "white_star",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhiteStar.cs",
+      "sha256": "bca994fd23df8836f549b35fa2d2c2a6039c0a3def7786e223019025c88ab5df",
+      "actual_constructor": "ForRoom(Boss) on Elite rooms; extra CardReward count3",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "transitions._combat_reward_state / _combat_extra_card_option_groups / source_reward_reroll",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Elite-only extra boss-profile CardReward is separate from the elite reward; initial factory and persisted Driftwood context retain BossEncounter odds, upgrade draws, and IsCardReward callbacks.",
+      "implementation_commit": "376c0c5"
+    },
+    {
+      "id": "brain_leech.share_knowledge",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/BrainLeech.cs",
+      "sha256": "1dba57b437c1f0ea9d0e2fec3039cd523dd3bb0bb735602c46db81eec4794b42",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(own); direct factory choice grid",
+      "effective_flags": [
+        "NoUpgradeRoll"
+      ],
+      "runtime_consumer": "transitions._choose_source_native_event / source_event_rules",
+      "comparison": "reviewed_profile_matches",
+      "detail": "No IsCardReward; generated previews and selected instance retain late callback modifications in the integrated native factory consumer.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "brain_leech.rip",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/BrainLeech.cs",
+      "sha256": "1dba57b437c1f0ea9d0e2fec3039cd523dd3bb0bb735602c46db81eec4794b42",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(Colorless); CardReward count3",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification",
+        "NoCardPoolModifications",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_event_rules / native generated rewards",
+      "comparison": "reviewed_profile_matches",
+      "detail": "NoRarityModification does not remove built-in RegularEncounter rarity draw; source Other leaves encounter pity unchanged.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "colorful_philosophers",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/ColorfulPhilosophers.cs",
+      "sha256": "55f23ee2600a050c6bde86a3460eb6f02d01a57d5744a85ecff27d4796e9b996",
+      "actual_constructor": "new(selected other-character pool, Other, Uniform, C/U/R filter); three CardReward count3",
+      "effective_flags": [
+        "NoRarityModification",
+        "NoCardPoolModifications",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "native colorful_groups / source_reward_reroll",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Explicit constructors enable random upgrade draws, unlike ForNonCombatWithUniformOdds helpers.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "room_full_of_cheese.gorge",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/RoomFullOfCheese.cs",
+      "sha256": "0c91915b25b5a71b817d32f1ef51d487c10ff23323c8b53c65072785b4d1515f",
+      "actual_constructor": "ForNonCombatWithUniformOdds(own, Common filter); direct factory count8; select2",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification"
+      ],
+      "runtime_consumer": "source_event_rules / native generated grid",
+      "comparison": "reviewed_profile_matches",
+      "detail": "No IsCardReward. No factory-card reward alternatives; callback modifications survive selection/reload.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "infested_automaton.study",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/InfestedAutomaton.cs",
+      "sha256": "4ad1a8b6be3f4fd38bf39c03a53e03a6d102fa7ace82684eb751a3da7767a62f",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(own, Power filter); direct factory count1",
+      "effective_flags": [
+        "NoUpgradeRoll"
+      ],
+      "runtime_consumer": "source_event_rules / native generated card",
+      "comparison": "reviewed_profile_matches",
+      "detail": "No IsCardReward; default source Other odds; plain generated-card callbacks apply.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "infested_automaton.touch_core",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/InfestedAutomaton.cs",
+      "sha256": "4ad1a8b6be3f4fd38bf39c03a53e03a6d102fa7ace82684eb751a3da7767a62f",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(own, canonical cost0 and not X filter); direct factory count1",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoCardPoolModifications"
+      ],
+      "runtime_consumer": "source_event_rules / native generated card",
+      "comparison": "reviewed_profile_matches",
+      "detail": "No IsCardReward. NoCardPoolModifications is ORed with helper NoUpgradeRoll.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "endless_conveyor.fried_eel",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/EndlessConveyor.cs",
+      "sha256": "7f9c7f3854678b7e3782eff0b8edc881d4b4d8b6cbeb7942822dea08a4288019",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(Colorless); direct factory count1; add directly",
+      "effective_flags": [
+        "NoUpgradeRoll"
+      ],
+      "runtime_consumer": "source_creation_consumers.fried_eel",
+      "comparison": "corrected_by_this_leaf",
+      "detail": "Rewards rarity+selection draws, no upgrade draw; plain late hooks run before deck add. Does not construct CardReward or consume reward-only relic charges.",
+      "implementation_commit": "730e2ab"
+    },
+    {
+      "id": "trial.nondescript_guilty",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Trial.cs",
+      "sha256": "ca4a1dcf6495ff8e8222b59748dc7425ff01cc0ab217104552d05a94a68acf7f",
+      "actual_constructor": "ForNonCombatWithDefaultOdds(own); two CardReward count3",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_event_rules / native generated reward groups",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Each reward has independent blacklist, callbacks, reroll context; Other uses base odds.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "future_of_potions.card_conversion",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheFutureOfPotions.cs",
+      "sha256": "e04c069bb629c1a27faf5d162ab255d8e89c0027b6e9900c02ce97f24fa3cb64",
+      "actual_constructor": "ForNonCombatWithUniformOdds(own, potion rarity/type filter); CardReward count3",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification",
+        "NoCardPoolModifications",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_event_offers / native generated reward / source_reward_reroll",
+      "comparison": "reviewed_profile_matches",
+      "detail": "AfterGenerated may force upgrades. Helper still suppresses the random upgrade draw; forced upgrades retained on reroll.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "crystal_sphere.card_reward",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent.CrystalSphereItems/CrystalSphereCardReward.cs",
+      "sha256": "9c794232f18ce0304f1c80007522a084efaaf0db8f771efd8b927229a1e3e10c",
+      "actual_constructor": "new(own, Other, Uniform, selected rarity filter).WithRngOverride(sphere RNG); CardReward count3",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_crystal_sphere._sphere_rewards",
+      "comparison": "reviewed_profile_matches",
+      "detail": "Explicit constructor enables upgrades. Pool hooks run before retained rarity filter; override replaces item/upgrade RNG, not a non-Uniform rarity RNG.",
+      "implementation_commit": "7a3ca75"
+    },
+    {
+      "id": "the_hunt.extra_reward",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/TheHunt.cs",
+      "sha256": "17a3a70929aec9671a74ab1b0f2380f44e1df6c6bf4709d9d5395e527f4c043d",
+      "actual_constructor": "ForRoom(current combat room); extra CardReward count3",
+      "effective_flags": [
+        "IsCardReward"
+      ],
+      "runtime_consumer": "source_class_hooks fatal reward counter / combat extra groups",
+      "comparison": "reviewed_constructor_profile",
+      "detail": "Factory profile follows current combat room. This finite constructor comparison does not certify every fatal-trigger lifecycle combination."
+    },
+    {
+      "id": "custom_modifier.AllStar",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/AllStar.cs",
+      "sha256": "3ec4c35e020873bd90522d08150a7f7c16d94ccb9dfc537c73fe2fe6d8c1999b",
+      "actual_constructor": "ForNonCombatWithUniformOdds(Colorless); direct count1 per added card",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification",
+        "NoCardPoolModifications"
+      ],
+      "runtime_consumer": "custom run modifier scope",
+      "comparison": "outside_regular_single_player_scope",
+      "detail": "Constructor reviewed; ordinary stable single-player training scope does not claim custom-mode lifecycle parity."
+    },
+    {
+      "id": "custom_modifier.Insanity",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/Insanity.cs",
+      "sha256": "ab2869a2c01bba1ad68811fbfe797cc0dcf346cb79504b3a10ef9432b26beb00",
+      "actual_constructor": "ForNonCombatWithUniformOdds(own); direct count1 per added card",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification"
+      ],
+      "runtime_consumer": "custom run modifier scope",
+      "comparison": "outside_regular_single_player_scope",
+      "detail": "Constructor reviewed; ordinary stable single-player training scope does not claim custom-mode lifecycle parity."
+    },
+    {
+      "id": "custom_modifier.Specialized",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/Specialized.cs",
+      "sha256": "330019dfc3f2d891441abc6a319be6fce3a528c38e9d4b999753704a55129946",
+      "actual_constructor": "ForNonCombatWithUniformOdds(own); direct count1",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "NoRarityModification"
+      ],
+      "runtime_consumer": "custom run modifier scope",
+      "comparison": "outside_regular_single_player_scope",
+      "detail": "Constructor reviewed; ordinary stable single-player training scope does not claim custom-mode lifecycle parity."
+    },
+    {
+      "id": "custom_modifier.SealedDeck",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/SealedDeck.cs",
+      "sha256": "186520b49ab96d2e012a667fd4a504822cb432cf505f6ad5d1bb165af54843d2",
+      "actual_constructor": "new(own, Other, RegularEncounter); direct count30",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "ForceRarityOddsChange",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "custom run modifier scope",
+      "comparison": "outside_regular_single_player_scope",
+      "detail": "Constructor reviewed; ordinary stable single-player training scope does not claim custom-mode lifecycle parity."
+    },
+    {
+      "id": "custom_modifier.Draft",
+      "source_path": "decompiled/MegaCrit.Sts2.Core.Models.Modifiers/Draft.cs",
+      "sha256": "7d9ce5beda999bec9e8245504c20a2f13bb9020b48d54700bc2bb9e6e6ffcbe4",
+      "actual_constructor": "new(own, Other, RegularEncounter); ten mandatory CardReward count3",
+      "effective_flags": [
+        "NoUpgradeRoll",
+        "IsCardReward"
+      ],
+      "runtime_consumer": "custom run modifier scope",
+      "comparison": "outside_regular_single_player_scope",
+      "detail": "Constructor reviewed; ordinary stable single-player training scope does not claim custom-mode lifecycle parity."
+    }
+  ],
+  "validation": [
+    "tests/rewards/test_source_direct_card_factories.py",
+    "tests/rewards/test_source_relic_pickup_contracts.py",
+    "tests/events/test_source_event_card_factories.py",
+    "tests/events/test_source_event_flows.py"
+  ],
+  "constructor_scan": {
+    "expression_patterns": [
+      "CardFactory.CreateForReward",
+      "new CardCreationOptions",
+      "CardCreationOptions.For"
+    ],
+    "matching_expressions": 65,
+    "matching_source_files": 32,
+    "unrepresented_source_files": [],
+    "scope_note": "Each matching source file is represented by the per-ID profiles or infrastructure hashes. This counts source constructor coverage, not exhaustive behavioral validation."
+  },
+  "runtime_file_hashes": [
+    {
+      "path": "src/sts2sim/engine/transitions.py",
+      "sha256": "df45841e1975cbf3c6db3366d8b0b251fe70c1f35f0d4b2223c130a8cd0ccd63"
+    },
+    {
+      "path": "src/sts2sim/engine/source_creation_consumers.py",
+      "sha256": "43af48e0888b301ec1ed23b3f66e772db59db70024683c320cbd74bd650f2b9d"
+    },
+    {
+      "path": "src/sts2sim/engine/source_pickup_rewards.py",
+      "sha256": "a330eb23b9a911e552aced30a19b6772c7eae24b5bbfb4a658c90a53d1d3ba24"
+    },
+    {
+      "path": "src/sts2sim/engine/source_card_reward_modifiers.py",
+      "sha256": "8d0c1214e31dcadefa2181ef3495e17768a711a74f05ca15b20f16420252c588"
+    },
+    {
+      "path": "src/sts2sim/engine/source_run_passives.py",
+      "sha256": "ce99c40787b7adb2f5e53ef6446e9921218f3fb9c5354a8e893e1d3cd3933a36"
+    },
+    {
+      "path": "src/sts2sim/engine/source_rest_runtime.py",
+      "sha256": "ce788387711708a0ec3b3d4c3f69d2612e2e2d6dd37d538f57aa0e0c1ad31a04"
+    },
+    {
+      "path": "src/sts2sim/engine/source_kaleidoscope.py",
+      "sha256": "d6b9804f3e8b112826c40bcfa787e504549abdea4db4a7665f2acce00e0bd06a"
+    },
+    {
+      "path": "src/sts2sim/engine/source_reward_reroll.py",
+      "sha256": "397bce4d4991fdd83e1e996eb8d8e73c23bdb1ffa69e0396912c2490ea87abed"
+    },
+    {
+      "path": "src/sts2sim/engine/source_crystal_sphere.py",
+      "sha256": "3eaca67c2be0a12faa7b0149b43565431601a7f93d7c875fd7e99d11e7dd8393"
+    },
+    {
+      "path": "src/sts2sim/engine/source_event_offers.py",
+      "sha256": "bb8ca33540697bbf919693126e140fb944548b608306acef941a03a2fea040c4"
+    },
+    {
+      "path": "src/sts2sim/mechanics/source_card_factory.py",
+      "sha256": "a845eb1f72b46f62863563d3cb1cc9a578be839500a7d1d66e1d3111dab814cd"
+    },
+    {
+      "path": "src/sts2sim/mechanics/source_event_rules.py",
+      "sha256": "13c3190598af317c1a059445353fb179b5b045b1725a8bb101e4b5fd6b65fa7a"
+    },
+    {
+      "path": "src/sts2sim/mechanics/reward_triggers.py",
+      "sha256": "d5c2885b15135c389f562d512b0c87ee485fb296a603227ab30cfe234463f548"
+    }
+  ]
+}

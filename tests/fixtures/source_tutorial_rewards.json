@@ -1,0 +1,102 @@
+{
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "source_files": {
+    "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb",
+    "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d",
+    "decompiled/MegaCrit.Sts2.Core.Rewards/PotionReward.cs": "0e10a1901cfac2046ac1750e593df89f5341e6a4fb76c17e4d847c8b36297819",
+    "decompiled/MegaCrit.Sts2.Core.Rewards/GoldReward.cs": "1dd118ee26d178cb72ec56dc449d37bf46930bab6a175fcdfe06ccca6bfd97bf",
+    "decompiled/MegaCrit.Sts2.Core.Rewards/RelicReward.cs": "10f2bdbe8533bc384e2f5b637a81b1efbeee6906a7829bef891586918a49f1bd",
+    "decompiled/MegaCrit.Sts2.Core.Unlocks/UnlockState.cs": "f3ff15fd9448f13808a92a2c87b50ba250a741dfd3c6b24e9619ec9e82718d4b",
+    "decompiled/MegaCrit.Sts2.Core.Models/EncounterModel.cs": "8bdc260afd3ca9cac360ac28f2bc292a00feccf20326e8fef4a226f8fc6ff2db"
+  },
+  "qualification": "Finite first-run preset source contracts and tests, not captured installed-game outcomes",
+  "gate": {
+    "character": "IRONCLAD",
+    "number_of_runs": 0,
+    "revealed_epoch_count": 0
+  },
+  "counting": {
+    "monster": "MapPointHistory entries containing at least one Monster room, including event combats, at most one count per map point",
+    "elite": "MapPointType Elite count, first two only",
+    "boss": "MapPointType Boss count, first only; final-act caller guard executes before tutorial generation"
+  },
+  "monster_presets": [
+    [
+      "setup_strike",
+      "tremble",
+      "blood_wall"
+    ],
+    [
+      "breakthrough",
+      "inflame",
+      "anger"
+    ],
+    [
+      "iron_wave",
+      "dismantle",
+      "cinder"
+    ],
+    [
+      "stomp",
+      "shrug_it_off",
+      "armaments"
+    ],
+    [
+      "thunderclap",
+      "setup_strike",
+      "rage"
+    ],
+    [
+      "battle_trance",
+      "true_grit",
+      "uppercut"
+    ],
+    [
+      "bloodletting",
+      "whirlwind",
+      "tremble"
+    ]
+  ],
+  "monster_fixed_potions": [
+    null,
+    null,
+    "fire_potion",
+    null,
+    "strength_potion",
+    null,
+    "energy_potion"
+  ],
+  "elite_presets": [
+    [
+      "bludgeon",
+      "pyre",
+      "evil_eye"
+    ],
+    [
+      "pillage",
+      "rampage",
+      "flame_barrier"
+    ]
+  ],
+  "elite_fixed_relics": [
+    "vajra",
+    "ornamental_fan"
+  ],
+  "elite_fixed_potions": [
+    "block_potion",
+    null
+  ],
+  "boss_preset": [
+    "primal_force",
+    "demon_form",
+    "thrash"
+  ],
+  "rng": {
+    "monster_gold": "GoldReward(10,20) draws1, bypasses EncounterModel Poverty and escape scaling",
+    "elite_boss_gold": "EncounterModel endpoints include Poverty before single GoldReward draw",
+    "manual_cards": "No factory rarity, selection, upgrade or pity draws; manual Populate still applies ordinary and late card-reward hooks",
+    "fixed_potions_relics": "No creation/drop/rarity/bag RNG for prepopulated identities",
+    "modify_rewards": "Shared orchestration applies normal acquisition-ordered reward modifiers after original base/extra population"
+  },
+  "manual_reroll": "Initial Options has IsCardReward; original ForRoom RerollOptions has no IsCardReward; fixed OptionCount3; no RelicObtained subscription"
+}

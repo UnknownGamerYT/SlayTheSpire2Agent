@@ -27,7 +27,13 @@ def _force_next_room(state, room_kind: RoomKind):
         current_node_id=start.node_id,
         completed_node_ids=(start.node_id,),
     )
-    return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
+    # This fixture replaces the intro with an unrelated room under test.
+    flags = {
+        key: value for key, value in state.flags.items() if key != "pending_relic_deck_choices"
+    }
+    return state.model_copy(
+        update={"phase": RunPhase.MAP, "map": game_map, "floor": 0, "flags": flags}
+    )
 
 
 def _enter_monster_combat(state):
@@ -436,7 +442,7 @@ def test_attack_potion_generates_free_card_choice() -> None:
     assert state.combat.pending_choices == ()
 
 
-def test_liquid_memories_moves_discarded_card_to_hand_free_for_combat() -> None:
+def test_liquid_memories_moves_discarded_card_to_hand_free_for_turn() -> None:
     state = new_run(seed=1311, character_id="TEST", ascension=0)
     state = state.model_copy(update={"potions": ("liquid_memories",)})
     state = _enter_monster_combat(state)
@@ -459,7 +465,7 @@ def test_liquid_memories_moves_discarded_card_to_hand_free_for_combat() -> None:
 
     assert state.combat is not None
     assert state.combat.hand[0].instance_id == recovered.instance_id
-    assert state.combat.hand[0].custom["free_to_play_this_combat"] is True
+    assert state.combat.hand[0].custom["free_to_play_this_turn"] is True
     assert any(action.type == "play_card" for action in legal_actions(state))
 
 
@@ -636,10 +642,9 @@ def test_soldiers_stew_adds_replay_to_strikes_across_combat_piles() -> None:
     state = _enter_monster_combat(state)
     assert state.combat is not None
     cards_by_zone = {
-        "hand": (_card("strike_hand", card_type="attack", target="enemy", damage=1),),
-        "draw_pile": (_card("strike_draw", card_type="attack", target="enemy", damage=1),),
-        "discard_pile": (_card("strike_discard", card_type="attack", target="enemy", damage=1),),
-        "exhaust_pile": (_card("strike_exhaust", card_type="attack", target="enemy", damage=1),),
+        zone: (_card(f"strike_{zone}", card_type="attack", target="enemy", damage=1)
+               .model_copy(update={"tags": ("strike",)}),)
+        for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile")
     }
     state = state.model_copy(
         update={"combat": state.combat.model_copy(update={**cards_by_zone})}
@@ -655,12 +660,12 @@ def test_soldiers_stew_adds_replay_to_strikes_across_combat_piles() -> None:
         + state.combat.exhaust_pile
     )
     assert all(
-        any(enchantment.keyword == "replay" for enchantment in card.enchantments)
+        card.custom.get("base_replay_bonus") == 1
         for card in all_cards
     )
 
 
-def test_beetle_juice_reduces_enemy_attack_damage_for_the_turn() -> None:
+def test_beetle_juice_applies_four_turns_of_shrink() -> None:
     state = new_run(seed=1320, character_id="TEST", ascension=0)
     state = state.model_copy(update={"potions": ("beetle_juice",)})
     state = _enter_monster_combat(state)
@@ -687,7 +692,7 @@ def test_beetle_juice_reduces_enemy_attack_damage_for_the_turn() -> None:
 
     state = step(state, _use_potion_action(state, target_id=attacker.monster_id))
     assert state.combat is not None
-    assert state.combat.monsters[0].statuses["temporary_attack_damage_percent"] == -30
+    assert state.combat.monsters[0].statuses["shrink"] == 4
 
     state = step(state, _end_turn_action(state))
 
@@ -715,7 +720,7 @@ def test_resource_and_status_potions_apply_combat_state() -> None:
     state = step(state, _use_potion_action(state, "potion:0"))
     assert state.combat is not None
     assert state.combat.player.resources["summon"] == 15
-    assert state.combat.metadata["osty"]["hp"] == 35
+    assert state.combat.metadata["osty"]["hp"] == 15
 
     state = step(state, _use_potion_action(state, "potion:0"))
     assert state.combat is not None
@@ -743,7 +748,7 @@ def test_resource_and_status_potions_apply_combat_state() -> None:
     assert state.potions == ()
 
 
-def test_cure_all_draws_and_glowwater_draws_then_exhausts_hand() -> None:
+def test_cure_all_draws_and_glowwater_exhausts_then_draws_hand() -> None:
     state = new_run(seed=1322, character_id="TEST", ascension=0)
     state = state.model_copy(update={"potions": ("cure_all", "glowwater_potion")})
     state = _enter_monster_combat(state)
@@ -782,10 +787,6 @@ def test_cure_all_draws_and_glowwater_draws_then_exhausts_hand() -> None:
     state = step(state, _use_potion_action(state, "potion:0"))
 
     assert state.combat is not None
-    assert state.combat.hand == ()
+    assert [card.card_id for card in state.combat.hand] == ["glow_draw_a", "glow_draw_b"]
     assert state.combat.draw_pile == ()
-    assert [card.card_id for card in state.combat.exhaust_pile] == [
-        "held_card",
-        "glow_draw_a",
-        "glow_draw_b",
-    ]
+    assert [card.card_id for card in state.combat.exhaust_pile] == ["held_card"]

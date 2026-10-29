@@ -1,0 +1,85 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "scope": "Named native event factory boundaries, IsCardReward, NoUpgradeRoll, NoCardPoolModifications and persisted per-option upgrades/enchantments. This certifies no whole-event or whole-game parity.",
+  "certifies_game_parity": false,
+  "sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/BrainLeech.cs",
+      "sha256": "1dba57b437c1f0ea9d0e2fec3039cd523dd3bb0bb735602c46db81eec4794b42",
+      "reviewed_methods": [
+        "CanonicalVars RewardCount=1",
+        "ShareKnowledge",
+        "Rip"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/RoomFullOfCheese.cs",
+      "sha256": "0c91915b25b5a71b817d32f1ef51d487c10ff23323c8b53c65072785b4d1515f",
+      "reviewed_methods": [
+        "Gorge"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/InfestedAutomaton.cs",
+      "sha256": "4ad1a8b6be3f4fd38bf39c03a53e03a6d102fa7ace82684eb751a3da7767a62f",
+      "reviewed_methods": [
+        "Study",
+        "TouchCore"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Trial.cs",
+      "sha256": "ca4a1dcf6495ff8e8222b59748dc7425ff01cc0ab217104552d05a94a68acf7f",
+      "reviewed_methods": [
+        "NondescriptGuilty"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/ColorfulPhilosophers.cs",
+      "sha256": "55f23ee2600a050c6bde86a3460eb6f02d01a57d5744a85ecff27d4796e9b996",
+      "reviewed_methods": [
+        "CardCreationOptions and three CardRewards"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheFutureOfPotions.cs",
+      "sha256": "e04c069bb629c1a27faf5d162ab255d8e89c0027b6e9900c02ce97f24fa3cb64",
+      "reviewed_methods": [
+        "Trade",
+        "UpgradeCardsInReward"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent.CrystalSphereItems/CrystalSphereCardReward.cs",
+      "sha256": "9c794232f18ce0304f1c80007522a084efaaf0db8f771efd8b927229a1e3e10c",
+      "reviewed_methods": [
+        "ToReward"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd",
+      "reviewed_methods": [
+        "CreateForReward batch late hooks"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs",
+      "sha256": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce",
+      "reviewed_methods": [
+        "ForNonCombatWithDefaultOdds",
+        "ForNonCombatWithUniformOdds",
+        "WithFlags OR"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d",
+      "reviewed_methods": [
+        "constructors IsCardReward and RerollOptions"
+      ]
+    }
+  ]
+}

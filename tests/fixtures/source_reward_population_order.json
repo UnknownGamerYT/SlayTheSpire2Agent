@@ -1,0 +1,45 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "sources": {
+    "MegaCrit.Sts2.Core.Rewards/RewardsSet.cs": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb",
+    "MegaCrit.Sts2.Core.Rewards/GoldReward.cs": "1dd118ee26d178cb72ec56dc449d37bf46930bab6a175fcdfe06ccca6bfd97bf",
+    "MegaCrit.Sts2.Core.Rewards/RelicReward.cs": "10f2bdbe8533bc384e2f5b637a81b1efbeee6906a7829bef891586918a49f1bd",
+    "MegaCrit.Sts2.Core.Models.Relics/AmethystAubergine.cs": "34446b1c3df8b87539f7c658e29cf42ebd7e70618789875f8fa7de42c3c3431f",
+    "MegaCrit.Sts2.Core.Models.Relics/BlackStar.cs": "236a57f088df6306350579a36d3e9de80b705e12675eb6c9e18d82c9285c2e37",
+    "MegaCrit.Sts2.Core.Models.Relics/LavaRock.cs": "3fb81e2b172260204bf0ae6a36891480d5924467b82ac0346a9023e6c5339859",
+    "MegaCrit.Sts2.Core.Models.Relics/PrayerWheel.cs": "381a30c20ccef43ba13d43ae7b00ea5f5665ac63369649486408c4b3aa69c8fc",
+    "MegaCrit.Sts2.Core.Models.Relics/WhiteStar.cs": "bca994fd23df8836f549b35fa2d2c2a6039c0a3def7786e223019025c88ab5df",
+    "MegaCrit.Sts2.Core.Models.Relics/WongosMysteryTicket.cs": "831872d73d4c25fca471afe636eb65d34677aba0a690239c471573ceb05b8cb9",
+    "MegaCrit.Sts2.Core.Models.Events/PunchOff.cs": "efb9357b4754fcb0e416a19b308ab859ee304e9b0ae882d8fa46e568cd7957b8",
+    "MegaCrit.Sts2.Core.Models.Events/FakeMerchant.cs": "9fbd560f2ced4c604614d3cfb7fe9a3e4ca13610f756b7c997ab58f4a733a808",
+    "MegaCrit.Sts2.Core.Models.Cards/TheHunt.cs": "17a3a70929aec9671a74ab1b0f2380f44e1df6c6bf4709d9d5395e527f4c043d",
+    "MegaCrit.Sts2.Core.Models.Powers/HeistPower.cs": "b7cecfad5fc4dd1cd77a7312ce5bbf97f0e788d11688b42848840c0368dcf1cf"
+  },
+  "contracts": {
+    "population_order": [
+      "base rewards in constructor order",
+      "CombatRoom.ExtraRewards in enqueue order",
+      "unpopulated TryModifyRewards additions in listener acquisition order"
+    ],
+    "gold": "Populate is invoked on every original reward, including fixed-amount GoldReward; already-populated hook additions are not repopulated.",
+    "source_append_hooks": [
+      "AmethystAubergine",
+      "BlackStar",
+      "LavaRock",
+      "PrayerWheel",
+      "WhiteStar",
+      "WongosMysteryTicket"
+    ],
+    "tutorial_elite_order": [
+      "gold",
+      "optional fixed potion",
+      "fixed relic",
+      "manual card reward"
+    ],
+    "final_boss": "WithRewardsFromRoom returns before base and extras; ModifyRewards still runs. Amethyst excludes this room, but an eligible Wongo ticket does not.",
+    "legacy_compatibility": "Reserved TEST and legacy MT fixtures retain the earlier custom pipeline; older source snapshots without mixed extra order use explicit legacy_descriptor_order diagnostics."
+  },
+  "regressions": "tests/rewards/test_source_reward_population_order.py",
+  "game_behavior_validated": false
+}

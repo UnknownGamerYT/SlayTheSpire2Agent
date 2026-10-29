@@ -1,0 +1,2905 @@
+{
+  "game_version": "0.107.1",
+  "build": 23811903,
+  "reference_repository": "https://github.com/Razhuo/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "scope": "Ironclad87, Silent88, Colorless64 source-card crosswalk. This records inspection and regression scope, not complete behavioral certification.",
+  "certifies_game_parity": false,
+  "metadata_cases": 478,
+  "public_action_regression_file": "tests/combat/test_source_core_cards.py",
+  "normalization_metadata_regression_file": "tests/combat/test_source_core_metadata.py",
+  "limitations": [
+    "Shared hooks, nested asynchronous child choices, multiplayer, and all card/relic/power combinations are not exhaustively cross-validated against the live executable.",
+    "Version-pinned source comparison is independent evidence; public source provenance cannot authenticate the installed game build.",
+    "Single-player combat generation excludes MultiplayerOnly cards through the source pool registry."
+  ],
+  "remaining_observed_gaps": {
+    "beacon_of_hope": "Generic trigger requires card-origin Block; C# listens to all owner-turn Block gains and applies half to each other player.",
+    "believe_in_you": "Existing energy primitive grants the local player energy; C# grants the targeted other player energy.",
+    "coordinate": "Existing status primitive applies local permanent Strength; C# applies temporary Strength to targeted other player.",
+    "demonic_shield": "Local HP loss executes, but giving the selected other player calculated owner Block is absent.",
+    "huddle_up": "Local draw executes; corresponding draws for all other players are absent.",
+    "intercept": "Local Block executes; CoveredPower routing of attacks aimed at another player is absent.",
+    "lift": "Existing Block primitive grants local Block; C# grants Block to selected other player.",
+    "rally": "Local Block executes; Block gains for every other player are absent.",
+    "tag_team": "Attack executes; TagTeamPower extra play for next attack by another player is absent."
+  },
+  "cards": [
+    {
+      "id": "abrasive",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Abrasive.cs",
+      "source_sha256": "2bda2469b3da1363eae71eead4cbcf55bc0157129981dab9b35857f1ae8ced9b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "accelerant",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Accelerant.cs",
+      "source_sha256": "263ebe028697fe2b60ddc0d81e879365a2edb9114c93b8285e0de646818f2d18",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "accuracy",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Accuracy.cs",
+      "source_sha256": "1aff0a7514b5d29b3b8cba4770f814c1e06a57965f41fe3ad536fdf7f379dea2",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "acrobatics",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Acrobatics.cs",
+      "source_sha256": "9d771f4eca9eea8c7ddcf13604888c02ee71298b2ba2a802ac211a37382f725b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "adrenaline",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Adrenaline.cs",
+      "source_sha256": "072eb09ac2f268a87bb3aaaee2ecd2787e1bf6d698ede49c4f0ae19826606c3f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "afterimage",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Afterimage.cs",
+      "source_sha256": "f45059f79c89ab58de19a504a1f947f26dbdfbb8162123eb0e304518fc36b96a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "aggression",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Aggression.cs",
+      "source_sha256": "3cf741e6c5bb10dfd327ad300a59a9027d1711c809eb3dd1ce442f085bd3a8a0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "alchemize",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Alchemize.cs",
+      "source_sha256": "5f5318507b2ee1d0c58c0ec1bf38299e6d57b3867f03eb8c0641a267440686bb",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "anger",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Anger.cs",
+      "source_sha256": "a257b4fa27cf13a9a7b9b8d1b3ebb82cac1b6c1f6f6b21da1198f8edd8690aa4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "anointed",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Anointed.cs",
+      "source_sha256": "4f5ad80b8b82a8811fc119d999d9ec0cd3b3a0b871cc65d2ba5e1f58dffe3902",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "anticipate",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Anticipate.cs",
+      "source_sha256": "e8850a96fa50bff53112c56818937ae20e979d0c9617898f78e1b5870df7aecf",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "armaments",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Armaments.cs",
+      "source_sha256": "8a61b0d23dfc9f6f41fc167ab8c002af1ad7bbd27e4892439c000e86ab929ce1",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "ashen_strike",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/AshenStrike.cs",
+      "source_sha256": "c7af20dfde4cc140ff7378e1518eb19bd2db1157069fdc2b9add43852e9d90ae",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "assassinate",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Assassinate.cs",
+      "source_sha256": "14e744b44d12a66c1adb9697c08010977d954a9f8320c0b90f02467ab6490a1a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "automation",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Automation.cs",
+      "source_sha256": "50902e2382f164d0281814559054545d1b9061a8e308ea98bd64d55776bdda08",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "backflip",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Backflip.cs",
+      "source_sha256": "aecaaf630bb01338d936fdec49825b788f85c5833658586dfde60bbb2421b6cd",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "backstab",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Backstab.cs",
+      "source_sha256": "030a704ee39f61d6b45f3618ed978b04f64777a9677a7d5b447de2c1b8cea32c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "barricade",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Barricade.cs",
+      "source_sha256": "e4e0339dac4c53a6075136a614a2058773d67465b55e6c2579bf357daa8d3182",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bash",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Bash.cs",
+      "source_sha256": "88bdf7b02f3206a2f91f5b3876ad0ff66980102424ae5d47fdd059ac3b09c9d5",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "battle_trance",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BattleTrance.cs",
+      "source_sha256": "eb70d710ec3833d3895d76d12fd2457eb322bc743927d91c5a4456f43ff88d9d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "beacon_of_hope",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BeaconOfHope.cs",
+      "source_sha256": "4f3c3bf4b6137c23a141e73bc64ab1543ef48dec496ff13d4e24c110c52e0490",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Generic trigger requires card-origin Block; C# listens to all owner-turn Block gains and applies half to each other player."
+    },
+    {
+      "id": "beat_down",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BeatDown.cs",
+      "source_sha256": "55f57d14071137e07984b667e80c5a2b2fe63b1a827b026ef139bc2137b46308",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "believe_in_you",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BelieveInYou.cs",
+      "source_sha256": "12240e44282c16356bffb9e031f970ba3af1a06af654df958074333f2126ce7a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Existing energy primitive grants the local player energy; C# grants the targeted other player energy."
+    },
+    {
+      "id": "blade_dance",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BladeDance.cs",
+      "source_sha256": "1876d2006b88e1be886bc88b31b348dc049b7f7ad37b6095a0e365a038236f4c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "blade_of_ink",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BladeOfInk.cs",
+      "source_sha256": "79ff3e2886ab27883ca043fb15fc1eaec3bb49b6e506d68883727d000d3b4aee",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "blood_wall",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BloodWall.cs",
+      "source_sha256": "9634914026afa0cdab3d7c03e0569c2c942239bed2f513d52de93ebc69c4681a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bloodletting",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Bloodletting.cs",
+      "source_sha256": "02dbb861ed91dc7dc58d1509fbe80dd0fa50e20bb293ee4a5bf1c7e34e7fe4d3",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bludgeon",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Bludgeon.cs",
+      "source_sha256": "df23c71490a95963d367d2233981cdd66df931f32b60d31b9919389d40694d6b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "blur",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Blur.cs",
+      "source_sha256": "66cc7a8d07552900a3f46624d2fc57aa3d6efa6b5cd1e0284a596dcd1016b452",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "body_slam",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BodySlam.cs",
+      "source_sha256": "d8a525ae1c3c04de01d9e9c3ee986ff4a475dd66c628931aae840da362a7a015",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bolas",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Bolas.cs",
+      "source_sha256": "e3b324c5d32d6f69356e70d28a8c4a5525338c7b8efa3c48dcd90a9950a84789",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bouncing_flask",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BouncingFlask.cs",
+      "source_sha256": "99e137ab176738d648b3962d91e8b1709fd021f6d0ecdac7fd7da85877a8e7fb",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "brand",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Brand.cs",
+      "source_sha256": "6448b643d00c387ec26a9ab0af89b804904c974b26b777708083035559398155",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "break",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Break.cs",
+      "source_sha256": "5cb33de81fedd493fe812859f40171badbb190366be98a7e8c6e2cdb9bad61fe",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "breakthrough",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Breakthrough.cs",
+      "source_sha256": "e1b0bbd0c5e779cc07929fae593bc545dd173075645fdb3e6f0b726ce733c76c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bubble_bubble",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BubbleBubble.cs",
+      "source_sha256": "e62d6e052916f5e4f95f4c57bf31c76f01af1a94ab81ed77c828954513c8de12",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bullet_time",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BulletTime.cs",
+      "source_sha256": "4b50ca77fd4e3e68614620cc2eeaa6d38a23fc1267175dc7e8a5b266673cf779",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "bully",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Bully.cs",
+      "source_sha256": "3bfe681675011346247015a9afa19f2c34b307109196ea55baf86c70c86e7f80",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "burning_pact",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/BurningPact.cs",
+      "source_sha256": "08eba57f671fbf9766976dc5b3badd504687d0ccb69b6c81ddcffdd2f9e05126",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "burst",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Burst.cs",
+      "source_sha256": "cc3059766d5f392af8ee30865c4781a8dda3619f3b45b02dd457cde81e9ff6e9",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "calamity",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Calamity.cs",
+      "source_sha256": "8b2a4d6fde522ffc215b1b921303d263b15c6232553231bd289e35980093857f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "calculated_gamble",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/CalculatedGamble.cs",
+      "source_sha256": "ba9e980cc96b8412959ef4fc040c40f500de1e7c2bec6beec0870a583560fe8e",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "cascade",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Cascade.cs",
+      "source_sha256": "378b9700653813e3c68b9915a7a70f097c01530fda5ab5d6bca4cb872bd63fa0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "catastrophe",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Catastrophe.cs",
+      "source_sha256": "a6793468810144fb4ec1d1e52f5ff80c5d2baacb9aa65854614b583ef112ccf8",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "cinder",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Cinder.cs",
+      "source_sha256": "66b4c4714675a97cb50530fe9e53449a3d7705a3be8092d21215d4659945cefd",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "cloak_and_dagger",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/CloakAndDagger.cs",
+      "source_sha256": "4449d730498728b682abdddaa9bff1b5a03d52e1ad836f3e7c68184528e43134",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "colossus",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Colossus.cs",
+      "source_sha256": "7533cc64ca49aa267d44c09ef6264d57cff7d3fca666bed2bdbaa04a9368ecb4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "conflagration",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Conflagration.cs",
+      "source_sha256": "ae8e203ca71e4becf727ffae9e03c79936db2357d5794f58bb514e3e15b3d8ce",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "coordinate",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Coordinate.cs",
+      "source_sha256": "7239b4b28f437a388a6e8dbf41a1b109b13e7be569daa7f0f7dfe1f160419d4c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Existing status primitive applies local permanent Strength; C# applies temporary Strength to targeted other player."
+    },
+    {
+      "id": "corrosive_wave",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/CorrosiveWave.cs",
+      "source_sha256": "13391822ad4c6028a81141b61f8412efa74c3ce531a9ab8949547ffc7961be8f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "corruption",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Corruption.cs",
+      "source_sha256": "714a9898a496ae8c5f46e8bba846318afffb3b17b3c4834744dbb49715b6210b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "crimson_mantle",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/CrimsonMantle.cs",
+      "source_sha256": "5043e67cc4d015d03361d0dc47c589bd1ae4717b5d235f335fc94b9efff21a6f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "cruelty",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Cruelty.cs",
+      "source_sha256": "ca3ce7fd13425cb94ec82f8f78428d9e0e15916d757450807d9e0b4df890e5c4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dagger_spray",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DaggerSpray.cs",
+      "source_sha256": "0f33bbdbc82f2cc1b0a2c476f248fc80196fc168f6c053b630f95d05ecc9470a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dagger_throw",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DaggerThrow.cs",
+      "source_sha256": "c1e9248d76ce5689d83a11b00bf665788259417cc7085caebdc68adc7cd328ed",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dark_embrace",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DarkEmbrace.cs",
+      "source_sha256": "6117894bf33a62c231627b48893805160a22af9b7ca11d3d771fadfecf518206",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dark_shackles",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DarkShackles.cs",
+      "source_sha256": "6f8ff4bf5002996f77482a4d1cb10ee23bafb98da8752c3e1f73a8f6c2eeae3c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dash",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Dash.cs",
+      "source_sha256": "bcf501abe8e8c2a371544abd096fe977bf717fe6128c34d452e71c722933b377",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "deadly_poison",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DeadlyPoison.cs",
+      "source_sha256": "1608777346a3694ebe3dd3039b82ca18553540cef32e58b6f253d1445b409fce",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "defend_ironclad",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DefendIronclad.cs",
+      "source_sha256": "08ba8e1d038f6b2fed46217d974154f4d9deea82a235bedc0efb1c1459c509ef",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "defend_silent",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DefendSilent.cs",
+      "source_sha256": "92f2dd3b07aef87bb9514da6e96888beb6192047f13815ccde655a1c1f679069",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "deflect",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Deflect.cs",
+      "source_sha256": "b8d5ba424b55802861b82686699a6628cc2ac3ad4b3534c27748a481ca68cfc6",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "demon_form",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DemonForm.cs",
+      "source_sha256": "25330823c450e336db8532fa17a5438fc5d65f278844806a1de69d7683c6b5c5",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "demonic_shield",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DemonicShield.cs",
+      "source_sha256": "08b27586eea2914c6853b2ab891ae209b75ebe84916874522da641c32b0738a5",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Local HP loss executes, but giving the selected other player calculated owner Block is absent."
+    },
+    {
+      "id": "discovery",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Discovery.cs",
+      "source_sha256": "3b68ad6836f9e1399cbac62814d931d671f326dfa99b1089b264ee0af2621a82",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dismantle",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Dismantle.cs",
+      "source_sha256": "dab437c12600b0f4cb6975c97e45c51b8d7c7b56f44a24e47eb07cf270d158f0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dodge_and_roll",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DodgeAndRoll.cs",
+      "source_sha256": "3e46904b6c2702c21bb97d1c374688c03411daf880720229fdc07c08382f3860",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dominate",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Dominate.cs",
+      "source_sha256": "6d5b36dd99a22d7fdf6c5789b926833cbfa8b3be274eb201732963bfc187b35b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "dramatic_entrance",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DramaticEntrance.cs",
+      "source_sha256": "874c68c8680b44cd7d0ad219b19db9c847d59996b1fe92fd00a5819a32aded24",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "drum_of_battle",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/DrumOfBattle.cs",
+      "source_sha256": "cacf678c75908500daab3407ac0f04777b38f7b5284f9cf6452667da281022d4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "echoing_slash",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/EchoingSlash.cs",
+      "source_sha256": "49f2f4250f5f85b108958a0d9a181bb0ff6fe34d4cf156916ba68877adcf789c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "entropy",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Entropy.cs",
+      "source_sha256": "9cf9a30e2a65cfda0270b4f2f18a25ae15972c063adb916ca86a10432d9093d1",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "envenom",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Envenom.cs",
+      "source_sha256": "b389dc4696ef0faeae81906a17606590a69fcaaa59f2c6cac665d8d4c70dc1db",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "equilibrium",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Equilibrium.cs",
+      "source_sha256": "75570f531a16eb7b3b271279bf77b1d3f6c1c87327a545088c410d4df8b3b45d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "escape_plan",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/EscapePlan.cs",
+      "source_sha256": "de8d48fd5990472282b753f751e027c249d109bcf62740db35c78111c910bf04",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "eternal_armor",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/EternalArmor.cs",
+      "source_sha256": "67c6ed932b9b0fa4e35ed50c93171fe9ee9598900214d76fb56b0e89e2a1ce94",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "evil_eye",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/EvilEye.cs",
+      "source_sha256": "048402a559c941e7bb20fff348cb9d3f307631d01713e4995b5712f5ad0acee4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "expect_a_fight",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ExpectAFight.cs",
+      "source_sha256": "b0c2ea5a57dbd6df806ee973b2101b557e13b09fbed72c80403412550633dfa8",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "expertise",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Expertise.cs",
+      "source_sha256": "c23d94c326fe92c75d7555ca37fb96034a10ff93d293da15abb55b30783e9502",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "expose",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Expose.cs",
+      "source_sha256": "199720e6b3e0ec0f031911fd2843f3179f1aae3a77444322d49a373f1f44ff30",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "fan_of_knives",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FanOfKnives.cs",
+      "source_sha256": "61b6c939622f879b8236f882447d1dd456a17034e1512713bdbcad49ae096192",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "fasten",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Fasten.cs",
+      "source_sha256": "fcbaa4775620a979c69d45ad79bca1d9a39490b979fa891dab0e517d632fa396",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "feed",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Feed.cs",
+      "source_sha256": "99d3e68dbdc4c3d687c756d5c4c3acdc545a37d043d888bb476028faad684cb8",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "feel_no_pain",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FeelNoPain.cs",
+      "source_sha256": "4fd134b915fdfd2b54812a284b3e812c85b1929c23d2803b3115bad9a46b7dab",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "fiend_fire",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FiendFire.cs",
+      "source_sha256": "f3d7ac4e037f444c6a1ea19de1002e0543ada2e7def5c82a5490823e97839b46",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "fight_me",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FightMe.cs",
+      "source_sha256": "14cf9002411f71c24ece5b6d44a2917e0731d1eb51222606f0654a1c41bc9084",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "finesse",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Finesse.cs",
+      "source_sha256": "e219c239f27683ceba64fae31836b7317c3b274eaf29422580bbb20f3d41c00f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "finisher",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Finisher.cs",
+      "source_sha256": "ef3531cf69226b30ad228c53a44d108103dde0dc1f00b0823851aa5b134d858b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "fisticuffs",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Fisticuffs.cs",
+      "source_sha256": "8fd6266bce9c567b1e0b696f14545598e43669cd80f07331e567fdaf10ef7e23",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "flame_barrier",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FlameBarrier.cs",
+      "source_sha256": "970b12d59d1daa57ae10ac48d4934786ca68ed0aae00cc2ae110738c9d82f22e",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "flanking",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Flanking.cs",
+      "source_sha256": "c486e6f70c764e93a2db9a9818adf97c9ba9c5325727ff2214907bf4a0e3a114",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "flash_of_steel",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FlashOfSteel.cs",
+      "source_sha256": "15fa8abc1c1d4d01efc4b59ae9f74b82548f01368916bf49e02e81ae295b1813",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "flechettes",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Flechettes.cs",
+      "source_sha256": "11e393130f914970aed7651251e0e94a0d29e9fae02c554f7581d54750b5552b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "flick_flack",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/FlickFlack.cs",
+      "source_sha256": "1358058b4c39e9e8706ae45a23e83cf0dbcc064b3adff45bf70e90def55d2f06",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "footwork",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Footwork.cs",
+      "source_sha256": "fe220feb2545a2fd209bbce2857f6ec3e9c03332443bd4b4738be06242e0bb39",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "forgotten_ritual",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ForgottenRitual.cs",
+      "source_sha256": "241a43f65b4dc322fad799d5fe1ea65eca0dd30aee1f20d48c4294300d12be28",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "gang_up",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/GangUp.cs",
+      "source_sha256": "8240e164aec344a9cb72aabf70cf46a9003f896ce7ccca02a44a2ddf6d6bbbd7",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "gold_axe",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/GoldAxe.cs",
+      "source_sha256": "ce9fb5ec9a5a3a3425eb3a7cb9aa996d7155f997b2974a7732678f486e1f4258",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "grand_finale",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/GrandFinale.cs",
+      "source_sha256": "c864303da6e05445f34bdefd67a9d061550d22e31d518238e63655b8335deb00",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "hand_trick",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/HandTrick.cs",
+      "source_sha256": "63619941da222ac19e0828aea31691b946befd4f1d8fcae6d6220afc75c8bdc5",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "hand_of_greed",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/HandOfGreed.cs",
+      "source_sha256": "8b0cd3b1f1bc7afff8fa91666fdbd031cae32cefe79b782775e252e55af51a52",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "havoc",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Havoc.cs",
+      "source_sha256": "2571cd74ec58e5c8e1e52dc7a04ca6ba43ec41bb96e4a622cbb3aea2a8668045",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "haze",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Haze.cs",
+      "source_sha256": "15e34018b29b86d6f0ef72b72ca18771545fc9050ef29b086339f5ee725bbdc3",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "headbutt",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Headbutt.cs",
+      "source_sha256": "aad2ecac6f64af4c821e11bf77fc26018c35fabf1c9c59cb239efbcbed718280",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "hellraiser",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Hellraiser.cs",
+      "source_sha256": "2811eeccf51526af0d47efeb0b39525091dc66060c4d9ad7a149b25da97c9ba9",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "hemokinesis",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Hemokinesis.cs",
+      "source_sha256": "0da212258133ca67234cb46e98de286c84353566320452d17c23f846a6618166",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "hidden_daggers",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/HiddenDaggers.cs",
+      "source_sha256": "8491faeb87bb0e7ba3d06cc6cea718b0f62fe03ed749e54b27289269b112112f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "hidden_gem",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/HiddenGem.cs",
+      "source_sha256": "f78f17dc5542626381acf6b879fbb49063df9fb779bacc32b3bc0ee589bce286",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "howl_from_beyond",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/HowlFromBeyond.cs",
+      "source_sha256": "93d4409c2c5faaace478e4697e003f1f1740f0e6f74b73e56015d3653d565314",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "huddle_up",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/HuddleUp.cs",
+      "source_sha256": "e9e568d3bb09371cc3ac5b1a1caf2545f8d2fada2114e385efaf3a0935b05b75",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Local draw executes; corresponding draws for all other players are absent."
+    },
+    {
+      "id": "impatience",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Impatience.cs",
+      "source_sha256": "8577eaa58a4bc8c03a647e50663c39e722f7255e34d6935727e7fb4a84a60f85",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "impervious",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Impervious.cs",
+      "source_sha256": "f84b61f87a86e88152d2c6b35157a6d1f57c7cef2a7ab2a51a2e116caf47c88b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "infernal_blade",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/InfernalBlade.cs",
+      "source_sha256": "4f8468b90c24c666b20437b60cd5c06e8c910d6cdae7ef29395fae4e50f10e94",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "inferno",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Inferno.cs",
+      "source_sha256": "396844f805b48e339031aa757219b5599bf1efe265a00adef07cc93756dcec01",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "infinite_blades",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/InfiniteBlades.cs",
+      "source_sha256": "cd1fe40257487317a5abbdf754f651b8b61d296e35c381c486ff7d517aa3c02a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "inflame",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Inflame.cs",
+      "source_sha256": "b77881751730c199219a516152ca5ee8d908d32c058d8393860090866dee1b0d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "intercept",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Intercept.cs",
+      "source_sha256": "c5a13508b728cc3ca701a8e631437c7447a0ffdb6bc078369b490c8d312320f8",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Local Block executes; CoveredPower routing of attacks aimed at another player is absent."
+    },
+    {
+      "id": "iron_wave",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/IronWave.cs",
+      "source_sha256": "44ef49a18d0726e3f8c2cb897b8aa0274fcde7158ca4612f6b9aac5436476281",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "jack_of_all_trades",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/JackOfAllTrades.cs",
+      "source_sha256": "6f90789fa7e239bf6ffbb798a0c01b6b31b3d83a60edc35ea6d56deb0c30ac80",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "jackpot",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Jackpot.cs",
+      "source_sha256": "a18d00ff31a4764733729ec60e0a487552da45a4078a63695ff86404cb4aa9ed",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "juggernaut",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Juggernaut.cs",
+      "source_sha256": "9fb9e766b9ef69fe520c6b8dd98679ea9912db3d162dcbb0f772d9196c42aedb",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "juggling",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Juggling.cs",
+      "source_sha256": "f80bc151ffc077d238aff0266f86f352f1d11a4fa85ed214b0ac1f1230002526",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "knife_trap",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/KnifeTrap.cs",
+      "source_sha256": "7a21b90aa9a1fbd926679f9c8b76c3365d3824e7a71ab9c07c1779735c32ffce",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "knockdown",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Knockdown.cs",
+      "source_sha256": "26ecdaf6c222f8f151a3d3749b47b876a5b102f65e36187df415efe66b13f8d3",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "leading_strike",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/LeadingStrike.cs",
+      "source_sha256": "3b4698ac2361bca060ac05214cd4324f443aa4aad0a13348dbfd217e87abf5a3",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "leg_sweep",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/LegSweep.cs",
+      "source_sha256": "a829389584838df38b313e10c8ce27f3dd3b4905b374005772c09f6a5ed01244",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "lift",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Lift.cs",
+      "source_sha256": "0799dd984b51dbcb3e7e27944c2b4e44e338be19d540845cdf1fa0418a7cb766",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Existing Block primitive grants local Block; C# grants Block to selected other player."
+    },
+    {
+      "id": "malaise",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Malaise.cs",
+      "source_sha256": "2b16aba0028875a57f8ec3f8c1aaf1128b401578aba99e5643a910abd34b278e",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "mangle",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Mangle.cs",
+      "source_sha256": "ea6013d03ff6937dd0758ac10031c8ec82ee9c537e85a53736b12aaa96b076fe",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "master_planner",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/MasterPlanner.cs",
+      "source_sha256": "9d29a96f3676b67c50f507a403a9b13b58ce99dc8fc7a09b0be04c6d74f9771d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "master_of_strategy",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/MasterOfStrategy.cs",
+      "source_sha256": "2eabba593c760e6d488de5611785ca547a0ec5393a2c797cdba707a77dc8e6e6",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "mayhem",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Mayhem.cs",
+      "source_sha256": "4571723720bf9d8c97a89108e0f81c8bbe92f426c4cb3baa69855677d2cc62fe",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "memento_mori",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/MementoMori.cs",
+      "source_sha256": "9514b8197cf2d0880cb6de895844553f83090bb6ccf10fb363b832b12a786884",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "mimic",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Mimic.cs",
+      "source_sha256": "c3fc8e79379564f7372abddeb801d2566ae90e532f5e170ba0301f329944fd8a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "mind_blast",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/MindBlast.cs",
+      "source_sha256": "d0c7152a84fbbf425785fe321e0df1c3f6991a84f4683e969f1ef40bd56c5073",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "mirage",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Mirage.cs",
+      "source_sha256": "4da9762f1c3222db3ca4a59edbdae8a7b93e67512e976f0d94c359f1324140f5",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "molten_fist",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/MoltenFist.cs",
+      "source_sha256": "bd383735d6a4e473f29171d70a986bf59a51c3284235618dbf801257868deb7c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "murder",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Murder.cs",
+      "source_sha256": "65227dc88f12cd3429c3c2d4fa7faa078bbd4128cd2ef31ce7141cbda823933d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "neutralize",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Neutralize.cs",
+      "source_sha256": "4eb5ae1f6deb76f5159972e5840b9096c3017838f6228cac5dcb0281a276f143",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "nightmare",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Nightmare.cs",
+      "source_sha256": "811fb9aced1d6a9c575159f86185d4871c8733c931210a7c27ee34c86a7961c8",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "nostalgia",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Nostalgia.cs",
+      "source_sha256": "35bc1f4ec0354bf792456f62ba9811e6394056ed03a0cc944f3c6bd46889537e",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "not_yet",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/NotYet.cs",
+      "source_sha256": "0f8360191b896e66f0f807a3fe3e675bb7d83d3392780564c347ff6a02cd0225",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "noxious_fumes",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/NoxiousFumes.cs",
+      "source_sha256": "cd821dbf0fdda84e10b2332b6542e430f8e2e6c2abba42f0a2438f3df5b4cd6e",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "offering",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Offering.cs",
+      "source_sha256": "fa615e1a41ee749779ce89dab2d542ac3e4c8d2cb7b0d3d196b83ad64a218534",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "omnislice",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Omnislice.cs",
+      "source_sha256": "530c733ff4d578aff930b59bbdaee213fe6ec55e9786d3cb4015eed4c9a198a0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "one_two_punch",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/OneTwoPunch.cs",
+      "source_sha256": "68634744da6a56a6bc711c0b8b2e857a05307201be72fefa9dd248a436c0b5f1",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "outbreak",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Outbreak.cs",
+      "source_sha256": "1b7dcf6786118ad59a286aa9f55ecb151da0444e955644f38927c05faca80972",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "pacts_end",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PactsEnd.cs",
+      "source_sha256": "42df84e877716a849390c1bf089b11fa6597605f11fa73329e242a5a38e678ed",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "panache",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Panache.cs",
+      "source_sha256": "285aff5e5ada1e657c0837aecdaa27592a82b2e93e6236fdef78bfad1788779d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "panic_button",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PanicButton.cs",
+      "source_sha256": "e843d8e1b920da3bba5499fe336164ba7469f52196ffe981add3ead21e2ed42d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "perfected_strike",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PerfectedStrike.cs",
+      "source_sha256": "cbde45ff9ddc73c3e2e41c766f8cae79bc50a392258cc48609d4e64b8a93f201",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "phantom_blades",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PhantomBlades.cs",
+      "source_sha256": "87b79ce27453c510cddd930e475a2fdac3cb632f05411b00599086d54b370703",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "piercing_wail",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PiercingWail.cs",
+      "source_sha256": "9476286903df43dac58143155fb841300c6a51efb92c5567530c1a13b6d1b84a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "pillage",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Pillage.cs",
+      "source_sha256": "f3cf665bd21d5ac1ec4ff09a6ede117b46cf1b2f029c4ec5e3b247d141532ed8",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "pinpoint",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Pinpoint.cs",
+      "source_sha256": "719aabba4d078754631afcfba77ad028cd74fa29e7cfdc724165ac21942484f9",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "poisoned_stab",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PoisonedStab.cs",
+      "source_sha256": "9896fbf855492e918d21d64ec720c88e1fc71ff9efbb9f7a765fea4aa5e71fd1",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "pommel_strike",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PommelStrike.cs",
+      "source_sha256": "fb29018c646413468ca54c6f10cb708c3ed8c4bb6cddb8bba4f8de99d8b9933a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "pounce",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Pounce.cs",
+      "source_sha256": "4628f3cc0382716dc46098a670b727fff3094992cf443f699e2582ba0a7fb4e0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "precise_cut",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PreciseCut.cs",
+      "source_sha256": "982c2d16d2ebc2885ee2fe720c489dd4175bc6ea69d071f65b80d61196fb23c0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "predator",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Predator.cs",
+      "source_sha256": "ebbfb92f0a512293ded0a9c08edc9093453342e964797d535e7865c3032a545c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "prep_time",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PrepTime.cs",
+      "source_sha256": "d9ee2141eff3386ac1cb71770c3c96db245d9b418475f64436f5f58c009e274b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "prepared",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Prepared.cs",
+      "source_sha256": "4633caec3f9282b3ba83007e994f195a133c9933287567524087254076e7911a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "primal_force",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/PrimalForce.cs",
+      "source_sha256": "9288fb7bd0f368c6445e7c4d020cf1e41189d5ce4dc090d954159e150ec8e1ac",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "production",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Production.cs",
+      "source_sha256": "f24b6dee4dea5a4c6e6ef20797a6e7f0324a946da9238220a350684f530976af",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "prolong",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Prolong.cs",
+      "source_sha256": "397402a37971c4aa334bc9d5cee821c6db5b75794eb7b4f6287408f264e12327",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "prowess",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Prowess.cs",
+      "source_sha256": "9d52bc98633f93d7607f43f6d012597c066c1a0fce7f8b9638e1dadb60ac5983",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "purity",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Purity.cs",
+      "source_sha256": "7944b2f8b652fd687fc4a63f9adaaf1bdbc3fd43ba238fc8fd27d2556d69cfaf",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "pyre",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Pyre.cs",
+      "source_sha256": "972c53e625565d108f72eca6283f1f10e0f4680c166678e4786b03a1e580a29a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "rage",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Rage.cs",
+      "source_sha256": "8507c8702ca2f66baed2f22128cf3ce291909cd24afdc6c6244256f9a66e0946",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "rally",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Rally.cs",
+      "source_sha256": "2d167a184482b09f6f9b678053c438399610f3a74e4bd2a1143ad596e9617f97",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Local Block executes; Block gains for every other player are absent."
+    },
+    {
+      "id": "rampage",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Rampage.cs",
+      "source_sha256": "b32c4ff315501083fd8d782b54e91314f34d3826cdb39ea91c9500633c87a7fb",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "reflex",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Reflex.cs",
+      "source_sha256": "cf80dc99f3f08f415a10bd6f985fc889917ee41bfa2cf73139587ff21c0f27bd",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "rend",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Rend.cs",
+      "source_sha256": "72d0fdcbadb22fff15a727b7bae2dbc9b4b0c89ea3cde48f648d9fbade3e64eb",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "restlessness",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Restlessness.cs",
+      "source_sha256": "e672b3e47fd8d9f47c2cbd4b958d0b0754348c2cffc641065b0ec92ee6a7a46b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "ricochet",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Ricochet.cs",
+      "source_sha256": "17ce89ef38905728a3bf5e5a0b244c36bcc39a1cea17b43a2b83a6b53e11320b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "rolling_boulder",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/RollingBoulder.cs",
+      "source_sha256": "32faef95d2ee63a625ceb43f37f303aab8202278499a0180a96d4c9bfa4878e0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "rupture",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Rupture.cs",
+      "source_sha256": "81b0f544cd88510d974a74fbc921598740fcf281bd7cff9cc364159110875079",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "salvo",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Salvo.cs",
+      "source_sha256": "74cc6d6d8721ea657bc4cbab5599636c5e01f17658d206263e0b632dce3a3ae6",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "scare",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Scare.cs",
+      "source_sha256": "08f9ab4a97c5117050549b71493b0a2637d9994246353fdc630a228ece9dc0ff",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "scrawl",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Scrawl.cs",
+      "source_sha256": "f2b10e984f16324a4b643d1d794cfea9bdd330e19d192eddf954006e173594d7",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "second_wind",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SecondWind.cs",
+      "source_sha256": "1f9d4bc3dfeccdfa762c2a79b67737161965b740582fc37e403f7928e4ca158f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "secret_technique",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SecretTechnique.cs",
+      "source_sha256": "4c224835972830c074e60466e7303d475491e8530cfebf223a537793ffd30d54",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "secret_weapon",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SecretWeapon.cs",
+      "source_sha256": "e6d2c5ddf23fc37e88c9f4ab08c8c4a3a8c0c57a9d0f33dd39f1d07020252284",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "seeker_strike",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SeekerStrike.cs",
+      "source_sha256": "ca98437ca26994dbf36fbe90dbc0cb3381cc6da30a95ca0957b8c36fd58cee8d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "serpent_form",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SerpentForm.cs",
+      "source_sha256": "daa3624f5f4a5fdaf86a6678d91925b9d0d69ffea706f04f9a51aa9424acc937",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "setup_strike",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SetupStrike.cs",
+      "source_sha256": "45b59d06baf4b6ae58921a4be9babff48204ae8ec88a836a5a728ec18ca351f9",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "shadow_step",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ShadowStep.cs",
+      "source_sha256": "6a313068ce21c3fe1717f9f632a648d2d759544df6263096bc719f5c2fe45017",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "shadowmeld",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Shadowmeld.cs",
+      "source_sha256": "b17def6a0fdbead36b89c0066e3608b4c10c9d4cc5e38e10039f34a5f64dd92a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "shockwave",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Shockwave.cs",
+      "source_sha256": "16f98ad1049df4ba06654f26f3f311559d5c4dda2cc44f6c65925c64dc705d57",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "shrug_it_off",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ShrugItOff.cs",
+      "source_sha256": "8ade3858ece71ae87bac9748a992e53011280705375326ac8325672467299b7f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "skewer",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Skewer.cs",
+      "source_sha256": "c960e8487832d71306d6afeb13ab63482a1e2c913a6644fc12fec64194602873",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "slice",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Slice.cs",
+      "source_sha256": "56c1445839108d9f4723420a388b96c9e195715959846659c913de800571bf7a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "snakebite",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Snakebite.cs",
+      "source_sha256": "271d7b13fc8b61df340843a38ee89de7f7fbb261a16f07d7921a25facf92dae9",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "sneaky",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Sneaky.cs",
+      "source_sha256": "baf43c5f6397f5dcd54e1d506153c7ecaa85eb6341de6608f257d8be1a99f7cb",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "speedster",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Speedster.cs",
+      "source_sha256": "1e31df5e9a605aa0bfcac3d9cd91d26c7cae523cacc83dd1a7d41ef323b2393d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "spite",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Spite.cs",
+      "source_sha256": "5e4fbc493c86ee21abf9fc2efe8f20dbd2d690bbb1e86d3b910499ef252f1a2a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "splash",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Splash.cs",
+      "source_sha256": "8bb94eb7cae037635a02465e7136586f9c2454167c7845b759b894486196f5dd",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "stampede",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Stampede.cs",
+      "source_sha256": "606bca7a8b137c47f2def409ed5f287f6f9817d6bf32ff1503b4eb19219d041f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "stoke",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Stoke.cs",
+      "source_sha256": "37d71e885defd7fa2d971e7e4a92cd1e073e73349fa9b8d7fe353e7b0a766a34",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "stomp",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Stomp.cs",
+      "source_sha256": "f1e847b84e9822dab52cde842db1d1fec60f56ed8aa93e30673a88bf9c411351",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "stone_armor",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/StoneArmor.cs",
+      "source_sha256": "c0e2f5b634fff26c011f3bf46a7ba34fce850bab3e1f1f160fbc32c0c15eb7b6",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "storm_of_steel",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/StormOfSteel.cs",
+      "source_sha256": "e492961648ad565b6525f1b51ad615b90fa770b3e54b12d2d49a56a8d5be5423",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "strangle",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Strangle.cs",
+      "source_sha256": "a1ee7a43f3e2609d44590d98fa1dfe4169f289e2c849d4405a3c93cd3d5f6cf5",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "stratagem",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Stratagem.cs",
+      "source_sha256": "db143ebe8bd30961f41ea9cd951e2ba74d823c9a145920b817e54fdd8c8ebfbd",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "strike_ironclad",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/StrikeIronclad.cs",
+      "source_sha256": "d37f8f59210d7c2d9d636b67068371d9e3660297238dc51eae33a91cfeba4e2f",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "strike_silent",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/StrikeSilent.cs",
+      "source_sha256": "b4bf6f7f6e7a0aab3a67fe789a347573877402ed2379212890403fb75a1cce6c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "sucker_punch",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SuckerPunch.cs",
+      "source_sha256": "68eca084d75d1ed2ec9a78595f965618b95a51f9b7bce92f211ff375590eeeae",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "suppress",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Suppress.cs",
+      "source_sha256": "9250cb240d8eb345b3e2b8226101a22e4649c61dfc35bebadb1177d744826f81",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "survivor",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Survivor.cs",
+      "source_sha256": "d34bb65a014ff48d5961810320608e32f266dd4c100ad748ce76499387ef5945",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "sword_boomerang",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/SwordBoomerang.cs",
+      "source_sha256": "499011fd8bc30c74a2c9e22d054e541e37ebaaa2c8531d007fd7851e9fdf65fc",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "tactician",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Tactician.cs",
+      "source_sha256": "5774c009e6b9373adbeca7a7372c88327e0cdc880794382f456544d7d930a839",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "tag_team",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TagTeam.cs",
+      "source_sha256": "ac65a4dfce45f10f37aec68e26b116e8f415d10765423d90f5cf92a40ec68410",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": "Attack executes; TagTeamPower extra play for next attack by another player is absent."
+    },
+    {
+      "id": "tank",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Tank.cs",
+      "source_sha256": "298e9f41b1e47f8f3fd217983da19f3bca2c784700f3f3850736ce1c71d7fd8c",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "taunt",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Taunt.cs",
+      "source_sha256": "c87666a4a236daef1365e9a8c9accfc1c9133372bcccef3053ce9442b1c3eecd",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "tear_asunder",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TearAsunder.cs",
+      "source_sha256": "82cdf2eb117a1f2f07a72f7ea30a6e88b4cdae1e7879fbdaa057ba6326592712",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "the_bomb",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TheBomb.cs",
+      "source_sha256": "743b83f2841f11c84a7feb19e0180e62ff932761060f3f4056ddfa69846b26c0",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "the_gambit",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TheGambit.cs",
+      "source_sha256": "7df85c6236fc0d0fd6cf0dfff1d5a596b6942bfa47d1e4995dd5ae7d11f86b38",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "the_hunt",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TheHunt.cs",
+      "source_sha256": "17a3a70929aec9671a74ab1b0f2380f44e1df6c6bf4709d9d5395e527f4c043d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "thinking_ahead",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ThinkingAhead.cs",
+      "source_sha256": "1b9451ced1bfd8164170aeca39c7172a42938103a6b0dda6ff1af9ecdbdf9795",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "thrash",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Thrash.cs",
+      "source_sha256": "87ecdaf33740eb5791b9e7401ac19b0f6daf2ceeb6a6f8dd009f6da376f244cc",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "thrumming_hatchet",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ThrummingHatchet.cs",
+      "source_sha256": "1a7098dc2654d6dfa090d41517d701374b48a4bca323ce52f36c116848ffe5fc",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "thunderclap",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Thunderclap.cs",
+      "source_sha256": "5c804682a7bfc32c1dcbc39bbb5550cdd10342b08fa8d4d8903fcf8a6d7fbb03",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "tools_of_the_trade",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/ToolsOfTheTrade.cs",
+      "source_sha256": "538178679b952c6e65d97b4a1dd98eb4ec4973ea3627b0fe3f959bfd5ebc39ab",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "tracking",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Tracking.cs",
+      "source_sha256": "81256cf48b80691e8420c243214cc59c8ae454bb03b74b2e0cd1c422701974b2",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "tremble",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Tremble.cs",
+      "source_sha256": "4aeff120553628b5ccd4449e9d033eda97903022719006b95b1902ffc4f88ea7",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "true_grit",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TrueGrit.cs",
+      "source_sha256": "05e1d60c99a232c327cf24767efee9c8e99ecd1a56a10315b7c8ed3f6ec15f1d",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "twin_strike",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/TwinStrike.cs",
+      "source_sha256": "c06855ac34143f1b8c63196e7d596b95f4b715d89bba17ca4292f1c286d6c4a4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "ultimate_defend",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/UltimateDefend.cs",
+      "source_sha256": "db51fd19e31c652f847033d3dbdb1dcbf4470c93d413b687426d9b20abf00a79",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "ultimate_strike",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/UltimateStrike.cs",
+      "source_sha256": "40b1dc1bcec4b728156039f9902e5d359efb89c7dad503b4f4fdea83ec734297",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "unmovable",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Unmovable.cs",
+      "source_sha256": "5bf75fe60de4f8a7996ea3334c5b0efdcb33fa3281d26da60c6f7520e814de0a",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "unrelenting",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Unrelenting.cs",
+      "source_sha256": "3ee7c78621c5f76283511b5334e9e856c7588c8583b3ae904a0a3d79b98d3bb6",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "untouchable",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Untouchable.cs",
+      "source_sha256": "0a453be554d81c31c9a18dd2701d04e60845197769883bc1b4cdb045f13f82ce",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "up_my_sleeve",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/UpMySleeve.cs",
+      "source_sha256": "6fb741d2eefcf306853a23c5fe7d78cea2e62817c8cfeb8ccd3a6165cb4a5091",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "uppercut",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Uppercut.cs",
+      "source_sha256": "3e79e551881accfe2b91a508b532a826d06e0d9eca7a54f710ba9f2d5dbff94b",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "vicious",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Vicious.cs",
+      "source_sha256": "97742f63322d7a1556391e06bc9ed120c2881d1e47ea0ca8d9ca2fcc8c5ecf8e",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "volley",
+      "color": "colorless",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Volley.cs",
+      "source_sha256": "56f3f83ff6ba003ff27242d4c6d8ca754674f7f5fbd1abff2b60a43838337ed3",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "well_laid_plans",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/WellLaidPlans.cs",
+      "source_sha256": "9b118982f65f6dcb8dfef25bf072ff325cd520c336a2293b3e34e6ef57c169f4",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "whirlwind",
+      "color": "ironclad",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/Whirlwind.cs",
+      "source_sha256": "86336574fa46008aefdba6c4f36b039ef94d0b9236a1b5fe72a5f737a4e827c7",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    },
+    {
+      "id": "wraith_form",
+      "color": "silent",
+      "source_path": "MegaCrit.Sts2.Core.Models.Cards/WraithForm.cs",
+      "source_sha256": "875b2f5381e6b2ade6c09ca0d013c041d58921d8d0eed42562067458311e6161",
+      "reviewed_methods": [
+        "CanonicalVars",
+        "OnUpgrade",
+        "OnPlay"
+      ],
+      "remaining_observed_gap": null
+    }
+  ],
+  "closed_findings": {
+    "thrash_fractional_damage": {
+      "source": "Thrash.OnPlay retains the decimal result of Hook.ModifyDamage in Damage.BaseValue and ExtraDamage.",
+      "storage": "JSON integer or exact numerator/denominator pair",
+      "regression": "tests/combat/test_source_core_cards.py::test_thrash_preserves_quarters_across_repeated_sacrifices_and_reload"
+    }
+  },
+  "public_action_cases": 102
+}

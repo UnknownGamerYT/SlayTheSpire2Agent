@@ -1,0 +1,100 @@
+{
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "reported_game_version": "0.107.1",
+  "certifies_installed_game_parity": false,
+  "sources": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Trial.cs",
+      "sha256": "ca4a1dcf6495ff8e8222b59748dc7425ff01cc0ab217104552d05a94a68acf7f",
+      "reviewed_contracts": [
+        "MerchantGuilty sequential CardPile.Add then two awaited relic obtains",
+        "NondescriptGuilty awaited OfferCustom before SetTrialFinished"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/ThisOrThat.cs",
+      "sha256": "776b18464b827050c85182198171ed54091641d50ba34446365bbcbf7748d330",
+      "reviewed_contracts": [
+        "Ornate awaits Obtain before adding Clumsy"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/WelcomeToWongos.cs",
+      "sha256": "5a1f3c051a170105fe8445321aa7aa0f88e17312de91253e52f041104dd2299e",
+      "reviewed_contracts": [
+        "purchase callback waits for Obtain before checking points and badge"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/RanwidTheElder.cs",
+      "sha256": "3471ba50086f4bf759eab58569fcadc35b44e2bfae983c7f8ab7ddb83ca21c2c",
+      "reviewed_contracts": [
+        "BeforeEventStarted and OnEventFinished potion lock",
+        "GiveRelic waits for each of two obtains"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/StoneOfAllTime.cs",
+      "sha256": "5725e802cf17d74c454d5f539614b22739059f535028057522ad7d7f03de2a4a",
+      "reviewed_contracts": [
+        "BeforeEventStarted and OnEventFinished potion lock"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheFutureOfPotions.cs",
+      "sha256": "e04c069bb629c1a27faf5d162ab255d8e89c0027b6e9900c02ce97f24fa3cb64",
+      "reviewed_contracts": [
+        "potion lock persists during Trade OfferCustom until Done"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/PotionCourier.cs",
+      "sha256": "af833f2f25684a2b869748cfbaf1a96e54a10d03d17fadfc33d996dadf61c832",
+      "reviewed_contracts": [
+        "GrabPotions and Ransack await OfferCustom before finishing"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/BrainLeech.cs",
+      "sha256": "1dba57b437c1f0ea9d0e2fec3039cd523dd3bb0bb735602c46db81eec4794b42",
+      "reviewed_contracts": [
+        "Rip awaits custom card reward before finishing"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/ColorfulPhilosophers.cs",
+      "sha256": "55f23ee2600a050c6bde86a3460eb6f02d01a57d5744a85ecff27d4796e9b996",
+      "reviewed_contracts": [
+        "OfferRewards awaits all three card rewards before finishing"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/PunchOff.cs",
+      "sha256": "efb9357b4754fcb0e416a19b308ab859ee304e9b0ae882d8fa46e568cd7957b8",
+      "reviewed_contracts": [
+        "Nab awaits relic reward before finishing"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/RewardsCmd.cs",
+      "sha256": "027e0e3b3738b355fe0e10bf33a59386c564141de52eb65ba0ea04bbe97b8a72",
+      "reviewed_contracts": [
+        "OfferCustom automatically closes after rewards resolve"
+      ]
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Saves.Managers/ProgressSaveManager.cs",
+      "sha256": "53b407f0a09f02e61d053ca72082387b2a5c873f49051064c48da957190aef12",
+      "reviewed_contracts": [
+        "Progress.WongoPoints credits SerializablePlayer.ExtraFields.WongoPoints when recording run result, not during event callback"
+      ]
+    }
+  ],
+  "implementation": {
+    "pending_flag": "source_native_event_continuation",
+    "contract": "A saved cursor starts the next callback only after its predecessor child choice/reward has completed; no later relic bag draw occurs early.",
+    "public_regressions": "tests/events/test_source_native_event_completion.py",
+    "boundary": "Source-derived singleplayer behavior. Compiled bridge/game UI and live traces still require the installed Windows stable game."
+  }
+}

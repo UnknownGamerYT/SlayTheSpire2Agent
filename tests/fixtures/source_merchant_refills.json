@@ -1,0 +1,50 @@
+{
+  "game_version": "0.107.1",
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "scope": "Normal source merchant Courier refill and sale contracts; independent source implementation, not an installed-game trace.",
+  "contracts": [
+    "Colored card entries retain readonly CardType, roll rarity without changing player future odds, and exclude all currently stocked card models including their own pre-purchase CreationResult.",
+    "Colorless card entries retain their fixed readonly rarity without fallback or a rarity roll.",
+    "Every card refill consumes one Shops model-selection draw, one Shops price draw and one Rewards upgrade roll; colored entries additionally consume one Rewards rarity roll.",
+    "Courier refill clears IsOnSale and does not roll a new sale index or recalculate its price twice.",
+    "Potion refill passes an empty blacklist, allowing duplicates of remaining stocked potions.",
+    "Relic refill rolls one Rewards rarity, pulls from the back of its shared bag excluding stocked models, then consumes one Shops price draw.",
+    "Initial card sale stores the recalculated price divided by two with integer truncation before merchant price modifiers."
+  ],
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantEntry.cs",
+      "sha256": "dbd59a15346ec9afcd5bf0a4a980985ff5d02d8f34d8a8ff2281e70c8f45ccf4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantCardEntry.cs",
+      "sha256": "f43a4f7ac7c28b40bbf332a82419ef3fa70450150b3121956adc318e2b6c2a69"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantPotionEntry.cs",
+      "sha256": "79ec91e3b6a1349e7d0d9f3330f11348e794d613e0a4e65784b9428047bd19c1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantRelicEntry.cs",
+      "sha256": "ebe0469c4f681214cab8dc440ba9bd60c7935d0974f75c3cfea61efaf3f434dc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/RelicFactory.cs",
+      "sha256": "7bbd2464ae72129712f40d3a660c1f7bf61ed8bf16b8718a355fbf1c5e2b8143"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/TheCourier.cs",
+      "sha256": "2d2e8a3c5b662754b79bc06c07374af66764776a8e15cf30c3eb3149ec2ce307"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MembershipCard.cs",
+      "sha256": "b9cc004e01d5dc5aeea99573a60bc4aa9e64f58e3368085f4aeec2a52f5db191"
+    }
+  ]
+}

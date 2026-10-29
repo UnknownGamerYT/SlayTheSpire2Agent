@@ -91,6 +91,16 @@ def card_special_plan(card_spec: Mapping[str, Any]) -> CardSpecialPlan:
     blockers: list[Mapping[str, Any]] = []
     events: list[Mapping[str, Any]] = []
 
+    gang_up = re.search(
+        r"deals (\d+) additional damage for each time another player has attacked "
+        r"the enemy this turn",
+        description_text,
+    )
+    if gang_up:
+        steps.append({"damage_formula": {
+            "formula": "other_player_attacks_this_turn", "multiplier": int(gang_up[1]),
+        }})
+
     for sentence in sentences:
         _collect_if_kill_resource(
             sentence,
@@ -1579,7 +1589,7 @@ def _soul_card_payload(*, upgraded: bool) -> Mapping[str, Any]:
             "name": "Soul+" if upgraded else "Soul",
             "type": "Skill",
             "target": "Self",
-            "cost": 1,
+            "cost": 0,
             "draw": draw,
             "description": f"Draw {draw} cards.",
             "keywords_key": ("Exhaust",),

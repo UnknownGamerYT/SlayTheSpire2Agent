@@ -7,9 +7,10 @@ do not know about cards, relic hooks, enemy intents, or engine state objects.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from fractions import Fraction
 from math import floor
 
-from sts2sim.content.sources import STS1_COMPAT_SOURCE, SourceRef
+from sts2sim.content.sources import STABLE_DECOMPILED_SOURCE, SourceRef
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,7 +20,7 @@ class CombatMathRules:
     frail_block_multiplier: float = 0.75
     intangible_hp_loss_cap: int = 1
     min_attack_damage: int = 0
-    source: SourceRef = STS1_COMPAT_SOURCE
+    source: SourceRef = STABLE_DECOMPILED_SOURCE
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,15 +79,15 @@ def modified_attack_damage(
 
     attacker = attacker or ModifierSnapshot()
     defender = defender or ModifierSnapshot()
-    damage = base_damage
+    damage = Fraction(base_damage)
     if is_attack:
         damage += attacker.strength
         if attacker.weak:
-            damage = _scaled(damage, rules.weak_attack_multiplier)
-    if defender.vulnerable:
-        damage = _scaled(damage, rules.vulnerable_damage_multiplier)
-    damage = _scaled(damage, attacker.damage_multiplier)
-    return max(rules.min_attack_damage, damage)
+            damage *= Fraction(str(rules.weak_attack_multiplier))
+    if is_attack and defender.vulnerable:
+        damage *= Fraction(str(rules.vulnerable_damage_multiplier))
+    damage *= Fraction(str(attacker.damage_multiplier))
+    return max(rules.min_attack_damage, int(damage))
 
 
 def block_gain(
@@ -98,11 +99,11 @@ def block_gain(
     """Return block gained after dexterity, frail, and custom block multiplier."""
 
     actor = actor or ModifierSnapshot()
-    block = base_block + actor.dexterity
+    block = Fraction(base_block + actor.dexterity)
     if actor.frail:
-        block = _scaled(block, rules.frail_block_multiplier)
-    block = _scaled(block, actor.block_multiplier)
-    return BlockResult(block=max(0, block), source=rules.source)
+        block *= Fraction(str(rules.frail_block_multiplier))
+    block *= Fraction(str(actor.block_multiplier))
+    return BlockResult(block=max(0, int(block)), source=rules.source)
 
 
 def resolve_hp_loss(
@@ -119,6 +120,8 @@ def resolve_hp_loss(
 
     defender = defender or ModifierSnapshot()
     incoming_damage = max(0, incoming_damage)
+    if defender.intangible:
+        incoming_damage = min(incoming_damage, rules.intangible_hp_loss_cap)
     block = max(0, block)
     block_lost = min(block, incoming_damage)
     unblocked = incoming_damage - block_lost

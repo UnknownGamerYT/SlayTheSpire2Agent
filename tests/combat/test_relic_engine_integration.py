@@ -616,7 +616,7 @@ def test_power_play_relics_draw_and_make_a_hand_card_free() -> None:
     assert any(event.kind == "card_made_free_this_turn" for event in state.combat.last_events)
 
 
-def test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn() -> None:
+def test_iron_club_counter_draws_and_brilliant_scarf_frees_fifth_manual_card() -> None:
     state = _enter_combat((), relics=("iron_club", "brilliant_scarf"), draw_per_turn=0)
     assert state.combat is not None
     played_cards = tuple(_direct_card(f"play_{index}") for index in range(5))
@@ -644,12 +644,13 @@ def test_iron_club_and_brilliant_scarf_use_total_cards_played_this_turn() -> Non
         for event in state.combat.last_events
     )
 
-    state = _play_card(state, "play_4")
+    state = _play_card(state, "costly_skill")
 
     assert state.combat is not None
     hand_by_id = {card.card_id: card for card in state.combat.hand}
-    assert hand_by_id["costly_skill"].custom["free_to_play_this_turn"] is True
-    assert any(event.kind == "card_made_free_this_turn" for event in state.combat.last_events)
+    assert state.combat.player.energy == 3
+    assert not hand_by_id["play_4"].custom.get("free_to_play_this_turn")
+    assert not any(event.kind == "card_made_free_this_turn" for event in state.combat.last_events)
 
 
 def test_nunchaku_counter_grants_energy_on_tenth_attack() -> None:
@@ -753,7 +754,7 @@ def test_damage_bonus_relics_change_card_damage_math() -> None:
     state = _play_card(state, "enchanted_cut")
 
     assert state.combat is not None
-    assert state.combat.monsters[0].hp == starting_hp - 10 - 9 - 15
+    assert state.combat.monsters[0].hp == starting_hp - 10 - 9 - 16
 
 
 def test_paper_krane_and_tungsten_rod_reduce_incoming_hp_loss() -> None:
@@ -1120,7 +1121,7 @@ def test_runtime_relic_surfaces_apply_real_hook_effects() -> None:
     assert state.combat.player.resources["star"] == 0
     assert state.combat.player.statuses["strength"] == 1
     assert state.combat.player.block == 19
-    assert state.combat.monsters[0].statuses["poison"] == 6
+    assert state.combat.monsters[0].statuses["poison"] == 9  # First (2+1)*2, replay 2+1.
     assert [card.card_id for card in state.combat.hand] == ["created_card", "created_card"]
     assert len({card.instance_id for card in state.combat.hand}) == 2
     assert any(
@@ -1130,7 +1131,7 @@ def test_runtime_relic_surfaces_apply_real_hook_effects() -> None:
     )
     assert any(
         event.kind == "player_block"
-        and event.metadata.get("relic_id") == "vambrace"
+        and "vambrace" in event.metadata.get("item_block_multipliers", ())
         for event in state.combat.last_events
     )
     assert any(

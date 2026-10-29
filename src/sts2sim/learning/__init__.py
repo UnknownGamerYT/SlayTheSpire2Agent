@@ -27,6 +27,13 @@ from sts2sim.learning.models import (
     TrainingUntilTargetResult,
 )
 from sts2sim.learning.observation import encode_rich_observation
+from sts2sim.learning.policy import (
+    CheckpointPolicyError,
+    MaskedPpoDecision,
+    MaskedPpoPolicy,
+    PolicyInferenceError,
+    evaluate_ppo,
+)
 from sts2sim.learning.progress import (
     build_learning_progress_report,
     load_learning_progress,
@@ -43,6 +50,7 @@ __all__ = [
     "AgentEvaluationResult",
     "AgentEvaluationSummary",
     "CURRICULUM_STAGE_DEFAULTS",
+    "CheckpointPolicyError",
     "DEFAULT_CURRICULUM_STAGES",
     "LearningBatchResult",
     "LearningProgressPoint",
@@ -50,6 +58,9 @@ __all__ = [
     "LearningRunResult",
     "LearningStep",
     "MaskedRandomAgent",
+    "MaskedPpoDecision",
+    "MaskedPpoPolicy",
+    "PolicyInferenceError",
     "QLearningAgent",
     "QLearningModel",
     "TrainingTargetBatchSummary",
@@ -62,6 +73,7 @@ __all__ = [
     "encode_rich_observation",
     "evaluate_agent_baselines",
     "evaluate_learning_agent",
+    "evaluate_ppo",
     "learning_reward",
     "load_learning_progress",
     "load_q_learning_model",

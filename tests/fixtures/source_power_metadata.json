@@ -1,0 +1,2351 @@
+{
+  "game_version": "0.107.1",
+  "build_id": "23811903",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "source_directory": "MegaCrit.Sts2.Core.Models.Powers",
+  "classification_source": "MegaCrit.Sts2.Core.Models/PowerModel.cs:GetTypeForAmount",
+  "artifact_source": "MegaCrit.Sts2.Core.Models.Powers/ArtifactPower.cs:TryModifyPowerAmountReceived",
+  "rend_source": "MegaCrit.Sts2.Core.Models.Cards/Rend.cs:ShouldCountPower",
+  "rows": [
+    {
+      "id": "accelerant",
+      "class_name": "AccelerantPower",
+      "source_file": "AccelerantPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "accuracy",
+      "class_name": "AccuracyPower",
+      "source_file": "AccuracyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "adaptable",
+      "class_name": "AdaptablePower",
+      "source_file": "AdaptablePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "afterimage",
+      "class_name": "AfterimagePower",
+      "source_file": "AfterimagePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "aggression",
+      "class_name": "AggressionPower",
+      "source_file": "AggressionPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "anticipate",
+      "class_name": "AnticipatePower",
+      "source_file": "AnticipatePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "arsenal",
+      "class_name": "ArsenalPower",
+      "source_file": "ArsenalPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "artifact",
+      "class_name": "ArtifactPower",
+      "source_file": "ArtifactPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "asleep",
+      "class_name": "AsleepPower",
+      "source_file": "AsleepPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "automation",
+      "class_name": "AutomationPower",
+      "source_file": "AutomationPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "back_attack_left",
+      "class_name": "BackAttackLeftPower",
+      "source_file": "BackAttackLeftPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "back_attack_right",
+      "class_name": "BackAttackRightPower",
+      "source_file": "BackAttackRightPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "barricade",
+      "class_name": "BarricadePower",
+      "source_file": "BarricadePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "battleworn_dummy_time_limit",
+      "class_name": "BattlewornDummyTimeLimitPower",
+      "source_file": "BattlewornDummyTimeLimitPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "beacon_of_hope",
+      "class_name": "BeaconOfHopePower",
+      "source_file": "BeaconOfHopePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "biased_cognition",
+      "class_name": "BiasedCognitionPower",
+      "source_file": "BiasedCognitionPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "black_hole",
+      "class_name": "BlackHolePower",
+      "source_file": "BlackHolePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "block_next_turn",
+      "class_name": "BlockNextTurnPower",
+      "source_file": "BlockNextTurnPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "blur",
+      "class_name": "BlurPower",
+      "source_file": "BlurPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "borrowed_time",
+      "class_name": "BorrowedTimePower",
+      "source_file": "BorrowedTimePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "buffer",
+      "class_name": "BufferPower",
+      "source_file": "BufferPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "burrowed",
+      "class_name": "BurrowedPower",
+      "source_file": "BurrowedPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "burst",
+      "class_name": "BurstPower",
+      "source_file": "BurstPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "calamity",
+      "class_name": "CalamityPower",
+      "source_file": "CalamityPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "calcify",
+      "class_name": "CalcifyPower",
+      "source_file": "CalcifyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "call_of_the_void",
+      "class_name": "CallOfTheVoidPower",
+      "source_file": "CallOfTheVoidPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "chains_of_binding",
+      "class_name": "ChainsOfBindingPower",
+      "source_file": "ChainsOfBindingPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "child_of_the_stars",
+      "class_name": "ChildOfTheStarsPower",
+      "source_file": "ChildOfTheStarsPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "clarity",
+      "class_name": "ClarityPower",
+      "source_file": "ClarityPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "colossus",
+      "class_name": "ColossusPower",
+      "source_file": "ColossusPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "confused",
+      "class_name": "ConfusedPower",
+      "source_file": "ConfusedPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "conqueror",
+      "class_name": "ConquerorPower",
+      "source_file": "ConquerorPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "constrict",
+      "class_name": "ConstrictPower",
+      "source_file": "ConstrictPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "consuming_shadow",
+      "class_name": "ConsumingShadowPower",
+      "source_file": "ConsumingShadowPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "coolant",
+      "class_name": "CoolantPower",
+      "source_file": "CoolantPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "coordinate",
+      "class_name": "CoordinatePower",
+      "source_file": "CoordinatePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "corrosive_wave",
+      "class_name": "CorrosiveWavePower",
+      "source_file": "CorrosiveWavePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "corruption",
+      "class_name": "CorruptionPower",
+      "source_file": "CorruptionPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "countdown",
+      "class_name": "CountdownPower",
+      "source_file": "CountdownPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "covered",
+      "class_name": "CoveredPower",
+      "source_file": "CoveredPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "crab_rage",
+      "class_name": "CrabRagePower",
+      "source_file": "CrabRagePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "creative_ai",
+      "class_name": "CreativeAiPower",
+      "source_file": "CreativeAiPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "crimson_mantle",
+      "class_name": "CrimsonMantlePower",
+      "source_file": "CrimsonMantlePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "cruelty",
+      "class_name": "CrueltyPower",
+      "source_file": "CrueltyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "crush_under",
+      "class_name": "CrushUnderPower",
+      "source_file": "CrushUnderPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "curious",
+      "class_name": "CuriousPower",
+      "source_file": "CuriousPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "curl_up",
+      "class_name": "CurlUpPower",
+      "source_file": "CurlUpPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "dampen",
+      "class_name": "DampenPower",
+      "source_file": "DampenPower.cs",
+      "type": "debuff",
+      "stack_type": "none",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "danse_macabre",
+      "class_name": "DanseMacabrePower",
+      "source_file": "DanseMacabrePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "dark_embrace",
+      "class_name": "DarkEmbracePower",
+      "source_file": "DarkEmbracePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "dark_shackles",
+      "class_name": "DarkShacklesPower",
+      "source_file": "DarkShacklesPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "debilitate",
+      "class_name": "DebilitatePower",
+      "source_file": "DebilitatePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "demesne",
+      "class_name": "DemesnePower",
+      "source_file": "DemesnePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "demise",
+      "class_name": "DemisePower",
+      "source_file": "DemisePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "demon_form",
+      "class_name": "DemonFormPower",
+      "source_file": "DemonFormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "devour_life",
+      "class_name": "DevourLifePower",
+      "source_file": "DevourLifePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "dexterity",
+      "class_name": "DexterityPower",
+      "source_file": "DexterityPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": true,
+      "temporary": false
+    },
+    {
+      "id": "diamond_diadem",
+      "class_name": "DiamondDiademPower",
+      "source_file": "DiamondDiademPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "die_for_you",
+      "class_name": "DieForYouPower",
+      "source_file": "DieForYouPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "disintegration",
+      "class_name": "DisintegrationPower",
+      "source_file": "DisintegrationPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "doom",
+      "class_name": "DoomPower",
+      "source_file": "DoomPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "double_damage",
+      "class_name": "DoubleDamagePower",
+      "source_file": "DoubleDamagePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "draw_cards_next_turn",
+      "class_name": "DrawCardsNextTurnPower",
+      "source_file": "DrawCardsNextTurnPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "duplication",
+      "class_name": "DuplicationPower",
+      "source_file": "DuplicationPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "dying_star",
+      "class_name": "DyingStarPower",
+      "source_file": "DyingStarPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "echo_form",
+      "class_name": "EchoFormPower",
+      "source_file": "EchoFormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "energy_next_turn",
+      "class_name": "EnergyNextTurnPower",
+      "source_file": "EnergyNextTurnPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "enfeebling_touch",
+      "class_name": "EnfeeblingTouchPower",
+      "source_file": "EnfeeblingTouchPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "enrage",
+      "class_name": "EnragePower",
+      "source_file": "EnragePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "entropy",
+      "class_name": "EntropyPower",
+      "source_file": "EntropyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "envenom",
+      "class_name": "EnvenomPower",
+      "source_file": "EnvenomPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "escape_artist",
+      "class_name": "EscapeArtistPower",
+      "source_file": "EscapeArtistPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "fan_of_knives",
+      "class_name": "FanOfKnivesPower",
+      "source_file": "FanOfKnivesPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "fasten",
+      "class_name": "FastenPower",
+      "source_file": "FastenPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "feeding_frenzy",
+      "class_name": "FeedingFrenzyPower",
+      "source_file": "FeedingFrenzyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "feel_no_pain",
+      "class_name": "FeelNoPainPower",
+      "source_file": "FeelNoPainPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "feral",
+      "class_name": "FeralPower",
+      "source_file": "FeralPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "flame_barrier",
+      "class_name": "FlameBarrierPower",
+      "source_file": "FlameBarrierPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "flanking",
+      "class_name": "FlankingPower",
+      "source_file": "FlankingPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "flex_potion",
+      "class_name": "FlexPotionPower",
+      "source_file": "FlexPotionPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "flutter",
+      "class_name": "FlutterPower",
+      "source_file": "FlutterPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "focus",
+      "class_name": "FocusPower",
+      "source_file": "FocusPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": true,
+      "temporary": false
+    },
+    {
+      "id": "focused_strike",
+      "class_name": "FocusedStrikePower",
+      "source_file": "FocusedStrikePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "forbidden_grimoire",
+      "class_name": "ForbiddenGrimoirePower",
+      "source_file": "ForbiddenGrimoirePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "foregone_conclusion",
+      "class_name": "ForegoneConclusionPower",
+      "source_file": "ForegoneConclusionPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "frail",
+      "class_name": "FrailPower",
+      "source_file": "FrailPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "free_attack",
+      "class_name": "FreeAttackPower",
+      "source_file": "FreeAttackPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "free_power",
+      "class_name": "FreePowerPower",
+      "source_file": "FreePowerPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "free_skill",
+      "class_name": "FreeSkillPower",
+      "source_file": "FreeSkillPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "friendship",
+      "class_name": "FriendshipPower",
+      "source_file": "FriendshipPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "furnace",
+      "class_name": "FurnacePower",
+      "source_file": "FurnacePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "galvanic",
+      "class_name": "GalvanicPower",
+      "source_file": "GalvanicPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "genesis",
+      "class_name": "GenesisPower",
+      "source_file": "GenesisPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "gigantification",
+      "class_name": "GigantificationPower",
+      "source_file": "GigantificationPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "gravity",
+      "class_name": "GravityPower",
+      "source_file": "GravityPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "guarded",
+      "class_name": "GuardedPower",
+      "source_file": "GuardedPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hailstorm",
+      "class_name": "HailstormPower",
+      "source_file": "HailstormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hammer_time",
+      "class_name": "HammerTimePower",
+      "source_file": "HammerTimePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hang",
+      "class_name": "HangPower",
+      "source_file": "HangPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hard_to_kill",
+      "class_name": "HardToKillPower",
+      "source_file": "HardToKillPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hardened_shell",
+      "class_name": "HardenedShellPower",
+      "source_file": "HardenedShellPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hatch",
+      "class_name": "HatchPower",
+      "source_file": "HatchPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "haunt",
+      "class_name": "HauntPower",
+      "source_file": "HauntPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "heist",
+      "class_name": "HeistPower",
+      "source_file": "HeistPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "helical_dart",
+      "class_name": "HelicalDartPower",
+      "source_file": "HelicalDartPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "hello_world",
+      "class_name": "HelloWorldPower",
+      "source_file": "HelloWorldPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hellraiser",
+      "class_name": "HellraiserPower",
+      "source_file": "HellraiserPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hex",
+      "class_name": "HexPower",
+      "source_file": "HexPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "high_voltage",
+      "class_name": "HighVoltagePower",
+      "source_file": "HighVoltagePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "hotfix",
+      "class_name": "HotfixPower",
+      "source_file": "HotfixPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "illusion",
+      "class_name": "IllusionPower",
+      "source_file": "IllusionPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "imbalanced",
+      "class_name": "ImbalancedPower",
+      "source_file": "ImbalancedPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "improvement",
+      "class_name": "ImprovementPower",
+      "source_file": "ImprovementPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "inferno",
+      "class_name": "InfernoPower",
+      "source_file": "InfernoPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "infested",
+      "class_name": "InfestedPower",
+      "source_file": "InfestedPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "infinite_blades",
+      "class_name": "InfiniteBladesPower",
+      "source_file": "InfiniteBladesPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "intangible",
+      "class_name": "IntangiblePower",
+      "source_file": "IntangiblePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "intercept",
+      "class_name": "InterceptPower",
+      "source_file": "InterceptPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "iteration",
+      "class_name": "IterationPower",
+      "source_file": "IterationPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "juggernaut",
+      "class_name": "JuggernautPower",
+      "source_file": "JuggernautPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "juggling",
+      "class_name": "JugglingPower",
+      "source_file": "JugglingPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "knockdown",
+      "class_name": "KnockdownPower",
+      "source_file": "KnockdownPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "leadership",
+      "class_name": "LeadershipPower",
+      "source_file": "LeadershipPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "lethality",
+      "class_name": "LethalityPower",
+      "source_file": "LethalityPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "lightning_rod",
+      "class_name": "LightningRodPower",
+      "source_file": "LightningRodPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "loop",
+      "class_name": "LoopPower",
+      "source_file": "LoopPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "machine_learning",
+      "class_name": "MachineLearningPower",
+      "source_file": "MachineLearningPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "magic_bomb",
+      "class_name": "MagicBombPower",
+      "source_file": "MagicBombPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "mangle",
+      "class_name": "ManglePower",
+      "source_file": "ManglePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "master_planner",
+      "class_name": "MasterPlannerPower",
+      "source_file": "MasterPlannerPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "mayhem",
+      "class_name": "MayhemPower",
+      "source_file": "MayhemPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "mind_rot",
+      "class_name": "MindRotPower",
+      "source_file": "MindRotPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "minion",
+      "class_name": "MinionPower",
+      "source_file": "MinionPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "monarchs_gaze",
+      "class_name": "MonarchsGazePower",
+      "source_file": "MonarchsGazePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "monarchs_gaze_strength_down",
+      "class_name": "MonarchsGazeStrengthDownPower",
+      "source_file": "MonarchsGazeStrengthDownPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "monologue",
+      "class_name": "MonologuePower",
+      "source_file": "MonologuePower.cs",
+      "type": "buff",
+      "stack_type": "none",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "necro_mastery",
+      "class_name": "NecroMasteryPower",
+      "source_file": "NecroMasteryPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "nemesis",
+      "class_name": "NemesisPower",
+      "source_file": "NemesisPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "neurosurge",
+      "class_name": "NeurosurgePower",
+      "source_file": "NeurosurgePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "nightmare",
+      "class_name": "NightmarePower",
+      "source_file": "NightmarePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "no_block",
+      "class_name": "NoBlockPower",
+      "source_file": "NoBlockPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "no_draw",
+      "class_name": "NoDrawPower",
+      "source_file": "NoDrawPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "no_energy_gain",
+      "class_name": "NoEnergyGainPower",
+      "source_file": "NoEnergyGainPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "nostalgia",
+      "class_name": "NostalgiaPower",
+      "source_file": "NostalgiaPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "noxious_fumes",
+      "class_name": "NoxiousFumesPower",
+      "source_file": "NoxiousFumesPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "oblivion",
+      "class_name": "OblivionPower",
+      "source_file": "OblivionPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "one_two_punch",
+      "class_name": "OneTwoPunchPower",
+      "source_file": "OneTwoPunchPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "orbit",
+      "class_name": "OrbitPower",
+      "source_file": "OrbitPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "outbreak",
+      "class_name": "OutbreakPower",
+      "source_file": "OutbreakPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "pagestorm",
+      "class_name": "PagestormPower",
+      "source_file": "PagestormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "painful_stabs",
+      "class_name": "PainfulStabsPower",
+      "source_file": "PainfulStabsPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "pale_blue_dot",
+      "class_name": "PaleBlueDotPower",
+      "source_file": "PaleBlueDotPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "panache",
+      "class_name": "PanachePower",
+      "source_file": "PanachePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "paper_cuts",
+      "class_name": "PaperCutsPower",
+      "source_file": "PaperCutsPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "parry",
+      "class_name": "ParryPower",
+      "source_file": "ParryPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "personal_hive",
+      "class_name": "PersonalHivePower",
+      "source_file": "PersonalHivePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "phantom_blades",
+      "class_name": "PhantomBladesPower",
+      "source_file": "PhantomBladesPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "piercing_wail",
+      "class_name": "PiercingWailPower",
+      "source_file": "PiercingWailPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "pillar_of_creation",
+      "class_name": "PillarOfCreationPower",
+      "source_file": "PillarOfCreationPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "plating",
+      "class_name": "PlatingPower",
+      "source_file": "PlatingPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "plow",
+      "class_name": "PlowPower",
+      "source_file": "PlowPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "poison",
+      "class_name": "PoisonPower",
+      "source_file": "PoisonPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "possess_speed",
+      "class_name": "PossessSpeedPower",
+      "source_file": "PossessSpeedPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "possess_strength",
+      "class_name": "PossessStrengthPower",
+      "source_file": "PossessStrengthPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "prep_time",
+      "class_name": "PrepTimePower",
+      "source_file": "PrepTimePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "pyre",
+      "class_name": "PyrePower",
+      "source_file": "PyrePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "radiance",
+      "class_name": "RadiancePower",
+      "source_file": "RadiancePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "rage",
+      "class_name": "RagePower",
+      "source_file": "RagePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "rampart",
+      "class_name": "RampartPower",
+      "source_file": "RampartPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "ravenous",
+      "class_name": "RavenousPower",
+      "source_file": "RavenousPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "reaper_form",
+      "class_name": "ReaperFormPower",
+      "source_file": "ReaperFormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "reattach",
+      "class_name": "ReattachPower",
+      "source_file": "ReattachPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "rebound",
+      "class_name": "ReboundPower",
+      "source_file": "ReboundPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "reflect",
+      "class_name": "ReflectPower",
+      "source_file": "ReflectPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "regen",
+      "class_name": "RegenPower",
+      "source_file": "RegenPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "reptile_trinket",
+      "class_name": "ReptileTrinketPower",
+      "source_file": "ReptileTrinketPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "retain_hand",
+      "class_name": "RetainHandPower",
+      "source_file": "RetainHandPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "ringing",
+      "class_name": "RingingPower",
+      "source_file": "RingingPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "ritual",
+      "class_name": "RitualPower",
+      "source_file": "RitualPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "rolling_boulder",
+      "class_name": "RollingBoulderPower",
+      "source_file": "RollingBoulderPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "royalties",
+      "class_name": "RoyaltiesPower",
+      "source_file": "RoyaltiesPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "rupture",
+      "class_name": "RupturePower",
+      "source_file": "RupturePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sandpit",
+      "class_name": "SandpitPower",
+      "source_file": "SandpitPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "seeking_edge",
+      "class_name": "SeekingEdgePower",
+      "source_file": "SeekingEdgePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "self_forming_clay",
+      "class_name": "SelfFormingClayPower",
+      "source_file": "SelfFormingClayPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sentry_mode",
+      "class_name": "SentryModePower",
+      "source_file": "SentryModePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "serpent_form",
+      "class_name": "SerpentFormPower",
+      "source_file": "SerpentFormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "setup_strike",
+      "class_name": "SetupStrikePower",
+      "source_file": "SetupStrikePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "shackling_potion",
+      "class_name": "ShacklingPotionPower",
+      "source_file": "ShacklingPotionPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "shadow_step",
+      "class_name": "ShadowStepPower",
+      "source_file": "ShadowStepPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "shadowmeld",
+      "class_name": "ShadowmeldPower",
+      "source_file": "ShadowmeldPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "shriek",
+      "class_name": "ShriekPower",
+      "source_file": "ShriekPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": true,
+      "temporary": false
+    },
+    {
+      "id": "shrink",
+      "class_name": "ShrinkPower",
+      "source_file": "ShrinkPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": true,
+      "temporary": false
+    },
+    {
+      "id": "shroud",
+      "class_name": "ShroudPower",
+      "source_file": "ShroudPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sic_em",
+      "class_name": "SicEmPower",
+      "source_file": "SicEmPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "signal_boost",
+      "class_name": "SignalBoostPower",
+      "source_file": "SignalBoostPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "skittish",
+      "class_name": "SkittishPower",
+      "source_file": "SkittishPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sleight_of_flesh",
+      "class_name": "SleightOfFleshPower",
+      "source_file": "SleightOfFleshPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "slippery",
+      "class_name": "SlipperyPower",
+      "source_file": "SlipperyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sloth",
+      "class_name": "SlothPower",
+      "source_file": "SlothPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "slow",
+      "class_name": "SlowPower",
+      "source_file": "SlowPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "slumber",
+      "class_name": "SlumberPower",
+      "source_file": "SlumberPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "smoggy",
+      "class_name": "SmoggyPower",
+      "source_file": "SmoggyPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "smokestack",
+      "class_name": "SmokestackPower",
+      "source_file": "SmokestackPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sneaky",
+      "class_name": "SneakyPower",
+      "source_file": "SneakyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "soar",
+      "class_name": "SoarPower",
+      "source_file": "SoarPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "spectrum_shift",
+      "class_name": "SpectrumShiftPower",
+      "source_file": "SpectrumShiftPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "speed_potion",
+      "class_name": "SpeedPotionPower",
+      "source_file": "SpeedPotionPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "speedster",
+      "class_name": "SpeedsterPower",
+      "source_file": "SpeedsterPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "spinner",
+      "class_name": "SpinnerPower",
+      "source_file": "SpinnerPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "spirit_of_ash",
+      "class_name": "SpiritOfAshPower",
+      "source_file": "SpiritOfAshPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "stampede",
+      "class_name": "StampedePower",
+      "source_file": "StampedePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "star_next_turn",
+      "class_name": "StarNextTurnPower",
+      "source_file": "StarNextTurnPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "steam_eruption",
+      "class_name": "SteamEruptionPower",
+      "source_file": "SteamEruptionPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "stock",
+      "class_name": "StockPower",
+      "source_file": "StockPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "storm",
+      "class_name": "StormPower",
+      "source_file": "StormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "strangle",
+      "class_name": "StranglePower",
+      "source_file": "StranglePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "stratagem",
+      "class_name": "StratagemPower",
+      "source_file": "StratagemPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "strength",
+      "class_name": "StrengthPower",
+      "source_file": "StrengthPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": true,
+      "temporary": false
+    },
+    {
+      "id": "subroutine",
+      "class_name": "SubroutinePower",
+      "source_file": "SubroutinePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "suck",
+      "class_name": "SuckPower",
+      "source_file": "SuckPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "summon_next_turn",
+      "class_name": "SummonNextTurnPower",
+      "source_file": "SummonNextTurnPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "surprise",
+      "class_name": "SurprisePower",
+      "source_file": "SurprisePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "surrounded",
+      "class_name": "SurroundedPower",
+      "source_file": "SurroundedPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "swipe",
+      "class_name": "SwipePower",
+      "source_file": "SwipePower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "sword_sage",
+      "class_name": "SwordSagePower",
+      "source_file": "SwordSagePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "synchronize",
+      "class_name": "SynchronizePower",
+      "source_file": "SynchronizePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "tag_team",
+      "class_name": "TagTeamPower",
+      "source_file": "TagTeamPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "tainted",
+      "class_name": "TaintedPower",
+      "source_file": "TaintedPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "tangled",
+      "class_name": "TangledPower",
+      "source_file": "TangledPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "tank",
+      "class_name": "TankPower",
+      "source_file": "TankPower.cs",
+      "type": "buff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "temporary_dexterity",
+      "class_name": "TemporaryDexterityPower",
+      "source_file": "TemporaryDexterityPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "temporary_focus",
+      "class_name": "TemporaryFocusPower",
+      "source_file": "TemporaryFocusPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "temporary_strength",
+      "class_name": "TemporaryStrengthPower",
+      "source_file": "TemporaryStrengthPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": true
+    },
+    {
+      "id": "tender",
+      "class_name": "TenderPower",
+      "source_file": "TenderPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "territorial",
+      "class_name": "TerritorialPower",
+      "source_file": "TerritorialPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "the_bomb",
+      "class_name": "TheBombPower",
+      "source_file": "TheBombPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "the_gambit",
+      "class_name": "TheGambitPower",
+      "source_file": "TheGambitPower.cs",
+      "type": "debuff",
+      "stack_type": "single",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "the_hunt",
+      "class_name": "TheHuntPower",
+      "source_file": "TheHuntPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "the_sealed_throne",
+      "class_name": "TheSealedThronePower",
+      "source_file": "TheSealedThronePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "thievery",
+      "class_name": "ThieveryPower",
+      "source_file": "ThieveryPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "thorns",
+      "class_name": "ThornsPower",
+      "source_file": "ThornsPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "thunder",
+      "class_name": "ThunderPower",
+      "source_file": "ThunderPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "tools_of_the_trade",
+      "class_name": "ToolsOfTheTradePower",
+      "source_file": "ToolsOfTheTradePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "toric_toughness",
+      "class_name": "ToricToughnessPower",
+      "source_file": "ToricToughnessPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "tracking",
+      "class_name": "TrackingPower",
+      "source_file": "TrackingPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "trash_to_treasure",
+      "class_name": "TrashToTreasurePower",
+      "source_file": "TrashToTreasurePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "tyranny",
+      "class_name": "TyrannyPower",
+      "source_file": "TyrannyPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "unmovable",
+      "class_name": "UnmovablePower",
+      "source_file": "UnmovablePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "veilpiercer",
+      "class_name": "VeilpiercerPower",
+      "source_file": "VeilpiercerPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "vicious",
+      "class_name": "ViciousPower",
+      "source_file": "ViciousPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "vigor",
+      "class_name": "VigorPower",
+      "source_file": "VigorPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "vital_spark",
+      "class_name": "VitalSparkPower",
+      "source_file": "VitalSparkPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "void_form",
+      "class_name": "VoidFormPower",
+      "source_file": "VoidFormPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "vulnerable",
+      "class_name": "VulnerablePower",
+      "source_file": "VulnerablePower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "waste_away",
+      "class_name": "WasteAwayPower",
+      "source_file": "WasteAwayPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "weak",
+      "class_name": "WeakPower",
+      "source_file": "WeakPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "well_laid_plans",
+      "class_name": "WellLaidPlansPower",
+      "source_file": "WellLaidPlansPower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "withering_presence",
+      "class_name": "WitheringPresencePower",
+      "source_file": "WitheringPresencePower.cs",
+      "type": "buff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    },
+    {
+      "id": "wraith_form",
+      "class_name": "WraithFormPower",
+      "source_file": "WraithFormPower.cs",
+      "type": "debuff",
+      "stack_type": "counter",
+      "allow_negative": false,
+      "temporary": false
+    }
+  ]
+}

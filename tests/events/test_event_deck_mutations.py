@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from random import Random
 
+from combat.test_card_play_status_runtime import _reload
+from combat.test_card_play_status_runtime import _state as _fight
+from combat.test_glam import _play
+
 from sts2sim import legal_actions, new_run, step
 from sts2sim.engine import MapEdgeState, MapNodeState, MapState, RoomKind, RunPhase
 from sts2sim.engine.transitions import _apply_event_flow_markers
@@ -129,7 +133,7 @@ def test_self_help_book_enchants_selected_attack_and_persists_into_combat() -> N
     enchanted = next(card for card in state.master_deck if card.instance_id == strike.instance_id)
     assert state.event is not None
     assert state.event.resolved_option_id == "READ_THE_BACK"
-    assert enchanted.effects["damage"] == 8
+    assert enchanted.effects["damage"] == 6
     assert enchanted.enchantments[0].keyword == "Sharp"
     assert enchanted.enchantments[0].amount == 2
     assert "enchant:sharp" in enchanted.tags
@@ -141,8 +145,10 @@ def test_self_help_book_enchants_selected_attack_and_persists_into_combat() -> N
     assert state.combat is not None
     combat_cards = state.combat.hand + state.combat.draw_pile + state.combat.discard_pile
     carried_card = next(card for card in combat_cards if card.instance_id == strike.instance_id)
-    assert carried_card.effects["damage"] == 8
+    assert carried_card.effects["damage"] == 6
     assert carried_card.enchantments[0].keyword == "Sharp"
+    played = _play(_reload(_fight(carried_card)), carried_card.instance_id)
+    assert played.combat.monsters[0].hp == 92  # Native6 + Sharp2 at damage calculation.
 
 
 def test_generic_event_enchant_parsed_from_codex_text_mutates_target_card() -> None:
@@ -162,9 +168,12 @@ def test_generic_event_enchant_parsed_from_codex_text_mutates_target_card() -> N
 
     enchanted = next(card for card in state.master_deck if card.instance_id == strike.instance_id)
     assert state.player.hp == previous_hp - 6
-    assert enchanted.effects["damage"] == 14
+    assert enchanted.effects["damage"] == 6
     assert enchanted.enchantments[0].keyword == "Vigorous"
     assert enchanted.enchantments[0].amount == 8
+    replayed = enchanted.model_copy(update={"custom": {**enchanted.custom, "replay": 1}})
+    played = _play(_reload(_fight(replayed)), replayed.instance_id)
+    assert played.combat.monsters[0].hp == 80  # Vigorous first14, replay6 after disable.
 
 
 def test_tinker_time_creates_real_custom_card_in_master_deck() -> None:
@@ -194,7 +203,7 @@ def test_tinker_time_creates_real_custom_card_in_master_deck() -> None:
     created = state.master_deck[-1]
     assert state.event is not None
     assert state.event.resolved_option_id == "WISDOM"
-    assert created.card_id == "mad_science_skill_wisdom"
+    assert created.card_id == "mad_science"
     assert created.name == "Mad Science (Wisdom)"
     assert created.type.value == "skill"
     assert created.effects == {"sequence": [{"block": 8}, {"draw": 3}]}

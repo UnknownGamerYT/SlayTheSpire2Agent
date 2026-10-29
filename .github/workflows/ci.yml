@@ -1,0 +1,37 @@
+name: Simulator checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          lfs: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          python-version: "3.12"
+      - name: Install locked development and training dependencies
+        run: uv sync --locked --extra dev --extra rl
+      - name: Lint
+        run: uv run --no-sync ruff check .
+      - name: Type check
+        run: uv run --no-sync mypy
+      - name: Cache stable game reference data
+        run: uv run --no-sync sts2sim sync-data --data-dir data/cache
+      - name: Check training inputs
+        run: uv run --no-sync sts2sim training-check
+      - name: Test
+        run: uv run --no-sync pytest

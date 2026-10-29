@@ -1,0 +1,15 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "sources": {
+    "MegaCrit.Sts2.Core.Models.Relics/InfusedCore.cs": "e0abe43e18ac81cc67246d7dc5da53ca7b804fb6462c8cd82ff922d1ccdf4a20",
+    "MegaCrit.Sts2.Core.Models.Powers/FocusPower.cs": "8f23e8b08688c9bf31a2d9b0f1277a4a63bb1f5f6047f27da5e3b2fc4cfefff6",
+    "MegaCrit.Sts2.Core.Combat/CombatState.cs": "b3150c69fae0c33b48b7957c3a67bc4e5867d1641e05062cd3f5edd0a9d9f2e2",
+    "MegaCrit.Sts2.Core.Models.Orbs/LightningOrb.cs": "90d965ca4b9b04722e7ac46fdd5b6c2fe59e7667ace6b4efdfc965dff089a5eb",
+    "MegaCrit.Sts2.Core.Models.Cards/TeslaCoil.cs": "1d3e57effc5e88f2a45b0f988dedfa75ebd926138994f622c91bd6ff146d1f36",
+    "MegaCrit.Sts2.Core.Models.Cards/Voltaic.cs": "f760030843303f4ad42ae23b5c164bb4a70179e175e2b82059c62adda5ed4898"
+  },
+  "contract": "Owner Lightning passive base3 and evoke base8 are modified by Focus (clamped to0), then Infused Core +1, including directed Tesla Coil triggers and channel overflow. Other orb values and foreign owners are unaffected.",
+  "regressions": "tests/combat/test_source_infused_core.py",
+  "game_behavior_validated": false
+}

@@ -1,0 +1,469 @@
+{
+  "game_version": "0.107.1",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "bridge_revision": "55e064850a68f3b4cde7e5fd525bf9b2dec4e885",
+  "observation_schema_version": 2,
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs",
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/EnchantmentModel.cs",
+      "sha256": "f4efb3d8568fedf92c4bd5ec3243d09c5af7a108426c6d3c53fe191b9849efd9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+      "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardEnergyCost.cs",
+      "sha256": "c2b18b52ad44a44acbac01c5df4a209f5534a6ec7138e748ea73d66b2dcedd53"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/LocalCostModifier.cs",
+      "sha256": "9a0b85175a292ad467b970718004c1aed487b61da228562de1add8ae7444f15f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/TemporaryCardCost.cs",
+      "sha256": "895840f375c4a1cb27308e594ffc1b59dd94b43743198d1068a507a24b7be599"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Players/Player.cs",
+      "sha256": "ffde0e9e7ef543bcf6a41016f76ce0e7c1924a64aeb351fde03e64ddba0022fe"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Players/PlayerCombatState.cs",
+      "sha256": "c908ea3144a466dc0d979ec44ade207dd692d6b23b9512afbcccae3468fea123"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Orbs/GlassOrb.cs",
+      "sha256": "d447adb85ac8b0415cb131cea336cf9636f8ffa84c0fdd209ec4f64f1e69e2d9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Orbs/DarkOrb.cs",
+      "sha256": "1df457f8c97e51633b360a0aeeaf4f0ece3f8b23c9a3c503204bb0aac74de0be"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Wither.cs",
+      "sha256": "93988fd6ccfeb8d1af7449128a5f2e5dafa5266ca1213a5de2f47c9d3fe5e7c4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat.History/CombatHistory.cs",
+      "sha256": "c48ca79dec6801310a0ce26716bb81a48cd30d5d1372e8f6ffe3474de7bcec2a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat.History/CombatHistoryEntry.cs",
+      "sha256": "d81e6c7e7c7b73bd02184a74a3e7fc7391e3bd09ec9433eba690c97089dfbb13"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/RunRngSet.cs",
+      "sha256": "ec9ac8ad7c4c361d17e952636b1aa9506ddbe787c5bdf69647bf1d26f19ff507"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Random/PlayerRngSet.cs",
+      "sha256": "becce3d4aba35f0a6e8186d0f62a18b43eaa38bae3d5b2ee860d76d48e363eca"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/EventModel.cs",
+      "sha256": "ca991ec5fea146069498065563bbc4a63ee0786ceaafdeae823df822e955f240"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rooms/EventRoom.cs",
+      "sha256": "1038126138bdc9799ec3f1286bfddef80618dad80083c375d07cf2ae36e0e0f3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events/EventOption.cs",
+      "sha256": "02a8c24eb58efdb08f14b8801a598400c4bd590b675faf9b947413096562118c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/RelicModel.cs",
+      "sha256": "82d29bc5857bbf1dadaf26a6d55dbb05c19af0067bf8a642dd6d225999303f7b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/RunOddsSet.cs",
+      "sha256": "e8adb0176c2f432fec2f172d6032658f438c96c31b423278d3cc011366100c51"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/PlayerOddsSet.cs",
+      "sha256": "5056905ee6dbe70a001172e3f5f80413335cebaf744b63132b0672143cf7a962"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Rooms/NTreasureRoom.cs",
+      "sha256": "824ea2faa5768fdc0bb1c1d76b5a46231ddce2c7c7c3e94e256ccb60ac41e6e7"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/RunHistory.cs",
+      "sha256": "6b98364a450cea80fb6f9b0ef2e8d88e9c574a4cfbddf92cfe261226cf4e5250"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.GameActions/ActionExecutor.cs",
+      "sha256": "606a55a3cb261170168c89549ecf952324fa48a45cec99a212883207f63a7f35"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PenNib.cs",
+      "sha256": "c2ca39be064bf9504c5d9bf9f0931fbe7158db6b176b303d098d9ee2cf422cde"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/JossPaper.cs",
+      "sha256": "97237a51eda6199f48455edf7e83c061a73b97980279ee4a6cfdd149561b6bf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/IronClub.cs",
+      "sha256": "39e204592b870eb6aca976923ecaff137c0d7fc6a9503c9d82686d774ca7aaf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RedSkull.cs",
+      "sha256": "cf57eb10a81ced7a20a845c53b1f58253fbf980f1b72f76243d57f1cbe165382"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DemonTongue.cs",
+      "sha256": "23a0a62f9b47c0fa786df2e8a56aee86a4223b015c5c4510f1cee5c891010d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PumpkinCandle.cs",
+      "sha256": "807de4c900f8d2dc20c55e7eba2bfa554a64f9a667d25bf2425e91da4dc8033a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/UnsettlingLamp.cs",
+      "sha256": "f4d772296f344ba05eedcc2131f60435a9bd4afe1166bab435e13bce517cf9b3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ThrowingAxe.cs",
+      "sha256": "c7bb04ac13201a2ee892bc860caa37c0f2eff33efe31606c762442b3019a4c48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BurningSticks.cs",
+      "sha256": "7c01f7308ea8d12a84161c069c669dbdadc18fb48ef5f551a5d9adcfbe3e8cf9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Metronome.cs",
+      "sha256": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Nunchaku.cs",
+      "sha256": "a92136bd62320001fe02783db5c11ef70aa5df3b4ef5226243df5f1830697243"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MiniRegent.cs",
+      "sha256": "c36490b78249d15effa19b18a9463e7151fbb7a8aa36c42977b26544195fd234"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsLegion.cs",
+      "sha256": "08bc0980dc3b133a256bb39d50881b6888fabb5f47033aaab02b7ccb36381530"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Permafrost.cs",
+      "sha256": "15f99b67cc992dd3c88839f8eae79d829528b92ad6a57e71266cbf88897cd585"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/HappyFlower.cs",
+      "sha256": "8ad5559934d60a145251e438a1e0745e4501506f511f42f9f617f68b9a96a080"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RuinedHelmet.cs",
+      "sha256": "a88f33545295ad4025ad3c95e7e5bed4f32f892309eb3c10246010e3d8b32ff3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/CentennialPuzzle.cs",
+      "sha256": "610d506f51cef90c84cded79e508251f3ce462177fa3e7ccda88b8feac2593aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GalacticDust.cs",
+      "sha256": "173a5b84adfd4fc3bf4796d4ba447655f6ba7b4cca7897332beb3963544962d4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FakeHappyFlower.cs",
+      "sha256": "f93bc450daf93f9c678a651f228603febaf43b9e3a01782f632fa322a8d8d1cf"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Vambrace.cs",
+      "sha256": "d804bb40a837fa90b9b5e734e7dcdd61643cd0328f35a884ce07d97f1dc4a34a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BeltBuckle.cs",
+      "sha256": "1e72315fdaf11e92a555144fa8b255f3735bde2aaf590f92f6ece0288cab2831"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/RunState.cs",
+      "sha256": "19d266c5ddcdd3d3812190330c69527f70625dc10f357f970a1f38e9423f526c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PowerModel.cs",
+      "sha256": "2cc44bddbdd6de6e1d3ded50110a0aace66bc37a942dbf1c5af2af08b9a80dbc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.CardRewardAlternatives/CardRewardAlternative.cs",
+      "sha256": "f2d57662053c111db4205ac30305b446da29eaf73b8c9c7099716494e9ed25c2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NCardRewardSelectionScreen.cs",
+      "sha256": "86361d4fc6e73f6842baec83a9b1a4bfe601563710b86d18e26ae23fa1ce1b1e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NCardRewardAlternativeButton.cs",
+      "sha256": "159abb88614c6f000f760d8f82097b4673a98e2798e48cecb86eaa856e3608f9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RelicReward.cs",
+      "sha256": "10f2bdbe8533bc384e2f5b637a81b1efbeee6906a7829bef891586918a49f1bd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/SpecialCardReward.cs",
+      "sha256": "b2a54906146ebb2caf8408f77dea557b43f3606d4916304bb604ebab10acd372"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat.History.Entries/DamageReceivedEntry.cs",
+      "sha256": "0d8cdee160d5b061f7eee200d5fb2b05654fe365b788537c65ef3c74afdffb70"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Creatures/DamageResult.cs",
+      "sha256": "33128b75cbb7863e8d56d116b0e517064500579284c1f9b668c07553b688dc49"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/CreatureCmd.cs",
+      "sha256": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/EmotionChip.cs",
+      "sha256": "a9b1bcde4c7db01ab0fb71901ba431023b38ccdf74a3bb42df995b860dcdbc67"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PotionModel.cs",
+      "sha256": "78b161c2e578894935b57bc17a99349aeefd7509a094cc3534b406c40258b8a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Potions/NPotionPopup.cs",
+      "sha256": "f1f5364558bc17290c3549b26821ff7923336a91be1d4acdc806658e9c104443"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FoulPotion.cs",
+      "sha256": "dff3b7f714ea975f3bee9114a38fb13619fc7c8860ceea94cf43d8f76c506e48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsWing.cs",
+      "sha256": "90908efdfa3e6686395fbdc3ae6987a299f1bcdad5e8e128de56c79fe7e977ca"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Pendulum.cs",
+      "sha256": "47555d0f5375d77d6d193c7e029b29f9fe8eb57f6dbbb1d1a86fb23a5a4438aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PollinousCore.cs",
+      "sha256": "2cff220a8da9873f11751d2480aa5bef18edd74963b49f38b768db21649c5476"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FishingRod.cs",
+      "sha256": "541ac89e243c0e3916d3b6cb4226a090b9e86f1ae5753640ffe3875507ed9938"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BookOfFiveRings.cs",
+      "sha256": "6c04d5b94b3814d04454fc6ce981881272500601fbaf1326b42a581eda5be8f6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WongosMysteryTicket.cs",
+      "sha256": "831872d73d4c25fca471afe636eb65d34677aba0a690239c471573ceb05b8cb9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/AttackIntent.cs",
+      "sha256": "4fcc072d4957ee7664c5ec292bf67a809c43846a0481b15cece51d706b905ad0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/SingleAttackIntent.cs",
+      "sha256": "46df819021c729f3bbdc98295360a1b78275b25ae42e304298a54a1330dfdbff"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/MultiAttackIntent.cs",
+      "sha256": "25d3a02d5296677af58010a25b9fa14c4fc1b458f11e2b3b9deebae78c749af6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Events.Custom.CrystalSphere/NCrystalSphereScreen.cs",
+      "sha256": "455ccf48d4611e544c0ba9b4e2161177f98e461f9c049b78744ce67e2d1b3f7b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent/CrystalSphereMinigame.cs",
+      "sha256": "bba9ac39f9001a355ee409a5a780d4875cf403121cae33cad900bbdf84791729"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent/CrystalSphereItem.cs",
+      "sha256": "4415610b44c9f1678eb6a8b411f3cf3c7c8878996da75f3cf157963e7352617f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Trial.cs",
+      "sha256": "ca4a1dcf6495ff8e8222b59748dc7425ff01cc0ab217104552d05a94a68acf7f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/TheArchitect.cs",
+      "sha256": "2b827b6550994a3865939d455e3ce2767eddb8f67fe2fa5942ca9c3ef329b205"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Events/NEventOptionButton.cs",
+      "sha256": "0c8c339b34c803763d5bd445514144039baa8122d95016d1c04001b6a932e048"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NAbandonRunConfirmPopup.cs",
+      "sha256": "fa28d8b3e99f76f4bf0d9a549baf866ddd9307dc54f5ee148759fd19307446fd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NModalContainer.cs",
+      "sha256": "57d419b540ae618796a2f1623e9ee3a608733892c416ac47bbaa85a5876e6685"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NVerticalPopup.cs",
+      "sha256": "e03f435cb68b6989606453edb7f672b2324d3e6caf88e36c070f8fdab70e4877"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NPopupYesNoButton.cs",
+      "sha256": "f216f627eb2ccbf22d483d85022809b14063c0083eab5ca6558b16b516cca586"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.GodotExtensions/NButton.cs",
+      "sha256": "b05de61992df3fd388895e9bea07a44ec5c648622efb2b1dbd6c25b112d134eb"
+    }
+  ],
+  "contracts": [
+    "True CardModel.CurrentUpgradeLevel is limited by MaxUpgradeLevel; Wither increases a separate fake counter",
+    "Enchantments and afflictions each occupy one source slot with actual Amount",
+    "Energy base/local/final costs and ordered expiry are distinct",
+    "Glass has a private raw accumulator; Dark EvokeVal is already its raw accumulator",
+    "Run and player ToSerializable expose persistent seed/counters without drawing RNG",
+    "EventModel.Rng is retained by the bridge across event completion for its final counter",
+    "Mutable event Description/current values differ from canonical event data",
+    "Treasure state GET must not invoke OpenChest; explicit chest action triggers source rewards",
+    "Private prepared treasure relics remain hidden before collection opens",
+    "Relic DisplayAmount is distinct from stored Amount/counters; saved properties exported under validation only",
+    "Policy input must not receive validation RNG, odds or native hidden draw order",
+    "RunState.ActFloor is the per-act entered-room counter; TotalFloor is cumulative map history",
+    "Card reward alternatives retain source option identities and AfterSelected behavior; Skip is not the first arbitrary button",
+    "Observed relic runtime fields are explicit primitive counters/booleans derived from prior owned actions, not oracle RNG or future choices",
+    "Owned DamageReceived history keeps per-player TurnNumber stamps, actual HP-loss sums/counts and independent !WasFullyBlocked counts",
+    "EmotionChip checks !WasFullyBlocked in the prior player span, which can include zero-HP-loss or Buffer-prevented results",
+    "Potion popup disables both use and discard when CanRemovePotions is false; queued or dead-owner potions cannot be removed",
+    "AnyTime potion usage is distinct from CombatOnly player-phase/card-selection restrictions; custom usability and target validity are observed explicitly",
+    "Ordinary reward rows expose source selector CanSkip/CanReroll flags without generating alternatives or revealing prepared cards; SpecialCardReward has no ordinary selector",
+    "AttackIntent.DamageCalc provides the current selected move raw base; GetSingleDamage applies all hooks and truncates before displaying the label",
+    "Crystal Sphere exports numeric remaining divinations and completed reveal history; partial cells do not expose full hidden item bounds",
+    "Additional owned periodic histories and Wongo payout state are source primitive fields, independent of transient display animations",
+    "EventOption.WasChosen records every successful callback entry; DisableOnChosen=false permits repeated choices after a canceled confirmation, including Trial DoubleDown and Architect Proceed",
+    "Trial DoubleDown opens the owned NAbandonRunConfirmPopup in NModalContainer; its visible enabled Yes/No controls take priority over underlying rooms, and explicit commands invoke the actual confirmation callbacks"
+  ],
+  "compiled_against_game": false,
+  "installed_game_behavior_validated": false,
+  "relic_public_history_fields": {
+    "NUNCHAKU": {
+      "attacks_played": "_attacksPlayed"
+    },
+    "PEN_NIB": {
+      "attacks_played": "_attacksPlayed"
+    },
+    "IRON_CLUB": {
+      "cards_played": "_cardsPlayed"
+    },
+    "HAPPY_FLOWER": {
+      "turns_seen": "_turnsSeen"
+    },
+    "FAKE_HAPPY_FLOWER": {
+      "turns_seen": "_turnsSeen"
+    },
+    "JOSS_PAPER": {
+      "cards_exhausted": "_cardsExhausted"
+    },
+    "GALACTIC_DUST": {
+      "stars_spent": "_starsSpent"
+    },
+    "METRONOME": {
+      "orbs_channeled": "_orbsChanneled"
+    },
+    "PUMPKIN_CANDLE": {
+      "kindle_count": "_kindleCount"
+    },
+    "BURNING_STICKS": {
+      "used_this_combat": "_wasUsedThisCombat"
+    },
+    "CENTENNIAL_PUZZLE": {
+      "used_this_combat": "_usedThisCombat"
+    },
+    "PERMAFROST": {
+      "used_this_combat": "_activatedThisCombat"
+    },
+    "RUINED_HELMET": {
+      "used_this_combat": "_usedThisCombat"
+    },
+    "THROWING_AXE": {
+      "used_this_combat": "_usedThisCombat"
+    },
+    "PAELS_EYE": {
+      "used_this_combat": "_usedThisCombat",
+      "was_owner_part_of_last_player_turn": "_wasOwnerPartOfLastPlayerTurn"
+    },
+    "DEMON_TONGUE": {
+      "triggered_this_turn": "_triggeredThisTurn"
+    },
+    "MINI_REGENT": {
+      "used_this_turn": "_usedThisTurn"
+    },
+    "RED_SKULL": {
+      "strength_applied": "_strengthApplied"
+    },
+    "BELT_BUCKLE": {
+      "dexterity_applied": "_dexterityApplied"
+    },
+    "VAMBRACE": {
+      "block_gained_this_combat": "_blockGainedThisCombat"
+    },
+    "PAELS_LEGION": {
+      "cooldown": "_cooldown",
+      "triggered_block_last_turn": "_triggeredBlockLastTurn"
+    },
+    "UNSETTLING_LAMP": {
+      "finished_triggering": "_isFinishedTriggering"
+    },
+    "PENDULUM": {
+      "turns_seen": "_turnsSeen"
+    },
+    "POLLINOUS_CORE": {
+      "turns_seen": "_turnsSeen"
+    },
+    "FISHING_ROD": {
+      "combats_seen": "_combatsSeen"
+    },
+    "BOOK_OF_FIVE_RINGS": {
+      "cards_added": "_cardsAdded"
+    },
+    "WONGOS_MYSTERY_TICKET": {
+      "combats_finished": "_combatsFinished",
+      "gave_relic": "_gaveRelic"
+    }
+  },
+  "relic_public_history_fields_note": "Only bool/int progress from already observed actions/visible activations; private future random data excluded. Lamp uses triggering CardModel nullness plus finished flag, not TriggeringCardPlay.",
+  "event_option_repeatability": {
+    "source_property": "EventOption.DisableOnChosen",
+    "source_chosen_gate": "OnChosen != null && (!DisableOnChosen || !WasChosen)",
+    "exported_effective_gate": "button.IsEnabled && !Option.IsLocked && (!DisableOnChosen || !Option.WasChosen)",
+    "legacy_without_repeatability_flag": "chosen options remain blocked"
+  },
+  "trial_abandon_confirmation": {
+    "screen": "abandon_run_confirmation",
+    "headless_page": "ABANDON_CONFIRMATION",
+    "headless_options": [
+      "CONFIRM_ABANDON",
+      "CANCEL_ABANDON"
+    ],
+    "commands": [
+      "confirm_abandon_run",
+      "cancel_abandon_run"
+    ],
+    "confirm_callback": "NAbandonRunConfirmPopup.OnYesButtonPressed -> RunManager.Abandon",
+    "cancel_callback": "NAbandonRunConfirmPopup.OnNoButtonPressed -> QueueFreeSafely",
+    "underlying_gameplay_and_menu_commands": "blocked while this owned popup is visible",
+    "state_get": "observes button enablement without invoking either callback"
+  }
+}

@@ -237,7 +237,11 @@ def map_live_action_to_simulator_action(
         slot = _optional_int(action.get("slot"))
         if slot is None:
             raise LiveParityUnsupported("use_potion action is missing slot")
-        potion_id = sim_state.potions[slot] if 0 <= slot < len(sim_state.potions) else ""
+        from sts2sim.mechanics.potion_inventory import occupied_potion_slots
+
+        potion_id = dict(occupied_potion_slots(sim_state.potions, sim_state.flags)).get(slot, "")
+        if not potion_id:
+            raise LiveParityUnsupported("use_potion targets an empty physical slot")
         return Action(
             type=ActionType.USE_POTION,
             target_id=_optional_string(action.get("target")) or "player",
@@ -415,11 +419,17 @@ def _live_card_to_sim_card(
 ) -> CardInstance:
     card_id = _live_card_id(card, character_id, card_library)
     source = dict(card_library.get(card_id, {"id": card_id, "card_id": card_id}))
-    source["card_id"] = str(source.get("id", card_id))
+    source["card_id"] = str(source.get("id", card_id)).lower()
     source["instance_id"] = f"live_{zone}_{instance_counter:03d}"
     if card.get("is_upgraded") is not None:
         source["upgraded"] = bool(card.get("is_upgraded"))
-    return _card_from_spec(source, instance_counter, card_library=card_library)
+    from sts2sim.live_card_fields import enrich_card
+
+    try:
+        base = _card_from_spec(source, instance_counter, card_library=card_library)
+        return enrich_card(base, card)
+    except ValueError as exc:
+        raise LiveParityUnsupported(str(exc)) from exc
 
 
 def _live_card_id(
@@ -472,13 +482,13 @@ def _monsters_from_live(battle: Mapping[str, Any]) -> tuple[MonsterState, ...]:
 
 
 def _player_state_from_live(player: Mapping[str, Any]) -> PlayerState:
-    max_hp = _optional_int(player.get("max_hp")) or 80
-    max_energy = _optional_int(player.get("max_energy")) or 3
+    max_hp = _int(player.get("max_hp"), 80)
+    max_energy = _int(player.get("max_energy"), 3)
     return PlayerState(
-        hp=_optional_int(player.get("hp")) or max_hp,
+        hp=_int(player.get("hp"), max_hp),
         max_hp=max_hp,
         block=_optional_int(player.get("block")) or 0,
-        energy=_optional_int(player.get("energy")) or max_energy,
+        energy=_int(player.get("energy"), max_energy),
         max_energy=max_energy,
         gold=_optional_int(player.get("gold")) or 0,
         statuses=_status_map(_sequence(player.get("status"))),
@@ -565,7 +575,7 @@ def _status_map(statuses: Sequence[Any]) -> dict[str, int]:
         status_id = _status_id(item)
         if not status_id:
             continue
-        result[status_id] = _optional_int(item.get("amount")) or 1
+        result[status_id] = _int(item.get("amount"), 1)
     return result
 
 

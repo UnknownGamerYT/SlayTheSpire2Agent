@@ -237,8 +237,8 @@ def _base_source_data() -> dict[str, Any]:
                 "name": "Debug Kill",
                 "type": "attack",
                 "cost": 0,
-                "target": "enemy",
-                "effects": {"damage": 999},
+                "target": "all_enemies",
+                "effects": {"all_damage": 999},
             }
         ],
         "player": {"hp": 80, "max_hp": 80, "gold": 0, "energy": 3, "max_energy": 3},

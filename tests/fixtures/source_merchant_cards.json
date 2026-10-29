@@ -1,0 +1,29 @@
+{
+  "game_version": "0.107.1",
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "scope": "Merchant creation/update callbacks for the three Eggs and Fresnel Lens are acquired-order and persisted as the visible offered CardInstance. Normal purchase, Courier restock, save/reload and Lords Parasol consume the same offered card; deck entry CanEnchant prevents double Nimble. Glitter/Silver/Wing/Silken have no merchant creation callback.",
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantCardEntry.cs",
+      "sha256": "f43a4f7ac7c28b40bbf332a82419ef3fa70450150b3121956adc318e2b6c2a69"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FresnelLens.cs",
+      "sha256": "05b7cf19010bdf4beffc4d45a3d374ef160a89f8d8a98739de2609c597880b34"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MoltenEgg.cs",
+      "sha256": "b706622e797a32ba54e62bc05f71c67d7ace9f29254ba5111f49dbf14ac04571"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ToxicEgg.cs",
+      "sha256": "5199ee81e31f3273550d0fddf884df69a6d876df34c3b94f5105c5e946701d60"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FrozenEgg.cs",
+      "sha256": "09fdd62baaf545bfb544722d07a921db4cf406726cf327e636db96706efb7ceb"
+    }
+  ]
+}

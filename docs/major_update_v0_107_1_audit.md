@@ -1,5 +1,9 @@
 # Slay the Spire 2 v0.107.1 Update Audit
 
+Historical June 2026 audit. Its blocker list and implemented counts describe that
+pass only. See [the October status](project_status_2026_10_28.md) for the current
+runtime and remaining verification boundaries.
+
 Source inputs:
 
 - Local patch notes attachment: `C:\Users\kyria\.codex\attachments\32af1130-872e-4ae5-9d31-56081cc4a19d\pasted-text.txt`

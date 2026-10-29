@@ -1,8 +1,4 @@
-"""Map generation constraints and validators.
-
-This is not a full map generator.  It provides source-backed constraints and a
-layout validator so a future generator can be audited independently.
-"""
+"""Map layout validation alongside the stable standard map generator."""
 
 from __future__ import annotations
 
@@ -15,6 +11,15 @@ from typing import Any
 from sts2sim.content.sources import STS1_COMPAT_SOURCE, SourceRef
 
 from .ascension import AscensionFlag, ascension_enabled
+
+STABLE_MAP_SOURCE = SourceRef(
+    label="stable-decompiled-StandardActMap",
+    version="v0.107.1",
+    url="https://github.com/zhiyue/sts2-rl-agent/blob/"
+    "5d874e855ae1d0550d5c30416fadd7dbb0d133b7/"
+    "decompiled/MegaCrit.Sts2.Core.Map/StandardActMap.cs",
+    notes="Source repository identifies public build 23811903; no installed-game certification.",
+)
 
 
 class NodeKind(str, Enum):
@@ -117,11 +122,7 @@ def default_act_floor_count(act: int) -> int:
 
 
 def default_act_constraints(act: int = 1, *, ascension_level: int = 0) -> MapConstraints:
-    """Return conservative act-map constraints.
-
-    The floor shape mirrors common deckbuilder act layouts.  Exact STS2 map
-    generation weights should replace this table when extracted.
-    """
+    """Return the stable source's fixed rows and placement constraints."""
 
     elite_bias = 1 if ascension_enabled(ascension_level, AscensionFlag.MORE_ELITES) else 0
     floor_count = default_act_floor_count(act)
@@ -177,7 +178,7 @@ def default_act_constraints(act: int = 1, *, ascension_level: int = 0) -> MapCon
                     max_nodes=7,
                 )
             )
-        elif floor == rest_floor - 1:
+        elif floor >= boss_floor - 3:
             floors.append(
                 FloorConstraint(
                     floor,
@@ -187,7 +188,6 @@ def default_act_constraints(act: int = 1, *, ascension_level: int = 0) -> MapCon
                             NodeKind.ELITE,
                             NodeKind.EVENT,
                             NodeKind.SHOP,
-                            NodeKind.TREASURE,
                         }
                     ),
                     min_nodes=1,
@@ -205,7 +205,6 @@ def default_act_constraints(act: int = 1, *, ascension_level: int = 0) -> MapCon
                             NodeKind.EVENT,
                             NodeKind.SHOP,
                             NodeKind.REST,
-                            NodeKind.TREASURE,
                         }
                     ),
                     min_nodes=1,
@@ -227,6 +226,7 @@ def default_act_constraints(act: int = 1, *, ascension_level: int = 0) -> MapCon
         boss_floor=boss_floor,
         elite_bias=elite_bias,
         expected_floor_count=floor_count,
+        source=STABLE_MAP_SOURCE,
     )
 
 
@@ -386,6 +386,8 @@ def validate_map_layout(layout: MapLayout, constraints: MapConstraints) -> MapVa
         if (
             start_lane is not None
             and end_lane is not None
+            and start.kind is not NodeKind.START
+            and end.kind is not NodeKind.BOSS
             and abs(end_lane - start_lane) > constraints.max_sparse_lane_delta
         ):
             issues.append(
@@ -419,6 +421,11 @@ def validate_map_layout(layout: MapLayout, constraints: MapConstraints) -> MapVa
             seen_kinds: dict[NodeKind, str] = {}
             for target_id in target_ids:
                 target = nodes_by_id[target_id]
+                # Treasure is outside the sibling restriction. Monsters also
+                # fill any unassigned nodes after the constrained queue pass,
+                # so final layouts can contain repeated monster siblings.
+                if target.kind in {NodeKind.TREASURE, NodeKind.MONSTER}:
+                    continue
                 previous = seen_kinds.setdefault(target.kind, target_id)
                 if previous != target_id:
                     issues.append(

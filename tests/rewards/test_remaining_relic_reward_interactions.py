@@ -63,7 +63,13 @@ def _force_next_room(state, room_kind: RoomKind):
         current_node_id=start.node_id,
         completed_node_ids=(start.node_id,),
     )
-    return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
+    # This fixture replaces the intro with an unrelated room under test.
+    flags = {
+        key: value for key, value in state.flags.items() if key != "pending_relic_deck_choices"
+    }
+    return state.model_copy(
+        update={"phase": RunPhase.MAP, "map": game_map, "floor": 0, "flags": flags}
+    )
 
 
 def _reward_after_kill(
@@ -113,12 +119,17 @@ def test_lava_lamp_upgrades_combat_card_reward_after_no_damage_fight() -> None:
     )
 
     assert state.reward is not None
+    assert tuple(state.reward.metadata["card_option_upgraded"]) == (True,)
+    assert any(event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
+               for event in state.replay_log[-1].events)
     state = step(state, _action(state, "take_reward_card", "reward:card:0"))
 
     gained = state.master_deck[-1]
     assert gained.card_id.lower() == "common_attack"
     assert gained.upgraded is True
+    assert not any(event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
+                   for event in state.replay_log[-1].events)
     assert any(
-        event.kind == "relic_card_upgraded" and event.source_id == "lava_lamp"
-        for event in state.replay_log[-1].events
+        event.kind == "relic_card_reward_modified" and event.source_id == "lava_lamp"
+        for entry in state.replay_log for event in entry.events
     )

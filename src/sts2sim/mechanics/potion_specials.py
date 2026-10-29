@@ -295,6 +295,10 @@ def _direct_steps_from_description(
     steps.extend(_status_steps(plain, normalized))
     steps.extend(_hand_steps(normalized))
     steps.extend(_special_runtime_steps(description, normalized))
+    if "exhaust your hand" in normalized:
+        # Glowwater's exhaust precedes drawing, including exhaust-triggered draws.
+        exhaust_steps = [step for step in steps if "exhaust_hand" in step]
+        steps = exhaust_steps + [step for step in steps if "exhaust_hand" not in step]
     return tuple(_dedupe_steps(steps))
 
 
@@ -472,6 +476,7 @@ def _special_runtime_steps(
                     "count": count,
                     "pool": "colorless",
                     "upgraded": "upgraded" in normalized,
+                    "distinct": True,
                 }
             }
         )
@@ -483,6 +488,7 @@ def _special_runtime_steps(
                     "add_random_card_to_hand": {
                         "count": 1,
                         "card_types": (card_type,),
+                        "distinct": True,
                         "free_to_play_this_turn": "free to play this turn" in normalized,
                     }
                 }
@@ -558,6 +564,7 @@ def _special_runtime_steps(
                     "zone": "discard_pile",
                     "count": 1,
                     "destination": "hand",
+                    "free_to_play_this_turn": "free to play this turn" in normalized,
                     "free_to_play_this_combat": "free to play this combat" in normalized,
                 }
             }
@@ -667,14 +674,12 @@ def _special_runtime_steps(
         )
 
     if "attacks deal" in normalized and "less damage" in normalized:
+        duration = re.search(r"next\s+(\d+)\s+turns", normalized)
         steps.append(
             {
                 "apply_status": {
                     "target": "enemy",
-                    "temporary_attack_damage_percent": -_first_number(
-                        normalized,
-                        default=30,
-                    ),
+                    "shrink": int(duration.group(1)) if duration is not None else 1,
                 }
             }
         )
@@ -683,19 +688,9 @@ def _special_runtime_steps(
     if hp_loss is not None:
         steps.append(
             {
-                "combat_trigger": {
-                    "trigger": "turn_end",
-                    "duration": "combat",
-                    "effects": (
-                        {
-                            "enemy_hp_loss": {
-                                "target": "all_enemies"
-                                if "all enemies" in normalized
-                                else "enemy",
-                                "amount": int(hp_loss.group(1)),
-                            }
-                        },
-                    ),
+                "apply_status": {
+                    "target": "all_enemies" if "all enemies" in normalized else "enemy",
+                    "demise": int(hp_loss.group(1)),
                 }
             }
         )
@@ -723,6 +718,7 @@ def _special_runtime_steps(
                     "zone": "hand",
                     "count": 1,
                     "free_to_play_this_combat": True,
+                    "costs_energy_or_stars": True,
                 }
             }
         )
@@ -743,6 +739,7 @@ def _random_card_choice_step(normalized: str) -> Mapping[str, Any]:
         "count": 1,
         "choices": 3,
         "pool": "character",
+        "optional": True,
         "free_to_play_this_turn": "free to play this turn" in normalized,
     }
     if "colorless" in normalized:

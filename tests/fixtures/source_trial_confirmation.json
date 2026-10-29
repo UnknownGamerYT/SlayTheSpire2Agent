@@ -1,0 +1,23 @@
+{
+  "source_repository": "zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "reported_game_version": "0.107.1",
+  "source_files": {
+    "decompiled/MegaCrit.Sts2.Core.Models.Events/Trial.cs": "ca4a1dcf6495ff8e8222b59748dc7425ff01cc0ab217104552d05a94a68acf7f",
+    "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NAbandonRunConfirmPopup.cs": "fa28d8b3e99f76f4bf0d9a549baf866ddd9307dc54f5ee148759fd19307446fd",
+    "decompiled/MegaCrit.Sts2.Core.Runs/RunManager.cs": "6fa14a80bf7969bfb8d43b583219d61411c3e1cf56e0c9844e064f30cf387a20",
+    "decompiled/MegaCrit.Sts2.Core.Commands/CreatureCmd.cs": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8",
+    "decompiled/MegaCrit.Sts2.Core.Events/EventOption.cs": "02a8c24eb58efdb08f14b8801a598400c4bd590b675faf9b947413096562118c"
+  },
+  "contracts": {
+    "Trial.Reject": "DoubleDown has disableOnChosen=false and remains usable after cancel",
+    "Trial.DoubleDown": "Opens NAbandonRunConfirmPopup; does not damage, abandon or advance the underlying event",
+    "NAbandonRunConfirmPopup.OnNoButtonPressed": "Closes modal only",
+    "NAbandonRunConfirmPopup.OnYesButtonPressed": "With null main menu calls RunManager.Abandon then closes modal",
+    "RunManager.AbandonInternal": "Sets IsAbandoned then GuaranteeKillAllPlayers",
+    "RunManager.GuaranteeKillAllPlayers": "CreatureCmd.Kill(player.Creature, force:true)",
+    "CreatureCmd.KillWithoutCheckingWinCondition": "Forced death bypasses ShouldDie/death prevention, including Fairy in a Bottle",
+    "modal_input": "Only confirmation/cancel controls are available while the modal is open; room and potion inputs resume after cancel"
+  },
+  "scope": "Source-derived singleplayer flow contracts and public/reload tests, not captured installed-game UI evidence"
+}

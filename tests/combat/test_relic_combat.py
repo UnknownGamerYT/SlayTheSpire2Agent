@@ -274,7 +274,6 @@ def test_turn_start_card_generation_and_draw_lock_relic_markers() -> None:
         for marker in result.markers
     ] == [
         ("fiddle", "draw_cards", 2, "player", {}),
-        ("fiddle", "gain_status", 1, "player", {"status": "no_draw_this_turn"}),
         (
             "crossbow",
             "add_card_to_hand",
@@ -533,7 +532,7 @@ def test_more_contextual_start_relics_cover_potions_charges_and_low_hp() -> None
             "gain_status",
             3,
             "player",
-            {"status": "strength", "condition": "hp_at_or_below_50_percent"},
+            {"status": "strength", "condition": "hp_at_or_below_50_percent", "next_counter": 1},
         ),
     ]
     assert no_context.markers == ()
@@ -557,7 +556,7 @@ def test_card_played_relics_cover_type_cost_and_threshold_rules() -> None:
     fourth_card = card_played(
         ("IRON_CLUB",),
         card_type="skill",
-        metadata={"cards_played_this_turn": 3},
+        relic_counters={"iron_club": 3},
     )
     fifth_card = card_played(
         ("BRILLIANT_SCARF",),
@@ -585,10 +584,11 @@ def test_card_played_relics_cover_type_cost_and_threshold_rules() -> None:
     assert nunchaku.markers[0].kind == "gain_energy"
     assert nunchaku.markers[0].amount == 1
     assert nunchaku.markers[0].metadata["next_counter"] == 0
-    assert fourth_card.markers[0].kind == "draw_cards"
-    assert fourth_card.markers[0].metadata == {"card_count": 4, "period": 4}
-    assert fifth_card.markers[0].kind == "make_random_card_free_this_turn"
-    assert fifth_card.markers[0].metadata == {"condition": "fifth_card_played", "card_count": 5}
+    assert fourth_card.markers[0].kind == "relic_counter_changed"
+    assert fourth_card.markers[0].metadata["counter"] == 4
+    assert fourth_card.markers[1].kind == "draw_cards"
+    assert fourth_card.markers[1].metadata == {"card_count": 4, "period": 4}
+    assert fifth_card.markers == ()  # Source modifies the fifth manual card's cost before play.
 
 
 def test_more_card_played_relics_cover_osty_first_power_and_type_set() -> None:
@@ -861,6 +861,7 @@ def test_additional_damage_relics_cover_low_hp_fatal_and_minion_cards() -> None:
         "status": "strength",
         "condition": "hp_crossed_to_at_or_below_50_percent",
         "hp_after_loss": 37,
+        "next_counter": 1,
     }
     assert tail.markers[0].kind == "heal_player"
     assert tail.markers[0].amount == 40
@@ -1005,10 +1006,9 @@ def test_more_turn_end_relics_preserve_energy_and_block() -> None:
         ),
         (
             "sturdy_clamp",
-            "gain_status",
+            "retain_block_cap",
             10,
             {
-                "status": "next_turn_block",
                 "condition": "block_persists",
                 "player_block": 14,
                 "limit": 10,
@@ -1232,6 +1232,7 @@ def test_remaining_unknown_custom_event_relic_markers() -> None:
 
     assert created.markers[0].amount == 4
     assert [(marker.relic_id, marker.kind, marker.amount) for marker in resource.markers] == [
+        ("galactic_dust", "relic_counter_changed", 1),
         ("galactic_dust", "gain_block", 10),
         ("mini_regent", "gain_status", 1),
     ]
@@ -1446,6 +1447,7 @@ def test_combat_relic_marker_kinds_are_audited_against_runtime_surface() -> None
         "reduce_retained_card_cost",
         "relic_counter_changed",
         "retain_hand",
+        "retain_block_cap",
         "shuffle_status_into_draw_pile",
         "take_extra_turn",
         "trigger_orb_passive",

@@ -1,0 +1,86 @@
+{
+  "source_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "certifies_game_parity": false,
+  "scope": "Finite CardFactory rarity fallback/empty pool fault rules; known manual CardReward reroll fault prefix. Installed UI/task recovery is not inferred.",
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
+      "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardRarityExtensions.cs",
+      "sha256": "98c689940c52d41b3d492fb63a4195ca8631af7ba2829a53a92fd9de1a7ebf2e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Random/Rng.cs",
+      "sha256": "495ff2a8884105d5b3e50942c63379d91dedeb80d0e7ff86cf8669ccbc519974"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/CardRarityOdds.cs",
+      "sha256": "49dccb9a3d3179b83768c3d7b6dcfbe1dfe34513058f9f0e4253386fc7e32417"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.CardRewardAlternatives/CardRewardAlternative.cs",
+      "sha256": "f2d57662053c111db4205ac30305b446da29eaf73b8c9c7099716494e9ed25c2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Hooks/Hook.cs",
+      "sha256": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsWing.cs",
+      "sha256": "90908efdfa3e6686395fbdc3ae6987a299f1bcdad5e8e128de56c79fe7e977ca"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Driftwood.cs",
+      "sha256": "898c11b70a4d2c3fb89257a751d5d92e0abb87c13cfac6b92af59c7a12d30cd5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Pael.cs",
+      "sha256": "786e42c9c20f1c2e2da81ee7d7996af01857f14535fe81d5c1d74b1edf3c5fc0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Events/Orobas.cs",
+      "sha256": "f9bfdfb8108495f38e5e8aa87df9781015f63df05012b6e56057c528517298da"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/Reward.cs",
+      "sha256": "97cb231aefb107d5f6df9d445e235d5d6b70c243c0067fe667930048d0656b87"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Rewards/NRewardButton.cs",
+      "sha256": "8d34c3c6226a2593562e6db7be5461b2d6681e480de5c2ed75d4053a6e3ba84e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Multiplayer.Game/RewardsSetSynchronizer.cs",
+      "sha256": "87d7bbd0110b640281522fccbd784079f4c4fdb6856fc73127ae48659f98c457"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Helpers/TaskHelper.cs",
+      "sha256": "d78ff3b305becf2396a6f3ff6fe917d7b5ce17a8d9f0f46e7ec6f2839c637272"
+    }
+  ],
+  "contracts": {
+    "missing_rarity": "After blacklisting chosen canonical cards, start at the rolled rarity and cycle Common -> Uncommon -> Rare -> Common; select uniformly within the first nonempty rarity only. Do not select uniformly over all remaining rarities.",
+    "pity": "CardRarityOdds.Roll updates future rarity odds from the rolled rarity before the factory picks a fallback card; a fallback Rare does not itself reset the offset.",
+    "nonuniform_empty": "Roll base or encounter rarity once, then fail with InvalidOperationException when no valid rarity exists. No item or upgrade draw.",
+    "uniform_empty": "NextItem(empty) returns null without RNG, then CardFactory throws InvalidOperationException.",
+    "exhausted_pool": "The blacklist excludes each chosen canonical model. A request that exhausts the factory pool faults; it does not return a partial reward.",
+    "manual_reroll": "Set CanReroll false; append old cards to choice history with wasPicked false; set hasBeenRerolled; clear cards; Populate uses original RerollOptions verbatim.",
+    "kaleidoscope_fault": "Its empty custom Other/RegularEncounter/NoUpgradeRoll reroll pool has no IsCardReward flag. PrismaticGem/DingyRug do not replace it. One Rewards rarity draw precedes no_valid_rarity.",
+    "exception_boundary": "The fault prevents factory return, AfterGenerated, screen RefreshOptions and AfterRewardTaken; no UI recovery or terminal gameplay outcome is fabricated.",
+    "manual_modifiers": "Hook.TryModifyCardRewardOptions itself runs regular and late listener passes. Manual CardReward construction does not subscribe RelicObtained; ordinary options construction does.",
+    "alternative_count_fault": "Generate adds Skip (when CanSkip), then Reroll (when CanReroll), then PaelsWing adds Sacrifice. More than2 throws InvalidOperationException. OnSelect calls Generate before ShowScreen and ReserveChoiceId, so cards/history/RNG stay unchanged. Source-compatible flat actions which would open that screen are deliberately masked; RewardSet Proceed remains separate.",
+    "alternative_fault_precedence": "If a card selection screen cannot open due to the alternative limit, the reroll oracle refuses to fabricate a later factory fault as the first event."
+  }
+}

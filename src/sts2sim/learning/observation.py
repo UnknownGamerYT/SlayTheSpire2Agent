@@ -13,6 +13,13 @@ from typing import Any
 
 from sts2sim.agent_api import action_space, encode_observation
 from sts2sim.api import serialize
+from sts2sim.mechanics.potion_inventory import occupied_potion_slots
+from sts2sim.policy_visibility import (
+    POLICY_OBSERVATION_SCHEMA_VERSION,
+    draw_order_is_visible,
+    policy_payload,
+    public_run_flags,
+)
 
 
 def encode_rich_observation(
@@ -21,13 +28,17 @@ def encode_rich_observation(
     max_map_paths: int = 64,
     max_path_depth: int = 16,
     include_serialized_state: bool = False,
+    oracle: bool = False,
 ) -> dict[str, Any]:
     """Encode a state with detailed symbolic context for learning agents."""
 
-    payload = serialize(state)
-    compact = encode_observation(state, include_state=False)
+    payload = policy_payload(serialize(state), oracle=oracle)
+    compact = encode_observation(state, include_state=False, oracle=oracle)
+    actions = action_space(state, oracle=oracle)
     rich: dict[str, Any] = {
         "schema_version": 1,
+        "policy_observation_schema_version": POLICY_OBSERVATION_SCHEMA_VERSION,
+        "visibility_mode": "oracle" if oracle else "visible",
         "mode": "rich_v1",
         "compact": compact,
         "aggression": compact.get("aggression", {}),
@@ -37,9 +48,11 @@ def encode_rich_observation(
         "visibility": compact.get("visibility", {}),
         "positions": compact.get("positions", {}),
         "targets": compact.get("targets", {}),
-        "run": _run_summary(payload),
+        "run": _run_summary(payload, oracle=oracle),
         "player": _player_summary(payload),
-        "card_zones": _card_zones(payload),
+        "card_zones": _card_zones(
+            payload, draw_order_visible=draw_order_is_visible(payload, oracle=oracle)
+        ),
         "combat": _combat_summary(payload),
         "map": _map_summary(
             payload,
@@ -51,16 +64,18 @@ def encode_rich_observation(
         "event": _event_summary(payload),
         "ancient": _ancient_summary(payload),
         "legal_actions": {
-            "count": len(action_space(state)),
-            "actions": action_space(state),
+            "count": len(actions),
+            "actions": actions,
         },
     }
     if include_serialized_state:
+        if not oracle:
+            payload["flags"] = public_run_flags(_mapping(payload.get("flags")))
         rich["state"] = payload
     return rich
 
 
-def _run_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+def _run_summary(payload: Mapping[str, Any], *, oracle: bool = False) -> dict[str, Any]:
     return {
         "seed": payload.get("seed"),
         "character_id": payload.get("character_id"),
@@ -69,7 +84,11 @@ def _run_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
         "act": _int(payload.get("act")),
         "floor": _int(payload.get("floor")),
         "room_history": list(_sequence(payload.get("room_history"))),
-        "flags": dict(_mapping(payload.get("flags"))),
+        "flags": (
+            dict(_mapping(payload.get("flags")))
+            if oracle
+            else public_run_flags(_mapping(payload.get("flags")))
+        ),
     }
 
 
@@ -92,13 +111,17 @@ def _player_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
         "potions": list(_sequence(payload.get("potions"))),
         "potion_slots": [
             {"potion_id": str(potion_id), "slot_index": index, "position": index}
-            for index, potion_id in enumerate(_sequence(payload.get("potions")))
+            for index, potion_id in occupied_potion_slots(
+                tuple(str(item) for item in _sequence(payload.get("potions"))),
+                _mapping(payload.get("flags")))
         ],
         "curses": list(_sequence(payload.get("curses"))),
     }
 
 
-def _card_zones(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+def _card_zones(
+    payload: Mapping[str, Any], *, draw_order_visible: bool = False
+) -> dict[str, list[dict[str, Any]]]:
     combat = _mapping(payload.get("combat"))
     return {
         "master_deck": [
@@ -110,7 +133,7 @@ def _card_zones(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
             for index, card in enumerate(_sequence(combat.get("hand")))
         ],
         "draw_pile": [
-            _card_summary(card, zone="draw_pile", position=index)
+            _card_summary(card, zone="draw_pile", position=index if draw_order_visible else None)
             for index, card in enumerate(_sequence(combat.get("draw_pile")))
         ],
         "discard_pile": [
@@ -124,7 +147,7 @@ def _card_zones(payload: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     }
 
 
-def _card_summary(raw_card: object, *, zone: str, position: int) -> dict[str, Any]:
+def _card_summary(raw_card: object, *, zone: str, position: int | None) -> dict[str, Any]:
     card = _mapping(raw_card)
     effects = _mapping(card.get("effects"))
     return {

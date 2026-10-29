@@ -3,7 +3,14 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 ENGINE_SCHEMA_VERSION = 1
 PLAYER_TARGET_ID = "player"
@@ -56,6 +63,14 @@ class ActionType(str, Enum):
     DISCARD_POTION = "discard_potion"
     THROW_POTION_AT_MERCHANT = "throw_potion_at_merchant"
     PROCEED = "proceed"
+    KINDLE = "kindle"
+    COOK = "cook"
+    CLONE = "clone"
+    HATCH = "hatch"
+    MEND = "mend"
+    REROLL_REWARD = "reroll_reward"
+    SACRIFICE_REWARD = "sacrifice_reward"
+    OPEN_CHEST = "open_chest"
 
 
 class CardType(str, Enum):
@@ -64,6 +79,7 @@ class CardType(str, Enum):
     POWER = "power"
     STATUS = "status"
     CURSE = "curse"
+    QUEST = "quest"
     UNKNOWN = "unknown"
 
 
@@ -86,11 +102,56 @@ class RoomKind(str, Enum):
     BOSS = "boss"
 
 
+class RngStreamState(EngineModel):
+    internal_state: tuple[int, int, int, int]
+    draws: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_words(self) -> RngStreamState:
+        if not any(self.internal_state) or any(
+            value < 0 or value >= 1 << 64 for value in self.internal_state
+        ):
+            raise ValueError("xoshiro state requires four unsigned words and a nonzero state")
+        return self
+
+
 class RngState(EngineModel):
-    algorithm: Literal["python.random.MT19937"] = "python.random.MT19937"
+    algorithm: Literal["python.random.MT19937", "xoshiro256**"] = "python.random.MT19937"
     version: int
     internal_state: tuple[int, ...]
     gauss_next: float | None = None
+    seed: int | str | None = None
+    derivation: str | None = None
+    fidelity: Literal["legacy", "simulator_seeded", "source_port", "source_decompiled"] = "legacy"
+    routing: Literal["legacy_single_stream", "partial_source_singleplayer"] = "legacy_single_stream"
+    draws: int = Field(default=0, ge=0)
+    streams: dict[str, RngStreamState] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def serialize_rng(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        payload: dict[str, Any] = handler(self)
+        if self.algorithm == "python.random.MT19937":
+            # Preserve legacy serialized payloads and their replay digests.
+            return {key: payload[key] for key in (
+                "algorithm", "version", "internal_state", "gauss_next"
+            )}
+        return payload
+
+    @model_validator(mode="after")
+    def validate_algorithm_state(self) -> RngState:
+        if self.algorithm == "xoshiro256**":
+            if self.version != 1:
+                raise ValueError("unsupported xoshiro runtime state version")
+            if len(self.internal_state) != 4:
+                raise ValueError("xoshiro state requires four words")
+            RngStreamState(internal_state=self.internal_state, draws=self.draws)
+            if not self.derivation:
+                raise ValueError("xoshiro runtime state requires its seed derivation")
+            if "root" in self.streams:
+                raise ValueError("root stream belongs in internal_state")
+        elif self.streams:
+            raise ValueError("legacy MT19937 states cannot contain xoshiro streams")
+        return self
 
 
 class CardEnchantment(EngineModel):
@@ -325,6 +386,7 @@ class ShopItemState(EngineModel):
     price: int
     base_price: int
     purchased: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ShopState(EngineModel):
@@ -374,10 +436,7 @@ class RewardState(EngineModel):
         object.__setattr__(
             self,
             "card_option_groups",
-            tuple(
-                tuple(str(card_id) for card_id in group)
-                for group in self.card_option_groups
-            ),
+            tuple(tuple(str(card_id) for card_id in group) for group in self.card_option_groups),
         )
         object.__setattr__(
             self,
@@ -412,26 +471,12 @@ class RewardState(EngineModel):
         object.__setattr__(
             self,
             "claimed_card_option_group_indices",
-            tuple(
-                sorted(
-                    {
-                        max(0, int(index))
-                        for index in self.claimed_card_option_group_indices
-                    }
-                )
-            ),
+            tuple(sorted({max(0, int(index)) for index in self.claimed_card_option_group_indices})),
         )
         object.__setattr__(
             self,
             "skipped_card_option_group_indices",
-            tuple(
-                sorted(
-                    {
-                        max(0, int(index))
-                        for index in self.skipped_card_option_group_indices
-                    }
-                )
-            ),
+            tuple(sorted({max(0, int(index)) for index in self.skipped_card_option_group_indices})),
         )
         object.__setattr__(
             self,
@@ -496,13 +541,17 @@ class Action(EngineModel):
             raise ValueError("smith actions require target_id")
         if self.type == ActionType.TOKE and not self.target_id:
             raise ValueError("toke actions require target_id")
-        if self.type in {
-            ActionType.TAKE_REWARD_GOLD,
-            ActionType.TAKE_REWARD_RELIC,
-            ActionType.TAKE_REWARD_CARD,
-            ActionType.TAKE_REWARD_POTION,
-            ActionType.SKIP_REWARD,
-        } and not self.target_id:
+        if (
+            self.type
+            in {
+                ActionType.TAKE_REWARD_GOLD,
+                ActionType.TAKE_REWARD_RELIC,
+                ActionType.TAKE_REWARD_CARD,
+                ActionType.TAKE_REWARD_POTION,
+                ActionType.SKIP_REWARD,
+            }
+            and not self.target_id
+        ):
             raise ValueError(f"{self.type.value} actions require target_id")
         if self.type == ActionType.SHOP_BUY and not self.target_id:
             raise ValueError("shop_buy actions require target_id")

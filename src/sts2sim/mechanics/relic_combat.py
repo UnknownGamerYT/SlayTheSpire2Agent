@@ -435,6 +435,9 @@ def _resolve_supported_relic(
     *,
     hp: int | None,
 ) -> tuple[CombatRelicMarker, ...]:
+    if (relic_id == "bound_phylactery" and hook is CombatRelicHook.TURN_START
+            and context.turn_number == 1):
+        return ()
     specs = _STATIC_MARKERS_BY_HOOK.get(hook, {}).get(relic_id, ())
     if specs:
         return tuple(_marker_from_spec(relic_id, hook, spec, context, hp=hp) for spec in specs)
@@ -518,7 +521,7 @@ def _resolve_start_of_combat_dynamic(
                 hook=hook,
                 amount=2,
                 target_id="player",
-                metadata={"status": "dexterity", "condition": "no_potions"},
+                metadata={"status": "dexterity", "condition": "no_potions", "next_counter": 1},
             ),
         )
 
@@ -586,12 +589,13 @@ def _resolve_start_of_combat_dynamic(
                 metadata={
                     "status": "strength",
                     "condition": "hp_at_or_below_50_percent",
+                    "next_counter": 1,
                 },
             ),
         )
 
     if relic_id == "tea_of_discourtesy":
-        charges = context.relic_counters.get(relic_id, 0)
+        charges = context.relic_counters.get(relic_id, 1)
         if charges <= 0:
             return ()
         return (
@@ -703,6 +707,14 @@ def _resolve_turn_start_dynamic(
     hook: CombatRelicHook,
     context: CombatRelicContext,
 ) -> tuple[CombatRelicMarker, ...]:
+    if relic_id == "pumpkin_candle":
+        if context.relic_counters.get(relic_id, 5) <= 0:
+            return ()
+        return (
+            CombatRelicMarker(
+                kind="gain_energy", relic_id=relic_id, hook=hook, amount=1, target_id="player"
+            ),
+        )
     if relic_id == "bread":
         if context.turn_number == 1:
             return (
@@ -1245,16 +1257,14 @@ def _resolve_turn_end_other_dynamic(
             block = _coerce_int(context.metadata.get("player_block"), default=0)
         if block <= 0:
             return ()
-        persisted = min(10, block)
         return (
             CombatRelicMarker(
-                kind="gain_status",
+                kind="retain_block_cap",
                 relic_id=relic_id,
                 hook=hook,
-                amount=persisted,
+                amount=10,
                 target_id="player",
                 metadata={
-                    "status": "next_turn_block",
                     "condition": "block_persists",
                     "player_block": block,
                     "limit": 10,
@@ -1298,7 +1308,6 @@ def _resolve_card_played_dynamic(
 ) -> tuple[CombatRelicMarker, ...]:
     card_type = _normalized_id(context.card_type or "")
     card_id = _normalized_id(context.card_id or "")
-    cards_played_next = _int_context_value(context, "cards_played_this_turn") + 1
 
     if relic_id == "chemical_x":
         cost = _normalized_id(str(_first_present(context.metadata, "card_cost", "cost") or ""))
@@ -1431,31 +1440,23 @@ def _resolve_card_played_dynamic(
             ),
         )
     if relic_id == "brilliant_scarf":
-        if cards_played_next != 5:
-            return ()
-        return (
-            CombatRelicMarker(
-                kind="make_random_card_free_this_turn",
-                relic_id=relic_id,
-                hook=hook,
-                amount=1,
-                target_id="player",
-                metadata={"condition": "fifth_card_played", "card_count": cards_played_next},
-            ),
-        )
+        # A late cost modifier on the fifth manual card, applied before play.
+        return ()
     if relic_id == "iron_club":
-        if cards_played_next % 4 != 0:
-            return ()
-        return (
+        next_counter = context.relic_counters.get(relic_id, 0) + 1
+        counter_marker = _counter_marker(
+            relic_id, hook, next_counter=next_counter, period=4, source=PROVISIONAL_STS2_SOURCE,
+        )
+        return (counter_marker,) + ((
             CombatRelicMarker(
                 kind="draw_cards",
                 relic_id=relic_id,
                 hook=hook,
                 amount=1,
                 target_id="player",
-                metadata={"card_count": cards_played_next, "period": 4},
+                metadata={"card_count": next_counter, "period": 4},
             ),
-        )
+        ) if next_counter % 4 == 0 and context.metadata.get("combat_in_progress", True) else ())
     if relic_id == "helical_dart" and card_id == "shiv":
         return (
             CombatRelicMarker(
@@ -1489,7 +1490,8 @@ def _resolve_card_played_dynamic(
             ),
         )
     if relic_id == "ivory_tile":
-        if _coerce_int(context.metadata.get("card_cost"), default=0) < 3:
+        paid = context.metadata.get("energy_spent", context.metadata.get("card_cost", 0))
+        if _coerce_int(paid, default=0) < 3:
             return ()
         return (
             CombatRelicMarker(
@@ -2002,6 +2004,8 @@ def _resolve_damage_taken_dynamic(
     if relic_id == "red_skull":
         if context.player_hp is None or context.player_max_hp is None:
             return ()
+        if context.relic_counters.get(relic_id, 0) > 0:
+            return ()
         hp_loss = _coerce_int(context.metadata.get("hp_loss"), default=0)
         hp_after_loss = max(0, context.player_hp - hp_loss)
         if _player_hp_at_or_below_half(context.player_hp, context.player_max_hp):
@@ -2019,6 +2023,7 @@ def _resolve_damage_taken_dynamic(
                     "status": "strength",
                     "condition": "hp_crossed_to_at_or_below_50_percent",
                     "hp_after_loss": hp_after_loss,
+                    "next_counter": 1,
                 },
             ),
         )
@@ -2050,7 +2055,10 @@ def _resolve_damage_taken_dynamic(
         if context.metadata.get("on_player_turn") is False:
             return ()
         hp_loss = _coerce_int(context.metadata.get("hp_loss"), default=1)
-        heal = _capped_heal(hp_loss, hp=context.player_hp, max_hp=context.player_max_hp)
+        hp_after = _coerce_int(context.metadata.get("hp_after"), default=max(
+            0, (context.player_hp or 0) - hp_loss,
+        ))
+        heal = _capped_heal(hp_loss, hp=hp_after, max_hp=context.player_max_hp)
         if heal <= 0:
             return ()
         return (
@@ -2839,11 +2847,13 @@ def _resolve_resource_spent_dynamic(
         return ()
 
     if relic_id == "galactic_dust":
-        block_triggers = amount_spent // 10
-        if block_triggers <= 0:
-            return ()
-        return (
-            CombatRelicMarker(
+        total = context.relic_counters.get(relic_id, 0) + amount_spent
+        block_triggers, remaining = divmod(total, 10)
+        markers = [_counter_marker(
+            relic_id, hook, next_counter=remaining, period=10, source=PROVISIONAL_STS2_SOURCE,
+        )]
+        if block_triggers > 0:
+            markers.append(CombatRelicMarker(
                 kind="gain_block",
                 relic_id=relic_id,
                 hook=hook,
@@ -2855,8 +2865,8 @@ def _resolve_resource_spent_dynamic(
                     "period": 10,
                     "block_per_period": 10,
                 },
-            ),
-        )
+            ))
+        return tuple(markers)
 
     if relic_id != "mini_regent":
         return ()
@@ -2871,7 +2881,8 @@ def _resolve_resource_spent_dynamic(
             hook=hook,
             amount=1,
             target_id="player",
-            metadata={"status": "strength", "condition": "first_star_spent_this_turn"},
+            metadata={"status": "strength", "condition": "first_star_spent_this_turn",
+                      "next_counter": 1},
         ),
     )
 
@@ -3245,6 +3256,7 @@ _STATIC_MARKERS_BY_HOOK: Mapping[
                 metadata={"status": "strength"},
             ),
         ),
+        "bound_phylactery": (_resource_spec("summon", 1),),
         "phylactery_unbound": (_resource_spec("summon", 5),),
         "petrified_toad": (
             CombatRelicMarkerSpec(
@@ -3419,7 +3431,6 @@ _STATIC_MARKERS_BY_HOOK: Mapping[
         "ectoplasm": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
         "fiddle": (
             CombatRelicMarkerSpec("draw_cards", amount=2, target_id="player"),
-            _status_spec("no_draw_this_turn", 1),
         ),
         "mercury_hourglass": (
             CombatRelicMarkerSpec("all_damage", amount=3, target_id="all_enemies"),
@@ -3428,9 +3439,8 @@ _STATIC_MARKERS_BY_HOOK: Mapping[
         "philosophers_stone": (
             CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),
         ),
-        "phylactery_unbound": (_resource_spec("summon", 1),),
+        "phylactery_unbound": (_resource_spec("summon", 2),),
         "prismatic_gem": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
-        "pumpkin_candle": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
         "sai": (CombatRelicMarkerSpec("gain_block", amount=7, target_id="player"),),
         "snecko_eye": (CombatRelicMarkerSpec("draw_cards", amount=2, target_id="player"),),
         "sozu": (CombatRelicMarkerSpec("gain_energy", amount=1, target_id="player"),),
@@ -3675,7 +3685,7 @@ _DYNAMIC_MARKER_RELICS_BY_HOOK: Mapping[CombatRelicHook, frozenset[str]] = {
     CombatRelicHook.STATUS_APPLIED: frozenset({"snecko_skull"}),
     CombatRelicHook.STATUS_GAINED: frozenset({"ruined_helmet"}),
     CombatRelicHook.TURN_END: frozenset({"bookmark", "paels_eye", "parrying_shield"}),
-    CombatRelicHook.TURN_START: frozenset({"emotion_chip", "history_course"}),
+    CombatRelicHook.TURN_START: frozenset({"emotion_chip", "history_course", "pumpkin_candle"}),
 }
 
 _SUPPORTED_BY_HOOK: Mapping[CombatRelicHook, frozenset[str]] = {

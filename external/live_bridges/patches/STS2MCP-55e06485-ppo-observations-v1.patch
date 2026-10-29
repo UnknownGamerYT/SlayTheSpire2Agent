@@ -1,0 +1,28 @@
+diff --git a/McpMod.StateBuilder.cs b/McpMod.StateBuilder.cs
+index 76eee84..c9c2a7f 100644
+--- a/McpMod.StateBuilder.cs
++++ b/McpMod.StateBuilder.cs
+@@ -1098,2 +1098,5 @@ public static partial class McpMod
+         state["character"] = SafeGetText(() => player.Character.Title);
++        state["character_id"] = player.Character.Id.Entry;
++        // Exact identities for the simulator policy; combat piles can contain generated cards.
++        state["master_deck"] = BuildPileCardList(player.Deck.Cards, PileType.None);
+         state["hp"] = creature.CurrentHp;
+@@ -1252,2 +1255,4 @@ public static partial class McpMod
+             ["is_upgraded"] = card.IsUpgraded,
++            ["upgrade_level"] = card.CurrentUpgradeLevel,
++            ["has_enchantment"] = card.Enchantment != null,
+             ["keywords"] = BuildHoverTips(card.HoverTips)
+@@ -1307,10 +1312,4 @@ public static partial class McpMod
+         {
+-            // Pile cards only need a subset - keep it lightweight
+-            list.Add(new Dictionary<string, object?>
+-            {
+-                ["name"] = SafeGetText(() => card.Title),
+-                ["cost"] = GetCostDisplay(card),
+-                ["star_cost"] = GetStarCostDisplay(card),
+-                ["description"] = SafeGetCardDescription(card, pile)
+-            });
++            // Keep IDs and upgrade state in every zone, including the permanent deck.
++            list.Add(BuildCardInfo(card, pile));
+         }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from helpers import project_root
 
 from sts2sim.mechanics import (
@@ -110,7 +111,9 @@ def test_empty_random_selector_uses_move_pool_fallback_hint() -> None:
             "max_hp": 20,
             "moves": (
                 {"id": "HIT", "name": "Hit", "intent": "Attack", "damage": {"normal": 5}},
-                {"id": "GROWL", "name": "Growl", "intent": "Debuff"},
+                {"id": "GROWL", "name": "Growl", "intent": "Debuff", "powers": (
+                    {"power_id": "WEAK", "amount": 1, "target": "player"},
+                )},
             ),
             "attack_pattern": {
                 "initial_move": "RAND",
@@ -195,7 +198,8 @@ def test_supported_summon_moves_and_spawn_capacity_are_hints() -> None:
             "moves": (
                 {"id": "LAY_EGGS", "name": "Lay Eggs", "intent": "Summon"},
                 {"id": "SMASH", "name": "Smash", "intent": "Attack"},
-                {"id": "NUTRITIONAL_PASTE", "name": "Nutritional Paste", "intent": "Buff"},
+                {"id": "NUTRITIONAL_PASTE", "name": "Nutritional Paste", "intent": "Buff",
+                 "powers": ({"power_id": "STRENGTH", "amount": 1},)},
             ),
             "attack_pattern": {
                 "initial_move": "SUMMON_BRANCH",
@@ -338,6 +342,53 @@ def test_supported_special_innate_powers_are_hints() -> None:
         assert "special_innate_power_supported" in _codes(classification.hints)
 
 
+@pytest.mark.parametrize(
+    ("monster_id", "power_id"),
+    (
+        ("TEST_SUBJECT", "ADAPTABLE"),
+        ("LAGAVULIN_MATRIARCH", "ASLEEP"),
+        ("DECIMILLIPEDE_SEGMENT", "REATTACH"),
+        ("DECIMILLIPEDE_SEGMENT_BACK", "REATTACH"),
+        ("DECIMILLIPEDE_SEGMENT_FRONT", "REATTACH"),
+        ("DECIMILLIPEDE_SEGMENT_MIDDLE", "REATTACH"),
+    ),
+)
+def test_identity_specific_innate_scripts_are_supported_only_on_their_monsters(
+    monster_id: str, power_id: str
+) -> None:
+    raw_monster = {
+        "id": monster_id,
+        "type": "Normal",
+        "min_hp": 20,
+        "max_hp": 20,
+        "innate_powers": ({"power_id": power_id, "amount": 1},),
+        "moves": ({"id": "WAIT", "name": "Wait", "intent": "Unknown"},),
+    }
+    supported = classify_raw_monster_specials(raw_monster)
+    unhandled = classify_raw_monster_specials({**raw_monster, "id": "OTHER_MONSTER"})
+
+    assert not supported.blocked
+    assert "special_innate_power_supported" in _codes(supported.hints)
+    assert unhandled.blocker_codes == ("special_innate_power_requires_hook",)
+    assert unhandled.blockers[0].source_id == power_id
+
+
+def test_byrdonis_territorial_has_an_executable_hook() -> None:
+    classification = classify_raw_monster_specials(
+        {
+            "id": "BYRDONIS",
+            "type": "Elite",
+            "min_hp": 81,
+            "max_hp": 84,
+            "innate_powers": ({"power_id": "TERRITORIAL", "amount": 1},),
+            "moves": ({"id": "PECK", "name": "Peck", "intent": "Attack"},),
+        }
+    )
+
+    assert not classification.blockers
+    assert "special_innate_power_supported" in _codes(classification.hints)
+
+
 def test_escape_moves_are_supported_explicit_removal_hints() -> None:
     classification = classify_raw_monster_specials(
         {
@@ -369,7 +420,8 @@ def test_supported_formation_conditions_are_hints() -> None:
             "moves": (
                 {"id": "ALONE", "name": "Alone", "intent": "Attack"},
                 {"id": "FRONT", "name": "Front", "intent": "Attack"},
-                {"id": "BACK", "name": "Back", "intent": "Buff"},
+                {"id": "BACK", "name": "Back", "intent": "Buff",
+                 "powers": ({"power_id": "STRENGTH", "amount": 1},)},
             ),
             "attack_pattern": {
                 "initial_move": "INIT",
@@ -674,7 +726,7 @@ def test_doormaker_is_deprecated_as_an_unverified_boss_source() -> None:
     } <= _codes(classification.blockers)
 
 
-def test_v0107_aeonglass_and_infested_prism_surface_explicit_blockers() -> None:
+def test_named_scripts_keep_only_unverified_numeric_source_blockers() -> None:
     aeonglass = classify_raw_monster_specials(
         {
             "id": "AEONGLASS",
@@ -721,12 +773,10 @@ def test_v0107_aeonglass_and_infested_prism_surface_explicit_blockers() -> None:
         }
     )
 
-    assert {
-        "aeonglass_increasing_intensity_requires_wither_hook",
-        "boss_script_requires_explicit_integration",
-        "special_innate_power_requires_hook",
-    } <= _codes(aeonglass.blockers)
-    assert "vital_spark_requires_tainted_skill_hook" in _codes(prism.blockers)
+    assert not aeonglass.blockers
+    assert "aeonglass_increasing_intensity_supported" in _codes(aeonglass.hints)
+    assert not prism.blocked
+    assert "vital_spark_tainted_skill_supported" in _codes(prism.hints)
 
 
 def test_verified_status_boss_integrations_are_hints() -> None:
@@ -774,7 +824,9 @@ def test_use_only_once_branch_is_a_supported_hint() -> None:
             "min_hp": 20,
             "max_hp": 20,
             "moves": (
-                {"id": "ROAR", "name": "Roar", "intent": "Debuff"},
+                {"id": "ROAR", "name": "Roar", "intent": "Debuff", "powers": (
+                    {"power_id": "WEAK", "amount": 1, "target": "player"},
+                )},
                 {"id": "CLAW", "name": "Claw", "intent": "Attack", "damage": {"normal": 5}},
             ),
             "attack_pattern": {
@@ -844,6 +896,10 @@ def test_source_coverage_summary_counts_blocked_encounters_and_missing_monsters(
 
 def test_cached_monster_special_source_coverage_smoke() -> None:
     cache_dir = project_root() / "data" / "cache" / "eng"
+    if not all(
+        (cache_dir / filename).is_file() for filename in ("monsters.json", "encounters.json")
+    ):
+        pytest.skip("Source cache unavailable; run sts2sim sync-data before coverage checks.")
     raw_monsters = json.loads((cache_dir / "monsters.json").read_text(encoding="utf-8"))
     raw_encounters = json.loads((cache_dir / "encounters.json").read_text(encoding="utf-8"))
 
@@ -853,13 +909,22 @@ def test_cached_monster_special_source_coverage_smoke() -> None:
     assert summary.encounter_count >= 80
     assert summary.missing_monster_ids == ()
     assert "DOORMAKER" not in summary.classified_monster_ids
-    assert "AEONGLASS" in summary.blocked_monster_ids
-    assert "INFESTED_PRISM" in summary.blocked_monster_ids
-    assert "SKULKING_COLONY" in summary.blocked_monster_ids
-    assert "QUEEN" not in summary.blocked_monster_ids
+    assert "AEONGLASS" not in summary.blocked_monster_ids
+    assert "INFESTED_PRISM" not in summary.blocked_monster_ids
+    assert "SKULKING_COLONY" not in summary.blocked_monster_ids
+    queen = classify_raw_monster_specials(next(m for m in raw_monsters if m["id"] == "QUEEN"))
+    assert {r.source_id for r in queen.blockers} <= {"CHAINS_OF_BINDING"}
     assert "TEST_SUBJECT" not in summary.blocked_monster_ids
+    # Territorial now executes at monster turn end rather than merely storing stacks.
     assert "BYRDONIS" not in summary.blocked_monster_ids
-    assert "CEREMONIAL_BEAST" not in summary.blocked_monster_ids
+    byrdonis = classify_raw_monster_specials(
+        next(monster for monster in raw_monsters if monster["id"] == "BYRDONIS")
+    )
+    assert not byrdonis.blockers
+    beast = classify_raw_monster_specials(
+        next(m for m in raw_monsters if m["id"] == "CEREMONIAL_BEAST")
+    )
+    assert {r.source_id for r in beast.blockers} <= {"RINGING"}
     assert "MAGI_KNIGHT" not in summary.blocked_monster_ids
     assert "LAGAVULIN_MATRIARCH" not in summary.blocked_monster_ids
     assert "SOUL_FYSH" not in summary.blocked_monster_ids
@@ -871,5 +936,5 @@ def test_cached_monster_special_source_coverage_smoke() -> None:
     assert "DECIMILLIPEDE_SEGMENT_FRONT" not in summary.blocked_monster_ids
     assert "DECIMILLIPEDE_SEGMENT_MIDDLE" not in summary.blocked_monster_ids
     assert dict(summary.requirement_counts)[SUMMON_SPAWN_MOVE] >= 1
-    assert dict(summary.blocker_counts)[BOSS_SCRIPT] >= 1
+    assert dict(summary.blocker_counts).get(BOSS_SCRIPT, 0) == 0
     assert ELITE_SPECIAL_MECHANIC not in dict(summary.blocker_counts)

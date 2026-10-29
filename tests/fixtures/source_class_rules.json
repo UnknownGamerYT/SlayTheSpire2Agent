@@ -1,0 +1,586 @@
+{
+  "game_version": "0.107.1",
+  "build_id": "23811903",
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "provenance": "Independently authored behavioral expectations from public decompiled OnPlay and referenced Power methods. No game implementation is included.",
+  "rules": [
+    {
+      "card_id": "FALLING_STAR",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/FallingStar.cs",
+      "expected_behavior": "Damage, then Weak, then Vulnerable; Artifact consumes the first eligible debuff."
+    },
+    {
+      "card_id": "GAMMA_BLAST",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/GammaBlast.cs",
+      "expected_behavior": "Damage, then Weak, then Vulnerable."
+    },
+    {
+      "card_id": "COMET",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Comet.cs",
+      "expected_behavior": "Damage, then Weak, then Vulnerable."
+    },
+    {
+      "card_id": "METEOR_SHOWER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/MeteorShower.cs",
+      "expected_behavior": "All-enemy damage, then all-enemy Weak, then Vulnerable."
+    },
+    {
+      "card_id": "COOLHEADED",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Coolheaded.cs",
+      "expected_behavior": "Channel Frost before drawing."
+    },
+    {
+      "card_id": "FOCUSED_STRIKE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/FocusedStrike.cs",
+      "expected_behavior": "Damage then temporary player Focus."
+    },
+    {
+      "card_id": "HOTFIX",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Hotfix.cs",
+      "expected_behavior": "Temporary player Focus; expires at turn boundary."
+    },
+    {
+      "card_id": "HYPERBEAM",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Hyperbeam.cs",
+      "expected_behavior": "All-enemy damage then lose player Focus permanently."
+    },
+    {
+      "card_id": "FEEDING_FRENZY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/FeedingFrenzy.cs",
+      "expected_behavior": "Temporary player Strength."
+    },
+    {
+      "card_id": "CRUSH_UNDER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/CrushUnder.cs",
+      "expected_behavior": "All-enemy damage then temporary enemy Strength loss; no self Strength loss."
+    },
+    {
+      "card_id": "DYING_STAR",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/DyingStar.cs",
+      "expected_behavior": "All-enemy damage then temporary enemy Strength loss; no self Strength loss."
+    },
+    {
+      "card_id": "RESONANCE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Resonance.cs",
+      "expected_behavior": "Player gains Strength and every enemy loses one Strength."
+    },
+    {
+      "card_id": "CHARGE_BATTERY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/ChargeBattery.cs",
+      "expected_behavior": "Block now; Energy only next turn."
+    },
+    {
+      "card_id": "DELAY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Delay.cs",
+      "expected_behavior": "Block now; Energy only next turn."
+    },
+    {
+      "card_id": "HEGEMONY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Hegemony.cs",
+      "expected_behavior": "Damage now; Energy only next turn."
+    },
+    {
+      "card_id": "REFINE_BLADE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/RefineBlade.cs",
+      "expected_behavior": "Forge now; Energy only next turn."
+    },
+    {
+      "card_id": "OUTMANEUVER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Outmaneuver.cs",
+      "expected_behavior": "Energy only next turn."
+    },
+    {
+      "card_id": "INVOKE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Invoke.cs",
+      "expected_behavior": "Summon then gain Energy next turn, with no immediate benefit."
+    },
+    {
+      "card_id": "RELAX",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Relax.cs",
+      "expected_behavior": "Block now; additional draw and Energy next turn."
+    },
+    {
+      "card_id": "SCAVENGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Scavenge.cs",
+      "expected_behavior": "Exhaust one hand card, then schedule next-turn Energy."
+    },
+    {
+      "card_id": "FOREGONE_CONCLUSION",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/ForegoneConclusion.cs",
+      "expected_behavior": "Choose cards from draw pile next turn, with no immediate draw."
+    },
+    {
+      "card_id": "HIDDEN_CACHE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/HiddenCache.cs",
+      "expected_behavior": "Stars now and separately next turn; no duplicate next-turn gain."
+    },
+    {
+      "card_id": "BEGONE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Begone.cs",
+      "expected_behavior": "Replace one selected hand card with Minion Strike; upgraded result follows source card."
+    },
+    {
+      "card_id": "CHARGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Charge.cs",
+      "expected_behavior": "Replace two selected draw-pile cards with Minion Dive Bomb; no extra cards or draw."
+    },
+    {
+      "card_id": "GUARDS",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Guards.cs",
+      "expected_behavior": "Optionally replace any number of hand cards with Minion Sacrifice."
+    },
+    {
+      "card_id": "SEANCE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Seance.cs",
+      "expected_behavior": "Replace one selected draw-pile card with a base Soul, including when upgraded."
+    },
+    {
+      "card_id": "COMPACT",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Compact.cs",
+      "expected_behavior": "Automatically replace hand Status cards with Fuel; preserve other hand cards."
+    },
+    {
+      "card_id": "DREDGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Dredge.cs",
+      "expected_behavior": "Choose three discard-pile cards to hand, capped by hand space; no draw."
+    },
+    {
+      "card_id": "NEOWS_FURY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/NeowsFury.cs",
+      "expected_behavior": "Damage then optional zero-to-two discard-pile cards to hand; upgraded zero-to-three."
+    },
+    {
+      "card_id": "DUAL_WIELD",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/DualWield.cs",
+      "expected_behavior": "Choose Attack or Power in hand to copy, without drawing."
+    },
+    {
+      "card_id": "ANOINTED",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Anointed.cs",
+      "expected_behavior": "Automatically take random Rare cards from draw pile up to available hand space."
+    },
+    {
+      "card_id": "ALL_FOR_ONE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/AllForOne.cs",
+      "expected_behavior": "Automatically retrieve zero-Energy non-X Attack/Skill/Power cards from discard."
+    },
+    {
+      "card_id": "BUNDLE_OF_JOY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BundleOfJoy.cs",
+      "expected_behavior": "Generate three distinct random Colorless cards into hand; no draw."
+    },
+    {
+      "card_id": "MANIFEST_AUTHORITY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/ManifestAuthority.cs",
+      "expected_behavior": "Block then generate one random Colorless card into hand."
+    },
+    {
+      "card_id": "QUASAR",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Quasar.cs",
+      "expected_behavior": "Offer three random Colorless cards; selection can be skipped; upgraded offerings upgraded."
+    },
+    {
+      "card_id": "METAMORPHOSIS",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Metamorphosis.cs",
+      "expected_behavior": "Generate distinct Attacks into random draw-pile positions; free this combat."
+    },
+    {
+      "card_id": "REAVE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Reave.cs",
+      "expected_behavior": "Damage then one zero-cost Soul into a random draw-pile position; upgraded Soul only from Reave+."
+    },
+    {
+      "card_id": "GRAVE_WARDEN",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/GraveWarden.cs",
+      "expected_behavior": "Block then one base zero-cost Soul into a random draw-pile position."
+    },
+    {
+      "card_id": "CAPTURE_SPIRIT",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/CaptureSpirit.cs",
+      "expected_behavior": "Single unpowered unblockable enemy HP loss then three base Souls randomly in draw pile."
+    },
+    {
+      "card_id": "GLIMPSE_BEYOND",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/GlimpseBeyond.cs",
+      "expected_behavior": "All player teammates including self receive three base Souls randomly in draw pile."
+    },
+    {
+      "card_id": "DIRGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Dirge.cs",
+      "expected_behavior": "Summon separately X times, then X Souls randomly in draw pile; upgraded Souls from Dirge+."
+    },
+    {
+      "card_id": "SEVERANCE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Severance.cs",
+      "expected_behavior": "Exactly one base Soul into draw, discard and hand, including from upgraded Severance."
+    },
+    {
+      "card_id": "SOUL_STORM",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SoulStorm.cs",
+      "expected_behavior": "Scale damage by exhausted Souls; do not generate a Soul."
+    },
+    {
+      "card_id": "COLLISION_COURSE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/CollisionCourse.cs",
+      "expected_behavior": "Damage then generate Debris in hand."
+    },
+    {
+      "card_id": "BOOST_AWAY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BoostAway.cs",
+      "expected_behavior": "Block then generate Dazed in discard."
+    },
+    {
+      "card_id": "FIGHT_THROUGH",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/FightThrough.cs",
+      "expected_behavior": "Block then generate exactly two Wounds in discard."
+    },
+    {
+      "card_id": "GUNK_UP",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/GunkUp.cs",
+      "expected_behavior": "Three damage hits then generate Slimed in discard."
+    },
+    {
+      "card_id": "OVERCLOCK",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Overclock.cs",
+      "expected_behavior": "Draw then generate Burn in discard."
+    },
+    {
+      "card_id": "TURBO",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Turbo.cs",
+      "expected_behavior": "Gain Energy then generate Void in discard."
+    },
+    {
+      "card_id": "CRASH_LANDING",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/CrashLanding.cs",
+      "expected_behavior": "All-enemy damage then fill available hand space with Debris."
+    },
+    {
+      "card_id": "ENERGY_SURGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/EnergySurge.cs",
+      "expected_behavior": "All player teammates including self gain Energy."
+    },
+    {
+      "card_id": "SIC_EM",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SicEm.cs",
+      "expected_behavior": "Osty damage first, then target SicEm debuff even with missing Osty."
+    },
+    {
+      "card_id": "FETCH",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Fetch.cs",
+      "expected_behavior": "Damage and first-play draw both require living Osty."
+    },
+    {
+      "card_id": "BONE_SHARDS",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BoneShards.cs",
+      "expected_behavior": "Living Osty damages enemies, player gains powered Block, then Osty dies."
+    },
+    {
+      "card_id": "SACRIFICE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Sacrifice.cs",
+      "expected_behavior": "Snapshot double living Osty Max HP, kill Osty, then gain powered Block."
+    },
+    {
+      "card_id": "HIGH_FIVE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/HighFive.cs",
+      "expected_behavior": "Requires living Osty; damage precedes Vulnerable."
+    },
+    {
+      "card_id": "SNAP",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Snap.cs",
+      "expected_behavior": "Osty damage then choose non-Retain hand card; selection still occurs without Osty."
+    },
+    {
+      "card_id": "SCULPTING_STRIKE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SculptingStrike.cs",
+      "expected_behavior": "Damage then add Ethereal to one hand card lacking it."
+    },
+    {
+      "card_id": "TRANSFIGURE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Transfigure.cs",
+      "expected_behavior": "Add one Replay to selected hand card; add one combat cost to non-X cards."
+    },
+    {
+      "card_id": "NO_ESCAPE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/NoEscape.cs",
+      "expected_behavior": "Apply 10 plus five per whole ten existing Doom, without direct damage."
+    },
+    {
+      "card_id": "END_OF_DAYS",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/EndOfDays.cs",
+      "expected_behavior": "Apply Doom then immediately kill enemies whose Doom reaches HP."
+    },
+    {
+      "card_id": "MISERY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Misery.cs",
+      "expected_behavior": "Damage then copy target debuffs to every other enemy."
+    },
+    {
+      "card_id": "HANG",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Hang.cs",
+      "expected_behavior": "Damage receives target Hang multiplier after Strength; install max(2,currentHang) capped so total does not exceed 999999999.",
+      "cases": [
+        {
+          "upgraded": false,
+          "strength": 2,
+          "initial_hang": 2,
+          "expected_damage": 24,
+          "expected_final_hang": 4,
+          "serialize_before_play": true
+        },
+        {
+          "upgraded": true,
+          "strength": 2,
+          "initial_hang": 2,
+          "expected_damage": 30,
+          "expected_final_hang": 4,
+          "serialize_before_play": true
+        }
+      ]
+    },
+    {
+      "card_id": "BARRAGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Barrage.cs",
+      "expected_behavior": "One independent damage hit per occupied Orb slot."
+    },
+    {
+      "card_id": "LUNAR_BLAST",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/LunarBlast.cs",
+      "expected_behavior": "One independent damage hit per Skill already played this turn."
+    },
+    {
+      "card_id": "PULL_FROM_BELOW",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/PullFromBelow.cs",
+      "expected_behavior": "One independent damage hit per finished Ethereal card play this combat."
+    },
+    {
+      "card_id": "CRESCENT_SPEAR",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/CrescentSpear.cs",
+      "expected_behavior": "Damage scales by all combat cards having a star cost, including the playing Spear."
+    },
+    {
+      "card_id": "SUPERMASSIVE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Supermassive.cs",
+      "expected_behavior": "Damage scales by combat cards created this combat."
+    },
+    {
+      "card_id": "DEATH_MARCH",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/DeathMarch.cs",
+      "expected_behavior": "Damage scales by effect draws this turn, excluding normal hand draw."
+    },
+    {
+      "card_id": "BEAT_INTO_SHAPE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BeatIntoShape.cs",
+      "expected_behavior": "Damage then base Forge plus extra per prior powered hit against target this turn."
+    },
+    {
+      "card_id": "FLAK_CANNON",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/FlakCannon.cs",
+      "expected_behavior": "Exhaust Status cards from every non-exhaust pile; one random damage hit per card."
+    },
+    {
+      "card_id": "REBOOT",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Reboot.cs",
+      "expected_behavior": "Move hand cards to draw, shuffle draw and draw four; do not move discard/exhaust."
+    },
+    {
+      "card_id": "SCRAPE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Scrape.cs",
+      "expected_behavior": "Damage then draw; discard drawn cards whose modified Energy cost is nonzero or X."
+    },
+    {
+      "card_id": "UPROAR",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Uproar.cs",
+      "expected_behavior": "Damage twice then autoplay random Attack from draw pile."
+    },
+    {
+      "card_id": "CLAW",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Claw.cs",
+      "expected_behavior": "Damage then buff every existing Claw including the played physical card."
+    },
+    {
+      "card_id": "MAUL",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Maul.cs",
+      "expected_behavior": "Damage twice then buff every existing Maul including played physical card."
+    },
+    {
+      "card_id": "ADAPTIVE_STRIKE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/AdaptiveStrike.cs",
+      "expected_behavior": "Damage then executable physical clone in discard costing zero this combat."
+    },
+    {
+      "card_id": "UNDEATH",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Undeath.cs",
+      "expected_behavior": "Block then executable physical clone in discard."
+    },
+    {
+      "card_id": "DRAIN_POWER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/DrainPower.cs",
+      "expected_behavior": "Damage then upgrade two random discard-pile cards."
+    },
+    {
+      "card_id": "GENETIC_ALGORITHM",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/GeneticAlgorithm.cs",
+      "expected_behavior": "Block then increase physical and deck-version Block permanently."
+    },
+    {
+      "card_id": "THE_SCYTHE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/TheScythe.cs",
+      "expected_behavior": "Damage then increase physical and deck-version damage permanently."
+    },
+    {
+      "card_id": "BRIGHTEST_FLAME",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BrightestFlame.cs",
+      "expected_behavior": "Energy, draw, then lose one Max HP."
+    },
+    {
+      "card_id": "MODDED",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Modded.cs",
+      "expected_behavior": "Gain Orb slot, draw, then increase physical card combat cost by one."
+    },
+    {
+      "card_id": "MOMENTUM_STRIKE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/MomentumStrike.cs",
+      "expected_behavior": "Damage then set physical card combat cost to zero."
+    },
+    {
+      "card_id": "MAKE_IT_SO",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/MakeItSo.cs",
+      "expected_behavior": "Damage without draw; every third finished Skill returns discarded copies to hand."
+    },
+    {
+      "card_id": "BANSHEES_CRY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BansheesCry.cs",
+      "expected_behavior": "All-enemy damage; Energy discount depends on prior Ethereal plays, no Energy gain."
+    },
+    {
+      "card_id": "BORROWED_TIME",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BorrowedTime.cs",
+      "expected_behavior": "Gain Energy then increase card Energy costs by one for the turn."
+    },
+    {
+      "card_id": "SYNTHESIS",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Synthesis.cs",
+      "expected_behavior": "Damage then next Power free once."
+    },
+    {
+      "card_id": "VEILPIERCER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Veilpiercer.cs",
+      "expected_behavior": "Damage then next Ethereal card free once."
+    },
+    {
+      "card_id": "ORBIT",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Orbit.cs",
+      "expected_behavior": "Track Energy spent after power installation across turns; refund per whole four spent."
+    },
+    {
+      "card_id": "SUMMON_FORTH",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SummonForth.cs",
+      "expected_behavior": "Move existing Sovereign Blades to hand, then Forge; do not generate an extra Blade."
+    },
+    {
+      "card_id": "BIG_BANG",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BigBang.cs",
+      "expected_behavior": "Draw, gain Stars, gain Energy, then Forge."
+    },
+    {
+      "card_id": "GLOW",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Glow.cs",
+      "expected_behavior": "Gain Stars, draw, schedule next-turn draw."
+    },
+    {
+      "card_id": "SCOURGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Scourge.cs",
+      "expected_behavior": "Apply Doom before drawing."
+    },
+    {
+      "card_id": "SPOILS_OF_BATTLE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SpoilsOfBattle.cs",
+      "expected_behavior": "Forge before drawing."
+    },
+    {
+      "card_id": "PULL_AGGRO",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/PullAggro.cs",
+      "expected_behavior": "Summon before powered Block."
+    },
+    {
+      "card_id": "BULK_UP",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/BulkUp.cs",
+      "expected_behavior": "Lose Orb slot before gaining Strength and Dexterity."
+    },
+    {
+      "card_id": "RIP_AND_TEAR",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/RipAndTear.cs",
+      "expected_behavior": "Two independent random target hits."
+    },
+    {
+      "card_id": "SPINNER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Spinner.cs",
+      "expected_behavior": "Upgraded card channels Glass immediately before installing recurring power."
+    },
+    {
+      "card_id": "PARTICLE_WALL",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/ParticleWall.cs",
+      "expected_behavior": "Return physical card to hand after powered Block unless exhausted."
+    },
+    {
+      "card_id": "SHINING_STRIKE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/ShiningStrike.cs",
+      "expected_behavior": "Damage, gain Stars, then put physical card atop draw unless exhausted."
+    },
+    {
+      "card_id": "FORGE_COMMAND",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Commands/ForgeCmd.cs",
+      "expected_behavior": "Create a Blade when no non-exhausted Blade exists, then add Forge damage to every Blade including exhausted ones. Zero Forge still creates a missing Blade and fires AfterForge."
+    },
+    {
+      "card_id": "PARRY",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Parry.cs",
+      "expected_behavior": "Install persistent Parry power; all current and later Sovereign Blades gain its powered Block after damage."
+    },
+    {
+      "card_id": "SEEKING_EDGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/SeekingEdge.cs",
+      "expected_behavior": "Install persistent all-enemy Blade targeting before Forge."
+    },
+    {
+      "card_id": "SWORD_SAGE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/SwordSagePower.cs",
+      "expected_behavior": "Each application adds Replay to existing and newly entered non-clone Blades."
+    },
+    {
+      "card_id": "SHATTER",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Shatter.cs",
+      "expected_behavior": "All-enemy damage then each original rightmost Orb evokes twice and is removed."
+    },
+    {
+      "card_id": "TESLA_COIL",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/TeslaCoil.cs",
+      "expected_behavior": "Attack target, then trigger every Lightning against that target once or twice when upgraded."
+    },
+    {
+      "card_id": "REFLECT",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/ReflectPower.cs",
+      "expected_behavior": "Reflect actual blocked powered attack damage as unpowered damage to dealer; decrement on next owner side-turn start."
+    },
+    {
+      "card_id": "FURNACE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Furnace.cs",
+      "expected_behavior": "Install 5 Forge per turn or 7 upgraded, without immediate Forge."
+    },
+    {
+      "card_id": "WHISTLE",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Whistle.cs",
+      "expected_behavior": "Deal damage then stun the surviving selected enemy."
+    },
+    {
+      "card_id": "STACK",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Cards/Stack.cs",
+      "expected_behavior": "Powered Block equals discard count, plus three when upgraded."
+    },
+    {
+      "card_id": "CONSUMING_SHADOW",
+      "source": "https://github.com/zhiyue/sts2-rl-agent/blob/5d874e855ae1d0550d5c30416fadd7dbb0d133b7/decompiled/MegaCrit.Sts2.Core.Models.Powers/ConsumingShadowPower.cs",
+      "expected_behavior": "Channel 2 Dark (3 upgraded) before applying the Power. At owner-side end, evoke the rightmost orb for each stack, after all orb passives; each Dark therefore charges before the evoke."
+    }
+  ]
+}

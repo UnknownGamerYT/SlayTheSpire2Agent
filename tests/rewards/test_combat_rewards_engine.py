@@ -122,7 +122,13 @@ def _force_next_room(state, room_kind: RoomKind):
         completed_node_ids=(start.node_id,),
         boss_node_id=target.node_id if room_kind is RoomKind.BOSS else None,
     )
-    return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
+    # This fixture replaces the intro with an unrelated room under test.
+    flags = {
+        key: value for key, value in state.flags.items() if key != "pending_relic_deck_choices"
+    }
+    return state.model_copy(
+        update={"phase": RunPhase.MAP, "map": game_map, "floor": 0, "flags": flags}
+    )
 
 
 def _reward_after_kill(
@@ -417,10 +423,11 @@ def test_egg_relics_upgrade_reward_cards_before_adding_to_deck() -> None:
     assert gained.upgraded is True
     assert gained.effects["sequence"][0]["damage"] == 9
     assert state.reward is not None
-    assert any(event.kind == "relic_card_upgraded" for event in state.replay_log[-1].events)
+    assert any(event.kind == "relic_card_reward_modified" and event.source_id == "molten_egg"
+               for entry in state.replay_log for event in entry.events)
 
 
-def test_boss_combat_reward_adds_gold_rare_cards_and_boss_relic() -> None:
+def test_stable_boss_reward_has_gold_rare_cards_and_no_default_relic() -> None:
     state = _reward_after_kill(RoomKind.BOSS, seed=203)
 
     assert state.reward is not None
@@ -428,22 +435,32 @@ def test_boss_combat_reward_adds_gold_rare_cards_and_boss_relic() -> None:
     assert state.reward.gold == 100
     assert len(state.reward.card_options) == 3
     assert state.reward.metadata["card_rarities"] == ("rare", "rare", "rare")
-    assert len(state.reward.relic_ids) == 1
-    assert state.reward.relic_ids[0] in {"boss_relic", "boss_relic_two"}
-    assert state.reward.metadata["relic_rarities"] == ("ancient",)
+    # Stable RewardsSet.GenerateRewardsFor Boss has no RelicReward.
+    assert state.reward.relic_ids == ()
+    assert state.reward.metadata["relic_rarities"] == ()
 
 
-def test_lava_rock_adds_second_act_one_boss_relic_reward() -> None:
+def test_lava_rock_adds_two_normal_relics_to_act_one_boss_reward() -> None:
     state = _reward_after_kill(RoomKind.BOSS, seed=220, relics=("lava_rock",))
 
     assert state.reward is not None
     assert state.reward.metadata["encounter"] == "boss"
     assert len(state.reward.relic_ids) == 2
-    assert state.reward.metadata["relic_rarities"] == ("ancient", "ancient")
+    assert set(state.reward.metadata["relic_rarities"]) <= {"common", "uncommon", "rare"}
+    assert state.flags["lava_rock_triggered"] is True
     assert [
         effect["content_id"]
         for effect in state.reward.metadata["reward_trigger_effects"]
     ] == ["lava_rock"]
+
+
+def test_lava_rock_saved_trigger_prevents_another_reward():
+    state = _reward_after_kill(
+        RoomKind.BOSS, seed=220, relics=("lava_rock",),
+        extra_source={"flags": {"lava_rock_triggered": True}},
+    )
+    assert state.reward.relic_ids == ()
+    assert state.reward.metadata["reward_trigger_effects"] == ()
 
 
 def test_fake_merchant_event_combat_reward_gives_rug_and_unsold_relics() -> None:

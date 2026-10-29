@@ -1,0 +1,728 @@
+{
+  "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "scope": "Opening roster and per-instance initial properties only, not full encounters/traces.",
+  "encounters": [
+    {
+      "encounter_id": "AEONGLASS_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/AeonglassBoss.cs",
+      "source_sha256": "f1f77c0e9d69517fa4d959fb6bb977b780b22b928c5a6f5eca05162dff6096bb",
+      "opening_ids": [
+        "AEONGLASS"
+      ]
+    },
+    {
+      "encounter_id": "AXEBOTS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/AxebotsNormal.cs",
+      "source_sha256": "47a929a289636fa31d1de6493053b25d5f075c786f9c3f4480b23e43d8cb8851",
+      "opening_ids": [
+        "AXEBOT"
+      ]
+    },
+    {
+      "encounter_id": "BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/BattlewornDummyEventEncounter.cs",
+      "source_sha256": "8a8c4f85f0a1e616674d02f14a27a7d6dab482bf9cc97c7e325d1fb783574edf",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "BOWLBUGS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/BowlbugsNormal.cs",
+      "source_sha256": "e8e6647c7860c830cd9903745e2acf1387869be04ee465b57c27f1c2f3bbfc66",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "BOWLBUGS_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/BowlbugsWeak.cs",
+      "source_sha256": "a85930445dd51e876118d9f11be20e5c3dfcf45e875b56d7c8a43f84e727166d",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "BYGONE_EFFIGY_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/BygoneEffigyElite.cs",
+      "source_sha256": "e4621c10ea751750e0c207a2278d9731a01eb4ffa05fd6fe6651bb1aa4afe0fb",
+      "opening_ids": [
+        "BYGONE_EFFIGY"
+      ]
+    },
+    {
+      "encounter_id": "BYRDONIS_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ByrdonisElite.cs",
+      "source_sha256": "3cfea1179aeee7fc4c6a8a05b2e8a7e8b8ec8e982ff764f3c10e60551a150acf",
+      "opening_ids": [
+        "BYRDONIS"
+      ]
+    },
+    {
+      "encounter_id": "CEREMONIAL_BEAST_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/CeremonialBeastBoss.cs",
+      "source_sha256": "9f38229d78747b47ce3a9a00514967e8783bc64e32e96067fb321cdc64929754",
+      "opening_ids": [
+        "CEREMONIAL_BEAST"
+      ]
+    },
+    {
+      "encounter_id": "CHOMPERS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ChompersNormal.cs",
+      "source_sha256": "a1027877093a989662a0b062522054baf57d9e4088e8634ac132fbeb8c681b69",
+      "opening_ids": [
+        "CHOMPER",
+        "CHOMPER"
+      ]
+    },
+    {
+      "encounter_id": "CONSTRUCT_MENAGERIE_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ConstructMenagerieNormal.cs",
+      "source_sha256": "7b7743d07b2feec8c76fa0edf13d638ff018f49352b15e36d04d84a9ff95af58",
+      "opening_ids": [
+        "PUNCH_CONSTRUCT",
+        "CUBEX_CONSTRUCT",
+        "CUBEX_CONSTRUCT"
+      ]
+    },
+    {
+      "encounter_id": "CORPSE_SLUGS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/CorpseSlugsNormal.cs",
+      "source_sha256": "9e7f91463951eeabe9ac29856adeb997618a8b2840079cddd51dcffe3742075f",
+      "opening_ids": [
+        "CORPSE_SLUG",
+        "CORPSE_SLUG",
+        "CORPSE_SLUG"
+      ]
+    },
+    {
+      "encounter_id": "CORPSE_SLUGS_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/CorpseSlugsWeak.cs",
+      "source_sha256": "c4eb2f309e39d1d41141c5f504bc341037bc65f0f0a6b0bd357cee21b1d182b7",
+      "opening_ids": [
+        "CORPSE_SLUG",
+        "CORPSE_SLUG"
+      ]
+    },
+    {
+      "encounter_id": "CUBEX_CONSTRUCT_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/CubexConstructNormal.cs",
+      "source_sha256": "d97f61d075e17716f57ab0cb637fde189448adb9afc0567522abb6d4656fa370",
+      "opening_ids": [
+        "CUBEX_CONSTRUCT"
+      ]
+    },
+    {
+      "encounter_id": "CULTISTS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/CultistsNormal.cs",
+      "source_sha256": "78b83d5404206a00ba57ddee849c737f34b2bea7a54f704fd9576d12778d3819",
+      "opening_ids": [
+        "CALCIFIED_CULTIST",
+        "DAMP_CULTIST"
+      ]
+    },
+    {
+      "encounter_id": "DECIMILLIPEDE_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/DecimillipedeElite.cs",
+      "source_sha256": "d75edaf36e6f5c62da7df61703931e8a23ee84afaf2f8a7dc1c59896eef1830b",
+      "opening_ids": [
+        "DECIMILLIPEDE_SEGMENT_FRONT",
+        "DECIMILLIPEDE_SEGMENT_MIDDLE",
+        "DECIMILLIPEDE_SEGMENT_BACK"
+      ]
+    },
+    {
+      "encounter_id": "DENSE_VEGETATION_EVENT_ENCOUNTER",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/DenseVegetationEventEncounter.cs",
+      "source_sha256": "2ed50e8b623dc07bb034f30237c70ad7f2f31931e2d71831cb1a4fe2fb183320",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "DEVOTED_SCULPTOR_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/DevotedSculptorWeak.cs",
+      "source_sha256": "e46cf3766ebe52ea3552d73a748b9d2c4fc9d7d2b21c4f080f16243f7e7cb3c4",
+      "opening_ids": [
+        "DEVOTED_SCULPTOR"
+      ]
+    },
+    {
+      "encounter_id": "ENTOMANCER_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/EntomancerElite.cs",
+      "source_sha256": "8eef25337d28e09287760e716c6f4b75783c70a3cd70d0bdf1bf66acafad350e",
+      "opening_ids": [
+        "ENTOMANCER"
+      ]
+    },
+    {
+      "encounter_id": "EXOSKELETONS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ExoskeletonsNormal.cs",
+      "source_sha256": "8ac232af7ce1d9de9d51ce0a06639444861fcc6b9802999289b8199a2ede486d",
+      "opening_ids": [
+        "EXOSKELETON",
+        "EXOSKELETON",
+        "EXOSKELETON",
+        "EXOSKELETON"
+      ]
+    },
+    {
+      "encounter_id": "EXOSKELETONS_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ExoskeletonsWeak.cs",
+      "source_sha256": "bed0b356088f3123345aeea6edbba32bbd00aace7fa583e4cf21fbe8c81d2cf2",
+      "opening_ids": [
+        "EXOSKELETON",
+        "EXOSKELETON",
+        "EXOSKELETON"
+      ]
+    },
+    {
+      "encounter_id": "FABRICATOR_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FabricatorNormal.cs",
+      "source_sha256": "fa62a116ba3cc8338da0e81b67a72b8016bffb73af57c6f907cd517d68a0ba7a",
+      "opening_ids": [
+        "FABRICATOR"
+      ]
+    },
+    {
+      "encounter_id": "FAKE_MERCHANT_EVENT_ENCOUNTER",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FakeMerchantEventEncounter.cs",
+      "source_sha256": "838a42bf80c7b23d1db4a9d45ab8428e467349222ac28a4bf380989fbafda36c",
+      "opening_ids": [
+        "FAKE_MERCHANT_MONSTER"
+      ]
+    },
+    {
+      "encounter_id": "FLYCONID_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FlyconidNormal.cs",
+      "source_sha256": "a164831c8ec50bf5971be3f7fd052338927e5acace14de16907429470a924558",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "FOGMOG_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FogmogNormal.cs",
+      "source_sha256": "078996132ba2cbe261d6964353a5513da4257abd1c2e2010c1fe36d6d0fefff8",
+      "opening_ids": [
+        "FOGMOG"
+      ]
+    },
+    {
+      "encounter_id": "FOSSIL_STALKER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FossilStalkerNormal.cs",
+      "source_sha256": "61e602669124b61ed984eb24ec49a68c1a6c9d3f65da8f81fbba3eb746abf5b4",
+      "opening_ids": [
+        "FOSSIL_STALKER"
+      ]
+    },
+    {
+      "encounter_id": "FROG_KNIGHT_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FrogKnightNormal.cs",
+      "source_sha256": "9ddf922b3ffaca28a735e8a5da691bbaeda8eddd740c8450f41a536516bc3a69",
+      "opening_ids": [
+        "FROG_KNIGHT"
+      ]
+    },
+    {
+      "encounter_id": "FUZZY_WURM_CRAWLER_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/FuzzyWurmCrawlerWeak.cs",
+      "source_sha256": "67881c707072830e13483695b988d294f226efa9ffcd411db93ce62e19114f25",
+      "opening_ids": [
+        "FUZZY_WURM_CRAWLER"
+      ]
+    },
+    {
+      "encounter_id": "GLOBE_HEAD_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/GlobeHeadNormal.cs",
+      "source_sha256": "682ad913b9b7cb8679453b14dd3cafc3bcbaecb484492cac3ebcddb2eb6ecbd2",
+      "opening_ids": [
+        "GLOBE_HEAD"
+      ]
+    },
+    {
+      "encounter_id": "GREMLIN_MERC_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/GremlinMercNormal.cs",
+      "source_sha256": "bac8975076826b8a4a690489ff1f4820e0e65432ad0434554be83ec0fc6a4322",
+      "opening_ids": [
+        "GREMLIN_MERC"
+      ]
+    },
+    {
+      "encounter_id": "HAUNTED_SHIP_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/HauntedShipNormal.cs",
+      "source_sha256": "74e5c3c0aefadcffe42e774a7dbe9d092e55b7a0093a38e82c96dd6cf1ef0cfe",
+      "opening_ids": [
+        "HAUNTED_SHIP"
+      ]
+    },
+    {
+      "encounter_id": "HUNTER_KILLER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/HunterKillerNormal.cs",
+      "source_sha256": "391ef1ab9e2b9f4822afc39159584e21123eb385f7a75996ebdbb22fd3ceba58",
+      "opening_ids": [
+        "HUNTER_KILLER"
+      ]
+    },
+    {
+      "encounter_id": "INFESTED_PRISMS_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/InfestedPrismsElite.cs",
+      "source_sha256": "2b5cffeb7afd6f227ca133ec3c2e7785012062aa1133909bf8b5ef24a020dcbc",
+      "opening_ids": [
+        "INFESTED_PRISM"
+      ]
+    },
+    {
+      "encounter_id": "INKLETS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/InkletsNormal.cs",
+      "source_sha256": "68f561cc565c5209b02b70706b7f6cc5667bb4516b8bc7b701c4c2601e8fa8f1",
+      "opening_ids": [
+        "INKLET",
+        "INKLET",
+        "INKLET"
+      ]
+    },
+    {
+      "encounter_id": "KAISER_CRAB_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/KaiserCrabBoss.cs",
+      "source_sha256": "ae7dd42fc140d71625060190996d74b9541d4a11e6b39feda76fb8869937055c",
+      "opening_ids": [
+        "CRUSHER",
+        "ROCKET"
+      ]
+    },
+    {
+      "encounter_id": "KNIGHTS_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/KnightsElite.cs",
+      "source_sha256": "59ccd1ec5cddfbf3fb5310e1d43fed93ab08110e0e4c8f15d8f5a5fa88f785b6",
+      "opening_ids": [
+        "FLAIL_KNIGHT",
+        "SPECTRAL_KNIGHT",
+        "MAGI_KNIGHT"
+      ]
+    },
+    {
+      "encounter_id": "KNOWLEDGE_DEMON_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/KnowledgeDemonBoss.cs",
+      "source_sha256": "af36f7819898f8cc3b6550478c9b7d4ef71723cfe56ce4d8b09e725604d63c99",
+      "opening_ids": [
+        "KNOWLEDGE_DEMON"
+      ]
+    },
+    {
+      "encounter_id": "LAGAVULIN_MATRIARCH_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/LagavulinMatriarchBoss.cs",
+      "source_sha256": "5d2475ada44f2dbf7db892296b83067d1ffdefa045baaf38338e372e520aa56a",
+      "opening_ids": [
+        "LAGAVULIN_MATRIARCH"
+      ]
+    },
+    {
+      "encounter_id": "LIVING_FOG_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/LivingFogNormal.cs",
+      "source_sha256": "7668bd09c733559b5f7b2eb999849869fe786094c7bbc47f215b91e0af5d89e7",
+      "opening_ids": [
+        "LIVING_FOG"
+      ]
+    },
+    {
+      "encounter_id": "LOUSE_PROGENITOR_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/LouseProgenitorNormal.cs",
+      "source_sha256": "4af07974b384c17388a0c14b235e122e9c0a8cb468617d238a1fc842bcebc910",
+      "opening_ids": [
+        "LOUSE_PROGENITOR"
+      ]
+    },
+    {
+      "encounter_id": "MAWLER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/MawlerNormal.cs",
+      "source_sha256": "56a49a6d8af3f97118b69baa3f3bcbf6078c79d57ef86288b9a4b878ff3dd0a5",
+      "opening_ids": [
+        "MAWLER"
+      ]
+    },
+    {
+      "encounter_id": "MECHA_KNIGHT_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/MechaKnightElite.cs",
+      "source_sha256": "b28383e224ffd976b9179321b6be5c66f5ce42726aa604466c3cd257a05da6ad",
+      "opening_ids": [
+        "MECHA_KNIGHT"
+      ]
+    },
+    {
+      "encounter_id": "MYSTERIOUS_KNIGHT_EVENT_ENCOUNTER",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/MysteriousKnightEventEncounter.cs",
+      "source_sha256": "1a52b0b1b121fe2033471bb2d4d93941ac0dee5f2bb2dae8b7a5eadde2c6d07a",
+      "opening_ids": [
+        "MYSTERIOUS_KNIGHT"
+      ]
+    },
+    {
+      "encounter_id": "MYTES_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/MytesNormal.cs",
+      "source_sha256": "a692069de3319666bc1703ffa7260ac5bf7019aacfdc727b54a747cb30cd7594",
+      "opening_ids": [
+        "MYTE",
+        "MYTE"
+      ]
+    },
+    {
+      "encounter_id": "NIBBITS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/NibbitsNormal.cs",
+      "source_sha256": "f1c0386f52c14844942666254fad206e86747f86ebdc2c6a921e034e5078386b",
+      "opening_ids": [
+        "NIBBIT",
+        "NIBBIT"
+      ]
+    },
+    {
+      "encounter_id": "NIBBITS_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/NibbitsWeak.cs",
+      "source_sha256": "72b7110694ee0b6819e1935eaf91e2ee44f27fcd4d8a0ba628541b909874b236",
+      "opening_ids": [
+        "NIBBIT"
+      ]
+    },
+    {
+      "encounter_id": "OVERGROWTH_CRAWLERS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/OvergrowthCrawlers.cs",
+      "source_sha256": "95d288bd00553b5e173a5b2e7c8d2101281e8b4cfbcd5e54877b12d3a4e20640",
+      "opening_ids": [
+        "SHRINKER_BEETLE",
+        "FUZZY_WURM_CRAWLER"
+      ]
+    },
+    {
+      "encounter_id": "OVICOPTER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/OvicopterNormal.cs",
+      "source_sha256": "47d9dbf8600e0e1f7d0a89d1131080a41d9aa1f10e6afa3359d3b7c2c7ddef4d",
+      "opening_ids": [
+        "OVICOPTER"
+      ]
+    },
+    {
+      "encounter_id": "OWL_MAGISTRATE_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/OwlMagistrateNormal.cs",
+      "source_sha256": "63c7192897207c82b73fbc3a1d640defe32efec6f5b2f23c7636e0a7da0c9503",
+      "opening_ids": [
+        "OWL_MAGISTRATE"
+      ]
+    },
+    {
+      "encounter_id": "PHANTASMAL_GARDENERS_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/PhantasmalGardenersElite.cs",
+      "source_sha256": "264d32cb5588fc69f61ff916e6f8cdec43ede7247cffb1131d7859969f8a7e97",
+      "opening_ids": [
+        "PHANTASMAL_GARDENER",
+        "PHANTASMAL_GARDENER",
+        "PHANTASMAL_GARDENER",
+        "PHANTASMAL_GARDENER"
+      ]
+    },
+    {
+      "encounter_id": "PHROG_PARASITE_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/PhrogParasiteElite.cs",
+      "source_sha256": "82dd5a6cec15778c9539a8c9402b308556c0b9bc05a47d9c2929b8e8677bb63b",
+      "opening_ids": [
+        "PHROG_PARASITE"
+      ]
+    },
+    {
+      "encounter_id": "PUNCH_CONSTRUCT_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/PunchConstructNormal.cs",
+      "source_sha256": "dc50cb96c70abd632fde4e8aecc279863d0a3753a39e0756e051ae30709c7cf8",
+      "opening_ids": [
+        "PUNCH_CONSTRUCT"
+      ]
+    },
+    {
+      "encounter_id": "PUNCH_OFF_EVENT_ENCOUNTER",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/PunchOffEventEncounter.cs",
+      "source_sha256": "89b7198f96c26ae07a220b300937637fa2f2cf0c99119825c6fbc26ae7de3e7d",
+      "opening_ids": [
+        "PUNCH_CONSTRUCT",
+        "PUNCH_CONSTRUCT"
+      ]
+    },
+    {
+      "encounter_id": "QUEEN_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/QueenBoss.cs",
+      "source_sha256": "0d42c95c7b046d9ad5e706ea6c1e6f8993f5402685419fa4c087b8ff02786c0f",
+      "opening_ids": [
+        "TORCH_HEAD_AMALGAM",
+        "QUEEN"
+      ]
+    },
+    {
+      "encounter_id": "RUBY_RAIDERS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/RubyRaidersNormal.cs",
+      "source_sha256": "efb51d40e497518608145bb46d54f4570d56c754aa70a0ad23ff41d995de13c2",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "SCROLLS_OF_BITING_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ScrollsOfBitingNormal.cs",
+      "source_sha256": "a6b35af7e55980d1b6886fe48fbb92dd8b7fd7ca27f70c4766a0025add70b9d6",
+      "opening_ids": [
+        "SCROLL_OF_BITING",
+        "SCROLL_OF_BITING",
+        "SCROLL_OF_BITING",
+        "SCROLL_OF_BITING"
+      ]
+    },
+    {
+      "encounter_id": "SCROLLS_OF_BITING_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ScrollsOfBitingWeak.cs",
+      "source_sha256": "fc0972a52008d577df97e1c32942d8e2b0beb1e8d2977b73e19caa2630a2b8f3",
+      "opening_ids": [
+        "SCROLL_OF_BITING",
+        "SCROLL_OF_BITING",
+        "SCROLL_OF_BITING"
+      ]
+    },
+    {
+      "encounter_id": "SEAPUNK_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SeapunkNormal.cs",
+      "source_sha256": "154b09253e63de6ad0e125281263515366418c2caa899e53f2a3e3eb488c5477",
+      "opening_ids": [
+        "CALCIFIED_CULTIST",
+        "SEAPUNK"
+      ]
+    },
+    {
+      "encounter_id": "SEAPUNK_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SeapunkWeak.cs",
+      "source_sha256": "12a6ee2a6b0064ac98f977e97ce17796471bcc56eedfb445eeb7e7f716e43380",
+      "opening_ids": [
+        "SEAPUNK"
+      ]
+    },
+    {
+      "encounter_id": "SEWER_CLAM_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SewerClamNormal.cs",
+      "source_sha256": "b4ec1bef42fc1e4023b04f1658398e5aa55d849234655c5aa2446c93d820c637",
+      "opening_ids": [
+        "SEWER_CLAM"
+      ]
+    },
+    {
+      "encounter_id": "SHRINKER_BEETLE_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ShrinkerBeetleWeak.cs",
+      "source_sha256": "90b8eb22088e9fadad9b38528438fb8c53242baddab6c1501d50157ca6bf81c2",
+      "opening_ids": [
+        "SHRINKER_BEETLE"
+      ]
+    },
+    {
+      "encounter_id": "SKULKING_COLONY_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SkulkingColonyElite.cs",
+      "source_sha256": "d3c4a2efe627e6fc0617cc3dd0e3cf5c66a61df1b3b09050ac7f66786c603f4f",
+      "opening_ids": [
+        "SKULKING_COLONY"
+      ]
+    },
+    {
+      "encounter_id": "SLIMED_BERSERKER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SlimedBerserkerNormal.cs",
+      "source_sha256": "ef4d6411758e7e71c6c6f0533305cf2cbfad0862a2bea76957a870ba5810fe9e",
+      "opening_ids": [
+        "SLIMED_BERSERKER"
+      ]
+    },
+    {
+      "encounter_id": "SLIMES_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SlimesNormal.cs",
+      "source_sha256": "d2c6ccf1093ae2e1bcdc149f5b6ee3138441200a29ec1003d4e2bdbb8f49677f",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "SLIMES_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SlimesWeak.cs",
+      "source_sha256": "28dfe46549350f953e4174d2c5554c3c5c3b56b07901d9e0c27db8084c2e95a8",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "SLITHERING_STRANGLER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SlitheringStranglerNormal.cs",
+      "source_sha256": "1af7c46608c9701eae1723d222a9fe3c987d313f64875696c9daf205a351fd6f",
+      "dynamic": true
+    },
+    {
+      "encounter_id": "SLUDGE_SPINNER_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SludgeSpinnerWeak.cs",
+      "source_sha256": "d08d7ff0caf829bb91a99a196197fcda31b439134210a815bab68985a44a82bd",
+      "opening_ids": [
+        "SLUDGE_SPINNER"
+      ]
+    },
+    {
+      "encounter_id": "SLUMBERING_BEETLE_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SlumberingBeetleNormal.cs",
+      "source_sha256": "f52261d1c01808baa3baf9cef2caf76996711493212b04eccd31aa530a3ade70",
+      "opening_ids": [
+        "BOWLBUG_ROCK",
+        "BOWLBUG_SILK",
+        "SLUMBERING_BEETLE"
+      ]
+    },
+    {
+      "encounter_id": "SNAPPING_JAXFRUIT_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SnappingJaxfruitNormal.cs",
+      "source_sha256": "887db71805efb36f843a39eb334565684a191644bc7489205b49443e930e3752",
+      "opening_ids": [
+        "SNAPPING_JAXFRUIT",
+        "FLYCONID"
+      ]
+    },
+    {
+      "encounter_id": "SOUL_FYSH_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SoulFyshBoss.cs",
+      "source_sha256": "f40701383558b509a8d8d281352068c9c069de49ae6c7b1cac1952e3d14a8158",
+      "opening_ids": [
+        "SOUL_FYSH"
+      ]
+    },
+    {
+      "encounter_id": "SOUL_NEXUS_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SoulNexusElite.cs",
+      "source_sha256": "2cbd4b0d80faa7420d68f29ceb0d4b000aa2b129a9ca629193657729b1e6d0d5",
+      "opening_ids": [
+        "SOUL_NEXUS"
+      ]
+    },
+    {
+      "encounter_id": "SPINY_TOAD_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/SpinyToadNormal.cs",
+      "source_sha256": "85277c6c254f66adc39e1b1e7217e18f72737e5d4ccf3ab57ea09fbcc751259d",
+      "opening_ids": [
+        "SPINY_TOAD"
+      ]
+    },
+    {
+      "encounter_id": "TERROR_EEL_ELITE",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TerrorEelElite.cs",
+      "source_sha256": "10f043661a40db95ad6e71e3fe16f6c37b9aff79d14f605a254106a6b616490e",
+      "opening_ids": [
+        "TERROR_EEL"
+      ]
+    },
+    {
+      "encounter_id": "TEST_SUBJECT_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TestSubjectBoss.cs",
+      "source_sha256": "2b79aee0c4e2dc5af23b39aecddd9c808c0954c26347d6080366fc54fad96c4f",
+      "opening_ids": [
+        "TEST_SUBJECT"
+      ]
+    },
+    {
+      "encounter_id": "THE_ARCHITECT_EVENT_ENCOUNTER",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TheArchitectEventEncounter.cs",
+      "source_sha256": "f23a77c49ebdefe04fc08cc77033b6179acb7f11003acd01c70bae87d584b1c3",
+      "opening_ids": [
+        "ARCHITECT"
+      ]
+    },
+    {
+      "encounter_id": "THE_INSATIABLE_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TheInsatiableBoss.cs",
+      "source_sha256": "5bdd9681c16c487693aaed27923323b95e70a9197da82130cb38260bfd9cbf92",
+      "opening_ids": [
+        "THE_INSATIABLE"
+      ]
+    },
+    {
+      "encounter_id": "THE_KIN_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TheKinBoss.cs",
+      "source_sha256": "5348911b539aee1e638af569f4ae5bb2e32293ad560fe0b510fb662bf9deb40f",
+      "opening_ids": [
+        "KIN_FOLLOWER",
+        "KIN_FOLLOWER",
+        "KIN_PRIEST"
+      ]
+    },
+    {
+      "encounter_id": "THE_LOST_AND_FORGOTTEN_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TheLostAndForgottenNormal.cs",
+      "source_sha256": "7aef08948cdba811e42407947615cae984bb6c5d9ca11ca3e463f277c6f778cc",
+      "opening_ids": [
+        "THE_LOST",
+        "THE_FORGOTTEN"
+      ]
+    },
+    {
+      "encounter_id": "THE_OBSCURA_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TheObscuraNormal.cs",
+      "source_sha256": "634ac3c9cf1739374efbfc4a69250f20522ee20c36a5109380e03878384d7e06",
+      "opening_ids": [
+        "THE_OBSCURA"
+      ]
+    },
+    {
+      "encounter_id": "THIEVING_HOPPER_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ThievingHopperWeak.cs",
+      "source_sha256": "29fe27a4ae1c320d0397c7a82f49a8e6c84baf242f2907f943e5462cbba50b33",
+      "opening_ids": [
+        "THIEVING_HOPPER"
+      ]
+    },
+    {
+      "encounter_id": "TOADPOLES_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/ToadpolesWeak.cs",
+      "source_sha256": "b16a828c3a46599db3715f6f02b43efb3cad4de987a15c0f0060d8f693c2d981",
+      "opening_ids": [
+        "TOADPOLE",
+        "TOADPOLE"
+      ]
+    },
+    {
+      "encounter_id": "TUNNELER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TunnelerNormal.cs",
+      "source_sha256": "b3e3950e981900b051c54449955df15cd871934bb0ffb90d5f41e98b3212e4db",
+      "opening_ids": [
+        "CHOMPER",
+        "TUNNELER"
+      ]
+    },
+    {
+      "encounter_id": "TUNNELER_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TunnelerWeak.cs",
+      "source_sha256": "8cab10e102ac91b8aeb2e01a2051ec03d76beb6c4010a54c8d85bb3563cb16f4",
+      "opening_ids": [
+        "TUNNELER"
+      ]
+    },
+    {
+      "encounter_id": "TURRET_OPERATOR_WEAK",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TurretOperatorWeak.cs",
+      "source_sha256": "998337f7118b974fd5ed537d4743e7f5e8ad01d25e3885f3fd99a29b24fc5d7b",
+      "opening_ids": [
+        "LIVING_SHIELD",
+        "TURRET_OPERATOR"
+      ]
+    },
+    {
+      "encounter_id": "TWO_TAILED_RATS_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/TwoTailedRatsNormal.cs",
+      "source_sha256": "38a60a978ecf3a43f0bbf1bd9b35a6cb457b063050d495f7e2386dc8bebee204",
+      "opening_ids": [
+        "TWO_TAILED_RAT",
+        "TWO_TAILED_RAT",
+        "TWO_TAILED_RAT"
+      ]
+    },
+    {
+      "encounter_id": "VANTOM_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/VantomBoss.cs",
+      "source_sha256": "8329bf57830e745461e5fcf96edeb09f5ad345cccc7172a9fd6500db2a580469",
+      "opening_ids": [
+        "VANTOM"
+      ]
+    },
+    {
+      "encounter_id": "VINE_SHAMBLER_NORMAL",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/VineShamblerNormal.cs",
+      "source_sha256": "c59219808b65dd730c9fa7757981b994f2dc193052b1eeb571ae240490adad47",
+      "opening_ids": [
+        "VINE_SHAMBLER"
+      ]
+    },
+    {
+      "encounter_id": "WATERFALL_GIANT_BOSS",
+      "source_path": "MegaCrit.Sts2.Core.Models.Encounters/WaterfallGiantBoss.cs",
+      "source_sha256": "cf4e179f950f9fcf834283b04a4faee4c5820532295eb26a7656ca94445978ce",
+      "opening_ids": [
+        "WATERFALL_GIANT"
+      ]
+    }
+  ]
+}

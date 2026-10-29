@@ -73,8 +73,8 @@ def test_foul_potion_starts_fake_merchant_combat_and_rewards_unsold_relics() -> 
 
     assert state.phase is RunPhase.REWARD
     assert state.reward is not None
-    assert state.reward.gold == 0
-    assert state.reward.card_options == ()
+    assert state.reward.gold == 300
+    assert len(state.reward.card_options) == 3
     assert state.reward.relic_ids == (
         "fake_merchants_rug",
         "fake_anchor",

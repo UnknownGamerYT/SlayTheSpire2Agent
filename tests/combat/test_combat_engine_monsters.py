@@ -404,7 +404,13 @@ def _force_next_room(state, room_kind: RoomKind):
         current_node_id=start.node_id,
         completed_node_ids=(start.node_id,),
     )
-    return state.model_copy(update={"phase": RunPhase.MAP, "map": game_map, "floor": 0})
+    # This fixture replaces the intro with an unrelated room under test.
+    flags = {
+        key: value for key, value in state.flags.items() if key != "pending_relic_deck_choices"
+    }
+    return state.model_copy(
+        update={"phase": RunPhase.MAP, "map": game_map, "floor": 0, "flags": flags}
+    )
 
 
 def _enter_training_combat(*, ascension: int = 0, deck: tuple[dict, ...] = ()):
@@ -564,11 +570,52 @@ def test_combat_spawns_source_monster_with_scaled_initial_intent() -> None:
     assert monster.hit_count == 2
     assert monster.metadata["encounter_id"] == "TRAINING_AUTOMATON_ENCOUNTER"
 
-    ascension_state = _enter_training_combat(ascension=7)
+    ascension_state = _enter_training_combat(ascension=9)
     assert ascension_state.combat is not None
     ascension_monster = ascension_state.combat.monsters[0]
     assert ascension_monster.hp == 40
     assert ascension_monster.intent_damage == 14
+
+
+def test_multi_hit_intent_agrees_with_actor_belief_rewards_and_actual_damage() -> None:
+    from sts2sim.agent_api import action_space, encode_observation
+    from sts2sim.learning.rewards import aggression_weights, learning_reward_breakdown
+    from sts2sim.mechanics.belief import belief_summary
+    from sts2sim.mechanics.enemy_traits import enemy_trait_summary
+
+    state = _enter_training_combat()
+    assert state.combat is not None
+    before_player = state.combat.player.model_copy(update={"potions": ("block_potion",)})
+    state = state.model_copy(
+        update={
+            "player": before_player,
+            "potions": ("block_potion",),
+            "combat": state.combat.model_copy(update={"player": before_player}),
+        }
+    )
+    before = state.model_dump(mode="json")
+    potion = next(row for row in action_space(state) if row["type"] == "use_potion")
+    assert potion["potion_strategy"]["incoming_damage"] == 10
+    assert encode_observation(state)["combat"]["incoming_damage"] == 10
+    assert belief_summary(before)["likely_damage_taken_after_end_turn"] == 10
+    trait = enemy_trait_summary(before["combat"]["monsters"][0])
+    assert (trait["single_hit_damage"], trait["incoming_damage"]) == (5, 10)
+
+    blocked_player = before_player.model_copy(update={"block": 3})
+    blocked = state.model_copy(
+        update={
+            "player": blocked_player,
+            "combat": state.combat.model_copy(update={"player": blocked_player}),
+        }
+    )
+    payload = blocked.model_dump(mode="json")
+    assert belief_summary(payload)["likely_damage_taken_after_end_turn"] == 7
+    breakdown = learning_reward_breakdown(before, payload)
+    expected_weight = aggression_weights(breakdown.aggression_pressure)["prevented_hp_weight"]
+    assert abs(breakdown.prevented_hp_reward - 3 * expected_weight) < 0.000002
+    after = step(blocked, _end_turn_action(blocked))
+    assert after.combat is not None
+    assert blocked_player.hp - after.combat.player.hp == 7
 
 
 def test_stranded_won_combat_can_proceed_to_reward() -> None:
@@ -776,7 +823,7 @@ def test_waterfall_giant_cycle_heals_and_shows_dynamic_pressure_gun_damage() -> 
 
 
 def test_waterfall_giant_siphon_uses_ascension_heal_amount() -> None:
-    state = _enter_waterfall_giant_combat(ascension=4)
+    state = _enter_waterfall_giant_combat(ascension=9)
 
     state = step(state, _end_turn_action(state))
     state = step(state, _end_turn_action(state))
@@ -1670,7 +1717,7 @@ def test_wriggler_named_slot_conditions_use_slot_index() -> None:
     assert second.move_id == "WRIGGLE"
 
 
-def test_entomancer_bees_repeats_from_source_specific_selector() -> None:
+def test_entomancer_bees_advances_to_spear_from_source_specific_selector() -> None:
     definition = build_monster_definitions(
         (
             {
@@ -1704,7 +1751,7 @@ def test_entomancer_bees_repeats_from_source_specific_selector() -> None:
     move = next_monster_move(definition, "BEES", Random(1))
 
     assert move is not None
-    assert move.move_id == "BEES"
+    assert move.move_id == "SPEAR"
 
 
 def test_spawn_capacity_conditions_select_summon_or_fallback_branch() -> None:
@@ -1829,13 +1876,13 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
     source_data = _source_data(
         (
             {
-                "id": "FABRICATOR",
-                "name": "Fabricator",
+                "id": "FOGMOG",
+                "name": "Fogmog",
                 "type": "Normal",
                 "min_hp": 100,
                 "max_hp": 100,
                 "moves": (
-                    {"id": "FABRICATE", "name": "Fabricate", "intent": "Summon"},
+                    {"id": "ILLUSION", "name": "Illusion", "intent": "Summon"},
                     {
                         "id": "DISINTEGRATE",
                         "name": "Disintegrate",
@@ -1844,12 +1891,12 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
                     },
                 ),
                 "attack_pattern": {
-                    "initial_move": "FABRICATE_MOVE",
+                    "initial_move": "ILLUSION_MOVE",
                     "states": (
                         {
-                            "id": "FABRICATE_MOVE",
+                            "id": "ILLUSION_MOVE",
                             "type": "move",
-                            "move_id": "FABRICATE",
+                            "move_id": "ILLUSION",
                             "next": "DISINTEGRATE_MOVE",
                         },
                         {
@@ -1862,8 +1909,8 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
                 },
             },
             {
-                "id": "GUARDBOT",
-                "name": "Guardbot",
+                "id": "EYE_WITH_TEETH",
+                "name": "Eye With Teeth",
                 "type": "Normal",
                 "min_hp": 16,
                 "max_hp": 16,
@@ -1890,14 +1937,14 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
         ),
         (
             {
-                "id": "FABRICATOR_ENCOUNTER",
-                "name": "Fabricator",
+                "id": "FOGMOG_ENCOUNTER",
+                "name": "Fogmog",
                 "room_type": "Monster",
                 "is_weak": True,
-                "monsters": ({"id": "FABRICATOR"},),
+                "monsters": ({"id": "FOGMOG"},),
             },
         ),
-        "FABRICATOR_ENCOUNTER",
+        "FOGMOG_ENCOUNTER",
     )
     state = _enter_source_combat(source_data)
 
@@ -1905,8 +1952,8 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
 
     assert state.combat is not None
     assert [monster.monster_id for monster in state.combat.monsters] == [
-        "FABRICATOR",
-        "GUARDBOT",
+        "FOGMOG",
+        "EYE_WITH_TEETH",
     ]
     guardbot = state.combat.monsters[1]
     assert guardbot.hp == 16
@@ -1914,7 +1961,7 @@ def test_summon_move_appends_source_monsters_that_do_not_act_immediately() -> No
     assert guardbot.block == 0
     assert guardbot.metadata["summoned"] is True
     assert any(
-        event.kind == "monster_summoned" and event.target_id == "GUARDBOT"
+        event.kind == "monster_summoned" and event.target_id == "EYE_WITH_TEETH"
         for event in state.combat.last_events
     )
 
@@ -2115,6 +2162,11 @@ def test_plating_reduces_at_start_and_grants_end_turn_block() -> None:
     )
     state = _enter_source_combat(source_data)
 
+    assert state.combat.monsters[0].block == 3
+    state = step(state, _end_turn_action(state))
+    assert state.combat.monsters[0].statuses["plating"] == 3
+    assert state.combat.monsters[0].block == 3
+    assert not any(e.kind == "monster_plating_reduced" for e in state.combat.last_events)
     state = step(state, _end_turn_action(state))
 
     assert state.combat is not None
@@ -2876,6 +2928,11 @@ def test_lagavulin_matriarch_hp_damage_wakes_and_stuns_next_action() -> None:
     )
     state = _enter_source_combat(source_data)
 
+    # This case specifically tests HP damage after the opening Plating Block.
+    combat = state.combat
+    state = state.model_copy(update={"combat": combat.model_copy(update={
+        "monsters": (combat.monsters[0].model_copy(update={"block": 0}),),
+    })})
     state = _play_first_card(state, "poke")
 
     assert state.combat is not None
@@ -3116,9 +3173,9 @@ def test_ceremonial_beast_ringing_limits_player_to_one_card_next_turn() -> None:
     state = step(state, _end_turn_action(state))
 
     assert state.combat is not None
-    assert state.combat.metadata["turn_card_play_limit"] == 1
+    assert "turn_card_play_limit" not in state.combat.metadata
     assert any(
-        event.kind == "turn_card_play_limit_added" for event in state.combat.last_events
+        card.custom.get("ringing") for card in state.combat.hand
     )
 
     state = _play_first_card(state, "free_hit_a")
@@ -3351,11 +3408,15 @@ def test_spectral_knight_hex_exhausts_hand_cards_at_end_turn() -> None:
                 "type": "Normal",
                 "min_hp": 40,
                 "max_hp": 40,
-                "innate_powers": ({"power_id": "HEX", "amount": 1},),
-                "moves": ({"id": "WAIT", "name": "Wait", "intent": "Unknown"},),
+                "moves": ({"id": "HEX", "name": "Hex", "intent": "Debuff",
+                           "powers": ({"power_id": "HEX", "amount": 2,
+                                       "target": "player"},)},
+                          {"id": "WAIT", "name": "Wait", "intent": "Unknown"}),
                 "attack_pattern": {
-                    "initial_move": "WAIT_MOVE",
+                    "initial_move": "HEX_MOVE",
                     "states": (
+                        {"id": "HEX_MOVE", "type": "move", "move_id": "HEX",
+                         "next": "WAIT_MOVE"},
                         {"id": "WAIT_MOVE", "type": "move", "move_id": "WAIT"},
                     ),
                 },
@@ -3387,6 +3448,9 @@ def test_spectral_knight_hex_exhausts_hand_cards_at_end_turn() -> None:
     state = step(state, _end_turn_action(state))
 
     assert state.combat is not None
+    assert state.combat.player.statuses["hex"] == 2
+    assert not state.combat.exhaust_pile
+    state = step(state, _end_turn_action(state))
     assert [card.card_id for card in state.combat.exhaust_pile] == ["plain_strike"]
     assert not state.combat.discard_pile
     assert any(event.kind == "hex_ethereal_cards_exhausted" for event in state.combat.last_events)

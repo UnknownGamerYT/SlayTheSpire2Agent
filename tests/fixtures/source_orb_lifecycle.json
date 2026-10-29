@@ -1,0 +1,51 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "sources": {
+    "MegaCrit.Sts2.Core.Entities.Orbs/OrbQueue.cs": "c4c865746caabf945cda49c2c2397ee61b066a86b50708ac30134b09afb265c6",
+    "MegaCrit.Sts2.Core.Commands/OrbCmd.cs": "b08fb23f56e1d2fdab4ae634579046bf3e2a01e44ab2dd0cd6a785e338dc6add",
+    "MegaCrit.Sts2.Core.Combat/CombatManager.cs": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+    "MegaCrit.Sts2.Core.Combat.History/CombatHistoryEntry.cs": "d81e6c7e7c7b73bd02184a74a3e7fc7391e3bd09ec9433eba690c97089dfbb13",
+    "MegaCrit.Sts2.Core.Models.Orbs/LightningOrb.cs": "90d965ca4b9b04722e7ac46fdd5b6c2fe59e7667ace6b4efdfc965dff089a5eb",
+    "MegaCrit.Sts2.Core.Models.Orbs/FrostOrb.cs": "c4b8a961b4eefbc521ff07ef216c610efeed576fb5693c791b83aee79b11a0c2",
+    "MegaCrit.Sts2.Core.Models.Orbs/DarkOrb.cs": "1df457f8c97e51633b360a0aeeaf4f0ece3f8b23c9a3c503204bb0aac74de0be",
+    "MegaCrit.Sts2.Core.Models.Orbs/PlasmaOrb.cs": "a891d4f3d10fd411bdb8c9c8bde1830309231da4add371eeef61f8283627611a",
+    "MegaCrit.Sts2.Core.Models.Orbs/GlassOrb.cs": "d447adb85ac8b0415cb131cea336cf9636f8ffa84c0fdd209ec4f64f1e69e2d9",
+    "MegaCrit.Sts2.Core.Models.Cards/Dualcast.cs": "b051da22e6829302a785cd4f04e2fc496d18a97e0cd6644e4d1afcc0d5342ec5",
+    "MegaCrit.Sts2.Core.Models.Cards/Quadcast.cs": "321c1c85c37f64dfbb0e1dfcd0b10b2c96ef533aa3f54585afd424a2fd0ce2ff",
+    "MegaCrit.Sts2.Core.Models.Cards/MultiCast.cs": "7caae4484382fb60d2f52edae79e6141811e68c0b8a31349ad84dc3edca4e8ef",
+    "MegaCrit.Sts2.Core.Models.Cards/Shatter.cs": "fb1b860fd499221b8cb43827404f62b32f0ae7f82658759026669c7cf50ea5ed",
+    "MegaCrit.Sts2.Core.Models.Cards/Loop.cs": "4f5ae62b89cf2e5004a1d4091a820d7f9f0d0644916dc725de90d05cc1b47ec1",
+    "MegaCrit.Sts2.Core.Models.Cards/Spinner.cs": "a98c595e7fae87dc95328cbf7f8f5d04f5d1e6ab3259f9c592eb57f1a7aa8666",
+    "MegaCrit.Sts2.Core.Models.Powers/LoopPower.cs": "cfabd01b7f1a63b0971657f6b0e9791c9eb17c43df73b6d8ebff9cac5cd0c120",
+    "MegaCrit.Sts2.Core.Models.Powers/SpinnerPower.cs": "3c04a6a02161ba475d91ba5ef33113608dbd77cef53848b1051127d26c4fdd95",
+    "MegaCrit.Sts2.Core.Models.Powers/ThunderPower.cs": "ea3e41f31e078fec1f90828ac24d40806d3d3c998f926ad4f33edce10a9cbfe7",
+    "MegaCrit.Sts2.Core.Models.Relics/GoldPlatedCables.cs": "c810d6025cb0b8d026b9f6aa8d7f728788b539fa570b4740fd6385b4e7ff80e8",
+    "MegaCrit.Sts2.Core.Models.Relics/EmotionChip.cs": "a9b1bcde4c7db01ab0fb71901ba431023b38ccdf74a3bb42df995b860dcdbc67",
+    "MegaCrit.Sts2.Core.Models.Relics/Metronome.cs": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28",
+    "MegaCrit.Sts2.Core.Commands/CreatureCmd.cs": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8",
+    "MegaCrit.Sts2.Core.Entities.Creatures/DamageResult.cs": "33128b75cbb7863e8d56d116b0e517064500579284c1f9b668c07553b688dc49",
+    "MegaCrit.Sts2.Core.Models.Powers/BufferPower.cs": "bf95bf58bf220b5e5dfe112a32834d857be8f9ce44c0ebbebb69a6caef805231",
+    "MegaCrit.Sts2.Core.Models.Powers/JuggernautPower.cs": "109d8bfef00f263a9f00ffd80fefd81a0649beea57f5fcd35fb9c86c0f954942"
+  },
+  "contracts_document": "docs/stable_orb_lifecycle.md",
+  "regressions": "tests/combat/test_source_orb_lifecycle.py",
+  "game_behavior_validated": false,
+  "contracts": {
+    "automatic_passives": "oldest-to-newest; Cables first orb only; Plasma start, other orbs end",
+    "manual_start_passives": "Loop front then Emotion Chip all after hand draw; Cables excluded",
+    "spinner": "AfterEnergyReset before hand draw; end-of-combat cancels later callbacks",
+    "metronome": "raw count increments every successful channel; activates exactly at7; DisplayAmount=min(raw,7)",
+    "evoke": "Dualcast/Quadcast/MultiCast front orb remains through final repeat; Shatter original front order",
+    "glass": "evoke twice Focus-adjusted passive; zero passive does not decay raw value",
+    "lightning_thunder": "zero evoke retains target and uses no extra target RNG for Thunder",
+    "dark_ties": "first encounter-order minimum HP",
+    "zero_capacity_channel": "non-Defect base0 gains1; Defect base3 at0 remains blocked; explicit synthetic TEST legacy remains blocked",
+    "emotion_chip": "Prior player-turn DamageReceivedEntry receiver==owner and !Result.WasFullyBlocked; independent of actual HP loss. WasFullyBlocked=!Unblockable&&(blocked>0||remainingBlock>0)&&unblocked==0. Preserve zero/Buffer/Tungsten results in history.",
+    "frost_block": "Frost Passive/Evoke await CreatureCmd.GainBlock(Unpowered), whose AfterBlockGained callbacks resolve before returning. Juggernaut positive block damage draws one CombatTargets selection per gain, and may end combat before subsequent orb/hand/retention callbacks."
+  },
+  "additional_regressions": [
+    "tests/combat/test_source_emotion_damage_history.py",
+    "tests/combat/test_source_frost_block_callbacks.py"
+  ]
+}

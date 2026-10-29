@@ -1,0 +1,142 @@
+{
+  "game_version": "0.107.1",
+  "reference_repository": "https://github.com/zhiyue/sts2-rl-agent",
+  "reference_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "certifies_game_parity": false,
+  "review_scope": [
+    "Plating BeforeSideTurnEndEarly before orb/hand damage and Parrying threshold",
+    "ParryingShield and Tingsha actual CombatTargets consumer paths; singleton and per-discard draws",
+    "Hang applies one receiver multiplier after additive Strength",
+    "Entrench Unpowered|Move bypasses Dexterity/Frail/NoBlock and retains Move multipliers",
+    "AttackCommand first-command locks and AfterAttack consumption for Gigantification/Vigor; static hit batches, AoE, dynamic hit counts, zero-hit command, Uproar child play, missing pet",
+    "Integrated AutoPost damage before Early Plating, power-before-relic PaelsEye exhaust, then orb passives; public action with source Howl/Burn, thorns and exhaust relic callbacks"
+  ],
+  "independent_rng_vector": {
+    "displayed_seed": "TEST",
+    "stream": "combat_targets",
+    "bound": 3,
+    "indices": [
+      1,
+      1,
+      2,
+      1,
+      0,
+      2
+    ],
+    "derivation": "ASCII source StringHelper hash, uint32 named stream mixing, SplitMix64/xoshiro256** compiled independently in C"
+  },
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/PlatingPower.cs",
+      "sha256": "d3cd1402c704dcc379caf0981595356d449ccd81da10ff043836e0c1644cc2f1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ParryingShield.cs",
+      "sha256": "8938397a0a8fb658ea71e6e404340f186c388d8f00074549691e63b8fb209a35"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Tingsha.cs",
+      "sha256": "6229a87a90dd90e48a3af54bfbcc67424cf853f175760da6dc70dbb34ff800a7"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/HangPower.cs",
+      "sha256": "5c161595e7d3023a635aceacf779920f0ffd0ffb29119454f06dcfaa9c37047f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Hang.cs",
+      "sha256": "17fe973dff63555d11fc84718433d6a2eeb8439d6102830f32dc7d90fb718c79"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands.Builders/AttackCommand.cs",
+      "sha256": "b846ba848f7d9a456294004cfe18255a7b919244443ca8498f812f796e9e01c3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/GigantificationPower.cs",
+      "sha256": "644db8e55cc75924a5a703539cb88cccc82a0a5d6a5b94d8c34410f23de0a0a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/VigorPower.cs",
+      "sha256": "4422ba55e4d4e0bd85b06b95e5c88bceb6947374255d9d5587c3933c86efc11e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/NoBlockPower.cs",
+      "sha256": "72c475f498ed9559ceac3bff15a2caeb10a0d738d1f4a7c50444aa8d48b7e419"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Powers/UnmovablePower.cs",
+      "sha256": "b267db119bf6d000e1ccc146584cc1d648566a82a4ac7ef34bc2dd53ff5306a6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Entrench.cs",
+      "sha256": "13a44165a21f2ce718442cad06acd796f3c1f69537884dde98340287f2e0d1e1"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/TwinStrike.cs",
+      "sha256": "c06855ac34143f1b8c63196e7d596b95f4b715d89bba17ca4292f1c286d6c4a4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/DaggerSpray.cs",
+      "sha256": "0f33bbdbc82f2cc1b0a2c476f248fc80196fc168f6c053b630f95d05ecc9470a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Barrage.cs",
+      "sha256": "31850b774f2418e0feda26bbb5ce5ed7d851d891050f1bb6d82d5a796806a8c3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Uproar.cs",
+      "sha256": "cd0fdbc6139820d6263d3765b8cf476ed89319c6c9d071b800b743a321267541"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Unleash.cs",
+      "sha256": "150899a05873534324952fced47f7ee06518e248e75338567787bbfdb4247742"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Finisher.cs",
+      "sha256": "ef3531cf69226b30ad228c53a44d108103dde0dc1f00b0823851aa5b134d858b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Flechettes.cs",
+      "sha256": "11e393130f914970aed7651251e0e94a0d29e9fae02c554f7581d54750b5552b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/FiendFire.cs",
+      "sha256": "f3d7ac4e037f444c6a1ea19de1002e0543ada2e7def5c82a5490823e97839b46"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Ricochet.cs",
+      "sha256": "17ce89ef38905728a3bf5e5a0b244c36bcc39a1cea17b43a2b83a6b53e11320b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/SwordBoomerang.cs",
+      "sha256": "499011fd8bc30c74a2c9e22d054e541e37ebaaa2c8531d007fd7851e9fdf65fc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/EchoingSlash.cs",
+      "sha256": "49f2f4250f5f85b108958a0d9a181bb0ff6fe34d4cf156916ba68877adcf789c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Thrash.cs",
+      "sha256": "87ecdaf33740eb5791b9e7401ac19b0f6daf2ceeb6a6f8dd009f6da376f244cc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/HowlFromBeyond.cs",
+      "sha256": "93d4409c2c5faaace478e4697e003f1f1740f0e6f74b73e56015d3653d565314"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat/CombatManager.cs",
+      "sha256": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat/CombatState.cs",
+      "sha256": "b3150c69fae0c33b48b7957c3a67bc4e5867d1641e05062cd3f5edd0a9d9f2e2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Hooks/Hook.cs",
+      "sha256": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588"
+    }
+  ]
+}

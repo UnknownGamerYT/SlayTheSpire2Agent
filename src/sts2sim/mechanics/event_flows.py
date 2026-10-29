@@ -13,6 +13,8 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from random import Random
 
+from .source_rng import float32, source_float
+
 PoolItem = str | Mapping[str, object]
 
 
@@ -331,19 +333,28 @@ def is_event_flow_terminal(state: EventFlowState) -> bool:
 def resolve_event_flow_option(
     state: EventFlowState,
     option_id: str,
+    *,
+    damage_hp_loss: int | None = None,
 ) -> EventFlowResolution:
-    """Apply a visible event-flow option and return the next pure state."""
+    """Apply an option, optionally using damage resolved by the engine's hooks.
+
+    ``damage_hp_loss`` applies only to a negative HP delta representing Damage;
+    explicit death markers and max-HP costs retain their own semantics.
+    """
 
     option = _option_by_id(current_event_flow_page(state).options, option_id)
     if option.option_id not in legal_event_flow_option_ids(state):
         raise ValueError(f"Event flow option is not legal: {option_id}")
 
     next_max_hp, hp_after_max = _apply_max_hp(state, option)
-    hp_after_delta = min(max(0, hp_after_max + option.hp_delta), next_max_hp)
+    hp_delta = (-max(0, damage_hp_loss)
+                if damage_hp_loss is not None and option.hp_delta < 0 else option.hp_delta)
+    hp_after_delta = min(max(0, hp_after_max + hp_delta), next_max_hp)
     hp_after_heal = min(next_max_hp, hp_after_delta + option.heal_amount)
     heal_amount = hp_after_heal - hp_after_delta
     next_gold = max(0, state.gold + option.gold_delta)
-    next_page_id = _next_page_id(state, option)
+    next_page_id = _next_page_id(state, option, damage_hp_after=hp_after_heal
+                               if damage_hp_loss is not None else None)
     next_counters = _next_counters(state, option, next_page_id)
     next_data = _next_data(state, option)
     markers = _resolution_markers(state, option, hp_after_heal)
@@ -656,9 +667,11 @@ def _hp_after_max_hp_change(hp: int, max_hp: int, next_max_hp: int) -> int:
     return min(max(0, hp), next_max_hp)
 
 
-def _next_page_id(state: EventFlowState, option: EventFlowOption) -> str:
+def _next_page_id(
+    state: EventFlowState, option: EventFlowOption, *, damage_hp_after: int | None = None,
+) -> str:
     if state.event_id == "ABYSSAL_BATHS" and option.option_id in {"IMMERSE", "LINGER"}:
-        return _abyssal_linger_next_page(state, option)
+        return _abyssal_linger_next_page(state, option, damage_hp_after=damage_hp_after)
     if state.event_id == "TRIAL" and option.option_id == "ACCEPT":
         return _trial_accept_next_page(state)
     return option.next_page_id or state.page_id
@@ -711,13 +724,18 @@ def _resolution_markers(
         markers += (_tinker_custom_card_marker(state, option),)
     if state.event_id == "TRIAL" and option.option_id == "ACCEPT":
         markers += _trial_accept_markers(state)
-    if state.event_id == "ABYSSAL_BATHS" and state.page_id == "DEATH_WARNING":
+    if (state.event_id == "ABYSSAL_BATHS" and state.page_id == "DEATH_WARNING"
+            and not state.data.get("source_runtime")):
         markers += (
             EventFlowMarker(
                 kind=EventFlowMarkerKind.RUN_DEATH,
                 description="Choosing to linger after the death warning is lethal.",
             ),
         )
+    if (state.data.get("source_runtime") and state.event_id == "TABLET_OF_TRUTH"
+            and option.max_hp_delta < 0 and -option.max_hp_delta >= state.max_hp):
+        return (EventFlowMarker(kind=EventFlowMarkerKind.RUN_DEATH,
+                                description="The decipher cost consumes all Max HP."),)
     if next_hp <= 0:
         markers += (
             EventFlowMarker(
@@ -731,7 +749,16 @@ def _resolution_markers(
 def _abyssal_linger_next_page(
     state: EventFlowState,
     option: EventFlowOption,
+    *,
+    damage_hp_after: int | None = None,
 ) -> str:
+    if state.data.get("source_runtime"):
+        if option.option_id == "IMMERSE":
+            return "IMMERSE"
+        soaks = state.counters.get("abyssal_baths_soaks", 0) + 1
+        next_hp = (state.hp + option.max_hp_delta + option.hp_delta
+                   if damage_hp_after is None else damage_hp_after)
+        return "DEATH_WARNING" if next_hp <= 3 + soaks - 2 else f"LINGER{min(9, soaks - 1)}"
     if state.page_id == "DEATH_WARNING":
         return "DEATH_WARNING"
 
@@ -769,6 +796,13 @@ def _trial_accept_markers(state: EventFlowState) -> tuple[EventFlowMarker, ...]:
 
 
 def _abyssal_baths_page(state: EventFlowState) -> EventFlowPage:
+    if (state.data.get("source_runtime") and state.page_id not in {
+            "INITIAL", "ABSTAIN", "EXIT_BATHS"}):
+        source_damage = 3 + state.counters.get("abyssal_baths_soaks", 0)
+        return EventFlowPage(state.page_id, "The bath grows more dangerous.", (
+            EventFlowOption(option_id="LINGER", label="Linger",
+                            description=f"Gain 2 Max HP. Take {source_damage} damage.",
+                            max_hp_delta=2, hp_delta=-source_damage), _exit_baths_option()))
     if state.page_id == "INITIAL":
         return EventFlowPage(
             "INITIAL",
@@ -919,6 +953,22 @@ def _colossal_flower_page(state: EventFlowState) -> EventFlowPage:
 
 
 def _endless_conveyor_page(state: EventFlowState) -> EventFlowPage:
+    if state.data.get("source_runtime"):
+        if state.page_id in {"LEAVE", "OBSERVE_CHEF"}:
+            return _terminal_page(state.page_id, "Endless Conveyor terminal page.")
+        dish_id = str(state.data.get("conveyor_dish", "CAVIAR"))
+        dish = next(option for option in _CONVEYOR_DISH_OPTIONS if option.option_id == dish_id)
+        dish = replace(dish, next_page_id="GRAB_SOMETHING_OFF_THE_BELT",
+                       required_gold=40, locked=state.gold < 40,
+                       markers=tuple(marker for marker in dish.markers
+                                     if marker.kind is not EventFlowMarkerKind.UNKNOWN))
+        if state.page_id == "INITIAL":
+            other = EventFlowOption(option_id="OBSERVE_CHEF", label="Observe the Chef",
+                                    terminal=True, next_page_id="OBSERVE_CHEF",
+                                    markers=(_upgrade_random_marker(),))
+        else:
+            other = _leave_conveyor_option()
+        return EventFlowPage(state.page_id, "The belt offers a dish.", (dish, other))
     if state.page_id == "INITIAL":
         return EventFlowPage(
             "INITIAL",
@@ -968,6 +1018,34 @@ def _endless_conveyor_page(state: EventFlowState) -> EventFlowPage:
         "Dishes continue passing by on the belt.",
         _CONVEYOR_DISH_OPTIONS + (_leave_conveyor_option(),),
     )
+
+
+def roll_source_conveyor_dish(
+    state: EventFlowState, rng: Random, *, has_open_potion_slot: bool
+) -> EventFlowState:
+    number = state.counters.get("endless_conveyor_dishes", 0) + 1
+    previous = str(state.data.get("conveyor_dish", ""))
+    if number % 5 == 0:
+        dish = "SEAPUNK_SALAD"
+    else:
+        weighted = [("CAVIAR", 6), ("SPICY_SNAPPY", 3), ("JELLY_LIVER", 3), ("FRIED_EEL", 3)]
+        if has_open_potion_slot:
+            weighted.append(("SUSPICIOUS_CONDIMENT", 3))
+        if state.hp != state.max_hp:
+            weighted.append(("CLAM_ROLL", 6))
+        if number > 1:
+            weighted.append(("GOLDEN_FYSH", 1))
+        weighted = [(name, weight) for name, weight in weighted if name != previous]
+        total = float32(sum(weight for _, weight in weighted))
+        value = float32(source_float(rng) * total)
+        cumulative = 0.0
+        dish = weighted[-1][0]
+        for name, weight in weighted:
+            cumulative = float32(cumulative + weight)
+            if value < cumulative:
+                dish = name
+                break
+    return replace(state, data={**state.data, "conveyor_dish": dish})
 
 
 def _leave_conveyor_option() -> EventFlowOption:
@@ -1200,11 +1278,42 @@ def _tablet_of_truth_page(state: EventFlowState) -> EventFlowPage:
 
     option = _TABLET_DECIPHER_OPTIONS.get(state.page_id)
     if option is not None:
-        return EventFlowPage(state.page_id, "The tablet demands more.", (option,))
+        return EventFlowPage(state.page_id, "The tablet demands more.", (
+            (option, EventFlowOption(option_id="GIVE_UP", label="Give Up", terminal=True,
+                                     next_page_id="GIVE_UP"))
+            if state.data.get("source_runtime") else (option,)))
     return _terminal_page(state.page_id, "Tablet of Truth terminal page.")
 
 
 def _trial_page(state: EventFlowState) -> EventFlowPage:
+    if state.data.get("source_runtime") and state.page_id == "ABANDON_CONFIRMATION":
+        return EventFlowPage(
+            "ABANDON_CONFIRMATION",
+            "Abandon this run?",
+            (
+                EventFlowOption(
+                    option_id="CONFIRM_ABANDON",
+                    label="Confirm",
+                    description="Abandon the run.",
+                    next_page_id="ABANDONED",
+                    terminal=True,
+                    hp_delta=-state.hp,
+                    markers=(EventFlowMarker(
+                        kind=EventFlowMarkerKind.RUN_DEATH,
+                        description="Confirmed abandonment force-kills the player.",
+                        metadata={"run_abandoned": True},
+                    ),),
+                    metadata={"confirmation_kind": "abandon_run", "confirmation_choice": True},
+                ),
+                EventFlowOption(
+                    option_id="CANCEL_ABANDON",
+                    label="Cancel",
+                    description="Return to the Trial without abandoning the run.",
+                    next_page_id="REJECT",
+                    metadata={"confirmation_kind": "abandon_run", "confirmation_choice": False},
+                ),
+            ),
+        )
     if state.page_id == "INITIAL":
         return EventFlowPage(
             "INITIAL",
@@ -1236,16 +1345,21 @@ def _trial_page(state: EventFlowState) -> EventFlowPage:
                 EventFlowOption(
                     option_id="DOUBLE_DOWN",
                     label="Double Down",
-                    description="Face lethal repercussions.",
-                    next_page_id="DOUBLE_DOWN",
-                    terminal=True,
-                    hp_delta=-state.hp,
-                    markers=(
+                    description=("Open the abandon-run confirmation."
+                                 if state.data.get("source_runtime") else
+                                 "Face lethal repercussions."),
+                    next_page_id=("ABANDON_CONFIRMATION"
+                                  if state.data.get("source_runtime") else "DOUBLE_DOWN"),
+                    terminal=not bool(state.data.get("source_runtime")),
+                    hp_delta=0 if state.data.get("source_runtime") else -state.hp,
+                    markers=() if state.data.get("source_runtime") else (
                         EventFlowMarker(
                             kind=EventFlowMarkerKind.RUN_DEATH,
                             description="Rejecting the Trial twice is lethal.",
                         ),
                     ),
+                    metadata=({"opens_confirmation": "abandon_run"}
+                              if state.data.get("source_runtime") else {}),
                 ),
             ),
         )
@@ -1368,27 +1482,33 @@ def _tinker_time_page(state: EventFlowState) -> EventFlowPage:
             ),
         )
     if state.page_id == "CHOOSE_CARD_TYPE":
-        return EventFlowPage(
-            "CHOOSE_CARD_TYPE",
-            "Choose the base type for the custom card.",
-            (
-                _tinker_card_type_option("ATTACK", "Weapon", "attack"),
-                _tinker_card_type_option("SKILL", "Protector", "skill"),
-                _tinker_card_type_option("POWER", "Gadget", "power"),
-            ),
-        )
+        specs = {"ATTACK": ("Weapon", "attack"), "SKILL": ("Protector", "skill"),
+                 "POWER": ("Gadget", "power")}
+        ids = (_source_choice_ids(state, "tinker_type_choices")
+               if state.data.get("source_runtime") else tuple(specs))
+        return EventFlowPage("CHOOSE_CARD_TYPE", "Choose the base type for the custom card.",
+            tuple(_tinker_card_type_option(option_id, *specs[option_id]) for option_id in ids))
     if state.page_id == "CHOOSE_RIDER":
         card_type = str(state.data.get("custom_card_type", "attack")).lower()
         rider_ids = _TINKER_RIDER_IDS_BY_CARD_TYPE.get(
             card_type,
             tuple(_TINKER_RIDER_SPECS),
         )
+        if state.data.get("source_runtime"):
+            rider_ids = _source_choice_ids(state, "tinker_rider_choices")
         return EventFlowPage(
             "CHOOSE_RIDER",
             "Choose the rider text for the custom card.",
             tuple(_tinker_rider_option(option_id) for option_id in rider_ids),
         )
     return _terminal_page(state.page_id, "Tinker Time terminal page.")
+
+
+def _source_choice_ids(state: EventFlowState, key: str) -> tuple[str, ...]:
+    raw = state.data.get(key, ())
+    if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+        return tuple(str(value) for value in raw)
+    return ()
 
 
 def _tinker_card_type_option(

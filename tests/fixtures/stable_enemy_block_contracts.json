@@ -1,0 +1,298 @@
+{
+  "provenance": {
+    "repository": "https://github.com/zhiyue/sts2-rl-agent",
+    "commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+    "target": "v0.107.1 public",
+    "steam_build_id": 23811903,
+    "main_assembly_hash": -1555940892,
+    "scope": "22 source Move Block payloads matched to registered moves, before power modifiers, at A0/A7/A8/A9."
+  },
+  "blocks": [
+    {
+      "monster_id": "AEONGLASS",
+      "move_id": "EBB",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Aeonglass.cs": "4a1e8159da55c48e2f7870832f199f6c8a62c29b7d98ae6183c431505f2b68d5"
+      },
+      "block_by_ascension": {
+        "0": 33,
+        "7": 33,
+        "8": 33,
+        "9": 33
+      }
+    },
+    {
+      "monster_id": "AXE_RUBY_RAIDER",
+      "move_id": "SWING_1",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/AxeRubyRaider.cs": "f31ea20e4d298980f9e8f411415a626b5273f9e560b1a33714cec62f37e95b53"
+      },
+      "block_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 6
+      }
+    },
+    {
+      "monster_id": "AXE_RUBY_RAIDER",
+      "move_id": "SWING_2",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/AxeRubyRaider.cs": "f31ea20e4d298980f9e8f411415a626b5273f9e560b1a33714cec62f37e95b53"
+      },
+      "block_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 6
+      }
+    },
+    {
+      "monster_id": "AXEBOT",
+      "move_id": "BOOT_UP",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Axebot.cs": "11d72f42c9f2aa1892d1c4f067638cbc1feb9871e234843d97ce88ff56cdc1f9"
+      },
+      "block_by_ascension": {
+        "0": 10,
+        "7": 10,
+        "8": 10,
+        "9": 15
+      }
+    },
+    {
+      "monster_id": "BOWLBUG_EGG",
+      "move_id": "BITE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/BowlbugEgg.cs": "dfc9dd8529cc0cc99014c43e6d83047f96e43084b19b3d3314e552ffac6fd7e7"
+      },
+      "block_by_ascension": {
+        "0": 7,
+        "7": 7,
+        "8": 7,
+        "9": 8
+      }
+    },
+    {
+      "monster_id": "CROSSBOW_RUBY_RAIDER",
+      "move_id": "RELOAD",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/CrossbowRubyRaider.cs": "e7df9ff3a3b58a11f733af5109ff6878f9a14e0a077223e5adb5ce8f6d135b95"
+      },
+      "block_by_ascension": {
+        "0": 3,
+        "7": 3,
+        "8": 3,
+        "9": 3
+      }
+    },
+    {
+      "monster_id": "CRUSHER",
+      "move_id": "GUARDED_STRIKE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Crusher.cs": "0a13fd0f53e6660990457d555507d64a1a43300532cbb2198122c46b7fe5de9b"
+      },
+      "block_by_ascension": {
+        "0": 18,
+        "7": 18,
+        "8": 18,
+        "9": 18
+      }
+    },
+    {
+      "monster_id": "INFESTED_PRISM",
+      "move_id": "RADIATE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/InfestedPrism.cs": "4ce7c426026ad904192a24eb789323d01a032b1834d4f1cece1685c181621c93"
+      },
+      "block_by_ascension": {
+        "0": 11,
+        "7": 11,
+        "8": 11,
+        "9": 13
+      }
+    },
+    {
+      "monster_id": "INFESTED_PRISM",
+      "move_id": "PULSATE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/InfestedPrism.cs": "4ce7c426026ad904192a24eb789323d01a032b1834d4f1cece1685c181621c93"
+      },
+      "block_by_ascension": {
+        "0": 20,
+        "7": 20,
+        "8": 22,
+        "9": 22
+      }
+    },
+    {
+      "monster_id": "LAGAVULIN_MATRIARCH",
+      "move_id": "SLASH2",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/LagavulinMatriarch.cs": "760df06168aab29b83fb9c0faf89cab7784adaf57d02be22b4c76649c199de41"
+      },
+      "block_by_ascension": {
+        "0": 12,
+        "7": 12,
+        "8": 14,
+        "9": 14
+      }
+    },
+    {
+      "monster_id": "LOUSE_PROGENITOR",
+      "move_id": "CURL_AND_GROW",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/LouseProgenitor.cs": "b22709c84fabae54eb5b71c4acde195eb4412f9a12e1c6bb5383405b99d2e99f"
+      },
+      "block_by_ascension": {
+        "0": 14,
+        "7": 14,
+        "8": 18,
+        "9": 18
+      }
+    },
+    {
+      "monster_id": "MAGI_KNIGHT",
+      "move_id": "POWER_SHIELD",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/MagiKnight.cs": "618bccd85a038d2faa09ddb7ca76c6b3ee52aad45d7e20697b111cfe2d9e0d2c"
+      },
+      "block_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 9,
+        "9": 9
+      }
+    },
+    {
+      "monster_id": "MAGI_KNIGHT",
+      "move_id": "PREP",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/MagiKnight.cs": "618bccd85a038d2faa09ddb7ca76c6b3ee52aad45d7e20697b111cfe2d9e0d2c"
+      },
+      "block_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 9,
+        "9": 9
+      }
+    },
+    {
+      "monster_id": "MECHA_KNIGHT",
+      "move_id": "WINDUP",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/MechaKnight.cs": "381ca2e9be0fb6ad9de0ef6192a1c368af949140366cd7ca5c940d3f100c810c"
+      },
+      "block_by_ascension": {
+        "0": 15,
+        "7": 15,
+        "8": 15,
+        "9": 15
+      }
+    },
+    {
+      "monster_id": "NIBBIT",
+      "move_id": "SLICE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Nibbit.cs": "dd6215ab8d52f588b661607affb549db14e40bec8381236a5bb4c9cd101e6f81"
+      },
+      "block_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 6,
+        "9": 6
+      }
+    },
+    {
+      "monster_id": "PUNCH_CONSTRUCT",
+      "move_id": "READY",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/PunchConstruct.cs": "f6551e08a1d0d00bc203d2d3c52369c3e1d9f1872e52e810aae1ebb12b48e39f"
+      },
+      "block_by_ascension": {
+        "0": 10,
+        "7": 10,
+        "8": 10,
+        "9": 10
+      }
+    },
+    {
+      "monster_id": "QUEEN",
+      "move_id": "BURN_BRIGHT_FOR_ME",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Queen.cs": "b2ce74a24c26e3e45020bac9941f5dc34abf8dc173afe3fab159ba3ac695c0d6"
+      },
+      "block_by_ascension": {
+        "0": 20,
+        "7": 20,
+        "8": 20,
+        "9": 20
+      }
+    },
+    {
+      "monster_id": "SEAPUNK",
+      "move_id": "BUBBLE_BURP",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Seapunk.cs": "467862334a8d110f9da24cb5fb7bdab933b56b8c93f24ef609037f15bff582b0"
+      },
+      "block_by_ascension": {
+        "0": 7,
+        "7": 7,
+        "8": 8,
+        "9": 8
+      }
+    },
+    {
+      "monster_id": "SLITHERING_STRANGLER",
+      "move_id": "THWACK",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/SlitheringStrangler.cs": "fbbef8cd7c935e145494246622bbea6ffc0f5691697a302c58df0bd22fe3f967"
+      },
+      "block_by_ascension": {
+        "0": 5,
+        "7": 5,
+        "8": 5,
+        "9": 5
+      }
+    },
+    {
+      "monster_id": "THE_FORGOTTEN",
+      "move_id": "MIASMA",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TheForgotten.cs": "b794f95e50cf2521ba12606ebf1802c1f86893c737b00cf7771add60560965ab"
+      },
+      "block_by_ascension": {
+        "0": 8,
+        "7": 8,
+        "8": 8,
+        "9": 8
+      }
+    },
+    {
+      "monster_id": "THE_OBSCURA",
+      "move_id": "HARDENING_STRIKE",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/TheObscura.cs": "9d61d4c8e78300b2d26fd3d29640af02aba7394a84ff6c0563db483b576fe26c"
+      },
+      "block_by_ascension": {
+        "0": 6,
+        "7": 6,
+        "8": 6,
+        "9": 7
+      }
+    },
+    {
+      "monster_id": "TUNNELER",
+      "move_id": "BURROW",
+      "source_files": {
+        "MegaCrit.Sts2.Core.Models.Monsters/Tunneler.cs": "2e33ed96d3d3a04a2731f169a82303d299d787c3268d839cf397b052b18c48d9"
+      },
+      "block_by_ascension": {
+        "0": 32,
+        "7": 32,
+        "8": 37,
+        "9": 37
+      }
+    }
+  ]
+}

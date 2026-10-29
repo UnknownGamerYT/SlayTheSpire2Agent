@@ -1,0 +1,17 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "game_version": "0.107.1",
+  "sources": {
+    "MegaCrit.Sts2.Core.Models.Cards/Royalties.cs": "256f131725d263f3b45a9c36116d5904af82d8558021b35d932166d3d2fcf968",
+    "MegaCrit.Sts2.Core.Models.Powers/RoyaltiesPower.cs": "47645a1cf8483349870eaac6621202fbf3c833ab06489eb2db49cedefbaaa4ee",
+    "MegaCrit.Sts2.Core.Combat/CombatManager.cs": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
+    "MegaCrit.Sts2.Core.Rewards/GoldReward.cs": "1dd118ee26d178cb72ec56dc449d37bf46930bab6a175fcdfe06ccca6bfd97bf"
+  },
+  "base_gold": 30,
+  "upgraded_gold": 40,
+  "stack_type": "Counter",
+  "can_be_generated_in_combat": false,
+  "contract": "AfterCombatEnd enqueues one GoldReward of total power Amount for its owner; it does not immediately gain Gold. Populate/claim/skip and room ShouldGiveRewards remain normal reward behavior.",
+  "regressions": "tests/rewards/test_source_royalties.py",
+  "game_behavior_validated": false
+}

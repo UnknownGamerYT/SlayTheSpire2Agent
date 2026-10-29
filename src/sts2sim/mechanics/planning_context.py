@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from .reward_gold_components import available_gold_choices, gold_component_count
+
 REWARD_PLAN_KEYS: tuple[str, ...] = (
     "reward_open",
     "forced",
@@ -310,22 +312,7 @@ def _available_reward_choices(reward: Mapping[str, Any]) -> list[dict[str, Any]]
                     "card_instance_id": instance_id,
                 }
             )
-    if (
-        _int(reward.get("gold")) > 0
-        and not reward.get("gold_claimed")
-        and not reward.get("gold_skipped")
-    ):
-        choices.append(
-            _choice(
-                "gold",
-                "gold",
-                "reward:gold",
-                "gold",
-                1,
-                0,
-                amount=_int(reward.get("gold")),
-            )
-        )
+    choices.extend(available_gold_choices(reward))
     if (
         reward.get("relic_id")
         and not reward.get("relic_claimed")
@@ -529,7 +516,7 @@ def _reward_choice_counts(choices: list[dict[str, Any]]) -> dict[str, int]:
 def _reward_claimed_counts(reward: Mapping[str, Any]) -> dict[str, int]:
     metadata = _mapping(reward.get("metadata"))
     counts = {
-        "gold": int(bool(reward.get("gold_claimed", False))),
+        "gold": gold_component_count(reward, "claimed"),
         "primary_card_group": int(bool(reward.get("card_claimed", False))),
         "card_groups": len(_int_sequence(reward.get("claimed_card_option_group_indices"))),
         "fixed_cards": len(_int_sequence(reward.get("claimed_card_indices"))),
@@ -547,7 +534,7 @@ def _reward_claimed_counts(reward: Mapping[str, Any]) -> dict[str, int]:
 
 def _reward_skipped_counts(reward: Mapping[str, Any]) -> dict[str, int]:
     counts = {
-        "gold": int(bool(reward.get("gold_skipped", False))),
+        "gold": gold_component_count(reward, "skipped"),
         "primary_card_group": int(bool(reward.get("card_skipped", False))),
         "card_groups": len(_int_sequence(reward.get("skipped_card_option_group_indices"))),
         "fixed_cards": len(_int_sequence(reward.get("skipped_card_indices"))),

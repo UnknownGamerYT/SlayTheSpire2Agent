@@ -1,4 +1,4 @@
-"""Audit cached combat content against executable combat helper coverage."""
+"""Audit registered combat execution surfaces without certifying game parity."""
 
 from __future__ import annotations
 
@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, cast
+
+from .coverage_scope import REGISTERED_EXECUTION_LIMITS, REGISTERED_EXECUTION_SCOPE
+from .runtime_gaps import KNOWN_CARD_RUNTIME_GAPS
 
 CachedCombatRow = Mapping[str, Any]
 
@@ -130,6 +133,14 @@ class CombatCoverageReport:
     unknown_sample_size: int = 5
 
     @property
+    def scope(self) -> str:
+        return REGISTERED_EXECUTION_SCOPE
+
+    @property
+    def limits(self) -> tuple[str, ...]:
+        return REGISTERED_EXECUTION_LIMITS
+
+    @property
     def total_ids(self) -> int:
         return len(self.entries)
 
@@ -228,6 +239,9 @@ class CombatCoverageReport:
 
     def as_dict(self) -> dict[str, object]:
         return {
+            "scope": self.scope,
+            "certifies_game_parity": False,
+            "limits": list(self.limits),
             "total_ids": self.total_ids,
             "counts_by_category": self.counts_by_category,
             "sample_blocked_ids": self.sample_blocked_ids,
@@ -258,11 +272,22 @@ def default_combat_implementation_catalog() -> CombatImplementationCatalog:
     from sts2sim.mechanics.card_effects import EXECUTABLE_EFFECT_KEYS
     from sts2sim.mechanics.potions import supported_combat_potion_ids
     from sts2sim.mechanics.relic_combat import supported_combat_relic_ids
-    from sts2sim.mechanics.relics import supported_relic_ids
+    from sts2sim.mechanics.relics import DEFAULT_RELIC_HOOK_RULES, supported_relic_ids
     from sts2sim.mechanics.reward_triggers import DEFAULT_REWARD_MODIFIERS
 
     reward_relic_ids = frozenset(modifier.content_id for modifier in DEFAULT_REWARD_MODIFIERS)
-    blocked_card_ids: Mapping[str, str] = {}
+    blocked_card_ids: Mapping[str, str] = KNOWN_CARD_RUNTIME_GAPS
+    blocked_relic_ids: dict[str, tuple[str, ...]] = {}
+    for hook, rules in DEFAULT_RELIC_HOOK_RULES.items():
+        for relic_id, rule in rules.items():
+            reasons = tuple(
+                f"{hook.value} marker {marker.kind} still requires "
+                f"{marker.metadata['needed_subsystem']}."
+                for marker in rule.markers
+                if marker.metadata.get("needed_subsystem")
+            )
+            if reasons:
+                blocked_relic_ids[relic_id] = (*blocked_relic_ids.get(relic_id, ()), *reasons)
 
     return combat_implementation_catalog(
         implemented_ids_by_category={
@@ -274,6 +299,7 @@ def default_combat_implementation_catalog() -> CombatImplementationCatalog:
         },
         blocked_ids_by_category={
             CombatCoverageCategory.CARDS: blocked_card_ids,
+            CombatCoverageCategory.RELICS: blocked_relic_ids,
         },
         executable_card_effect_keys=EXECUTABLE_EFFECT_KEYS,
     )

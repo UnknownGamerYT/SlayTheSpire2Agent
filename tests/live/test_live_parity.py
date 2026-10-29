@@ -20,7 +20,7 @@ def test_live_combat_state_can_be_reconstructed_for_simulator() -> None:
     assert snapshot["combat"]["player"]["energy"] == 3
     assert snapshot["combat"]["monsters"][0]["monster_id"] == "NIBBIT_0"
     assert snapshot["combat"]["monsters"][0]["hp"] == 45
-    assert snapshot["combat"]["hand"][0]["card_id"] == "BASH"
+    assert snapshot["combat"]["hand"][0]["card_id"] == "bash"
 
 
 def test_live_play_card_action_maps_to_simulator_card_instance() -> None:

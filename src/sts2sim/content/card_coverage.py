@@ -1,9 +1,8 @@
 """Card-specific executable mechanics audit.
 
-The broad combat coverage audit answers whether a card has any executable combat
-surface. This module is narrower: it classifies each source card as fully
-implemented, partially implemented, or missing, and exposes the exact effect
-keys, keyword rules, and blocker kinds still needed.
+Classifications describe registered normalized effect keys, keyword rules and
+explicit blockers. A recognized key can still have incomplete state changes or
+timing. These reports do not certify complete card behavior or game parity.
 """
 
 from __future__ import annotations
@@ -18,6 +17,9 @@ from typing import Any, cast
 
 from sts2sim.mechanics.card_effects import EXECUTABLE_EFFECT_KEYS, card_effect_plan
 from sts2sim.mechanics.card_specials import card_special_plan
+
+from .coverage_scope import REGISTERED_EXECUTION_LIMITS, REGISTERED_EXECUTION_SCOPE
+from .runtime_gaps import KNOWN_CARD_RUNTIME_GAPS
 
 DEFAULT_CARD_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "cache" / "eng"
 DEFAULT_CARDS_PATH = DEFAULT_CARD_CACHE_DIR / "cards.json"
@@ -79,6 +81,14 @@ class CardCoverageEntry:
 class CardCoverageReport:
     entries: tuple[CardCoverageEntry, ...]
     sample_size: int = 10
+
+    @property
+    def scope(self) -> str:
+        return REGISTERED_EXECUTION_SCOPE
+
+    @property
+    def limits(self) -> tuple[str, ...]:
+        return REGISTERED_EXECUTION_LIMITS
 
     @property
     def total_cards(self) -> int:
@@ -153,6 +163,9 @@ class CardCoverageReport:
 
     def as_dict(self) -> dict[str, object]:
         return {
+            "scope": self.scope,
+            "certifies_game_parity": False,
+            "limits": list(self.limits),
             "total_cards": self.total_cards,
             "counts_by_status": self.counts_by_status,
             "counts_by_color": self.counts_by_color,
@@ -267,6 +280,11 @@ def _card_entry(
     except Exception as exc:
         normalization_failed = True
         reasons.append(f"Card effect normalization failed: {exc}")
+
+    known_gap = KNOWN_CARD_RUNTIME_GAPS.get(normalized)
+    if known_gap:
+        blocker_kinds = _unique_ids(blocker_kinds, ("known_runtime_gap",))
+        reasons.append(f"Known runtime gap: {known_gap}")
 
     if normalization_failed:
         status = CardCoverageStatus.MISSING
