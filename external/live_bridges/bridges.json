@@ -32,7 +32,14 @@
       "ppo_observation_ready": false,
       "source_reviewed_at": "2026-10-28",
       "ppo_patch": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations.patch",
-      "ppo_patch_sha256": "a81f2bc643a71258ba9e088b8bf50906ad43cdf5bb2cfe7e2c38491049280dee"
+      "ppo_patch_sha256": "629886a93cd201de75b42d60eec380bdff74f335eb236e4a420245b712c27181",
+      "previous_ppo_patches": [
+        {
+          "path": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations-v1.patch",
+          "sha256": "a81f2bc643a71258ba9e088b8bf50906ad43cdf5bb2cfe7e2c38491049280dee"
+        }
+      ],
+      "observation_schema_version": 2
     },
     {
       "name": "STS2-Agent",

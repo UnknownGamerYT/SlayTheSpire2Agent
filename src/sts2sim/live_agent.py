@@ -742,6 +742,11 @@ def _choose_shop_action(state: Mapping[str, Any], state_type: str) -> LiveAgentD
 
 def _choose_treasure_action(state: Mapping[str, Any]) -> LiveAgentDecision:
     treasure = _mapping(state.get("treasure"))
+    if treasure.get("can_open_chest") is True:
+        return LiveAgentDecision(
+            state_type="treasure", action={"action": "open_chest"},
+            reason="open_selected_treasure_chest",
+        )
     first = _first_mapping_item(_sequence(treasure.get("relics")))
     index = _optional_int(first.get("index")) if first is not None else None
     if index is not None:

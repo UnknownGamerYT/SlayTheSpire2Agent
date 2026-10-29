@@ -257,3 +257,60 @@ def test_setup_clis_expose_verified_backends(monkeypatch) -> None:
     assert calls[0]["bridge"] == "all"
     assert calls[1]["clone"] is False
     assert calls[2]["offline"] is True
+
+
+def _patch_upgrade_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+    source, registry = _source_fixture(tmp_path)
+    old_patch = tmp_path / "reviewed.patch"
+    prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
+    (source / "state.cs").write_text("new observation\n")
+    new_patch = tmp_path / "new.patch"
+    new_patch.write_text(_git(source, "diff", "--binary", "--unified=1", "HEAD") + "\n")
+    (source / "state.cs").write_text("after\n")
+    _edit_registry(
+        registry,
+        ppo_patch=str(new_patch),
+        ppo_patch_sha256=hashlib.sha256(new_patch.read_bytes()).hexdigest(),
+        previous_ppo_patches=[{
+            "path": str(old_patch),
+            "sha256": hashlib.sha256(old_patch.read_bytes()).hexdigest(),
+        }],
+        observation_schema_version=2,
+    )
+    return source, registry, new_patch
+
+
+def test_preparation_upgrades_only_an_exact_reviewed_previous_patch(tmp_path: Path) -> None:
+    source, registry, _ = _patch_upgrade_fixture(tmp_path)
+    old_sha = hashlib.sha256((tmp_path / "reviewed.patch").read_bytes()).hexdigest()
+    upgraded = prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
+    assert (source / "state.cs").read_text() == "new observation\n"
+    assert upgraded["upgraded_from_patch"] == old_sha
+    assert upgraded["observation_schema_version"] == 2
+    assert upgraded["already_applied"] is False
+    assert upgraded["built"] is False
+    repeated = prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
+    assert repeated["already_applied"] is True
+    assert repeated["upgraded_from_patch"] is None
+
+
+def test_failed_patch_upgrade_restores_the_previous_source(tmp_path: Path) -> None:
+    source, registry, new_patch = _patch_upgrade_fixture(tmp_path)
+    new_patch.write_text(new_patch.read_text().replace("-before", "-wrong baseline"))
+    _edit_registry(registry, ppo_patch_sha256=hashlib.sha256(new_patch.read_bytes()).hexdigest())
+    with pytest.raises(BridgeSetupError, match="git operation failed"):
+        prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
+    assert (source / "state.cs").read_text() == "after\n"
+
+
+def test_patch_upgrade_refuses_modified_previous_patch_and_user_edits(tmp_path: Path) -> None:
+    source, registry, _ = _patch_upgrade_fixture(tmp_path)
+    (source / "state.cs").write_text("user adjustment\n")
+    with pytest.raises(BridgeSetupError, match="unrelated changes"):
+        prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
+    assert (source / "state.cs").read_text() == "user adjustment\n"
+    (source / "state.cs").write_text("after\n")
+    (tmp_path / "reviewed.patch").write_text("tampered\n")
+    with pytest.raises(BridgeSetupError, match="Previous observation patch SHA-256"):
+        prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
+    assert (source / "state.cs").read_text() == "after\n"

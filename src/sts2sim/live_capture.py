@@ -69,6 +69,7 @@ STS2MCP_ACTION_NAMES = frozenset(
         "discard_potion",
         "end_turn",
         "menu_select",
+        "open_chest",
         "play_card",
         "proceed",
         "select_bundle",
@@ -853,6 +854,8 @@ def _extract_sts2mcp_actions(payload: Mapping[str, Any]) -> list[dict[str, Any]]
 
     if state_type == "treasure":
         treasure = _first_mapping(payload, "treasure") or {}
+        if treasure.get("can_open_chest") is True:
+            actions.append({"action": "open_chest"})
         actions.extend(
             _indexed_actions("claim_treasure_relic", _first_sequence(treasure, "relics"))
         )

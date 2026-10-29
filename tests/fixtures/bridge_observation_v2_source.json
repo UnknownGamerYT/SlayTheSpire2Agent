@@ -1,0 +1,119 @@
+{
+  "game_version": "0.107.1",
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "bridge_revision": "55e064850a68f3b4cde7e5fd525bf9b2dec4e885",
+  "observation_schema_version": 2,
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/CardModel.cs",
+      "sha256": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/EnchantmentModel.cs",
+      "sha256": "f4efb3d8568fedf92c4bd5ec3243d09c5af7a108426c6d3c53fe191b9849efd9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/AfflictionModel.cs",
+      "sha256": "8aee0ce0b30603c24b325ed4c02aa67e1c2182817b163a0e85a03a195df03e41"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/CardEnergyCost.cs",
+      "sha256": "c2b18b52ad44a44acbac01c5df4a209f5534a6ec7138e748ea73d66b2dcedd53"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/LocalCostModifier.cs",
+      "sha256": "9a0b85175a292ad467b970718004c1aed487b61da228562de1add8ae7444f15f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/TemporaryCardCost.cs",
+      "sha256": "895840f375c4a1cb27308e594ffc1b59dd94b43743198d1068a507a24b7be599"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Players/Player.cs",
+      "sha256": "ffde0e9e7ef543bcf6a41016f76ce0e7c1924a64aeb351fde03e64ddba0022fe"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Players/PlayerCombatState.cs",
+      "sha256": "c908ea3144a466dc0d979ec44ade207dd692d6b23b9512afbcccae3468fea123"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Orbs/GlassOrb.cs",
+      "sha256": "d447adb85ac8b0415cb131cea336cf9636f8ffa84c0fdd209ec4f64f1e69e2d9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Orbs/DarkOrb.cs",
+      "sha256": "1df457f8c97e51633b360a0aeeaf4f0ece3f8b23c9a3c503204bb0aac74de0be"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/Wither.cs",
+      "sha256": "93988fd6ccfeb8d1af7449128a5f2e5dafa5266ca1213a5de2f47c9d3fe5e7c4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat.History/CombatHistory.cs",
+      "sha256": "c48ca79dec6801310a0ce26716bb81a48cd30d5d1372e8f6ffe3474de7bcec2a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat.History/CombatHistoryEntry.cs",
+      "sha256": "d81e6c7e7c7b73bd02184a74a3e7fc7391e3bd09ec9433eba690c97089dfbb13"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/RunRngSet.cs",
+      "sha256": "ec9ac8ad7c4c361d17e952636b1aa9506ddbe787c5bdf69647bf1d26f19ff507"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Random/PlayerRngSet.cs",
+      "sha256": "becce3d4aba35f0a6e8186d0f62a18b43eaa38bae3d5b2ee860d76d48e363eca"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/EventModel.cs",
+      "sha256": "ca991ec5fea146069498065563bbc4a63ee0786ceaafdeae823df822e955f240"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rooms/EventRoom.cs",
+      "sha256": "1038126138bdc9799ec3f1286bfddef80618dad80083c375d07cf2ae36e0e0f3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events/EventOption.cs",
+      "sha256": "02a8c24eb58efdb08f14b8801a598400c4bd590b675faf9b947413096562118c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/RelicModel.cs",
+      "sha256": "82d29bc5857bbf1dadaf26a6d55dbb05c19af0067bf8a642dd6d225999303f7b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/RunOddsSet.cs",
+      "sha256": "e8adb0176c2f432fec2f172d6032658f438c96c31b423278d3cc011366100c51"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/PlayerOddsSet.cs",
+      "sha256": "5056905ee6dbe70a001172e3f5f80413335cebaf744b63132b0672143cf7a962"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Rooms/NTreasureRoom.cs",
+      "sha256": "824ea2faa5768fdc0bb1c1d76b5a46231ddce2c7c7c3e94e256ccb60ac41e6e7"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/RunHistory.cs",
+      "sha256": "6b98364a450cea80fb6f9b0ef2e8d88e9c574a4cfbddf92cfe261226cf4e5250"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.GameActions/ActionExecutor.cs",
+      "sha256": "606a55a3cb261170168c89549ecf952324fa48a45cec99a212883207f63a7f35"
+    }
+  ],
+  "contracts": [
+    "True CardModel.CurrentUpgradeLevel is limited by MaxUpgradeLevel; Wither increases a separate fake counter",
+    "Enchantments and afflictions each occupy one source slot with actual Amount",
+    "Energy base/local/final costs and ordered expiry are distinct",
+    "Glass has a private raw accumulator; Dark EvokeVal is already its raw accumulator",
+    "Run and player ToSerializable expose persistent seed/counters without drawing RNG",
+    "EventModel.Rng is retained by the bridge across event completion for its final counter",
+    "Mutable event Description/current values differ from canonical event data",
+    "Treasure state GET must not invoke OpenChest; explicit chest action triggers source rewards",
+    "Private prepared treasure relics remain hidden before collection opens",
+    "Relic DisplayAmount is distinct from stored Amount/counters; saved properties exported under validation only",
+    "Policy input must not receive validation RNG, odds or native hidden draw order"
+  ],
+  "compiled_against_game": false,
+  "installed_game_behavior_validated": false
+}

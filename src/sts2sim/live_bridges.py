@@ -230,6 +230,7 @@ def prepare_live_ppo_bridge(
     patch_argument = str(patch.resolve())
     changed = _git(directory, "status", "--porcelain", "--untracked-files=all")
     already_applied = False
+    upgraded_from_patch: str | None = None
     if changed:
         # Idempotency requires the *entire* tracked diff to equal this patch.
         expected = subprocess.run(
@@ -237,14 +238,29 @@ def prepare_live_ppo_bridge(
             check=True,
             capture_output=True,
         ).stdout
-        if expected != patch.read_bytes() or any(
-            line.startswith("??") for line in changed.splitlines()
-        ):
+        if any(line.startswith("??") for line in changed.splitlines()):
             raise BridgeSetupError(
                 "Bridge source has unrelated changes; refusing to overwrite them."
             )
-        _git(directory, "apply", "--reverse", "--check", patch_argument)
-        already_applied = True
+        if expected == patch.read_bytes():
+            _git(directory, "apply", "--reverse", "--check", patch_argument)
+            already_applied = True
+        else:
+            previous = _previous_observation_patch(entry, expected)
+            if previous is None:
+                raise BridgeSetupError(
+                    "Bridge source has unrelated changes; refusing to overwrite them."
+                )
+            previous_argument = str(previous.resolve())
+            _git(directory, "apply", "--reverse", "--check", previous_argument)
+            _git(directory, "apply", "--reverse", previous_argument)
+            try:
+                _git(directory, "apply", "--check", patch_argument)
+                _git(directory, "apply", patch_argument)
+            except BridgeSetupError:
+                _git(directory, "apply", previous_argument)
+                raise
+            upgraded_from_patch = hashlib.sha256(previous.read_bytes()).hexdigest()
     else:
         _git(directory, "apply", "--check", patch_argument)
         _git(directory, "apply", patch_argument)
@@ -255,12 +271,33 @@ def prepare_live_ppo_bridge(
         "patch": str(patch),
         "patch_sha256": entry["ppo_patch_sha256"],
         "already_applied": already_applied,
+        "upgraded_from_patch": upgraded_from_patch,
+        "observation_schema_version": entry.get("observation_schema_version", 1),
         "patch_applied": True,
         "built": False,
         "game_tested": False,
         "required_sdk": ".NET 9",
         "required_game_assemblies": ["sts2.dll", "GodotSharp.dll", "0Harmony.dll"],
     }
+
+
+def _previous_observation_patch(entry: Mapping[str, Any], current_diff: bytes) -> Path | None:
+    """Recognize an exact older reviewed patch without replacing user modifications."""
+    candidates = entry.get("previous_ppo_patches", ())
+    if not isinstance(candidates, list | tuple):
+        raise BridgeSetupError("Previous observation patches must be a list.")
+    for candidate in candidates:
+        if not isinstance(candidate, Mapping):
+            raise BridgeSetupError("Invalid previous observation patch entry.")
+        path = Path(str(candidate.get("path", "")))
+        if not path.is_file():
+            raise BridgeSetupError(f"Missing previous reviewed observation patch: {path}")
+        content = path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != candidate.get("sha256"):
+            raise BridgeSetupError("Previous observation patch SHA-256 differs from the registry.")
+        if content == current_diff:
+            return path
+    return None
 
 
 def doctor_live_bridge(
