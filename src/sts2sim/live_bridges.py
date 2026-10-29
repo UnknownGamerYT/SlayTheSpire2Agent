@@ -337,11 +337,22 @@ def doctor_live_bridge(
         report["diagnostic"] = "Runtime was not probed (--offline)."
         return report
     url = base_url or entry["default_base_url"]
-    probes = probe_live_bridges(base_urls=(url,), timeout_seconds=timeout_seconds)
+    probes = probe_live_bridges(
+        base_urls=(url,), timeout_seconds=timeout_seconds,
+        require_readonly_observer=entry["name"] == "STS2MCP",
+    )
     report["runtime"] = [probe.model_dump(mode="json") for probe in probes]
     report["ready_for_capture"] = any(probe.state_ok for probe in probes)
     if not report["ready_for_capture"]:
-        report["diagnostic"] = "No bridge game-state endpoint is reachable; launch the modded game."
+        if any(probe.health_ok for probe in probes):
+            report["diagnostic"] = (
+                "Bridge health is reachable, but read-only observation schema2 is unconfirmed; "
+                "prepare and load the reviewed source patch before state probes."
+            )
+        else:
+            report["diagnostic"] = (
+                "No bridge game-state endpoint is reachable; launch the modded game."
+            )
         return report
     if entry["name"] != "STS2MCP":
         report["diagnostic"] = (

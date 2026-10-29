@@ -99,6 +99,122 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.GameActions/ActionExecutor.cs",
       "sha256": "606a55a3cb261170168c89549ecf952324fa48a45cec99a212883207f63a7f35"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PenNib.cs",
+      "sha256": "c2ca39be064bf9504c5d9bf9f0931fbe7158db6b176b303d098d9ee2cf422cde"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/JossPaper.cs",
+      "sha256": "97237a51eda6199f48455edf7e83c061a73b97980279ee4a6cfdd149561b6bf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/IronClub.cs",
+      "sha256": "39e204592b870eb6aca976923ecaff137c0d7fc6a9503c9d82686d774ca7aaf2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RedSkull.cs",
+      "sha256": "cf57eb10a81ced7a20a845c53b1f58253fbf980f1b72f76243d57f1cbe165382"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/DemonTongue.cs",
+      "sha256": "23a0a62f9b47c0fa786df2e8a56aee86a4223b015c5c4510f1cee5c891010d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PumpkinCandle.cs",
+      "sha256": "807de4c900f8d2dc20c55e7eba2bfa554a64f9a667d25bf2425e91da4dc8033a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/UnsettlingLamp.cs",
+      "sha256": "f4d772296f344ba05eedcc2131f60435a9bd4afe1166bab435e13bce517cf9b3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/ThrowingAxe.cs",
+      "sha256": "c7bb04ac13201a2ee892bc860caa37c0f2eff33efe31606c762442b3019a4c48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BurningSticks.cs",
+      "sha256": "7c01f7308ea8d12a84161c069c669dbdadc18fb48ef5f551a5d9adcfbe3e8cf9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Metronome.cs",
+      "sha256": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Nunchaku.cs",
+      "sha256": "a92136bd62320001fe02783db5c11ef70aa5df3b4ef5226243df5f1830697243"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/MiniRegent.cs",
+      "sha256": "c36490b78249d15effa19b18a9463e7151fbb7a8aa36c42977b26544195fd234"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsLegion.cs",
+      "sha256": "08bc0980dc3b133a256bb39d50881b6888fabb5f47033aaab02b7ccb36381530"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Permafrost.cs",
+      "sha256": "15f99b67cc992dd3c88839f8eae79d829528b92ad6a57e71266cbf88897cd585"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/HappyFlower.cs",
+      "sha256": "8ad5559934d60a145251e438a1e0745e4501506f511f42f9f617f68b9a96a080"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/RuinedHelmet.cs",
+      "sha256": "a88f33545295ad4025ad3c95e7e5bed4f32f892309eb3c10246010e3d8b32ff3"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/CentennialPuzzle.cs",
+      "sha256": "610d506f51cef90c84cded79e508251f3ce462177fa3e7ccda88b8feac2593aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/GalacticDust.cs",
+      "sha256": "173a5b84adfd4fc3bf4796d4ba447655f6ba7b4cca7897332beb3963544962d4"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FakeHappyFlower.cs",
+      "sha256": "f93bc450daf93f9c678a651f228603febaf43b9e3a01782f632fa322a8d8d1cf"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Vambrace.cs",
+      "sha256": "d804bb40a837fa90b9b5e734e7dcdd61643cd0328f35a884ce07d97f1dc4a34a"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BeltBuckle.cs",
+      "sha256": "1e72315fdaf11e92a555144fa8b255f3735bde2aaf590f92f6ece0288cab2831"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs",
+      "sha256": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Runs/RunState.cs",
+      "sha256": "19d266c5ddcdd3d3812190330c69527f70625dc10f357f970a1f38e9423f526c"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PowerModel.cs",
+      "sha256": "2cc44bddbdd6de6e1d3ded50110a0aace66bc37a942dbf1c5af2af08b9a80dbc"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.CardRewardAlternatives/CardRewardAlternative.cs",
+      "sha256": "f2d57662053c111db4205ac30305b446da29eaf73b8c9c7099716494e9ed25c2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NCardRewardSelectionScreen.cs",
+      "sha256": "86361d4fc6e73f6842baec83a9b1a4bfe601563710b86d18e26ae23fa1ce1b1e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NCardRewardAlternativeButton.cs",
+      "sha256": "159abb88614c6f000f760d8f82097b4673a98e2798e48cecb86eaa856e3608f9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RelicReward.cs",
+      "sha256": "10f2bdbe8533bc384e2f5b637a81b1efbeee6906a7829bef891586918a49f1bd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/SpecialCardReward.cs",
+      "sha256": "b2a54906146ebb2caf8408f77dea557b43f3606d4916304bb604ebab10acd372"
     }
   ],
   "contracts": [
@@ -112,8 +228,82 @@
     "Treasure state GET must not invoke OpenChest; explicit chest action triggers source rewards",
     "Private prepared treasure relics remain hidden before collection opens",
     "Relic DisplayAmount is distinct from stored Amount/counters; saved properties exported under validation only",
-    "Policy input must not receive validation RNG, odds or native hidden draw order"
+    "Policy input must not receive validation RNG, odds or native hidden draw order",
+    "RunState.ActFloor is the per-act entered-room counter; TotalFloor is cumulative map history",
+    "Card reward alternatives retain source option identities and AfterSelected behavior; Skip is not the first arbitrary button",
+    "Observed relic runtime fields are explicit primitive counters/booleans derived from prior owned actions, not oracle RNG or future choices"
   ],
   "compiled_against_game": false,
-  "installed_game_behavior_validated": false
+  "installed_game_behavior_validated": false,
+  "relic_public_history_fields": {
+    "NUNCHAKU": {
+      "attacks_played": "_attacksPlayed"
+    },
+    "PEN_NIB": {
+      "attacks_played": "_attacksPlayed"
+    },
+    "IRON_CLUB": {
+      "cards_played": "_cardsPlayed"
+    },
+    "HAPPY_FLOWER": {
+      "turns_seen": "_turnsSeen"
+    },
+    "FAKE_HAPPY_FLOWER": {
+      "turns_seen": "_turnsSeen"
+    },
+    "JOSS_PAPER": {
+      "cards_exhausted": "_cardsExhausted"
+    },
+    "GALACTIC_DUST": {
+      "stars_spent": "_starsSpent"
+    },
+    "METRONOME": {
+      "orbs_channeled": "_orbsChanneled"
+    },
+    "PUMPKIN_CANDLE": {
+      "kindle_count": "_kindleCount"
+    },
+    "BURNING_STICKS": {
+      "used_this_combat": "_wasUsedThisCombat"
+    },
+    "CENTENNIAL_PUZZLE": {
+      "used_this_combat": "_usedThisCombat"
+    },
+    "PERMAFROST": {
+      "used_this_combat": "_activatedThisCombat"
+    },
+    "RUINED_HELMET": {
+      "used_this_combat": "_usedThisCombat"
+    },
+    "THROWING_AXE": {
+      "used_this_combat": "_usedThisCombat"
+    },
+    "PAELS_EYE": {
+      "used_this_combat": "_usedThisCombat",
+      "was_owner_part_of_last_player_turn": "_wasOwnerPartOfLastPlayerTurn"
+    },
+    "DEMON_TONGUE": {
+      "triggered_this_turn": "_triggeredThisTurn"
+    },
+    "MINI_REGENT": {
+      "used_this_turn": "_usedThisTurn"
+    },
+    "RED_SKULL": {
+      "strength_applied": "_strengthApplied"
+    },
+    "BELT_BUCKLE": {
+      "dexterity_applied": "_dexterityApplied"
+    },
+    "VAMBRACE": {
+      "block_gained_this_combat": "_blockGainedThisCombat"
+    },
+    "PAELS_LEGION": {
+      "cooldown": "_cooldown",
+      "triggered_block_last_turn": "_triggeredBlockLastTurn"
+    },
+    "UNSETTLING_LAMP": {
+      "finished_triggering": "_isFinishedTriggering"
+    }
+  },
+  "relic_public_history_fields_note": "Only bool/int progress from already observed actions/visible activations; private future random data excluded. Lamp uses triggering CardModel nullness plus finished flag, not TriggeringCardPlay."
 }

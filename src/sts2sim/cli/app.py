@@ -3385,6 +3385,53 @@ def find_run_files(
     _emit({"root": str(root), "files": [str(path) for path in result]})
 
 
+@app.command("compare-live-comparison")
+def compare_live_comparison(
+    case_path: Annotated[Path, typer.Argument(help="Recorded before/action/after case JSON.")],
+    output_path: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+    strict: Annotated[bool, typer.Option("--strict/--no-strict")] = True,
+) -> None:
+    """Replay a recorded case against its explicit full simulator checkpoint."""
+    from sts2sim.live_comparison import compare_live_comparison_file
+
+    result = compare_live_comparison_file(case_path)
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+    if strict and not result["matched"]:
+        raise typer.Exit(1)
+
+
+@app.command("capture-live-comparison")
+def capture_live_comparison(
+    plan_path: Annotated[
+        Path, typer.Argument(help="Plan with full simulator checkpoint and actions.")
+    ],
+    base_url: Annotated[str, typer.Option("--base-url")] = "http://localhost:15526",
+    execute: Annotated[
+        bool, typer.Option("--execute", help="Submit the single planned game action.")
+    ] = False,
+    settle_timeout_seconds: Annotated[
+        float, typer.Option("--settle-timeout", min=0.1)
+    ] = 20.0,
+    output_path: Annotated[Path | None, typer.Option("--output", "-o")] = None,
+) -> None:
+    """Record one game comparison; a mismatched starting state blocks execution."""
+    from sts2sim.live_comparison import capture_live_comparison as capture_case
+
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    if not isinstance(plan, Mapping):
+        raise typer.BadParameter("Comparison plan must be a JSON object")
+    try:
+        result = capture_case(plan, base_url=base_url, execute=execute,
+                              settle_timeout_seconds=settle_timeout_seconds)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    payload = _emit(result)
+    _write_result_if_missing(output_path, payload)
+    if not result["report"]["matched"]:
+        raise typer.Exit(1)
+
+
 @app.command("capture-live")
 def capture_live(
     base_url: Annotated[

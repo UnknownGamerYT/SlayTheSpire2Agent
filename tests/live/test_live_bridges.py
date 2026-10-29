@@ -314,3 +314,32 @@ def test_patch_upgrade_refuses_modified_previous_patch_and_user_edits(tmp_path: 
     with pytest.raises(BridgeSetupError, match="Previous observation patch SHA-256"):
         prepare_live_ppo_bridge(source_dir=source, registry_path=registry, clone=False)
     assert (source / "state.cs").read_text() == "after\n"
+
+
+def test_readonly_probe_checks_health_before_touching_an_unpatched_game(monkeypatch) -> None:
+    from sts2sim.live_capture import probe_live_bridges
+
+    calls = []
+    class LegacyClient:
+        def __init__(self, config):
+            pass
+
+        def health(self):
+            calls.append("health")
+            return {"status": "ok", "message": "Hello from STS2 MCP"}
+
+        def state(self):
+            raise AssertionError("Unsafe legacy GET must not be requested")
+
+        def actions(self, state):
+            raise AssertionError("Unsafe legacy actions GET must not be requested")
+
+        def close(self):
+            calls.append("close")
+
+    monkeypatch.setattr("sts2sim.live_capture.LiveApiClient", LegacyClient)
+    result = probe_live_bridges(base_urls=("http://bridge",), require_readonly_observer=True)
+    assert result[0].health_ok
+    assert not result[0].state_ok
+    assert "Read-only observation schema2" in result[0].errors[0]
+    assert calls == ["health", "close"]
