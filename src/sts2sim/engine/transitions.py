@@ -563,6 +563,12 @@ def legal_actions(state: RunState) -> tuple[Action, ...]:
     if state.phase == RunPhase.SHOP:
         return _with_potion_discard_actions(state, _legal_shop_actions(state))
 
+    if state.phase == RunPhase.TREASURE and is_source_rng(state.rng):
+        from .source_treasure_runtime import is_unopened, legal_open_actions
+
+        if is_unopened(state):
+            return _with_potion_discard_actions(state, legal_open_actions(state))
+
     if state.phase in {
         RunPhase.EVENT,
         RunPhase.TREASURE,
@@ -663,6 +669,10 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         next_state, events = _choose_ancient(state, action)
     elif action.type == ActionType.CHOOSE_NODE:
         next_state, events = _choose_node(state, action)
+    elif action.type == ActionType.OPEN_CHEST:
+        from .source_treasure_runtime import open_chest
+
+        next_state, events = open_chest(state)
     elif action.type == ActionType.CHOOSE_EVENT:
         next_state, events = _choose_event(state, action)
     elif action.type == ActionType.TAKE_REWARD_GOLD:
@@ -794,7 +804,8 @@ def _apply_run_progression_relics(
         "gold_changed", "spoils_map_redeemed", "foul_potion_thrown_at_merchant",
     }
     recorded_total = sum(int(e.amount or 0) for e in events
-                         if e.kind in gold_kinds and (e.amount or 0) > 0)
+                         if (e.kind in gold_kinds or e.metadata.get("gold_passives_applied"))
+                         and (e.amount or 0) > 0)
     residual = after.player.gold - before.player.gold - recorded_total
     for event in events:
         if (event.kind not in gold_kinds or (event.amount or 0) <= 0
@@ -1674,7 +1685,11 @@ def _choose_node(state: RunState, action: Action) -> tuple[RunState, tuple[Effec
         target_id=node.node_id,
         metadata={"act": node.act, "floor": node.floor, "room_kind": node.kind.value},
     )
-    state, quest_events = _apply_spoils_map_room_entry(state, node)
+    if is_source_rng(state.rng):
+        # Source quests pay after the marked chest is explicitly opened.
+        quest_events: tuple[EffectEvent, ...] = ()
+    else:
+        state, quest_events = _apply_spoils_map_room_entry(state, node)
     state, resolved_node, unknown_events = _resolve_unknown_node(state, node)
     next_state, events = _enter_room(state, resolved_node)
     return next_state, (entered,) + tuple(entry_events) + quest_events + unknown_events + events
@@ -1796,6 +1811,10 @@ def _enter_room(
             }
         ), tuple(rest_events)
     if node.kind == RoomKind.TREASURE:
+        if is_source_rng(state.rng):
+            from .source_treasure_runtime import enter
+
+            return enter(state, node)
         rng = random_from_state(state.rng)
         reward, reward_events, flags = _treasure_reward_state(state, node, rng)
         flags["treasure_chests_opened"] = _flag_int(state, "treasure_chests_opened", 0) + 1
@@ -1875,6 +1894,14 @@ def _proceed(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if state.phase == RunPhase.SHOP:
         return _leave_shop(state)
     if state.phase == RunPhase.TREASURE:
+        if is_source_rng(state.rng):
+            from .source_treasure_runtime import is_unopened, skip_unopened
+
+            if is_unopened(state):
+                return skip_unopened(state)
+            flags = dict(state.flags)
+            flags.pop("source_treasure_opened", None)
+            state = state.model_copy(update={"flags": flags})
         return _complete_current_room(state, (EffectEvent(kind="treasure_opened"),))
     if state.phase == RunPhase.REWARD:
         from .source_pickup_rewards import resume_reward
@@ -3553,9 +3580,9 @@ def _choose_source_native_event(
         deck.append(card)
         events.append(EffectEvent(kind="event_card_added", target_id=card.instance_id,
                                   metadata={"card_id": card_id}))
-        if card_id == SPOILS_MAP_CARD_ID and state.act < _max_acts(state):
+        if card_id == SPOILS_MAP_CARD_ID and state.act < 2:
             next_state = next_state.model_copy(update={"flags": {**next_state.flags,
-                "spoils_map_pending_act": state.act + 1, "spoils_map_source_act": state.act}})
+                "spoils_map_pending_act": 2, "spoils_map_source_act": state.act}})
     next_state = next_state.model_copy(update={"master_deck": tuple(deck)})
     if rule.get("defer_selection"):
         followup_rule = {**rule, "defer_selection": False, "add_cards": (), "numeric": {}}
@@ -8548,8 +8575,8 @@ def _take_reward_card(
     )
     events.extend(trigger_events)
     if _normalized_id(card.card_id) == SPOILS_MAP_CARD_ID:
-        next_act = state.act + 1
-        if next_act <= _max_acts(state):
+        next_act = 2 if is_source_rng(state.rng) else state.act + 1
+        if state.act < next_act <= _max_acts(state):
             flags = dict(next_state.flags)
             flags["spoils_map_pending_act"] = next_act
             flags["spoils_map_source_act"] = state.act
@@ -31343,6 +31370,9 @@ def _card_from_spec(
 
     spec = merged
     card_id = str(spec.get("card_id", spec.get("id", f"card_{instance_counter:03d}")))
+    if _normalized_id(card_id) == SPOILS_MAP_CARD_ID:
+        # SpoilsMap.AfterCreated uses the source's zero-based act index 1.
+        custom.setdefault("spoils_act_index", 1)
     effects = spec.get("effects", spec.get("effect", {}))
     if isinstance(effects, Sequence) and not isinstance(effects, (str, bytes, bytearray, Mapping)):
         effects = {"sequence": list(effects)}

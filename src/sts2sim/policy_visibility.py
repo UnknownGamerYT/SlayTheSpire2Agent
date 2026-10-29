@@ -37,6 +37,7 @@ def policy_payload(payload: Mapping[str, Any], *, oracle: bool = False) -> dict[
     for key in (
         "act_room_sets", "player_relic_bag", "shared_relic_bag", "shared_relic_bag_originals",
         "player_relic_bag_multiplayer_fallback",
+        "source_pending_treasure",
     ):
         flags.pop(key, None)
     visible["flags"] = flags

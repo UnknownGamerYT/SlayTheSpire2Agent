@@ -14,6 +14,9 @@ class RewardPlanner:
 
     def score(self, context: DecisionContext, descriptor: ActionDescriptor) -> ScoredAction:
         kind = action_type(descriptor)
+        if kind == "open_chest":
+            return make_score(descriptor, score=35.0, category="reward",
+                              reasons=("opening_optional_chest_reveals_rewards",))
         if kind == "take_reward_gold":
             return make_score(
                 descriptor,

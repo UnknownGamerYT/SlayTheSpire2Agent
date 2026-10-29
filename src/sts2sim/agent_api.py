@@ -2274,6 +2274,10 @@ def _action_relic_descriptor(state: Any, action: Action) -> dict[str, Any]:
 
 
 def _action_reward_descriptor(state: Any, action: Action) -> dict[str, Any]:
+    if action.type == ActionType.OPEN_CHEST:
+        return {"source": "treasure", "kind": "open_chest", "content_id": "treasure_chest",
+                "gold": 0, "skips_remaining": False, "skips_selection": False,
+                "closes_selection_set": False}
     if action.payload.get("relic_deck_choice_id"):
         # Finishing an optional selection resumes the surrounding reward screen;
         # it does not skip any of those still-unclaimed rewards.

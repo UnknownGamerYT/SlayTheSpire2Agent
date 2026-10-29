@@ -98,7 +98,7 @@ class StrategicAgent:
             return self._combat.score(context, descriptor)
         if kind == "choose_node":
             return self._map.score(context, descriptor)
-        if kind.startswith("take_reward") or (
+        if kind.startswith("take_reward") or kind == "open_chest" or (
             phase in {"reward", "treasure"} and kind == "proceed"
         ):
             return self._reward.score(context, descriptor)
