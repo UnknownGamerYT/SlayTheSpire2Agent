@@ -662,6 +662,9 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         combat = potion_inventory.remember_replay(state.combat, state)
         state = state.model_copy(update={"combat": combat.model_copy(update={"metadata": {
             **combat.metadata, "item_relic_ids": state.relics,
+            **({"source_character_base_orb_slots":
+                3 if _normalized_id(state.character_id) == "defect" else 0}
+               if _normalized_id(state.character_id) != "test" else {}),
         }})})
     if _pending_relic_deck_choices(state):
         next_state, events = _resolve_relic_deck_choice(state, action)
@@ -9805,7 +9808,10 @@ def _start_combat_for_node(
         state = state.model_copy(update={"player": _run_player_after_combat(state.player)})
     rng = random_from_state(state.rng)
     draw_pile, innate_events = _opening_draw_pile(state.master_deck, rng, prioritize=False)
-    metadata: dict[str, Any] = {"item_relic_ids": state.relics, "relic_counters": {
+    metadata: dict[str, Any] = {"item_relic_ids": state.relics,
+        **({"source_character_base_orb_slots":
+            3 if _normalized_id(state.character_id) == "defect" else 0}
+           if _normalized_id(state.character_id) != "test" else {}), "relic_counters": {
         key: value for key, value in _relic_counters_from_flags(state).items()
         if key not in COMBAT_ONLY_RELIC_COUNTERS
     }}
@@ -9916,7 +9922,8 @@ def _start_combat_for_node(
     mittens_markers = tuple(marker for marker in turn_relics.markers
                             if marker.relic_id == "toasty_mittens")
     turn_relics = replace(turn_relics, markers=tuple(
-        marker for marker in turn_relics.markers if marker.relic_id != "toasty_mittens"
+        marker for marker in turn_relics.markers
+        if marker.relic_id not in {"toasty_mittens", "emotion_chip"}
     ))
     if _normalized_id(state.character_id) != "test":
         crossbow_markers, turn_relics = _split_run_state_combat_relic_resolution(
@@ -9947,6 +9954,9 @@ def _start_combat_for_node(
         rng=rng,
     )
     rng_state = capture_random_state(rng)
+    from .source_orb_hooks import after_player_turn_start
+
+    combat, rng_state, orb_start_events = after_player_turn_start(combat, rng_state, state.relics)
     combat = combat.model_copy(update={"metadata": {
         **combat.metadata, "player_turn_phase": "auto_pre_play",
     }})
@@ -9968,6 +9978,7 @@ def _start_combat_for_node(
             + mittens_events
             + draw_events
             + start_post_draw_relic_events
+            + orb_start_events
             + imbued_events
         }
     )
@@ -9989,6 +10000,7 @@ def _start_combat_for_node(
         + mittens_events
         + draw_events
         + start_post_draw_relic_events
+        + orb_start_events
         + imbued_events
     )
 
@@ -14170,6 +14182,12 @@ def _begin_next_player_turn(
             "metadata": {**metadata, "turn_owner": "player", "player_turn_phase": "start"},
         }
     )
+    from .source_orb_hooks import after_energy_reset
+
+    combat, rng_state, spinner_events = after_energy_reset(combat, rng_state, state.relics)
+    events.extend(spinner_events)
+    if _phase_after_combat(combat) != RunPhase.COMBAT:
+        return combat, rng_state, tuple(events)
     radiance = _status_amount(combat.player.statuses, "radiance")
     if radiance > 0:
         statuses = dict(combat.player.statuses)
@@ -14226,7 +14244,8 @@ def _begin_next_player_turn(
     mittens_markers = tuple(marker for marker in turn_start_relics.markers
                             if marker.relic_id == "toasty_mittens")
     turn_start_relics = replace(turn_start_relics, markers=tuple(
-        marker for marker in turn_start_relics.markers if marker.relic_id != "toasty_mittens"
+        marker for marker in turn_start_relics.markers
+        if marker.relic_id not in {"toasty_mittens", "emotion_chip"}
     ))
     bound_markers = tuple(
         marker for marker in turn_start_relics.markers
@@ -14365,6 +14384,12 @@ def _begin_next_player_turn(
             draw_events,
         )
         events.extend(drawn_trigger_events)
+        from .source_orb_hooks import after_player_turn_start
+
+        combat, rng_state, orb_start_events = after_player_turn_start(
+            combat, rng_state, state.relics,
+        )
+        events.extend(orb_start_events)
         player, reflect_events = _tick_reflect_at_owner_turn_start(combat.player, PLAYER_TARGET_ID)
         combat = combat.model_copy(update={"player": player})
         events.extend(reflect_events)
@@ -19415,6 +19440,11 @@ def _channel_orb(
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     orb = _new_orb(orb_id)
     events: list[EffectEvent] = []
+    if _phase_after_combat(combat) != RunPhase.COMBAT:
+        return combat, ()
+    if combat.orb_slots <= 0 and combat.metadata.get("source_character_base_orb_slots") == 0:
+        combat, slot_events = _change_orb_slots(combat, 1, source_id)
+        events.extend(slot_events)
     if combat.orb_slots <= 0:
         events.append(
             EffectEvent(
@@ -19457,7 +19487,10 @@ def _channel_orb(
             metadata={"orb": orb.orb_id, "orb_slots": combat.orb_slots},
         )
     )
-    return combat, tuple(events)
+    from .source_orb_hooks import after_channel
+
+    combat, metronome_events = after_channel(combat, relics)
+    return combat, tuple(events) + metronome_events
 
 
 def _evoke_orbs(
@@ -19482,7 +19515,7 @@ def _evoke_orbs(
 
     if selector == "all" or amount == "all":
         events: list[EffectEvent] = []
-        while combat.orbs:
+        while combat.orbs and _phase_after_combat(combat) == RunPhase.COMBAT:
             orb = combat.orbs[0]
             combat = combat.model_copy(update={"orbs": combat.orbs[1:]})
             combat, evoke_events = _apply_orb_evoke(
@@ -19516,11 +19549,15 @@ def _evoke_orbs(
             ),
         )
 
-    orbs = list(combat.orbs)
-    orb = orbs.pop(index)
-    combat = combat.model_copy(update={"orbs": tuple(orbs)})
+    orb = combat.orbs[index]
     events = []
-    for _ in range(repeats):
+    for repeat in range(repeats):
+        if _phase_after_combat(combat) != RunPhase.COMBAT:
+            break
+        if repeat == repeats - 1:
+            orbs = list(combat.orbs)
+            orbs.pop(index)
+            combat = combat.model_copy(update={"orbs": tuple(orbs)})
         combat, evoke_events = _apply_orb_evoke(
             combat,
             rng,
@@ -19539,26 +19576,28 @@ def _apply_orb_passives(
     rng_state: RngState,
     *,
     relics: Sequence[str] = (),
+    at_turn_start: bool = False,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
-    if not combat.orbs:
-        return combat, rng_state, ()
-
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = []
-    updated_orbs = list(combat.orbs)
-    for index in range(len(updated_orbs) - 1, -1, -1):
-        orb = updated_orbs[index]
-        combat = combat.model_copy(update={"orbs": tuple(updated_orbs)})
-        combat, passive_events, next_orb = _apply_orb_passive(
-            combat,
-            rng,
-            orb,
-            relics=relics,
-        )
-        events.extend(passive_events)
-        updated_orbs = list(combat.orbs)
-        updated_orbs[index] = next_orb
-    combat = combat.model_copy(update={"orbs": tuple(updated_orbs)})
+    # OrbQueue snapshots its oldest-to-newest queue. Cables modifies only
+    # automatic callbacks, never explicit OrbCmd.Passive (Loop/Tesla/Emotion).
+    for index in range(len(combat.orbs)):
+        if _phase_after_combat(combat) != RunPhase.COMBAT:
+            break
+        orb = combat.orbs[index]
+        if (orb.orb_id == "plasma") != at_turn_start:
+            continue
+        repeats = 1 + int(index == 0 and _has_relic_id(relics, "gold_plated_cables"))
+        for _ in range(repeats):
+            if _phase_after_combat(combat) != RunPhase.COMBAT:
+                break
+            combat, passive_events, next_orb = _apply_orb_passive(combat, rng, orb, relics=relics)
+            events.extend(passive_events)
+            updated_orbs = list(combat.orbs)
+            updated_orbs[index] = next_orb
+            combat = combat.model_copy(update={"orbs": tuple(updated_orbs)})
+            orb = next_orb
     return combat, capture_random_state(rng), tuple(events)
 
 
@@ -19616,28 +19655,16 @@ def _apply_orb_passive(
             next_orb,
         )
     if orb.orb_id == "plasma":
-        statuses = dict(combat.player.statuses)
-        statuses["next_turn_energy"] = statuses.get("next_turn_energy", 0) + 1
-        player = combat.player.model_copy(update={"statuses": statuses})
-        return (
-            combat.model_copy(update={"player": player}),
-            (
-                EffectEvent(
-                    kind="next_turn_effect_added",
-                    source_id="orb:plasma",
-                    target_id=PLAYER_TARGET_ID,
-                    amount=1,
-                    metadata={
-                        "orb": "plasma",
-                        "trigger": "passive",
-                        "status": "next_turn_energy",
-                    },
-                ),
-            ),
-            orb,
-        )
+        amount = permitted_energy_delta(combat.player.statuses, 1)
+        player = combat.player.model_copy(update={"energy": combat.player.energy + amount})
+        return combat.model_copy(update={"player": player}), (
+            EffectEvent(kind="energy_changed", source_id="orb:plasma", target_id=PLAYER_TARGET_ID,
+                        amount=amount, metadata={"orb": "plasma", "trigger": "passive"}),
+        ), orb
     if orb.orb_id == "glass":
         amount = _orb_amount(orb.value, focus)
+        if amount <= 0:
+            return combat, (), orb
         combat, events = _damage_all_monsters(
             combat,
             amount,
@@ -19662,20 +19689,24 @@ def _apply_orb_evoke(
     focus = _player_focus(combat.player)
     base_metadata = {"orb": orb.orb_id, "trigger": "evoke", **dict(metadata or {})}
     if orb.orb_id == "lightning":
-        combat, lightning_events = _damage_random_monster(
-            combat,
-            rng,
-            _lightning_orb_amount(8, focus, relics),
-            source_id,
-            relics=relics,
-            metadata=base_metadata,
+        # Evoke returns its chosen target even when Focus clamps damage to0;
+        # Thunder acts on that returned living target without a second RNG draw.
+        target = _random_alive_monster_id(combat, rng)
+        if target is None:
+            return combat, ()
+        monsters, resolved = _damage_monsters(
+            combat.monsters, (target,), _lightning_orb_amount(8, focus, relics), source_id,
+            relics=relics, source_player_id=card_status_hooks.local_player_id(combat),
         )
+        combat = combat.model_copy(update={"monsters": tuple(monsters)})
+        lightning_events = tuple(event.model_copy(update={"metadata": {
+            **event.metadata, **base_metadata,
+        }}) for event in resolved)
         thunder = _status_amount(combat.player.statuses, "thunder")
-        targets = tuple(dict.fromkeys(str(event.target_id) for event in lightning_events
-                                     if event.kind == "monster_damaged"))
-        if thunder and targets:
+        if thunder and any(m.monster_id == target and m.hp > 0 for m in combat.monsters):
             monsters, thunder_events = _damage_monsters(
-                combat.monsters, targets, thunder, "thunder", relics=relics,
+                combat.monsters, (target,), thunder, "thunder", relics=relics,
+                source_player_id=card_status_hooks.local_player_id(combat),
             )
             combat = combat.model_copy(update={"monsters": tuple(monsters)})
             return combat, lightning_events + tuple(event.model_copy(update={"metadata": {
@@ -19735,7 +19766,7 @@ def _apply_orb_evoke(
     if orb.orb_id == "glass":
         return _damage_all_monsters(
             combat,
-            _orb_amount(orb.value * 2, focus),
+            2 * _orb_amount(orb.value, focus),
             source_id,
             relics=relics,
             metadata=base_metadata,
@@ -19874,7 +19905,7 @@ def _dark_orb_target(combat: CombatState, target_id: str | None) -> str | None:
     alive = [monster for monster in combat.monsters if monster.hp > 0]
     if not alive:
         return None
-    return min(alive, key=lambda monster: (monster.hp, monster.monster_id)).monster_id
+    return min(alive, key=lambda monster: monster.hp).monster_id
 
 
 def _orb_amount(base: int, focus: int) -> int:
@@ -24052,6 +24083,8 @@ def _trigger_orb_passive_from_effect(
         return combat, rng_state, ()
     for repeat_index in range(amount):
         for index in indexes:
+            if _phase_after_combat(combat) != RunPhase.COMBAT:
+                return combat, capture_random_state(rng), tuple(events)
             orbs = list(combat.orbs)
             if index >= len(orbs):
                 continue
@@ -26754,7 +26787,7 @@ def _apply_combat_relic_marker(
                 marker.source_id or marker.relic_id,
                 orb_id,
                 target_id=None,
-                relics=(),
+                relics=_string_tuple(metadata.get("item_relic_ids")),
             )
             player = combat.player
             monsters = list(combat.monsters)
@@ -27016,8 +27049,9 @@ def _apply_combat_relic_marker(
                 )
     elif marker.kind == "trigger_orb_passive" and _marker_targets_player(marker):
         selector = _normalized_id(str(marker.metadata.get("selector", "rightmost")))
-        orb_filter = _normalized_orb_id(str(marker.metadata.get("orb_filter", "")))
-        rng = Random(0)
+        raw_filter = str(marker.metadata.get("orb_filter", ""))
+        orb_filter = _normalized_orb_id(raw_filter) if raw_filter else ""
+        rng = rng if rng is not None else Random(0)
         for index in _orb_passive_trigger_indexes(
             combat.model_copy(
                 update={"player": player, "monsters": tuple(monsters), "metadata": metadata}
@@ -27032,7 +27066,9 @@ def _apply_combat_relic_marker(
             combat = combat.model_copy(
                 update={"player": player, "monsters": tuple(monsters), "metadata": metadata}
             )
-            combat, passive_events, next_orb = _apply_orb_passive(combat, rng, orb, relics=())
+            combat, passive_events, next_orb = _apply_orb_passive(
+                combat, rng, orb, relics=_string_tuple(metadata.get("item_relic_ids")),
+            )
             orbs = list(combat.orbs)
             if index < len(orbs):
                 orbs[index] = next_orb
@@ -27524,6 +27560,8 @@ def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     updated["powers_played_this_turn"] = 0
     updated["energy_spent_this_turn"] = 0
     updated["stars_gained_this_turn"] = 0
+    updated["hp_lost_previous_turn"] = _metadata_int(metadata, "hp_lost_this_turn", 0)
+    updated["lost_hp_previous_turn"] = updated["hp_lost_previous_turn"] > 0
     updated["hp_lost_this_turn"] = 0
     updated["hp_loss_count_this_turn"] = 0
     updated["osty_attacks_this_turn"] = 0

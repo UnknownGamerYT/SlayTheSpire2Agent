@@ -168,9 +168,9 @@ def test_danse_macabre_requires_the_played_card_to_cost_two_or_more(cost: int, b
     _no_stubs(state)
 
 
-def test_loop_triggers_the_rightmost_passive_only_once_per_turn_start() -> None:
+def test_loop_triggers_the_front_passive_only_once_per_turn_start() -> None:
     power = _power(
-        "loop", "At the start of your turn, trigger the passive ability of your rightmost Orb."
+        "loop", "At the start of your turn, trigger the passive ability of your first Orb."
     )
     state = _combat(_monster("VICTIM", {}), deck=(power,))
     state = state.model_copy(

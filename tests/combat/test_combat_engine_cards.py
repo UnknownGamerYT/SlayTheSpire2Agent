@@ -2849,7 +2849,7 @@ def test_turn_start_trigger_adds_random_card_from_pool() -> None:
     assert [card.card_id for card in state.combat.hand] == ["only_power"]
 
 
-def test_combat_end_trigger_grants_gold() -> None:
+def test_royalties_combat_end_queues_gold_until_its_reward_is_claimed() -> None:
     state = _enter_combat(
         (
             {
@@ -2877,6 +2877,12 @@ def test_combat_end_trigger_grants_gold() -> None:
     state = _play_card(state, "finish")
 
     assert state.phase == RunPhase.REWARD
+    assert state.player.gold == starting_gold
+    index = next(index for index, component in enumerate(
+        state.reward.metadata["gold_reward_components"]
+    ) if component.get("source_id") == "royalties")
+    state = step(state, next(action for action in legal_actions(state)
+        if action.type == "take_reward_gold" and action.target_id == f"reward:gold:{index}"))
     assert state.player.gold == starting_gold + 30
 
 

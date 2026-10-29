@@ -12,7 +12,16 @@ from typing import Any
 from sts2sim.mechanics.triggers import GameTrigger
 
 from . import source_cost_hooks
-from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
+from .models import (
+    CardInstance,
+    CardType,
+    CombatState,
+    EffectEvent,
+    RngState,
+    RunPhase,
+    RunState,
+    TargetType,
+)
 from .rng import capture_random_state, random_from_state, random_stream
 from .source_cost_hooks import set_local_energy_cost
 
@@ -138,10 +147,12 @@ def execute(
             apply({"osty_action": {"action": "die"}})
             apply({"block": amount})
     elif operation == "shatter":
-        # Each original rightmost orb evokes twice and is then removed. This
-        # differs from invoking the generic all-orbs selector once.
+        # Shatter invokes EvokeNext twice per original orb, keeping the first
+        # in place until its second evoke.
         for _ in range(len(combat.orbs)):
-            apply({"evoke_orb": {"selector": "rightmost", "amount": 2}})
+            if t._phase_after_combat(combat) != RunPhase.COMBAT:
+                break
+            apply({"evoke_orb": {"selector": "leftmost", "amount": 2}})
     elif operation == "target_lightning":
         count = sum(orb.orb_id == "lightning" for orb in combat.orbs)
         amount = t._lightning_orb_amount(3, t._player_focus(combat.player), relics)

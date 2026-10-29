@@ -483,8 +483,6 @@ def source_class_steps(
         )
     if card_id == "orbit":
         return (marker("install_cost", power="orbit", amount=1),)
-    if card_id == "spinner" and upgraded:
-        return ({"channel_orb": {"orb": "glass", "amount": 1}},) + steps
     if card_id == "summon_forth":
         return (
             marker("retrieve", zone="any", card_id="sovereign_blade"),

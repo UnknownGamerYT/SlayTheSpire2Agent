@@ -93,6 +93,19 @@ def source_core_steps(
         return (status("well_laid_plans", 2 if upgraded else 1),)
     if card_id == "stampede":
         return (status("stampede", 1),)
+    if card_id == "loop":
+        return (status("loop", 2 if upgraded else 1),)
+    if card_id == "spinner":
+        return (({"channel_orb": {"orb": "glass", "amount": 1}},) if upgraded else ()) + (
+            status("spinner", 1),
+        )
+    if card_id in {"dualcast", "quadcast", "multi_cast"}:
+        count: int | dict[str, int]
+        if card_id == "multi_cast":
+            count = {"per_energy": 1, "amount": int(upgraded)}
+        else:
+            count = 2 if card_id == "dualcast" else 4
+        return ({"evoke_orb": {"selector": "leftmost", "amount": count}},)
     if card_id == "royalties":
         return (status("royalties", 40 if upgraded else 30),)
     if card_id in {"blade_dance", "blade_of_ink", "cloak_and_dagger", "up_my_sleeve"}:
