@@ -20018,6 +20018,10 @@ def _move_played_card_to_destination(
 
 def _card_with_played_updates(combat: CombatState, card: CardInstance) -> CardInstance:
     card = source_cost_hooks.expire(card, when_played=True)
+    if card.custom.get("source_exhaust_on_next_play"):
+        custom = dict(card.custom)
+        custom.pop("source_exhaust_on_next_play", None)
+        card = card.model_copy(update={"custom": custom})
     card = source_enchantment_hooks.played_card(combat, card)
     if card.custom.get("free_to_play_this_turn"):
         card = card.model_copy(update={"custom": {**card.custom, "free_energy_consumed": True}})
@@ -30607,7 +30611,8 @@ def _card_destination(card: CardInstance, combat: CombatState | None = None) -> 
         and _status_amount(combat.player.statuses, "skill_exhaust_on_play") > 0
     ):
         return "exhaust"
-    if card.exhausts or bool(card.effects.get("exhaust_on_play")):
+    if (card.custom.get("source_exhaust_on_next_play")
+        or card.exhausts or bool(card.effects.get("exhaust_on_play"))):
         return "exhaust"
     if _normalized_id(card.card_id) == "particle_wall":
         return "hand"
