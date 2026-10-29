@@ -22,7 +22,7 @@ def _project(relic_id: str, counter: object = None, **runtime: object) -> dict:
         ("FAKE_HAPPY_FLOWER", 5, {"turns_seen": 0}, 0),
         ("JOSS_PAPER", 4, {"cards_exhausted": 4}, 4),
         ("GALACTIC_DUST", 7, {"stars_spent": 7}, 7),
-        ("METRONOME", 7, {"orbs_channeled": 19}, 7),
+        ("METRONOME", 7, {"orbs_channeled": 19}, 19),
         ("PUMPKIN_CANDLE", 8, {"kindle_count": 8}, 8),
         ("PAELS_LEGION", None, {"cooldown": 0}, 0),
         ("PAELS_LEGION", None, {"cooldown": -4}, 0),

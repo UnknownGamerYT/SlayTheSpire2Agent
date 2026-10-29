@@ -83,8 +83,8 @@ def relic_runtime_projection(
             _check_display(row, value)
             counters[relic_id] = value
         elif battle and relic_id == "metronome":
-            value = min(7, _nonnegative(runtime.get("orbs_channeled"), "metronome.orbs_channeled"))
-            _check_display(row, value)
+            value = _nonnegative(runtime.get("orbs_channeled"), "metronome.orbs_channeled")
+            _check_display(row, min(7, value))
             counters[relic_id] = value
         elif battle and relic_id == "paels_legion":
             raw_cooldown = runtime.get("cooldown")

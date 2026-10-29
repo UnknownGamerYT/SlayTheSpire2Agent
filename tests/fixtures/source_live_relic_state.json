@@ -114,7 +114,7 @@
   "contracts": [
     "Periodic counters encode progress modulo the source period, with temporary activation display equal to the period allowed at wrapped zero.",
     "IronClub uses cumulative CardsPlayed internally and displays modulo four; runtime history is required to retain the cumulative actor feature.",
-    "Metronome display and engine counter saturate at seven; source OrbsChanneled can continue increasing.",
+    "Metronome display saturates at seven while source and engine OrbsChanneled continue increasing; the trigger occurs only at exactly seven.",
     "PaelsLegion source Cooldown can decrement below zero; engine readiness saturates at zero.",
     "One-shot combat/turn activation flags come from a finite bridge primitive allowlist; generic status does not prove whether a hook ran.",
     "UnsettlingLamp remembers a triggering card even when a debuff attempt was blocked.",
