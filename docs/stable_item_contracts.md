@@ -232,3 +232,15 @@ once. Parasol applies in each normal merchant room and excludes the Fake
 Merchant event. These contracts and their source hashes are recorded in
 `tests/fixtures/source_parasol.json`; they do not certify all merchant
 combinations against the installed game.
+
+
+Physical potion slots now remain stable after consumption, discard and Fairy
+activation. Procurement fills the first empty physical slot, while an explicit
+preferred slot never overwrites an occupied slot or fills an earlier hole.
+Coffer can therefore target its four new slots without moving older potions.
+The existing packed inventory remains compatible with legacy saves; source runs
+persist the parallel `flags.potion_slot_indices`, and malformed explicit mappings
+fail closed. Public actions, replay metadata and generated potions retain those
+identities. Source popup guards disable both use and discard when the event
+locks potion removal. Ordinary source discards do not require a full belt or a
+pending reward. Facts/hashes are in `tests/fixtures/source_physical_potion_slots.json`.

@@ -130,7 +130,9 @@ def state_from_replay(state: RunState, combat: CombatState) -> RunState:
             "replay_potion_slot_indices", potion_slot_indices(state.potions, state.flags)
         )
     )
-    return with_inventory(state, potions, indices)
+    return with_inventory(state, potions, indices).model_copy(
+        update={"combat": combat, "player": combat.player}
+    )
 
 
 def remember_replay(combat: CombatState, state: RunState) -> CombatState:

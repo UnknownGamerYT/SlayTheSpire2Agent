@@ -233,6 +233,7 @@ from sts2sim.mechanics.unknown_rooms import resolve_unknown_room
 
 from . import (
     card_status_hooks,
+    potion_inventory,
     source_affliction_hooks,
     source_attack_hooks,
     source_class_hooks,
@@ -652,9 +653,9 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
 
     before_hash = state_digest(state)
     if state.phase == RunPhase.COMBAT and state.combat is not None:
-        state = state.model_copy(update={"combat": state.combat.model_copy(update={"metadata": {
-            **state.combat.metadata, "replay_potions": state.potions,
-            "item_relic_ids": state.relics,
+        combat = potion_inventory.remember_replay(state.combat, state)
+        state = state.model_copy(update={"combat": combat.model_copy(update={"metadata": {
+            **combat.metadata, "item_relic_ids": state.relics,
         }})})
     if _pending_relic_deck_choices(state):
         next_state, events = _resolve_relic_deck_choice(state, action)
@@ -854,28 +855,40 @@ def _with_potion_discard_actions(
     actions: Sequence[Action],
 ) -> tuple[Action, ...]:
     base_actions = tuple(actions)
+    if not _can_remove_potions(state):
+        return base_actions
     if state.phase not in {RunPhase.COMBAT, RunPhase.FAILED, RunPhase.COMPLETE}:
         base_actions += tuple(
             Action(type=ActionType.USE_POTION, target_id=PLAYER_TARGET_ID,
                    payload={"potion_slot": _potion_slot_id(index), "potion_id": potion_id})
-            for index, potion_id in enumerate(state.potions)
+            for index, potion_id in potion_inventory.occupied_slots(state)
             if _normalized_id(potion_id) in {"blood_potion", "fruit_juice", "entropic_brew"}
         )
     if not _should_offer_potion_discard(state):
         return base_actions
     return base_actions + tuple(
         Action(type=ActionType.DISCARD_POTION, target_id=_potion_slot_id(index))
-        for index, _potion_id in enumerate(state.potions)
+        for index, _potion_id in potion_inventory.occupied_slots(state)
     )
 
 
+def _can_remove_potions(state: RunState) -> bool:
+    if not state.flags.get("can_remove_potions", True):
+        return False
+    return not (potion_inventory.physical_slots_enabled(state) and state.event is not None
+                and state.event.resolved_option_id is None and state.event.event_id.upper() in {
+                    "STONE_OF_ALL_TIME", "RANWID_THE_ELDER", "THE_FUTURE_OF_POTIONS"})
+
+
 def _should_offer_potion_discard(state: RunState) -> bool:
-    if (is_source_rng(state.rng) and state.event is not None
-            and state.event.resolved_option_id is None and state.event.event_id.upper() in {
-                "STONE_OF_ALL_TIME", "RANWID_THE_ELDER", "THE_FUTURE_OF_POTIONS"}):
+    if not state.potions or not _can_remove_potions(state):
         return False
-    if not state.potions:
-        return False
+    if potion_inventory.physical_slots_enabled(state):
+        # Source popup permits discarding without waiting for another potion offer.
+        # A flat step does not enqueue an action behind an unresolved combat choice.
+        return (state.phase not in {RunPhase.FAILED, RunPhase.COMPLETE}
+                and not (state.phase == RunPhase.COMBAT and state.combat is not None
+                         and state.combat.pending_choices))
     if _flag_bool(state, "allow_free_potion_discard", False):
         return True
     if _has_open_potion_slot(state):
@@ -926,7 +939,7 @@ def _legal_potion_use_actions(
     combat: CombatState,
 ) -> tuple[Action, ...]:
     actions: list[Action] = []
-    for index, potion_id in enumerate(state.potions):
+    for index, potion_id in potion_inventory.occupied_slots(state):
         if not _potion_is_manually_usable(potion_id):
             continue
         slot_id = _potion_slot_id(index)
@@ -974,52 +987,29 @@ def _card_requires_play_priority(card: CardInstance) -> bool:
 
 
 def _fill_empty_potion_slots(
-    state: RunState,
-    rng_state: RngState,
-    *,
-    source_id: str,
-) -> tuple[tuple[str, ...], RngState, tuple[EffectEvent, ...]]:
+    state: RunState, rng_state: RngState, *, source_id: str,
+) -> tuple[RunState, RngState, tuple[EffectEvent, ...]]:
     capacity = _potion_capacity(state)
-    open_slots = max(0, capacity - len(state.potions))
-    if open_slots <= 0:
-        return (
-            state.potions,
-            rng_state,
-            (
-                EffectEvent(
-                    kind="potion_generation_blocked",
-                    source_id=source_id,
-                    amount=0,
-                    metadata={"reason": "no_open_slot", "potion_slots": capacity},
-                ),
-            ),
-        )
-
+    if len(state.potions) >= capacity:
+        return state, rng_state, (EffectEvent(kind="potion_generation_blocked",
+            source_id=source_id, amount=0,
+            metadata={"reason": "no_open_slot", "potion_slots": capacity}),)
     pool, rarities = _item_potion_generation_pool(state, in_combat=False)
     if not pool:
         pool = ("fire_potion", "skill_potion", "essence_of_steel")
-
     rng = random_from_state(rng_state)
     generation_rng = random_stream(rng, "combat_potion_generation")
-    potions = list(state.potions)
     events: list[EffectEvent] = []
-    for _ in range(open_slots):
+    # EntropicBrew creates one potion at a time, and stops at the first failed procure.
+    while len(state.potions) < capacity:
         potion_id = _normalized_id(draw_source_potion(generation_rng, pool, rarities))
-        if _has_relic(state, "sozu"):
-            events.append(_sozu_blocked_potion_event(potion_id, source_id))
+        old_count = len(state.potions)
+        state, emitted = potion_inventory.procure_at_slot(state, potion_id, source_id=source_id)
+        events.extend(event.model_copy(update={"kind": "potion_generated", "amount": 1})
+                      if event.kind == "event_potion_obtained" else event for event in emitted)
+        if len(state.potions) == old_count:
             break
-        potions.append(potion_id)
-        events.append(
-            EffectEvent(
-                kind="potion_generated",
-                source_id=source_id,
-                target_id=potion_id,
-                amount=1,
-                metadata={"potion_slots": capacity},
-            )
-        )
-
-    return tuple(potions), capture_random_state(rng), tuple(events)
+    return state, capture_random_state(rng), tuple(events)
 
 
 def _choose_ancient(
@@ -1252,27 +1242,13 @@ def _apply_ancient_resolution(
         }
     )
 
-    potions = list(next_state.potions)
-    capacity = _potion_capacity(next_state)
     for potion_id in resolution.potion_ids:
-        if len(potions) >= capacity:
-            events.append(
-                EffectEvent(
-                    kind="ancient_potion_blocked",
-                    target_id=potion_id,
-                    metadata={"reason": "no_open_slot", "potion_slots": capacity},
-                )
-            )
-            continue
-        potions.append(potion_id)
-        events.append(
-            EffectEvent(
-                kind="ancient_potion_added",
-                target_id=potion_id,
-                metadata={"potion_slots": capacity},
-            )
-        )
-    next_state = next_state.model_copy(update={"potions": tuple(potions)})
+        next_state, emitted = potion_inventory.procure_at_slot(next_state, potion_id)
+        events.extend(event.model_copy(update={
+            "kind": "ancient_potion_added" if event.kind == "event_potion_obtained"
+                    else "ancient_potion_blocked",
+        }) if event.kind in {"event_potion_obtained", "event_potion_skipped_no_slot"}
+            else event for event in emitted)
 
     ancient_fixed_relic_ids = set(resolution.choice.fixed_relic_ids)
     for relic_id in resolution.relic_ids:
@@ -3078,7 +3054,8 @@ def _legal_event_actions(state: RunState) -> tuple[Action, ...]:
 def _legal_fake_merchant_potion_actions(state: RunState) -> tuple[Action, ...]:
     if not _can_throw_foul_potion_at_fake_merchant(state):
         return ()
-    slot_index = state.potions.index("foul_potion")
+    slot_index = next(index for index, potion in potion_inventory.occupied_slots(state)
+                      if potion == "foul_potion")
     return (
         Action(
             type=ActionType.THROW_POTION_AT_MERCHANT,
@@ -3347,9 +3324,8 @@ def _choose_source_native_event(
         metadata={"title": option.title, "card_instance_ids": selected, "native_source": True})]
     potion_index = rule.get("remove_potion_index")
     if isinstance(potion_index, int) and 0 <= potion_index < len(next_state.potions):
-        discarded = next_state.potions[potion_index]
-        next_state = next_state.model_copy(update={"potions": tuple(
-            potion for index, potion in enumerate(next_state.potions) if index != potion_index)})
+        physical_index = potion_inventory.occupied_slots(next_state)[potion_index][0]
+        next_state, discarded = potion_inventory.remove_at_slot(next_state, physical_index)
         events.append(EffectEvent(kind="event_potion_discarded", target_id=discarded))
     if rule.get("remove_instance_id"):
         remove_id = str(rule["remove_instance_id"])
@@ -4838,35 +4814,13 @@ def _draw_event_flow_potion_ids(
 
 
 def _add_event_potions(
-    state: RunState,
-    potion_ids: Sequence[str],
+    state: RunState, potion_ids: Sequence[str],
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    potions = list(state.potions)
-    capacity = _potion_capacity(state)
     events: list[EffectEvent] = []
     for potion_id in potion_ids:
-        normalized = _normalized_id(potion_id)
-        if _has_relic(state, "sozu"):
-            events.append(_sozu_blocked_potion_event(normalized, None))
-            continue
-        if len(potions) >= capacity:
-            events.append(
-                EffectEvent(
-                    kind="event_potion_skipped_no_slot",
-                    target_id=normalized,
-                    metadata={"potion_slots": capacity},
-                )
-            )
-            continue
-        potions.append(normalized)
-        events.append(
-            EffectEvent(
-                kind="event_potion_obtained",
-                target_id=normalized,
-                metadata={"potion_slots": capacity},
-            )
-        )
-    return state.model_copy(update={"potions": tuple(potions)}), tuple(events)
+        state, emitted = potion_inventory.procure_at_slot(state, potion_id)
+        events.extend(emitted)
+    return state, tuple(events)
 
 
 def _sozu_blocked_potion_event(potion_id: str, source_id: str | None) -> EffectEvent:
@@ -5851,7 +5805,9 @@ def _legal_shop_actions(state: RunState) -> tuple[Action, ...]:
         actions.append(
             Action(
                 type=ActionType.THROW_POTION_AT_MERCHANT,
-                payload={"potion_slot": _potion_slot_id(state.potions.index("foul_potion"))},
+                payload={"potion_slot": _potion_slot_id(next(
+                    index for index, potion in potion_inventory.occupied_slots(state)
+                    if potion == "foul_potion"))},
             )
         )
     actions.append(Action(type=ActionType.PROCEED))
@@ -5921,7 +5877,12 @@ def _resolve_shop_action(
             return state, (_sozu_blocked_potion_event(item.item.item_id, None),)
         if not _has_open_potion_slot(state):
             return state, ()
-        update["potions"] = state.potions + (item.item.item_id,)
+        inventory_state, _ = potion_inventory.add_at_slot(state, item.item.item_id)
+        update["potions"] = inventory_state.potions
+        update["flags"] = {**update["flags"], **{
+            key: value for key, value in inventory_state.flags.items()
+            if key == "potion_slot_indices"
+        }}
     elif item.item.kind is ShopItemKind.CARD_REMOVAL and result.removed_card_id is not None:
         removed_card = _find_card(state.master_deck, result.removed_card_id)
         if removed_card is not None and _deck_card_mutation_blocked(removed_card):
@@ -5987,22 +5948,17 @@ def _use_potion(
         slot_index = _parse_potion_slot_id(slot_id)
     except ValueError:
         return state, ()
-    if slot_index < 0 or slot_index >= len(state.potions):
+    potion_id = potion_inventory.potion_at_slot(state, slot_index)
+    if potion_id is None:
         return state, ()
-
-    potion_id = state.potions[slot_index]
     if not _potion_is_manually_usable(potion_id):
         return state, ()
 
-    potions = tuple(
-        potion
-        for index, potion in enumerate(state.potions)
-        if index != slot_index
-    )
+    state, _ = potion_inventory.remove_at_slot(state, slot_index)
+    potions = state.potions
     potion_source_id = f"{slot_id}:{potion_id}"
-    combat = state.combat.model_copy(update={"metadata": {
-        **state.combat.metadata, "replay_potions": potions,
-    }})
+    assert state.combat is not None
+    combat = potion_inventory.remember_replay(state.combat, state)
     rng_state = state.rng
     events: list[EffectEvent] = [
         EffectEvent(
@@ -6062,14 +6018,14 @@ def _use_potion(
             )
         )
 
-    potions = tuple(combat.metadata.get("replay_potions", potions))
+    state = potion_inventory.state_from_replay(state, combat)
     if _normalized_id(potion_id) == "entropic_brew":
-        potions, rng_state, generated_events = _fill_empty_potion_slots(
-            state.model_copy(update={"potions": potions}),
-            rng_state,
-            source_id=potion_id,
+        state, rng_state, generated_events = _fill_empty_potion_slots(
+            state, rng_state, source_id=potion_id,
         )
+        combat = state.combat or combat
         events.extend(generated_events)
+    potions = state.potions
 
     potion_trigger = resolve_potion_use_triggers(
         PotionUseTriggerContext(
@@ -6131,14 +6087,15 @@ def _use_noncombat_potion(
         return state, ()
     try:
         index = _parse_potion_slot_id(slot_id)
-        potion_id = state.potions[index] if index >= 0 else ""
+        potion_id = potion_inventory.potion_at_slot(state, index) or ""
     except (ValueError, IndexError):
         return state, ()
     normalized = _normalized_id(potion_id)
     if normalized not in {"blood_potion", "fruit_juice", "entropic_brew"}:
         return state, ()
     player = state.player
-    potions = state.potions[:index] + state.potions[index + 1:]
+    state, _ = potion_inventory.remove_at_slot(state, index)
+    potions = state.potions
     events = [EffectEvent(kind="potion_used", source_id=potion_id,
                           target_id=PLAYER_TARGET_ID, metadata={"potion_slot": slot_id})]
     if normalized == "fruit_juice":
@@ -6162,8 +6119,8 @@ def _use_noncombat_potion(
     events.extend(_trigger_effect_events(result.effects))
     state = state.model_copy(update={"player": player, "potions": potions})
     if normalized == "entropic_brew":
-        potions, rng, generated = _fill_empty_potion_slots(state, state.rng, source_id=potion_id)
-        state = state.model_copy(update={"potions": potions, "rng": rng})
+        state, rng, generated = _fill_empty_potion_slots(state, state.rng, source_id=potion_id)
+        state = state.model_copy(update={"rng": rng})
         events.extend(generated)
     return state, tuple(events)
 
@@ -6610,37 +6567,22 @@ def _potion_name(state: RunState, potion_id: str) -> str:
 
 
 def _discard_potion(
-    state: RunState,
-    action: Action,
+    state: RunState, action: Action,
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if action.target_id is None:
         return state, ()
     slot_index = _parse_potion_slot_id(action.target_id)
-    if slot_index < 0 or slot_index >= len(state.potions):
+    state, potion_id = potion_inventory.remove_at_slot(state, slot_index)
+    if potion_id is None:
         return state, ()
-
-    potion_id = state.potions[slot_index]
-    potions = tuple(
-        potion
-        for index, potion in enumerate(state.potions)
-        if index != slot_index
-    )
-    combat = state.combat
-    events: tuple[EffectEvent, ...] = (EffectEvent(
-        kind="potion_discarded", target_id=potion_id,
-        metadata={"slot_id": action.target_id, "potion_slots": _potion_capacity(state)},
-    ),)
-    if state.phase == RunPhase.COMBAT and combat is not None:
-        combat = combat.model_copy(update={"metadata": {
-            **combat.metadata, "replay_potions": potions,
-        }})
-        combat, belt_events = _sync_belt_buckle(combat, potions, state.relics)
+    events: tuple[EffectEvent, ...] = (EffectEvent(kind="potion_discarded", target_id=potion_id,
+        metadata={"slot_id": action.target_id, "potion_slots": _potion_capacity(state)}),)
+    if state.phase == RunPhase.COMBAT and state.combat is not None:
+        combat = potion_inventory.remember_replay(state.combat, state)
+        combat, belt_events = _sync_belt_buckle(combat, state.potions, state.relics)
         events += belt_events
         state = state.model_copy(update={"combat": combat, "player": combat.player})
-    return (
-        state.model_copy(update={"potions": potions}),
-        events,
-    )
+    return state, events
 
 
 def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
@@ -8827,7 +8769,10 @@ def _take_reward_potion(
             }
         )
     blocked = _has_relic(state, "sozu")
-    potions = state.potions if blocked else state.potions + (potion_id,)
+    if not blocked:
+        state, _ = potion_inventory.add_at_slot(state, potion_id)
+    potions = state.potions
+    assert state.reward is not None
     return (
         state.model_copy(update={"potions": potions, "reward": reward}),
         (
@@ -9019,17 +8964,19 @@ def _throw_potion_at_merchant(
 ) -> tuple[RunState, tuple[EffectEvent, ...]]:
     if "foul_potion" not in state.potions:
         return state, ()
-    potions = list(state.potions)
     slot_id = str(_mapping_from(action.payload).get("potion_slot", "")) if action else ""
     slot_index: int | None = None
     with suppress(ValueError, IndexError):
         slot_index = _parse_potion_slot_id(slot_id) if slot_id else None
-        if slot_index is not None and potions[slot_index] != "foul_potion":
+        if (slot_index is not None
+                and potion_inventory.potion_at_slot(state, slot_index) != "foul_potion"):
             slot_index = None
     if slot_index is None:
-        slot_index = potions.index("foul_potion")
+        slot_index = next(index for index, potion in potion_inventory.occupied_slots(state)
+                          if potion == "foul_potion")
         slot_id = _potion_slot_id(slot_index)
-    potions.pop(slot_index)
+    state, _ = potion_inventory.remove_at_slot(state, slot_index)
+    potions = state.potions
     player, events = _gain_player_gold(
         state.player, 100, relics=state.relics, source_id="foul_potion",
         kind="foul_potion_thrown_at_merchant", target_id="merchant",
@@ -9048,17 +8995,20 @@ def _throw_foul_potion_at_fake_merchant(
     if not _can_throw_foul_potion_at_fake_merchant(state) or state.event is None:
         return state, ()
 
-    potions = list(state.potions)
     slot_id = str(_mapping_from(action.payload).get("potion_slot", ""))
     slot_index: int | None = None
     with suppress(ValueError, IndexError):
         slot_index = _parse_potion_slot_id(slot_id) if slot_id else None
-        if slot_index is not None and potions[slot_index] != "foul_potion":
+        if (slot_index is not None
+                and potion_inventory.potion_at_slot(state, slot_index) != "foul_potion"):
             slot_index = None
     if slot_index is None:
-        slot_index = potions.index("foul_potion")
+        slot_index = next(index for index, potion in potion_inventory.occupied_slots(state)
+                          if potion == "foul_potion")
         slot_id = _potion_slot_id(slot_index)
-    potions.pop(slot_index)
+    state, _ = potion_inventory.remove_at_slot(state, slot_index)
+    potions = state.potions
+    assert state.event is not None
 
     event = state.event.model_copy(update={"resolved_option_id": "throw_foul_potion"})
     combat_flags = _event_combat_reward_flags(
@@ -10128,38 +10078,16 @@ def _apply_relic_procure_potion_marker(
                 },
             ),
         )
-    capacity = _potion_capacity(state)
-    if _has_relic(state, "sozu"):
-        return state, (_sozu_blocked_potion_event(potion_id, marker.relic_id),)
-    if len(state.potions) >= capacity:
-        return state, (
-            EffectEvent(
-                kind="relic_potion_skipped_no_slot",
-                source_id=marker.relic_id,
-                target_id=potion_id,
-                metadata={
-                    "potion_slots": capacity,
-                    "marker_kind": marker.kind,
-                    "hook": marker.hook.value,
-                },
-            ),
-        )
-    return (
-        state.model_copy(update={"potions": state.potions + (potion_id,)}),
-        (
-            EffectEvent(
-                kind="relic_potion_obtained",
-                source_id=marker.relic_id,
-                target_id=potion_id,
-                amount=1,
-                metadata={
-                    "potion_slots": capacity,
-                    "marker_kind": marker.kind,
-                    "hook": marker.hook.value,
-                },
-            ),
-        ),
+    state, emitted = potion_inventory.procure_at_slot(
+        state, potion_id, source_id=marker.relic_id,
     )
+    return state, tuple(event.model_copy(update={
+        "kind": "relic_potion_obtained" if event.kind == "event_potion_obtained"
+                else "relic_potion_skipped_no_slot",
+        "amount": 1 if event.kind == "event_potion_obtained" else event.amount,
+        "metadata": {**event.metadata, "marker_kind": marker.kind, "hook": marker.hook.value},
+    }) if event.kind in {"event_potion_obtained", "event_potion_skipped_no_slot"}
+        else event for event in emitted)
 
 
 def _apply_paels_tooth_add_removed_card_marker(
@@ -11441,15 +11369,11 @@ def _resolve_extra_card_play(
     ]
     events.extend(vital_play_events)
     events.extend(effect_events)
-    current_potions = combat.metadata.get("replay_potions", state.potions)
-    potion_state = state.model_copy(update={"potions": tuple(current_potions)})
-    potions, rng_state, potion_events = _apply_card_random_potion_effects(
+    potion_state = potion_inventory.state_from_replay(state, combat)
+    potion_state, rng_state, potion_events = _apply_card_random_potion_effects(
         potion_state, rng_state, card
     )
-    if potion_events:
-        combat = combat.model_copy(
-            update={"metadata": {**combat.metadata, "replay_potions": potions}}
-        )
+    combat = potion_inventory.remember_replay(potion_state.combat or combat, potion_state)
     events.extend(potion_events)
     combat, enrage_events = _apply_monster_enrage_on_skill_play(combat, card)
     events.extend(enrage_events)
@@ -11645,7 +11569,7 @@ def _action_potion_id(state: RunState, action: Action) -> str | None:
     if not isinstance(slot_id, str):
         return None
     with suppress(ValueError, IndexError):
-        return state.potions[_parse_potion_slot_id(slot_id)]
+        return potion_inventory.potion_at_slot(state, _parse_potion_slot_id(slot_id))
     return None
 
 
@@ -13046,19 +12970,13 @@ def _play_card(state: RunState, action: Action) -> tuple[RunState, tuple[EffectE
         relics=state.relics,
     )
     combat, enrage_events = _apply_monster_enrage_on_skill_play(combat, played_card)
-    potions, rng_state, potion_generation_events = _apply_card_random_potion_effects(
-        state.model_copy(update={
-            "combat": combat,
-            "player": combat.player,
-            "potions": tuple(combat.metadata.get("replay_potions", state.potions)),
-        }),
-        rng_state,
-        played_card,
+    potion_state = potion_inventory.state_from_replay(state, combat)
+    potion_state, rng_state, potion_generation_events = _apply_card_random_potion_effects(
+        potion_state, rng_state, played_card,
     )
-    if "replay_potions" in combat.metadata:
-        combat = combat.model_copy(
-            update={"metadata": {**combat.metadata, "replay_potions": potions}}
-        )
+    potions = potion_state.potions
+    state = state.model_copy(update={"potions": potions, "flags": potion_state.flags})
+    combat = potion_inventory.remember_replay(potion_state.combat or combat, potion_state)
 
     destination = _card_destination(played_card, combat)
     combat, destination_events = _move_played_card_to_destination(combat, card, destination)
@@ -13196,7 +13114,7 @@ def _apply_card_random_potion_effects(
     state: RunState,
     rng_state: RngState,
     card: CardInstance,
-) -> tuple[tuple[str, ...], RngState, tuple[EffectEvent, ...]]:
+) -> tuple[RunState, RngState, tuple[EffectEvent, ...]]:
     count = 0
     for effect in _effect_steps(card.effects):
         payload = effect.get("add_random_potion")
@@ -13209,13 +13127,13 @@ def _apply_card_random_potion_effects(
         else:
             count += max(0, _coerce_int(payload, default=1))
     if count <= 0:
-        return state.potions, rng_state, ()
+        return state, rng_state, ()
 
     capacity = _potion_capacity(state)
     open_slots = max(0, capacity - len(state.potions))
     if open_slots <= 0 and not is_source_rng(random_from_state(rng_state)):
         return (
-            state.potions,
+            state,
             rng_state,
             (
                 EffectEvent(
@@ -13237,23 +13155,16 @@ def _apply_card_random_potion_effects(
     for _ in range(count if is_source_rng(rng) else min(count, open_slots)):
         generated.append(_normalized_id(draw_source_potion(generation_rng, pool, rarities)))
 
-    if _has_relic(state, "sozu"):
-        return state.potions, capture_random_state(rng), tuple(
-            _sozu_blocked_potion_event(potion_id, card.instance_id) for potion_id in generated
+    events: list[EffectEvent] = []
+    for potion_id in generated:
+        state, emitted = potion_inventory.procure_at_slot(
+            state, potion_id, source_id=card.instance_id,
         )
-    generated = generated[:open_slots]
-    potions = tuple(state.potions) + tuple(generated)
-    events = tuple(
-        EffectEvent(
-            kind="potion_generated",
-            source_id=card.instance_id,
-            target_id=potion_id,
-            amount=1,
-            metadata={"card_id": card.card_id, "potion_slots": capacity},
-        )
-        for potion_id in generated
-    )
-    return potions, capture_random_state(rng), events
+        events.extend(event.model_copy(update={
+            "kind": "potion_generated", "amount": 1,
+            "metadata": {**event.metadata, "card_id": card.card_id},
+        }) if event.kind == "event_potion_obtained" else event for event in emitted)
+    return state, capture_random_state(rng), tuple(events)
 
 
 def _metadata_after_card_play(
@@ -27437,14 +27348,16 @@ def _apply_fairy_in_a_bottle_if_needed(
     if combat.player.hp > 0:
         return state, combat
 
-    metadata = {**combat.metadata, "replay_potions": state.potions,
-                "item_relic_ids": state.relics}
+    combat = potion_inventory.remember_replay(combat, state)
+    metadata = {**combat.metadata, "item_relic_ids": state.relics}
     combat, events = _restore_fairy_after_damage(
         combat.model_copy(update={"metadata": metadata}), relics=state.relics,
     )
     metadata = dict(combat.metadata)
-    potions = tuple(metadata.pop("replay_potions"))
-    return state.model_copy(update={"potions": potions}), combat.model_copy(update={
+    state = potion_inventory.state_from_replay(state, combat)
+    metadata.pop("replay_potions")
+    metadata.pop("replay_potion_slot_indices", None)
+    return state, combat.model_copy(update={
         "metadata": metadata, "last_events": combat.last_events + events,
     })
 
@@ -27489,6 +27402,8 @@ def _restore_fairy_after_damage(
     )
     if fairy_slot is None:
         return combat, ()
+    indices = tuple(combat.metadata.get("replay_potion_slot_indices", range(len(potions))))
+    physical_slot = indices[fairy_slot]
 
     heal_to = min(combat.player.max_hp, max(1, combat.player.max_hp * 3 // 10))
     previous_hp = combat.player.hp
@@ -27499,7 +27414,7 @@ def _restore_fairy_after_damage(
         target_id=PLAYER_TARGET_ID,
         amount=heal_to - previous_hp,
         metadata={
-            "potion_slot": f"potion:{fairy_slot}",
+            "potion_slot": f"potion:{physical_slot}",
             "trigger": "would_die",
             "heal_to": heal_to,
         },
@@ -27508,14 +27423,16 @@ def _restore_fairy_after_damage(
                     if index != fairy_slot)
     combat = combat.model_copy(update={"player": player, "metadata": {
         **combat.metadata, "replay_potions": potions,
+        "replay_potion_slot_indices": tuple(index for position, index in enumerate(indices)
+                                            if position != fairy_slot),
     }})
     events = [event, EffectEvent(
         kind="potion_used", source_id="fairy_in_a_bottle", target_id=PLAYER_TARGET_ID,
-        metadata={"potion_slot": f"potion:{fairy_slot}", "automatic": True},
+        metadata={"potion_slot": f"potion:{physical_slot}", "automatic": True},
     )]
     result = resolve_potion_use_triggers(PotionUseTriggerContext(
         potion="fairy_in_a_bottle", slot_index=fairy_slot,
-        slot_id=f"potion:{fairy_slot}", target_id=PLAYER_TARGET_ID,
+        slot_id=f"potion:{physical_slot}", target_id=PLAYER_TARGET_ID,
         use_mode="combat", consumes_potion=True, player_hp=player.hp,
         player_max_hp=player.max_hp, player_block=player.block,
         player_statuses=player.statuses, owned_relics=relics,
@@ -28608,8 +28525,9 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
         )})
     if "replay_potions" in combat.metadata:
         metadata = dict(combat.metadata)
-        potions = tuple(metadata.pop("replay_potions"))
-        state = state.model_copy(update={"potions": potions})
+        state = potion_inventory.state_from_replay(state, combat)
+        metadata.pop("replay_potions")
+        metadata.pop("replay_potion_slot_indices", None)
         combat = combat.model_copy(update={"metadata": metadata})
     state, combat = _apply_fairy_in_a_bottle_if_needed(state, combat)
     phase = _phase_after_combat(combat)

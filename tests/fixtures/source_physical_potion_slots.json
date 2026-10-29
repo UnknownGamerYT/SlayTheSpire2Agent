@@ -1,0 +1,43 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "target": "stable v0.107.1 singleplayer",
+  "source_files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Players/Player.cs",
+      "sha256": "ffde0e9e7ef543bcf6a41016f76ce0e7c1924a64aeb351fde03e64ddba0022fe"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/PotionCmd.cs",
+      "sha256": "101e099dcbfe8ef4622e79aee327ad2d6a46e4329ce06a52ddb3ec7fca89979b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PotionModel.cs",
+      "sha256": "78b161c2e578894935b57bc17a99349aeefd7509a094cc3534b406c40258b8a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Potions/NPotionPopup.cs",
+      "sha256": "f1f5364558bc17290c3549b26821ff7923336a91be1d4acdc806658e9c104443"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BeltBuckle.cs",
+      "sha256": "1e72315fdaf11e92a555144fa8b255f3735bde2aaf590f92f6ece0288cab2831"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/EntropicBrew.cs",
+      "sha256": "3bc1c6a4176e7bc53f4693832df5ce40e6575aaddc6f1efe11a79e2094950203"
+    }
+  ],
+  "contracts": [
+    "Player.Potions enumerates nonnull physical slots in slot order",
+    "RemovePotionInternal replaces one physical slot with null; it does not shift later potions",
+    "AddPotionInternal defaults to first empty slot; explicit occupied preferred slot fails without moving to another open slot",
+    "PotionCmd.ShouldProcure precedes preferred index access and capacity failure",
+    "PotionModel.OnUseWrapper removes the used potion before its effects, then AfterPotionUsed",
+    "BeltBuckle removes Dexterity at AfterPotionProcured and gains it after last-potion use/discard",
+    "EntropicBrew creates/procures one potion at a time and stops after the first failed procure",
+    "NPotionPopup permits normal discard without another pending offer and CanRemovePotions disables both manual use and discard"
+  ],
+  "saved_representation": "Packed RunState.potions plus authoritative parallel flags.potion_slot_indices; explicit slots survive JSON reload. Old absent mappings infer contiguous slots. Explicit legacy MT fixtures retain packed semantics unless a slot mapping is supplied.",
+  "retained_tests": "tests/combat/test_source_physical_potion_slots.py",
+  "certifies_installed_game_parity": false
+}
