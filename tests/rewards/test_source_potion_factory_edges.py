@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from random import Random
 
+import pytest
 from combat.test_card_play_status_runtime import _simple, _state
 from combat.test_glam import _play
 from rewards.test_relic_deck_choices import _reward_state
@@ -10,7 +11,9 @@ from rewards.test_relic_deck_choices import _reward_state
 from sts2sim import legal_actions, load_state, serialize, step
 from sts2sim.engine.rng import RunRng, capture_random_state, random_stream
 from sts2sim.mechanics.combat_rewards import CombatRewardContext, roll_combat_potion_drop
-from sts2sim.mechanics.rewards import RewardPityState
+from sts2sim.mechanics.rewards import PotionRarity, RewardPityState
+from sts2sim.mechanics.shop_rooms import build_basic_shop_inventory
+from sts2sim.mechanics.shops import ShopInventoryPlan, ShopItem, ShopItemKind
 from sts2sim.mechanics.source_rng import draw_source_potions, float32
 
 
@@ -29,6 +32,19 @@ def test_one_source_factory_batch_excludes_each_selected_model():
     assert draw_source_potions(_FirstCommon(), options, 3,
                                dict.fromkeys(options, "common")) == options
     assert draw_source_potions(_FirstCommon(), (), 0, {}) == ()
+
+
+def test_source_merchant_does_not_replace_an_empty_rolled_rarity_with_any_potion():
+    class Rare(RunRng):
+        def random(self):
+            return .05
+
+    plan = ShopInventoryPlan(colored_cards=0, colorless_cards=0, relics=0,
+                             potions=1, include_card_removal=False)
+    with pytest.raises(ValueError, match="no rare potion"):
+        build_basic_shop_inventory(Rare("EMPTY_RARITY"),
+            potion_pool=(ShopItem("fire_potion", ShopItemKind.POTION, PotionRarity.COMMON),),
+            plan=plan)
 
 
 def test_phial_holster_public_pickup_does_not_repeat_the_first_model():

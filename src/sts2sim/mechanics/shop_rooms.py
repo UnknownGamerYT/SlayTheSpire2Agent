@@ -455,7 +455,7 @@ def _build_source_shop_inventory(
     available_potions = list(potion_pool)
     for _ in range(plan.potions):
         if not available_potions:
-            break
+            raise ValueError("source merchant potion creation pool is empty")
         value = source_float(rng)
         potion_rarity = (
             PotionRarity.RARE
@@ -464,7 +464,7 @@ def _build_source_shop_inventory(
         )
         candidates = [item for item in available_potions if item.rarity is potion_rarity]
         if not candidates:
-            candidates = available_potions
+            raise ValueError(f"no {potion_rarity.value} potion in source merchant creation pool")
         item = rng.choice(candidates)
         available_potions.remove(item)
         potions.append(item)

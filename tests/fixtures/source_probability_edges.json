@@ -21,6 +21,10 @@
     "rewards_set": {
       "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
       "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb"
+    },
+    "merchant_inventory": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Merchant/MerchantInventory.cs",
+      "sha256": "82d2442d46c4cc5cbf6ff029ccdc807b982fb2206cfd1eadc03f3eff2a4a6bf1"
     }
   },
   "contracts": [
@@ -28,7 +32,8 @@
     "WhiteBeastStatue.ShouldForcePotionReward returns true for the owner in a combat room; it is not a ModifyRewards extra-potion hook",
     "PotionRewardOdds.Roll consumes NextFloat even when forced and subtracts binary32 0.1 on every success without clamping",
     "Source reward population consumes odds, base Gold, potion rarity and selection before card factories",
-    "PhialHolster generates both distinct potions on CombatPotionGeneration before procurement and any Sozu failures"
+    "PhialHolster generates both distinct potions on CombatPotionGeneration before procurement and any Sozu failures",
+    "Source merchant potion factory throws when the sampled rarity has no candidates; it does not substitute another rarity or silently shorten the requested batch"
   ],
   "regression": "tests/rewards/test_source_potion_factory_edges.py",
   "certifies_installed_game_parity": false
