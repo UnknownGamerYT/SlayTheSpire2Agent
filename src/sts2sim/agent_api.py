@@ -44,6 +44,7 @@ from sts2sim.mechanics.planning_context import (
     route_plan_summary,
     route_plan_vector,
 )
+from sts2sim.mechanics.potion_inventory import occupied_potion_slots
 from sts2sim.mechanics.potions import normalize_potion_use, potion_capacity
 from sts2sim.mechanics.reward_gold_components import (
     available_gold_choices,
@@ -850,7 +851,9 @@ def _position_summary(
         ],
         "potions": [
             {"potion_id": str(potion_id), "slot_index": index, "position": index}
-            for index, potion_id in enumerate(_sequence(payload.get("potions")))
+            for index, potion_id in occupied_potion_slots(
+                tuple(str(item) for item in _sequence(payload.get("potions"))),
+                _mapping(payload.get("flags")))
         ],
         "shop_items": _shop_position_list(payload.get("shop")),
         "reward_choices": _reward_position_list(payload.get("reward")),
@@ -2983,13 +2986,14 @@ def _potion_id_for_slot(state: Any, slot_id: str | None) -> str | None:
         return None
     index = _parse_int(parts[1])
     potions = getattr(state, "potions", ())
-    if index is None or index >= len(potions):
-        return None
-    return str(potions[index])
+    slots = dict(occupied_potion_slots(potions, _mapping(getattr(state, "flags", {}))))
+    return slots.get(index) if index is not None else None
 
 
 def _first_potion_slot_id(state: Any, potion_id: str) -> str | None:
-    for index, owned_potion_id in enumerate(getattr(state, "potions", ())):
+    for index, owned_potion_id in occupied_potion_slots(
+        getattr(state, "potions", ()), _mapping(getattr(state, "flags", {}))
+    ):
         if str(owned_potion_id) == potion_id:
             return f"potion:{index}"
     return None

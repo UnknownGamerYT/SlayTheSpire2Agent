@@ -13,6 +13,7 @@ from typing import Any
 
 from sts2sim.agent_api import action_space, encode_observation
 from sts2sim.api import serialize
+from sts2sim.mechanics.potion_inventory import occupied_potion_slots
 from sts2sim.policy_visibility import (
     POLICY_OBSERVATION_SCHEMA_VERSION,
     draw_order_is_visible,
@@ -110,7 +111,9 @@ def _player_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
         "potions": list(_sequence(payload.get("potions"))),
         "potion_slots": [
             {"potion_id": str(potion_id), "slot_index": index, "position": index}
-            for index, potion_id in enumerate(_sequence(payload.get("potions")))
+            for index, potion_id in occupied_potion_slots(
+                tuple(str(item) for item in _sequence(payload.get("potions"))),
+                _mapping(payload.get("flags")))
         ],
         "curses": list(_sequence(payload.get("curses"))),
     }
