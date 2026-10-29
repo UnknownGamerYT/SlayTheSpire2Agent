@@ -28771,6 +28771,10 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
     events_rng_state = rng_state
     flags = dict(state.flags)
     if phase == RunPhase.REWARD and state.phase == RunPhase.COMBAT:
+        from .source_royalties import after_combat as queue_royalties
+
+        combat, royalty_events = queue_royalties(combat)
+        combat = combat.model_copy(update={"last_events": combat.last_events + royalty_events})
         state, events_rng_state, improvement_events = source_class_hooks.after_combat(
             state, combat, events_rng_state,
         )

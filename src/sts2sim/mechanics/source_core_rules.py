@@ -93,6 +93,8 @@ def source_core_steps(
         return (status("well_laid_plans", 2 if upgraded else 1),)
     if card_id == "stampede":
         return (status("stampede", 1),)
+    if card_id == "royalties":
+        return (status("royalties", 40 if upgraded else 30),)
     if card_id in {"blade_dance", "blade_of_ink", "cloak_and_dagger", "up_my_sleeve"}:
         count = {"blade_dance": 3, "blade_of_ink": 2, "cloak_and_dagger": 1, "up_my_sleeve": 3}[
             card_id
