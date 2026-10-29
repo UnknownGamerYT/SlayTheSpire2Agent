@@ -18,6 +18,12 @@ the completed BeforeFlush boundary. Choosing the last card, or skipping an
 optional choice, automatically resumes the same end turn. It no longer requires
 another End Turn action, and resuming does not repeat earlier orb/hand effects.
 
+Pael's Eye exhausts the current hand before late retention and then starts a real
+extra player turn. End-of-turn energy and Star overrides expire across every
+combat pile before that extra turn begins. Older combat-duration overrides stay
+in place. A later Well-Laid Plans choice can retain the drawn physical card,
+whose restored energy and Star costs remain correct through save/reload and play.
+
 Source paths, hashes and finite method facts are in
 `tests/fixtures/source_turn_choices.json`. Public fixtures cover reordered hand
 effects, optional skips, save/reload, sequential autoplay choices, stream draw

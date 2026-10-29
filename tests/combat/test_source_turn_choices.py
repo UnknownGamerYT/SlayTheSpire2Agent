@@ -8,6 +8,12 @@ from combat.test_glam import _end_turn, _play
 from sts2sim import legal_actions, step
 from sts2sim.engine import CardEnchantment, OrbState
 from sts2sim.engine.rng import STS2_STABLE_DERIVATION, RunRng, capture_random_state
+from sts2sim.engine.source_cost_hooks import (
+    free_to_play,
+    local_star_cost,
+    set_local_energy_cost,
+    set_local_star_cost,
+)
 from sts2sim.engine.transitions import _energy_cost
 
 
@@ -46,6 +52,35 @@ def test_eye_exhausts_hand_before_late_retention_and_really_starts_extra_turn():
     assert [c.instance_id for c in state.combat.exhaust_pile] == ["held"]
     assert [c.instance_id for c in state.combat.hand] == ["fresh"]
     assert any(e.kind == "extra_turn_started" for e in state.replay_log[-1].events)
+
+
+def test_eye_extra_turn_expires_energy_and_stars_in_exhaust_draw_and_later_retained_hand():
+    def discounted(identifier):
+        card = _simple(identifier, cost=3, custom={"star_cost": 5})
+        card = set_local_energy_cost(card, 2, "combat")
+        card = set_local_star_cost(card, 2, "combat")
+        return free_to_play(card)
+
+    state = _state(discounted("held"), draw=(discounted("fresh"),), draw_per_turn=1,
+                   statuses={"well_laid_plans": 1}, relics=("paels_eye",))
+    state = _end_turn(_reload(state))
+    assert state.combat.turn == 2
+    assert state.combat.metadata["source_round_number"] == 1
+    assert not state.combat.pending_choices
+    assert [card.instance_id for card in state.combat.exhaust_pile] == ["held"]
+    assert [card.instance_id for card in state.combat.hand] == ["fresh"]
+    for card in (*state.combat.hand, *state.combat.exhaust_pile):
+        assert _energy_cost(card, state.player.energy, combat=state.combat) == 2
+        assert local_star_cost(card) == 2
+        assert not card.custom.get("free_to_play_this_turn")
+    state = _end_turn(_reload(state))
+    assert state.combat.pending_choices[0].candidate_ids == ("fresh",)
+    state = _choose(state, "choose_card", "fresh")
+    assert state.combat.turn == 3
+    assert state.combat.metadata["source_round_number"] == 2
+    state = _play(_reload(state), "fresh")
+    assert state.player.energy == 18
+    assert state.player.resources["star"] == 18
 
 
 @pytest.mark.parametrize("relics,statuses", [

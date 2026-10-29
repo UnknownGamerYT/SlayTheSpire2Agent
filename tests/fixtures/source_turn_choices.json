@@ -8,12 +8,17 @@
     "MegaCrit.Sts2.Core.Models.Powers/StampedePower.cs": "efc803dce77ed62afa8c57a61088c80eac386e54a3ca26111da3063120aa1a8a",
     "MegaCrit.Sts2.Core.Combat/CombatManager.cs": "38d7193b2ec448cec170d7c96645059b2f7ef46ae2f12a6a3863299b30125840",
     "MegaCrit.Sts2.Core.Combat/CombatState.cs": "b3150c69fae0c33b48b7957c3a67bc4e5867d1641e05062cd3f5edd0a9d9f2e2",
-    "MegaCrit.Sts2.Core.Hooks/Hook.cs": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588"
+    "MegaCrit.Sts2.Core.Hooks/Hook.cs": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588",
+    "MegaCrit.Sts2.Core.Models.Relics/PaelsEye.cs": "0ff4149872257b8969c808d66f1e293c0aa33980f41be77618f2802d59b02d3e",
+    "MegaCrit.Sts2.Core.Models/CardModel.cs": "bb3ea9a22a833e6505bbf70dd9d3ec209f00003f2d68f5933a9e074a0d22fc21",
+    "MegaCrit.Sts2.Core.Entities.Cards/CardEnergyCost.cs": "c2b18b52ad44a44acbac01c5df4a209f5534a6ec7138e748ea73d66b2dcedd53",
+    "MegaCrit.Sts2.Core.Entities.Cards/TemporaryCardCost.cs": "895840f375c4a1cb27308e594ffc1b59dd94b43743198d1068a507a24b7be599"
   },
   "contracts": {
     "well_laid_plans": "Native owner power amount1 (upgrade2), stackable. BeforeFlushLate after orb/hand end effects and BeforeFlush, optional0..Amount FromHand filter !ShouldRetainThisTurn; skip entirely when ShouldFlush false. GiveSingleTurnRetain only selected physical cards.",
     "stampede": "Native owner power Amount1, upgrade changes costonly. AfterAutoPostPlay phase: each time select current eligiblehand Attack using Rng.Shuffle.NextItem; await the chosen autoplay and its choices before next fresh selection. Power hook listener precedes physical-card listeners.",
-    "continuation": "A player choice suspends and resumes the same ongoing endturn. Completion or optional skip does not require a second EndTurn action. Saved frames distinguish AutoPost from completed BeforeFlush."
+    "continuation": "A player choice suspends and resumes the same ongoing endturn. Completion or optional skip does not require a second EndTurn action. Saved frames distinguish AutoPost from completed BeforeFlush.",
+    "eye_retention_cost_expiry": "PaelsEye.BeforeSideTurnEndEarly exhausts hand before BeforeFlushLate; CardModel.EndOfTurnCleanup clears energy and temporary Star turn modifiers in all piles before extra turn setup, preserving older combat costs. Later WLP retention does not reapply expired free cost."
   },
   "regression": "tests/combat/test_source_turn_choices.py",
   "runtime_game_validation": false
