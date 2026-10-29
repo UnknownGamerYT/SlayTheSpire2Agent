@@ -1,0 +1,87 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "target": "stable v0.107.1 singleplayer",
+  "bridge_revision": "55e06485 with repository observation patch schema v2",
+  "files": [
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Combat/NPlayerHand.cs",
+      "sha256": "02628fd3d4188b453d298135f54a3b3694acd52c4c3eb02f819c1d243c7e0227"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RelicReward.cs",
+      "sha256": "10f2bdbe8533bc384e2f5b637a81b1efbeee6906a7829bef891586918a49f1bd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/SpecialCardReward.cs",
+      "sha256": "b2a54906146ebb2caf8408f77dea557b43f3606d4916304bb604ebab10acd372"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardRemovalReward.cs",
+      "sha256": "600bed07febfa941404a839d0fbe0d99d7b25f2f07d1ddbff1ab660173d57569"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.Shops/NMerchantInventory.cs",
+      "sha256": "6842294d6270dc96cffd2ca1d789972b8cca288d219fbf1fec5c6278fe0aea17"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.RestSite/NRestSiteButton.cs",
+      "sha256": "f3f417d09c19619aeea90672397a86a71ec359298c3a6d765749089bbbd2db27"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.CardRewardAlternatives/CardRewardAlternative.cs",
+      "sha256": "f2d57662053c111db4205ac30305b446da29eaf73b8c9c7099716494e9ed25c2"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NChooseABundleSelectionScreen.cs",
+      "sha256": "f89ddaa7b346c70f466a620db78326442c892b3375f7827f4b97189afbbd5f24"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NCardGridSelectionScreen.cs",
+      "sha256": "68b9960120def3737bebcd2f9a6fa6ed5ed8ec619b96e96863c57afa6ef8c12f"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.CardSelection/NCardRewardSelectionScreen.cs",
+      "sha256": "86361d4fc6e73f6842baec83a9b1a4bfe601563710b86d18e26ae23fa1ce1b1e"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens.Map/NMapPoint.cs",
+      "sha256": "69ee6c196d7df7520c75192fd8c3bb40b8736f7ec4ec11e0b78692cbb23b1bf9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Rooms/NTreasureRoom.cs",
+      "sha256": "824ea2faa5768fdc0bb1c1d76b5a46231ddce2c7c7c3e94e256ccb60ac41e6e7"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Map/MapPointType.cs",
+      "sha256": "d344987983962509629398e99a4089bbfcd8f4c50228ead11e1ee8b07de1b6fe"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Events/NEventOptionButton.cs",
+      "sha256": "0c8c339b34c803763d5bd445514144039baa8122d95016d1c04001b6a932e048"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens/NRewardsScreen.cs",
+      "sha256": "c1f6411dab419f2d24fcf253e04eeed04522651a6f95d3106224f5229787b0c5"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Screens/NChooseARelicSelection.cs",
+      "sha256": "3103ba66dd56529900f09353ab8220475b575749135dfe586dc4dce19d9befd8"
+    }
+  ],
+  "contracts": [
+    "Authoritative enabled visible controls become explicit canonically sorted actions passed to the saved trained policy predict method. No heuristic replaces model selection.",
+    "Decision feature containers are observation views, never simulator checkpoints, and are never stepped. Their placeholder RNG is excluded from observations and never consumed.",
+    "Map views contain only visible nodes and edges; unopened card rewards expose a screen-opening control without unshown card identities.",
+    "Visible card, item, relic, potion and reward amounts reuse simulator feature descriptors with actual observed modifiers, prices and physical inventory positions.",
+    "Ancient dialogue, event options, rest choices, merchant purchases, reward selectors, card/hand/bundle/relic selections, explicit chest opening and visible Sphere cells have concrete bridge commands.",
+    "Known source PaelsWing card-alternative overflow is excluded from ordinary card reward opening using explicit structural selector flags; SpecialCardReward bypass remains claimable.",
+    "No validation/debug oracle, private future reward, hidden RNG or partially revealed Sphere item bounds enter policy features.",
+    "Actual bridge compilation, installed-game screen traversal and game-to-simulator differential comparisons remain external verification."
+  ],
+  "tests": [
+    "tests/live/test_live_policy_views.py",
+    "tests/live/test_source_live_import.py",
+    "tests/interfaces/test_explicit_visible_actions.py"
+  ],
+  "certifies_installed_game_parity": false
+}

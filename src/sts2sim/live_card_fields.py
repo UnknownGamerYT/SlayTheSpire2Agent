@@ -116,7 +116,7 @@ def enrich_card(card: CardInstance, row: Mapping[str, Any]) -> CardInstance:
             card, identity, integer(affliction.get("amount"), "affliction amount")
         )
     custom = dict(card.custom)
-    if "fake_upgrade_level" in row:
+    if row.get("fake_upgrade_level") is not None:
         count = integer(row["fake_upgrade_level"], "fake_upgrade_level")
         if count and card.card_id != "wither":
             raise ValueError("Only source Wither supports fake upgrade levels")
@@ -182,6 +182,18 @@ def enrich_card(card: CardInstance, row: Mapping[str, Any]) -> CardInstance:
         if keywords - _KEYWORDS:
             raise ValueError("Unknown live card keyword")
         custom["live_keyword_ids"] = sorted(keywords)
+        source = dict(custom.get("source_spec", {}))
+        source["keywords"] = sorted(keywords)
+        custom["source_spec"] = source
+        for keyword in _KEYWORDS - {"none"}:
+            custom.pop(keyword, None)
+        custom.update({keyword: True for keyword in keywords - {"none"}})
+        card = card.model_copy(
+            update={
+                "exhausts": "exhaust" in keywords,
+                "tags": tuple(tag for tag in card.tags if tag.lower() not in _KEYWORDS),
+            }
+        )
     for field in ("exhaust_on_next_play", "retain_this_turn", "is_sly_this_turn"):
         if field in row and not isinstance(row[field], bool):
             raise ValueError(f"Invalid live {field}")

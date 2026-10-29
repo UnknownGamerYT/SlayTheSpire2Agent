@@ -322,14 +322,18 @@ def _choose_checkpoint_live_action(
     return LiveAgentDecision(
         state_type=state_type,
         action=bridge_action,
-        reason="checkpoint_combat_action",
+        reason="checkpoint_combat_action"
+        if state_type in {"monster", "elite", "boss"}
+        else "checkpoint_visible_action",
         policy="masked_ppo",
         policy_details={
             "action_id": model_decision.action_id,
             "simulator_action": model_decision.action,
             "policy_output": model_decision.policy_output,
-            "supported_bridge_actions": ["play_card", "end_turn"],
-            "observation_scope": "validated_combat_only",
+            "supported_bridge_actions": [str(bridge_action.get("action", ""))],
+            "observation_scope": "validated_combat"
+            if state_type in {"monster", "elite", "boss"}
+            else "observed_screen_controls",
             "memory_mode": "observed_actions_and_deltas_without_learning_rewards",
         },
     ), model_decision

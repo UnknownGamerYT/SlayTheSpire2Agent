@@ -1,9 +1,4 @@
-"""Conservative bridge adapter for a validated PPO policy.
-
-Only complete combat observations and round-trip verified card/end-turn
-commands are supported. Other screens require an explicit heuristic fallback
-in the caller; this adapter never substitutes an action from another policy.
-"""
+"""Bridge adapter for a validated PPO policy and observed live decisions."""
 
 from __future__ import annotations
 
@@ -159,6 +154,12 @@ _OBSERVED_COMBAT_COUNTERS = frozenset(
         "cards_played_this_combat",
         "source_class_ethereal_plays",
         "osty_attacks_this_turn",
+        "hp_lost_this_turn",
+        "hp_loss_count_this_turn",
+        "hp_loss_count_this_combat",
+        "hp_lost_previous_turn",
+        "damage_not_fully_blocked_count_this_turn",
+        "damage_not_fully_blocked_count_previous_turn",
     }
 )
 
@@ -171,7 +172,26 @@ def _import_combat_metadata(
     raw = battle.get("combat_metadata", {})
     if not isinstance(raw, Mapping):
         raise LivePolicyUnsupported("Live combat_metadata must be an object.")
-    result = {key: _integer(raw, key) for key in _OBSERVED_COMBAT_COUNTERS if key in raw}
+    result: dict[str, Any] = {
+        key: _integer(raw, key) for key in _OBSERVED_COMBAT_COUNTERS if key in raw
+    }
+    if "lost_hp_previous_turn" in raw:
+        if not isinstance(raw["lost_hp_previous_turn"], bool):
+            raise LivePolicyUnsupported("Invalid live lost_hp_previous_turn boolean.")
+        result["lost_hp_previous_turn"] = raw["lost_hp_previous_turn"]
+    if "source_damage_received" in raw:
+        damage_rows = []
+        for row in _rows(raw["source_damage_received"], "source_damage_received"):
+            if not isinstance(row.get("was_fully_blocked"), bool):
+                raise LivePolicyUnsupported("Live damage history lacks its blocked predicate.")
+            damage_rows.append(
+                {
+                    "player_turn": _integer(row, "player_turn"),
+                    "hp_lost": _integer(row, "hp_lost"),
+                    "was_fully_blocked": row["was_fully_blocked"],
+                }
+            )
+        result["source_damage_received"] = damage_rows
     if (
         any(
             card.card_id == "banshees_cry"
@@ -317,6 +337,22 @@ def import_policy_combat(
     resources = _import_resources(player, sim.character_id)
     imported_player = imported_player.model_copy(update={"resources": resources})
     metadata = _import_combat_metadata(battle, state.get("player", {}), combat)
+    from sts2sim.live_relic_state import relic_runtime_projection
+
+    try:
+        relic_flags, relic_metadata = relic_runtime_projection(player, battle)
+    except ValueError as exc:
+        raise LivePolicyUnsupported(f"Invalid live relic state: {exc}") from exc
+    if "initialized_relic_lifecycles" in relic_flags:
+        relic_flags["initialized_relic_lifecycles"] = tuple(
+            dict.fromkeys(
+                (
+                    *sim.flags.get("initialized_relic_lifecycles", ()),
+                    *relic_flags["initialized_relic_lifecycles"],
+                )
+            )
+        )
+    metadata.update(relic_metadata)
     metadata["item_relic_ids"] = sim.relics
     metadata["source_round_number"] = _integer(battle, "round", minimum=1)
     if "player_turn" not in battle and "paels_eye" in sim.relics:
@@ -367,7 +403,9 @@ def import_policy_combat(
             },
         }
         combat = combat.model_copy(update={"metadata": metadata})
-    elif imported_player.statuses.get("voidform") or "brilliant_scarf" in sim.relics:
+    elif imported_player.statuses.get("voidform") or any(
+        relic in sim.relics for relic in ("brilliant_scarf", "paels_eye")
+    ):
         raise LivePolicyUnsupported("Current free-card gates require observed manual card history.")
     hand = []
     for hand_card, raw in zip(combat.hand, zones["hand"], strict=True):
@@ -488,6 +526,7 @@ def import_policy_combat(
         raise LivePolicyUnsupported("Live potion capacity conflicts with owned relic bonuses.")
     flags = {
         **sim.flags,
+        **relic_flags,
         "potion_slots": base_slots,
         "bonus_potion_slots": 0,
         "total_floor": total_floor,
@@ -579,13 +618,19 @@ def bridge_action_for_policy(
         )
         if raw_potion is None:
             return None
+        if raw_potion.get("is_queued") is True:
+            return None
         if action.type is ActionType.USE_POTION:
             if raw_potion.get("can_use_in_combat") is not True:
+                return None
+            if raw_potion.get("passes_custom_usability_check") is False:
                 return None
             candidate = {"action": "use_potion", "slot": slot}
             if action.target_id not in {None, "player"}:
                 candidate["target"] = action.target_id
         else:
+            if raw_potion.get("can_discard") is False:
+                return None
             candidate = {"action": "discard_potion", "slot": slot}
     else:
         return None
@@ -607,6 +652,16 @@ class LiveMaskedPpoPolicy:
         self._memory: list[dict[str, Any]] = []
 
     def choose_action(self, live: Mapping[str, Any]) -> tuple[MaskedPpoDecision, dict[str, Any]]:
+        if str(live.get("state_type", "")).lower() not in {"monster", "elite", "boss"}:
+            from sts2sim.live_policy_views import import_policy_view
+
+            try:
+                view = import_policy_view(live)
+                observation, info, commands = view.inputs(agent_memory={"entries": self._memory})
+            except (ValueError, LiveParityUnsupported, OSError) as exc:
+                raise LivePolicyUnsupported(f"Live decision import failed: {exc}") from exc
+            decision = self.policy.predict(observation, info)
+            return decision, commands[decision.action_id]
         sim = import_policy_combat(live, seed=self.simulator_seed)
         supported: dict[int, dict[str, Any]] = {}
         for descriptor in action_space(sim):

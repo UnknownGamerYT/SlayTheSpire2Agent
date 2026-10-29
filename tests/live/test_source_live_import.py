@@ -310,3 +310,120 @@ def test_conflicting_star_aliases_and_heterogeneous_attack_hits_fail_closed():
     ]
     with pytest.raises(LivePolicyUnsupported, match="hit sequence"):
         import_policy_combat(raw)
+
+
+def test_full_prepared_bridge_card_schema_accepts_null_fake_upgrade_and_final_keywords():
+    raw = _with_card(
+        _card(
+            "BASH",
+            cost=2,
+            instance_id="live-card-17",
+            deck_instance_id="live-card-8",
+            base_cost=2,
+            local_cost=2,
+            canonical_cost=2,
+            costs_x=False,
+            base_star_cost=-1,
+            current_star_cost=-1,
+            fake_upgrade_level=None,
+            enchantment=None,
+            affliction=None,
+            has_enchantment=False,
+            has_affliction=False,
+            local_cost_modifiers=[],
+            temporary_star_costs=[],
+            base_replay_count=0,
+            keyword_ids=["Exhaust"],
+            exhaust_on_next_play=False,
+            retain_this_turn=False,
+            is_sly_this_turn=False,
+            dynamic_vars={"Damage": 8},
+        )
+    )
+    sim = import_policy_combat(raw)
+    assert sim.combat.hand[0].exhausts is True
+    card = sim.combat.hand[0]
+    result = step(
+        sim, Action(type="play_card", card_instance_id=card.instance_id, target_id="NIBBIT_0")
+    )
+    assert len(result.combat.exhaust_pile) == 1
+    assert result.combat.monsters[0].hp == 37
+
+
+def test_observed_used_relic_does_not_trigger_again_after_public_self_damage():
+    raw = _with_card(_card("BLOODLETTING", cost=0, target="Self"))
+    raw["player"]["draw_pile"] = [
+        _card("DEFEND_IRONCLAD", target="Self", instance_id=f"draw:{i}") for i in range(3)
+    ]
+    raw["player"]["draw_pile_count"] = 3
+    for used, expected_draw in ((True, 0), (False, 3)):
+        raw["player"]["relics"] = [
+            {
+                "id": "CENTENNIAL_PUZZLE",
+                "counter": None,
+                "runtime_state": {"used_this_combat": used},
+            }
+        ]
+        sim = import_policy_combat(raw)
+        card = sim.combat.hand[0]
+        result = step(
+            sim, Action(type="play_card", card_instance_id=card.instance_id, target_id="player")
+        )
+        assert len(result.combat.hand) == expected_draw
+        assert result.player.hp < sim.player.hp
+    raw["player"]["relics"][0]["runtime_state"] = {}
+    with pytest.raises(LivePolicyUnsupported, match="used_this_combat"):
+        import_policy_combat(raw)
+
+
+def test_observed_damage_history_preserves_unblocked_zero_hp_and_previous_span():
+    raw = _combat()
+    raw["battle"].update(
+        player_turn=3,
+        combat_metadata={
+            "hp_lost_this_turn": 0,
+            "hp_loss_count_this_turn": 0,
+            "hp_loss_count_this_combat": 1,
+            "hp_lost_previous_turn": 4,
+            "damage_not_fully_blocked_count_this_turn": 1,
+            "damage_not_fully_blocked_count_previous_turn": 1,
+            "lost_hp_previous_turn": True,
+            "source_damage_received": [
+                {"player_turn": 2, "hp_lost": 4, "was_fully_blocked": False},
+                {"player_turn": 3, "hp_lost": 0, "was_fully_blocked": False},
+            ],
+        },
+    )
+    sim = import_policy_combat(raw)
+    assert sim.combat.metadata["hp_lost_this_turn"] == 0
+    assert sim.combat.metadata["damage_not_fully_blocked_count_this_turn"] == 1
+    assert sim.combat.metadata["lost_hp_previous_turn"] is True
+    assert sim.combat.metadata["source_damage_received"][1] == {
+        "player_turn": 3,
+        "hp_lost": 0,
+        "was_fully_blocked": False,
+    }
+    raw["battle"]["combat_metadata"]["source_damage_received"][0]["was_fully_blocked"] = 0
+    with pytest.raises(LivePolicyUnsupported, match="blocked predicate"):
+        import_policy_combat(raw)
+
+
+def test_queued_potion_and_custom_usability_guards_prevent_bridge_commands():
+    from sts2sim.live_policy import bridge_action_for_policy
+
+    raw = _combat()
+    raw["player"]["potions"] = [{"id": "BLOCK_POTION", "slot": 2, "can_use_in_combat": True}]
+    sim = import_policy_combat(raw)
+    use = Action(
+        type="use_potion",
+        target_id="player",
+        payload={"potion_id": "block_potion", "potion_slot": "potion:2"},
+    )
+    discard = Action(type="discard_potion", target_id="potion:2")
+    potion = raw["player"]["potions"][0]
+    potion["is_queued"] = True
+    assert bridge_action_for_policy(raw, sim, use) is None
+    assert bridge_action_for_policy(raw, sim, discard) is None
+    potion.update(is_queued=False, passes_custom_usability_check=False, can_discard=False)
+    assert bridge_action_for_policy(raw, sim, use) is None
+    assert bridge_action_for_policy(raw, sim, discard) is None
