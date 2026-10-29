@@ -1286,6 +1286,34 @@ def _tablet_of_truth_page(state: EventFlowState) -> EventFlowPage:
 
 
 def _trial_page(state: EventFlowState) -> EventFlowPage:
+    if state.data.get("source_runtime") and state.page_id == "ABANDON_CONFIRMATION":
+        return EventFlowPage(
+            "ABANDON_CONFIRMATION",
+            "Abandon this run?",
+            (
+                EventFlowOption(
+                    option_id="CONFIRM_ABANDON",
+                    label="Confirm",
+                    description="Abandon the run.",
+                    next_page_id="ABANDONED",
+                    terminal=True,
+                    hp_delta=-state.hp,
+                    markers=(EventFlowMarker(
+                        kind=EventFlowMarkerKind.RUN_DEATH,
+                        description="Confirmed abandonment force-kills the player.",
+                        metadata={"run_abandoned": True},
+                    ),),
+                    metadata={"confirmation_kind": "abandon_run", "confirmation_choice": True},
+                ),
+                EventFlowOption(
+                    option_id="CANCEL_ABANDON",
+                    label="Cancel",
+                    description="Return to the Trial without abandoning the run.",
+                    next_page_id="REJECT",
+                    metadata={"confirmation_kind": "abandon_run", "confirmation_choice": False},
+                ),
+            ),
+        )
     if state.page_id == "INITIAL":
         return EventFlowPage(
             "INITIAL",
@@ -1317,16 +1345,21 @@ def _trial_page(state: EventFlowState) -> EventFlowPage:
                 EventFlowOption(
                     option_id="DOUBLE_DOWN",
                     label="Double Down",
-                    description="Face lethal repercussions.",
-                    next_page_id="DOUBLE_DOWN",
-                    terminal=True,
-                    hp_delta=-state.hp,
-                    markers=(
+                    description=("Open the abandon-run confirmation."
+                                 if state.data.get("source_runtime") else
+                                 "Face lethal repercussions."),
+                    next_page_id=("ABANDON_CONFIRMATION"
+                                  if state.data.get("source_runtime") else "DOUBLE_DOWN"),
+                    terminal=not bool(state.data.get("source_runtime")),
+                    hp_delta=0 if state.data.get("source_runtime") else -state.hp,
+                    markers=() if state.data.get("source_runtime") else (
                         EventFlowMarker(
                             kind=EventFlowMarkerKind.RUN_DEATH,
                             description="Rejecting the Trial twice is lethal.",
                         ),
                     ),
+                    metadata=({"opens_confirmation": "abandon_run"}
+                              if state.data.get("source_runtime") else {}),
                 ),
             ),
         )

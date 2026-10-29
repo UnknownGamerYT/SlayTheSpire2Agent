@@ -870,6 +870,11 @@ def _with_potion_discard_actions(
     base_actions = tuple(actions)
     if not _can_remove_potions(state):
         return base_actions
+    if (is_source_rng(state.rng) and state.phase is RunPhase.EVENT
+            and state.event is not None and state.event.event_id.upper() == "TRIAL"
+            and state.event.page_id == "ABANDON_CONFIRMATION"):
+        # The source modal captures underlying room, potion and capstone input.
+        return base_actions
     if state.phase not in {RunPhase.COMBAT, RunPhase.FAILED, RunPhase.COMPLETE}:
         base_actions += tuple(
             Action(type=ActionType.USE_POTION, target_id=PLAYER_TARGET_ID,
@@ -3971,6 +3976,11 @@ def _apply_event_flow_markers(
         elif marker.kind is EventFlowMarkerKind.RUN_DEATH:
             player = next_state.player.model_copy(update={"hp": 0})
             next_state = next_state.model_copy(update={"player": player})
+            if marker.metadata.get("run_abandoned"):
+                next_state = next_state.model_copy(update={
+                    "flags": {**next_state.flags, "run_abandoned": True},
+                })
+                events.append(EffectEvent(kind="run_abandoned", source_id="event_flow"))
             events.append(
                 EffectEvent(
                     kind="event_player_died",
