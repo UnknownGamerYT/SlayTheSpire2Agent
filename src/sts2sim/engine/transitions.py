@@ -29105,6 +29105,10 @@ def _reward_generation_result(
                 relic for relic in state.relics
                 if not (_normalized_id(relic) == "lava_rock"
                         and state.flags.get("lava_rock_triggered"))
+                # The source forces the normal potion odds object; it does
+                # not add another PotionReward in ModifyRewards.
+                and not (is_source_rng(state.rng)
+                         and _normalized_id(relic) == "white_beast_statue")
             ),
             metadata={
                 "act": state.act,
@@ -29513,6 +29517,7 @@ def _combat_potion_roll_metadata(
         "elite_bonus_tenths": potion_roll.elite_bonus_tenths,
         "roll_tenths": potion_roll.roll_tenths,
         "next_potion_chance_bonus": potion_roll.state.potion_chance_bonus,
+        **({"forced": True} if potion_roll.forced else {}),
     }
 
 

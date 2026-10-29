@@ -94,3 +94,23 @@ def draw_source_potion(
     if not candidates:
         raise ValueError(f"no {rarity} potion in the source creation pool")
     return rng.choice(candidates)
+
+
+def draw_source_potions(
+    rng: Random, options: Sequence[str], count: int,
+    rarities: Mapping[str, str] | None = None,
+) -> tuple[str, ...]:
+    """One PotionFactory batch excludes each selected canonical model.
+
+    Independent PotionReward objects each call the single-potion factory and
+    therefore do not share this exclusion list. Keep legacy fixture sampling
+    unchanged when this helper is called with an explicit MT configuration.
+    """
+    remaining = list(options)
+    selected: list[str] = []
+    for _ in range(max(0, count)):
+        identifier = draw_source_potion(rng, remaining, rarities)
+        selected.append(identifier)
+        if is_source_rng(rng):
+            remaining.remove(identifier)
+    return tuple(selected)

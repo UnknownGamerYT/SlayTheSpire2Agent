@@ -11,7 +11,7 @@ from random import Random
 
 from sts2sim.content.source_card_pools import NON_UPGRADABLE_CARD_IDS, source_pool_cards
 from sts2sim.mechanics.relic_combat import CombatRelicMarker
-from sts2sim.mechanics.source_rng import draw_source_potion, is_source_rng
+from sts2sim.mechanics.source_rng import draw_source_potions, is_source_rng
 
 from .models import CardInstance, CombatState, EffectEvent, RunState
 from .rng import random_stream, stable_shuffle
@@ -73,7 +73,7 @@ def phial_potions(
 
     options, rarities = t._item_potion_generation_pool(state, in_combat=False)
     generation = random_stream(rng, "combat_potion_generation")
-    identifiers = tuple(draw_source_potion(generation, options, rarities) for _ in range(2))
+    identifiers = draw_source_potions(generation, options, 2, rarities)
     state, events = t._add_event_potions(state, identifiers)
     return state, tuple(event.model_copy(update={
         "source_id": "phial_holster",

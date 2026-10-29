@@ -99,6 +99,7 @@ class CombatPotionDrop:
     elite_bonus_tenths: int = 0
     state: RewardPityState = RewardPityState()
     roll_float: float | None = None
+    forced: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,7 +360,11 @@ def roll_combat_potion_drop(
         bonus = float32(0.125) if context.encounter is EncounterType.ELITE else 0.0
         threshold = float32(current + bonus)
         sample = source_float(rng)
-        dropped = sample < threshold
+        # ShouldForcePotionReward is checked before the roll, but the source
+        # consumes that roll even when White Beast Statue guarantees success.
+        forced = any(_normalized_id(relic) == "white_beast_statue"
+                     for relic in context.owned_relics)
+        dropped = forced or sample < threshold
         next_current = float32(current + float32(-0.1 if dropped else 0.1))
         return CombatPotionDrop(
             dropped=dropped,
@@ -368,6 +373,7 @@ def roll_combat_potion_drop(
             roll_tenths=int(sample * 1000),
             elite_bonus_tenths=round(bonus * 1000),
             roll_float=sample,
+            forced=forced,
             state=replace(
                 state,
                 potion_chance_bonus=state.potion_chance_bonus + (-10 if dropped else 10),

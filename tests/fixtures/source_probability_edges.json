@@ -1,0 +1,35 @@
+{
+  "source_revision": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "target": "stable0.107.1 singleplayer",
+  "source_files": {
+    "potion_factory": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Factories/PotionFactory.cs",
+      "sha256": "1687ca4ceedeb04089122f8ff673cc33639873e98f210e5b6cd0dbc40c5b3aa3"
+    },
+    "potion_reward_odds": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Odds/PotionRewardOdds.cs",
+      "sha256": "25e1813e7511f8c077806fa03420a79d8c899bd73a1b3f37cd434b298d306116"
+    },
+    "white_beast_statue": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WhiteBeastStatue.cs",
+      "sha256": "3007ded1a11f5287f780cc4b53b61e924b4166bc9ca83e1af371bfb5dc25a704"
+    },
+    "phial_holster": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PhialHolster.cs",
+      "sha256": "2e9e9460a133a4243176c018bf9aa7bce5aaf4744b38997d33be068b3229a63f"
+    },
+    "rewards_set": {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/RewardsSet.cs",
+      "sha256": "9b19a53f2c623ea7d439d6a37cabc03dd4315cd15287f261a1163fa0bdab8ebb"
+    }
+  },
+  "contracts": [
+    "PotionFactory.CreateRandomPotionsOutOfCombat removes each selected canonical model from a batch-local options list; independent PotionReward factories do not share this list",
+    "WhiteBeastStatue.ShouldForcePotionReward returns true for the owner in a combat room; it is not a ModifyRewards extra-potion hook",
+    "PotionRewardOdds.Roll consumes NextFloat even when forced and subtracts binary32 0.1 on every success without clamping",
+    "Source reward population consumes odds, base Gold, potion rarity and selection before card factories",
+    "PhialHolster generates both distinct potions on CombatPotionGeneration before procurement and any Sozu failures"
+  ],
+  "regression": "tests/rewards/test_source_potion_factory_edges.py",
+  "certifies_installed_game_parity": false
+}
