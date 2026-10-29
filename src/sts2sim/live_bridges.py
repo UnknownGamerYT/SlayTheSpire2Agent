@@ -366,14 +366,34 @@ def doctor_live_bridge(
     )
     try:
         raw = client.state()
-        import_policy_combat(raw)
+        if str(raw.get("state_type", "")).lower() in {"monster", "elite", "boss"}:
+            from sts2sim.agent_api import action_space
+            from sts2sim.engine.models import Action
+            from sts2sim.live_policy import bridge_action_for_policy
+
+            sim = import_policy_combat(raw)
+            mapped = sum(
+                bridge_action_for_policy(raw, sim, Action.model_validate(row["action"])) is not None
+                for row in action_space(sim)
+            )
+            view_kind = "combat"
+        else:
+            from sts2sim.live_policy_views import import_policy_view
+
+            _, _, commands = import_policy_view(raw).inputs()
+            mapped = len(commands)
+            view_kind = "visible_decision"
+        if mapped == 0:
+            raise LivePolicyUnsupported("Current screen has no enabled mapped model controls.")
+        report["checkpoint_action_count"] = mapped
+        report["checkpoint_view"] = view_kind
     except (RuntimeError, ValueError, OSError, LivePolicyUnsupported) as exc:
         report["diagnostic"] = f"Checkpoint observation unsupported: {exc}"
     else:
         report["ready_for_checkpoint_control"] = True
         report["diagnostic"] = (
-            "Current combat observation is mappable; "
-            "model actions are limited to play_card/end_turn."
+            "Current observation has mapped model controls; "
+            "installed-game behavior remains unverified."
         )
     finally:
         client.close()

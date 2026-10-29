@@ -343,3 +343,53 @@ def test_readonly_probe_checks_health_before_touching_an_unpatched_game(monkeypa
     assert not result[0].state_ok
     assert "Read-only observation schema2" in result[0].errors[0]
     assert calls == ["health", "close"]
+
+
+@pytest.mark.parametrize("has_path", [True, False])
+def test_doctor_checks_visible_noncombat_policy_controls_without_submitting_actions(
+    tmp_path: Path, monkeypatch, has_path: bool,
+) -> None:
+    registry = _registry(tmp_path)
+    monkeypatch.setattr(
+        "sts2sim.live_bridges.probe_live_bridges",
+        lambda **kwargs: (
+            LiveBridgeProbe(base_url="http://bridge", available=True, state_ok=True),
+        ),
+    )
+    monkeypatch.setattr("sts2sim.live_policy_views._card_library", lambda _: {})
+    path = {"index": 0, "col": 1, "row": 1, "type": "Monster"}
+    raw = {
+        "observation_schema_version": 2,
+        "state_type": "map",
+        "run": {"act": 1, "act_floor": 0, "total_floor": 1, "ascension": 0},
+        "player": {"character_id": "IRONCLAD", "hp": 80, "max_hp": 80, "gold": 99,
+                   "max_potion_slots": 3, "master_deck": [], "relics": [], "potions": [],
+                   "status": [], "can_remove_potions": True},
+        "map": {"nodes": [path], "next_options": [path] if has_path else [], "visited": []},
+    }
+    calls = []
+    class Client:
+        def __init__(self, config):
+            pass
+
+        def state(self):
+            calls.append("state")
+            return raw
+
+        def close(self):
+            calls.append("close")
+
+        def apply_action(self, action):
+            raise AssertionError("Doctor must not submit game actions")
+
+    monkeypatch.setattr("sts2sim.live_bridges.LiveApiClient", Client)
+    result = doctor_live_bridge(registry_path=registry)
+    assert result["ready_for_capture"] is True
+    assert result["ready_for_checkpoint_control"] is has_path
+    assert result["game_compatibility_verified"] is False
+    if has_path:
+        assert result["checkpoint_view"] == "visible_decision"
+        assert result["checkpoint_action_count"] == 1
+    else:
+        assert "unsupported" in result["diagnostic"].lower()
+    assert calls == ["state", "close"]
