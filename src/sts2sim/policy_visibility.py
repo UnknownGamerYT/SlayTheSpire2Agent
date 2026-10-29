@@ -162,6 +162,7 @@ def public_run_flags(flags: Mapping[str, Any]) -> dict[str, Any]:
         "relic_counters",
         "bonus_potion_slots",
         "potion_slot_indices",
+        "can_remove_potions",
         "campfire_used_actions",
         "fur_coat_marked_nodes",
         "golden_compass_act2_map",

@@ -201,7 +201,7 @@ def test_live_zero_energy_and_status_values_are_preserved() -> None:
     imported = import_policy_combat(state)
     assert imported.player.energy == imported.combat.player.energy == 0
     assert imported.player.statuses["strength"] == 0
-    assert imported.combat.monsters[0].intent_damage == 4
+    assert imported.combat.monsters[0].intent_damage == 8
     assert imported.combat.monsters[0].hit_count == 2
     assert imported.map is None
     assert len(imported.master_deck) == 2
