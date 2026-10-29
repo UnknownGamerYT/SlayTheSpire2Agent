@@ -100,6 +100,28 @@ def test_positive_regent_stars_use_canonical_resource_and_detect_a_real_differen
                for row in mismatched["mismatches"])
 
 
+def test_comparison_distinguishes_physical_potion_holes_from_packed_inventory() -> None:
+    case = _case()
+    sim = deepcopy(case.simulator_before)
+    sim["potions"] = ["fire_potion"]
+    sim["flags"]["potion_slot_indices"] = [2]
+    before, after = deepcopy(case.live_before), deepcopy(case.live_after)
+    for payload in (before, after):
+        payload["player"]["potions"] = [{"slot": 2, "id": "FIRE_POTION"}]
+    physical = case.model_copy(update={
+        "simulator_before": sim, "live_before": before, "live_after": after,
+    })
+    assert compare_live_comparison(physical)["matched"] is True
+    sim["flags"]["potion_slot_indices"] = [0]
+    wrong_slot = compare_live_comparison(physical.model_copy(update={"simulator_before": sim}))
+    assert wrong_slot["matched"] is False
+    assert any("potion_inventory" in row["path"] for row in wrong_slot["mismatches"])
+    before["player"]["potions"] = [{"id": "FIRE_POTION"}]
+    absent_slot = compare_live_comparison(physical.model_copy(update={"live_before": before}))
+    assert absent_slot["supported"] is False
+    assert any("physical potion slots" in reason for reason in absent_slot["unsupported_reasons"])
+
+
 def _rng_case() -> LiveComparisonCase:
     case = _case()
     rng = case.simulator_before["rng"]

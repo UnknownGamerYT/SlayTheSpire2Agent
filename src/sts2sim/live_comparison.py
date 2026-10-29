@@ -29,6 +29,7 @@ from sts2sim.live_capture import (
     _wait_for_live_state_update,
 )
 from sts2sim.live_parity import live_snapshot_for_compare, simulator_snapshot_for_compare
+from sts2sim.mechanics.potion_inventory import occupied_potion_slots
 from sts2sim.mechanics.run_progress import source_total_floor
 from sts2sim.parity import ParityCompareConfig, compare_snapshots
 
@@ -242,6 +243,9 @@ def _live_projection(
     if "total_floor" in run:
         result["total_floor"] = run["total_floor"]
     player = _mapping(raw.get("player"))
+    potion_slots = _live_potion_slots(player)
+    if potion_slots is not None:
+        result["potion_inventory"] = potion_slots
     cards: dict[str, Any] = {}
     for zone in ("hand", "draw_pile", "discard_pile", "exhaust_pile", "master_deck"):
         if zone in player:
@@ -277,6 +281,10 @@ def _live_projection(
 
 def _sim_projection(state: RunState) -> dict[str, Any]:
     result = simulator_snapshot_for_compare(state)
+    result["potion_inventory"] = [
+        {"slot": slot, "id": _name(identifier)}
+        for slot, identifier in occupied_potion_slots(state.potions, state.flags)
+    ]
     result["total_floor"] = source_total_floor(state)
     inventories: dict[str, Any] = {"master_deck": list(state.master_deck)}
     if state.combat is not None:
@@ -361,7 +369,24 @@ def _evidence_errors(case: LiveComparisonCase) -> list[str]:
         for key in ("hp", "max_hp", "block", "gold", "status", "relics", "potions"):
             if key not in player:
                 errors.append(f"{label}: missing player.{key}")
+        if _live_potion_slots(player) is None:
+            errors.append(f"{label}: explicit distinct physical potion slots are required")
     return errors
+
+
+def _live_potion_slots(player: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    raw = player.get("potions")
+    if not isinstance(raw, list) or not all(isinstance(row, Mapping) for row in raw):
+        return None
+    occupied = [row for row in raw if row.get("id")]
+    slots = [row.get("slot") for row in occupied]
+    if (any(type(slot) is not int or slot < 0 for slot in slots)
+            or len(set(slots)) != len(slots)):
+        return None
+    return sorted(
+        [{"slot": row["slot"], "id": _name(str(row["id"]))} for row in occupied],
+        key=lambda row: row["slot"],
+    )
 
 
 def compare_live_comparison(case: LiveComparisonCase) -> dict[str, Any]:
