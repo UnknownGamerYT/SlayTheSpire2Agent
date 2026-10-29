@@ -765,6 +765,10 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
     next_state, enchant_events = apply_card_reward_modifiers(next_state)
     events += enchant_events
     next_state, events = _apply_deck_add_relics(state, next_state, action, events)
+    from .source_native_event_completion import resume as resume_native_event
+
+    next_state, native_completion_events = resume_native_event(next_state)
+    events += native_completion_events
     from .source_merchant_purchase import resume as resume_merchant_purchase
 
     next_state, completed_purchase = resume_merchant_purchase(next_state)
@@ -3498,9 +3502,13 @@ def _choose_source_native_event(
                     for index, rarity in enumerate(("common", "uncommon", "rare"))},
                 "card_option_upgraded": upgrade_groups[0],
                 "card_option_group_upgraded": tuple(upgrade_groups[1:])})
-        event = state.event.model_copy(update={"resolved_option_id": option.option_id})
-        return next_state.model_copy(update={"event": event, "reward": colorful_reward,
-            "rng": capture_random_state(rng)}), (
+        from .source_native_event_completion import offer_custom
+
+        next_state = offer_custom(
+            next_state.model_copy(update={"rng": capture_random_state(rng)}),
+            state.event, option, rule, colorful_reward,
+        )
+        return next_state, (
                 *events, *_reward_generated_events(colorful_reward))
     generated_count = _coerce_int(rule.get("generated_count"), default=0)
     if generated_count:
@@ -3591,12 +3599,19 @@ def _choose_source_native_event(
                 "source_native_rule": followup_rule}),), "resolved_option_id": None})
         return next_state.model_copy(update={"event": event,
             "rng": capture_random_state(rng)}), tuple(events)
+    from .source_native_event_completion import begin_obtains, has_obtain_commands
+
+    if has_obtain_commands(rule):
+        return begin_obtains(
+            state, next_state.model_copy(update={"rng": capture_random_state(rng)}),
+            action, option, rule, tuple(events), deferred_card_ids,
+        )
     relic_ids = list(_string_items(rule.get("add_relics")))
     if rule.get("wongo_points"):
         earned = _coerce_int(rule["wongo_points"], default=0)
         profile = _flag_int(next_state, "wongo_points", 0)
         next_state = next_state.model_copy(update={"flags": {**next_state.flags,
-            "wongo_points_earned": earned, "wongo_points": profile + earned}})
+            "wongo_points_earned": earned}})
         if profile % 2000 + earned >= 2000:
             relic_ids.append("wongo_customer_appreciation_badge")
     relic_pool = _string_items(rule.get("relic_pool"))
@@ -3683,6 +3698,14 @@ def _choose_source_native_event(
         events.extend(_reward_generated_events(reward))
     for _ in range(_coerce_int(rule.get("extra_rng_draws"), default=0)):
         rng.randrange(100)
+    if reward is not None:
+        from .source_native_event_completion import offer_custom
+
+        next_state = offer_custom(
+            next_state.model_copy(update={"rng": capture_random_state(rng)}),
+            state.event, option, rule, reward,
+        )
+        return next_state, tuple(events)
     event = state.event.model_copy(update={"resolved_option_id": option.option_id})
     if rule.get("repeat_shop"):
         purchased = set(_string_items(rule.get("add_relics")))

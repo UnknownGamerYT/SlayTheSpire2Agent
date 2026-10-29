@@ -286,7 +286,8 @@ def test_wongo_featured_relic_is_consumed_on_entry_and_fixed_before_purchase():
     assert option.metadata['source_native_rule']['add_relics'] == ('du_vu_doll',)
     result = _choose(load_state(serialize(state)), 'FEATURED_ITEM')
     assert result.player.gold == 100 and 'du_vu_doll' in result.relics
-    assert result.flags['wongo_points'] == 2006
+    assert result.flags['wongo_points'] == 1990
+    assert result.flags['wongo_points_earned'] == 16
     assert 'wongo_customer_appreciation_badge' in result.relics
     assert result.rng.streams.get('rewards') is None or result.rng.streams['rewards'].draws == 0
 
