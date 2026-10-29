@@ -61,21 +61,37 @@ def test_source_entry_prepares_shared_relic_but_no_gold_or_visible_reward():
     assert _draws(state, "rewards") == _draws(before, "rewards")
     assert _draws(state, "treasure_room_relics") == _draws(before, "treasure_room_relics") + 1
     assert state.flags[PENDING]["relic_id"]
-    assert {a.type for a in legal_actions(state)} == {ActionType.OPEN_CHEST, ActionType.PROCEED}
+    assert {a.type for a in legal_actions(state)} == {ActionType.OPEN_CHEST}
     assert state.flags["player_relic_bag"] == before.flags["player_relic_bag"]
     assert state.flags["shared_relic_bag"] != before.flags["shared_relic_bag"]
     assert not state.flags.get("treasure_chests_opened")
 
 
-def test_skipping_unopened_chest_consumes_only_prepared_shared_offer():
-    state = _act(_before(quests=1), "choose_node")
-    snapshot = state.rng
-    skipped = _act(state, "proceed")
-    assert skipped.phase == RunPhase.MAP and skipped.rng == snapshot
-    assert skipped.player.gold == 0 and PENDING not in skipped.flags
-    assert any(card.card_id == "spoils_map" for card in skipped.master_deck)
-    assert not skipped.flags.get("spoils_map_completed")
-    assert not skipped.flags.get("treasure_chests_opened")
+@pytest.mark.parametrize("relics", [(), ("silver_crucible",)])
+def test_source_ui_disables_proceed_until_chest_opens_even_if_rewards_are_empty(relics):
+    state = _act(_before(quests=1, relics=relics), "choose_node")
+    before = serialize(state)
+    for snapshot in (state, load_state(before)):
+        assert {a.type for a in legal_actions(snapshot)} == {ActionType.OPEN_CHEST}
+        with pytest.raises(IllegalActionError):
+            step(snapshot, Action(type=ActionType.PROCEED))
+    assert serialize(state) == before
+    assert state.player.gold == 0
+    assert any(card.card_id == "spoils_map" for card in state.master_deck)
+    assert not state.flags.get("spoils_map_completed")
+    assert not state.flags.get("treasure_chests_opened")
+
+
+def test_revealed_relic_can_be_skipped_after_immediate_chest_gold():
+    before = _act(_before(), "choose_node")
+    offered = before.flags[PENDING]["relic_id"]
+    opened = _act(before, "open_chest")
+    skipped = _act(opened, "proceed")
+    assert skipped.phase == RunPhase.MAP and skipped.rng == opened.rng
+    assert skipped.player.gold == opened.player.gold > 0
+    assert offered not in skipped.relics and skipped.reward is None
+    assert skipped.flags["shared_relic_bag"] == before.flags["shared_relic_bag"]
+    assert PENDING not in skipped.flags
 
 
 @pytest.mark.parametrize("ascension", [0, 3, 10])

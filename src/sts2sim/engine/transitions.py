@@ -1899,10 +1899,6 @@ def _proceed(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
         return _leave_shop(state)
     if state.phase == RunPhase.TREASURE:
         if is_source_rng(state.rng):
-            from .source_treasure_runtime import is_unopened, skip_unopened
-
-            if is_unopened(state):
-                return skip_unopened(state)
             flags = dict(state.flags)
             flags.pop("source_treasure_opened", None)
             state = state.model_copy(update={"flags": flags})

@@ -67,7 +67,10 @@ def enter(state: RunState, node: MapNodeState) -> tuple[RunState, tuple[EffectEv
 
 
 def legal_open_actions(state: RunState) -> tuple[Action, ...]:
-    return (Action(type=ActionType.OPEN_CHEST), Action(type=ActionType.PROCEED))
+    # NRun.SetCurrentRoom updates ActiveScreenContext, whose treasure listener
+    # disables Proceed until _hasChestBeenOpened. Map travel is also disabled
+    # on entering the room. Skipping is available only after revealing it.
+    return (Action(type=ActionType.OPEN_CHEST),)
 
 
 def open_chest(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
@@ -109,16 +112,6 @@ def open_chest(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     state = state.model_copy(update={"reward": reward})
     events.extend(t._reward_generated_events(reward))
     return state, tuple(events)
-
-
-def skip_unopened(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
-    from . import transitions as t
-
-    flags = dict(state.flags)
-    flags.pop(PENDING, None)
-    flags.pop("source_treasure_opened", None)
-    return t._complete_current_room(state.model_copy(update={"flags": flags}),
-        (EffectEvent(kind="treasure_chest_skipped_unopened"),))
 
 
 def _complete_spoils(
