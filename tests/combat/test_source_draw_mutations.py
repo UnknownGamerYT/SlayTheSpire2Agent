@@ -169,7 +169,8 @@ def test_well_laid_plans_allows_skipping_retention() -> None:
     state = step(
         _reload(state), next(action for action in legal_actions(state) if action.type == "proceed")
     )
-    state = _end_turn(state)
+    assert state.combat.turn == 2
+    assert not state.combat.pending_choices
     assert not state.combat.hand
     assert not any(event.kind == "cards_retained" for event in state.replay_log[-1].events)
 
@@ -192,13 +193,13 @@ def test_well_laid_plans_partial_retention_is_one_turn_not_permanent() -> None:
     state = step(
         _reload(state), next(action for action in legal_actions(state) if action.type == "proceed")
     )
-    state = _end_turn(state)
+    assert state.combat.turn == 2
     assert [card.instance_id for card in state.combat.hand] == ["one"]
     assert not _card(state, "one").custom.get("retain")
     # Skip the following turn's fresh retention choice and the old selection expires.
     state = _end_turn(_reload(state))
     state = step(state, next(action for action in legal_actions(state) if action.type == "proceed"))
-    state = _end_turn(state)
+    assert state.combat.turn == 3
     assert not state.combat.hand
 
 

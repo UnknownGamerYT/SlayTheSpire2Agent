@@ -1007,15 +1007,14 @@ def test_well_laid_plans_pends_retain_choice_before_end_turn_discard() -> None:
 
     state = _choose_pending_card(state, "junk_a")
     assert state.combat is not None
-    assert next(card for card in state.combat.hand if card.card_id == "junk_a").custom["retain"]
-    state = _end_turn(state)
-
-    assert state.combat is not None
+    assert state.combat.turn == 2
+    assert not state.combat.pending_choices
+    assert any(card.card_id == "junk_a" for card in state.combat.hand)
     assert any(
         event.kind == "cards_retained" and "junk_a" in event.metadata["card_ids"]
-        for event in state.combat.last_events
+        for event in state.replay_log[-1].events
     )
-    assert any(event.kind == "hand_discarded" for event in state.combat.last_events)
+    assert any(event.kind == "hand_discarded" for event in state.replay_log[-1].events)
 
 
 def test_stampede_plays_random_hand_attack_before_end_turn_discard() -> None:

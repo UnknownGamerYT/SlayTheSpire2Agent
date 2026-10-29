@@ -89,6 +89,10 @@ def source_core_steps(
         return ({"block_formula": {"formula": "player_block"}, "unpowered_block": True},)
     if card_id == "accuracy":
         return (status("accuracy", 6 if upgraded else 4),)
+    if card_id == "well_laid_plans":
+        return (status("well_laid_plans", 2 if upgraded else 1),)
+    if card_id == "stampede":
+        return (status("stampede", 1),)
     if card_id in {"blade_dance", "blade_of_ink", "cloak_and_dagger", "up_my_sleeve"}:
         count = {"blade_dance": 3, "blade_of_ink": 2, "cloak_and_dagger": 1, "up_my_sleeve": 3}[
             card_id

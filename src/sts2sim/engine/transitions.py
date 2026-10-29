@@ -728,6 +728,7 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         next_state.phase == RunPhase.COMBAT and next_state.combat is not None
         and not next_state.combat.pending_choices
         and not next_state.combat.metadata.get("card_replay_queue")
+        and not next_state.combat.metadata.get("source_end_turn_resume")
         and next_state.combat.metadata.get("force_end_turn_after_plays") == next_state.combat.turn
     ):
         metadata = dict(next_state.combat.metadata)
@@ -737,6 +738,18 @@ def step_state(state: RunState | SerializedState, action: ActionInput) -> RunSta
         })
         next_state, forced_end_events = _end_turn(next_state)
         events += forced_end_events
+    if (next_state.phase == RunPhase.COMBAT and next_state.combat is not None
+            and not next_state.combat.pending_choices
+            and not next_state.combat.metadata.get("card_replay_queue")
+            and next_state.combat.metadata.get("source_end_turn_resume")):
+        stage = next_state.combat.metadata["source_end_turn_resume"]
+        if stage == "before_flush":
+            next_state, resumed_events = _finish_player_turn_after_before_flush(
+                next_state, next_state.combat, next_state.rng,
+            )
+        else:
+            next_state, resumed_events = _end_turn(next_state)
+        events += resumed_events
     from .source_card_reward_modifiers import apply_card_reward_modifiers
 
     next_state, enchant_events = apply_card_reward_modifiers(next_state)
@@ -13507,10 +13520,20 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     combat = source_modifier_hooks.before_turn_end(combat)
     combat = combat.model_copy(update={"metadata": {
         **combat.metadata, "player_turn_phase": "auto_post_play",
+        "source_end_turn_resume": "auto_post",
     }})
     rng = random_from_state(state.rng)
     events: list[EffectEvent] = list(modifier_events)
     rng_state = capture_random_state(rng)
+    from .source_turn_choices import retain_before_flush, stampede
+
+    combat, rng_state, stampede_events = stampede(state, combat, rng_state)
+    events.extend(stampede_events)
+    if combat.pending_choices or _phase_after_combat(combat) != RunPhase.COMBAT:
+        event_tuple = tuple(events)
+        combat = combat.model_copy(update={"last_events": event_tuple})
+        return _finalize_state_after_combat(state, combat, rng_state, event_tuple)
+    rng = random_from_state(rng_state)
     if _metadata_int(combat.metadata, "turn_end_triggers_resolved_turn", 0) != combat.turn:
         combat, rng_state, zone_events = _apply_zone_card_autoplays(
             state, combat, rng_state, trigger="turn_end",
@@ -13535,7 +13558,6 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             combat = combat.model_copy(update={"last_events": event_tuple})
             return _finalize_state_after_combat(state, combat, rng_state, event_tuple)
         rng = random_from_state(rng_state)
-        player = combat.player
 
     combat = combat.model_copy(update={"metadata": {
         **combat.metadata, "player_turn_phase": "end",
@@ -13581,12 +13603,32 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     )
     events.extend(hand_effect_events)
     rng = random_from_state(hand_rng)
-    player = combat.player
     if combat.player.hp <= 0 or not _alive_monsters(combat):
         event_tuple = tuple(events)
         combat = combat.model_copy(update={"last_events": event_tuple})
         return _finalize_state_after_combat(state, combat, hand_rng, event_tuple)
     combat = source_enchantment_hooks.before_flush(combat)
+    combat, retain_events = retain_before_flush(state, combat)
+    events.extend(retain_events)
+    if combat.pending_choices:
+        event_tuple = tuple(events)
+        combat = combat.model_copy(update={"metadata": {
+            **combat.metadata, "source_end_turn_resume": "before_flush",
+        }, "last_events": event_tuple})
+        return _finalize_state_after_combat(state, combat, capture_random_state(rng), event_tuple)
+    return _finish_player_turn_after_before_flush(state, combat, capture_random_state(rng), events)
+
+
+def _finish_player_turn_after_before_flush(
+    state: RunState, combat: CombatState, rng_state: RngState,
+    prior_events: Sequence[EffectEvent] = (),
+) -> tuple[RunState, tuple[EffectEvent, ...]]:
+    metadata = dict(combat.metadata)
+    metadata.pop("source_end_turn_resume", None)
+    combat = combat.model_copy(update={"metadata": metadata})
+    rng = random_from_state(rng_state)
+    player = combat.player
+    events = list(prior_events)
     retained_hand: tuple[CardInstance, ...]
     discarded_hand: tuple[CardInstance, ...]
     end_turn_hand_size = len(combat.hand)
@@ -23092,7 +23134,9 @@ def _play_random_hand_card_from_trigger(
                 ),
             ),
         )
-    rng = random_stream(random_from_state(rng_state), "combat_card_selection")
+    stream = ("shuffle" if _normalized_id(source_card.card_id) == "stampede"
+              else "combat_card_selection")
+    rng = random_stream(random_from_state(rng_state), stream)
     card = rng.choice(candidates)
     return _play_combat_card_from_zone_by_trigger(
         state,
