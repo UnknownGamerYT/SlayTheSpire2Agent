@@ -112,12 +112,13 @@
     }
   ],
   "contracts": [
-    "Periodic counters encode progress modulo the source period, with temporary activation display equal to the period allowed at wrapped zero.",
+    "Periodic counters encode progress modulo the source period; asynchronous activation animations may display the period even after progress advances. Explicit history remains authoritative.",
     "IronClub uses cumulative CardsPlayed internally and displays modulo four; runtime history is required to retain the cumulative actor feature.",
     "Metronome display saturates at seven while source and engine OrbsChanneled continue increasing; the trigger occurs only at exactly seven.",
     "PaelsLegion source Cooldown can decrement below zero; engine readiness saturates at zero.",
     "One-shot combat/turn activation flags come from a finite bridge primitive allowlist; generic status does not prove whether a hook ran.",
     "UnsettlingLamp remembers a triggering card even when a debuff attempt was blocked.",
+    "WongosMysteryTicket GaveRelic history maps to its used-up flag and initialized lifecycle, preventing a repeated payout during live previews.",
     "No persistent RNG, hidden selections, or validation oracle is accepted by the relic projection."
   ],
   "retained_tests": "tests/live/test_live_relic_state.py",

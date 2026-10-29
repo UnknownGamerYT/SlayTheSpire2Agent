@@ -42,7 +42,7 @@ def relic_runtime_projection(
     ``runtime_state`` contains a finite bridge allowlist of primitive facts
     determined by the owner's past actions. Missing one-shot history fails
     closed; a generic relic status cannot establish whether a hook ran.
-    Animation display values equal to a period represent wrapped progress.
+    Activation animations may still display the period after progress advances.
     Unrelated relics are left alone, not assigned guessed counters.
     """
     rows = player.get("relics", ())
