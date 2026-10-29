@@ -184,6 +184,10 @@ def enrich_card(card: CardInstance, row: Mapping[str, Any]) -> CardInstance:
         custom["live_keyword_ids"] = sorted(keywords)
         source = dict(custom.get("source_spec", {}))
         source["keywords"] = sorted(keywords)
+        source["keywords_key"] = sorted(keywords)
+        source["tags"] = [
+            tag for tag in (source.get("tags") or ()) if str(tag).lower() not in _KEYWORDS
+        ]
         custom["source_spec"] = source
         for keyword in _KEYWORDS - {"none"}:
             custom.pop(keyword, None)

@@ -432,51 +432,14 @@ def import_policy_combat(
                         "Observed effective cost differs from imported modifiers."
                     )
         hand.append(hand_card)
+    from sts2sim.live_intent_fields import import_monster_intents
+
     monsters = []
     for monster, raw in zip(combat.monsters, enemies, strict=True):
-        kinds: list[str] = []
-        attack: tuple[int, int] | None = None
-        block = 0
-        for intent in _rows(raw["intents"], "enemy.intents"):
-            kind = str(intent.get("type", "")).lower()
-            kinds.append(kind)
-            if "attack" in kind:
-                label = str(intent.get("label", ""))
-                match = re.fullmatch(r"\s*(\d+)(?:\s*[x×]\s*(\d+))?\s*", label)
-                if match is None:
-                    raise LivePolicyUnsupported(f"Unmapped live attack intent amount: {label!r}.")
-                damage, hits = int(match[1]), int(match[2] or 1)
-                if hits < 1:
-                    raise LivePolicyUnsupported("Live attack hit count must be positive.")
-                if attack is not None:
-                    if damage != attack[0]:
-                        raise LivePolicyUnsupported(
-                            "Distinct simultaneous attack amounts need a hit sequence."
-                        )
-                    hits += attack[1]
-                attack = damage, hits
-            elif "defend" in kind:
-                label = str(intent.get("label", "")).strip()
-                if label.isdecimal():
-                    block += int(label)
-        damage, hits = attack or (0, 1)
-        source_id = str(raw.get("monster_id") or "")
-        monsters.append(
-            monster.model_copy(
-                update={
-                    "intent": "_".join(kinds),
-                    "intent_damage": damage * hits,
-                    "hit_count": hits,
-                    "intent_block": block,
-                    "metadata": {
-                        **monster.metadata,
-                        "live_visible_intents": list(raw["intents"]),
-                        **({"source_monster_id": source_id.lower()} if source_id else {}),
-                    },
-                    "statuses": _statuses(_rows(raw["status"], "enemy.status")),
-                }
-            )
-        )
+        try:
+            monsters.append(import_monster_intents(raw, monster, combat, sim.relics))
+        except ValueError as exc:
+            raise LivePolicyUnsupported(f"Live enemy intent import failed: {exc}") from exc
     combat = combat.model_copy(
         update={"player": imported_player, "hand": tuple(hand), "monsters": tuple(monsters)}
     )

@@ -427,3 +427,26 @@ def test_queued_potion_and_custom_usability_guards_prevent_bridge_commands():
     potion.update(is_queued=False, passes_custom_usability_check=False, can_discard=False)
     assert bridge_action_for_policy(raw, sim, use) is None
     assert bridge_action_for_policy(raw, sim, discard) is None
+
+
+def test_observed_removed_keyword_replaces_cached_keyword_key_alias():
+    from sts2sim.engine.transitions import _card_has_keyword
+
+    raw = _with_card(_card("DAZED", cost=0, target="None", keyword_ids=["Unplayable"]))
+    raw["player"]["hand"][0]["can_play"] = False
+    sim = import_policy_combat(raw)
+    card = sim.combat.hand[0]
+    assert not _card_has_keyword(card, "ethereal")
+    assert _card_has_keyword(card, "unplayable")
+
+
+def test_live_powered_multihit_intent_import_applies_strength_once_on_end_turn():
+    raw = _combat()
+    raw["battle"]["enemies"][0].update(
+        status=[{"id": "STRENGTH_POWER", "amount": 3}],
+        intents=[{"type": "Attack", "label": "7x2", "base_damage": 4, "repeats": 2}],
+    )
+    sim = import_policy_combat(raw)
+    assert sim.combat.monsters[0].intent_damage == 14
+    result = step(sim, Action(type="end_turn"))
+    assert result.player.hp == 66
