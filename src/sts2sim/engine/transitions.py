@@ -15140,7 +15140,8 @@ def _refresh_monster_intent_from_metadata(
     player: PlayerState,
     relics: Sequence[str] = (),
 ) -> MonsterState:
-    if monster.hp <= 0 or "damage_per_hit" not in monster.metadata:
+    live_base = monster.metadata.get("live_attack_base_per_hit")
+    if monster.hp <= 0 or ("damage_per_hit" not in monster.metadata and live_base is None):
         return monster
     if (
         _truthy(monster.metadata.get("force_stun_move"))
@@ -15155,7 +15156,8 @@ def _refresh_monster_intent_from_metadata(
             "intent_block": _modified_monster_block_gain(monster.statuses, block) if block else 0,
         })
     damage = _modified_monster_attack_damage(
-        _metadata_int(monster.metadata, "damage_per_hit", 0)
+        (Fraction(str(live_base)) if live_base is not None
+         else Fraction(_metadata_int(monster.metadata, "damage_per_hit", 0)))
         + (_signed_status_amount(monster.statuses, "dexterity")
            if _normalized_id(monster.metadata.get("source_monster_id", monster.monster_id))
            == "the_forgotten" and _normalized_id(monster.move_id or "") == "dread" else 0),
@@ -16903,8 +16905,13 @@ def _execute_fallback_monster_turn(
     monster = combat.monsters[monster_index]
     if monster.intent_damage or "attack" in str(monster.intent or "").lower():
         hit_count = max(1, monster.hit_count)
+        live_base = monster.metadata.get("live_attack_base_per_hit")
+        raw_hits: Sequence[int | Fraction] = (
+            (Fraction(str(live_base)),) * hit_count if live_base is not None
+            else _split_total_damage_by_hits(monster.intent_damage, hit_count)
+        )
         for hit_index, raw_hit_damage in enumerate(
-            _split_total_damage_by_hits(monster.intent_damage, hit_count)
+            raw_hits
         ):
             intent_damage = _modified_monster_attack_damage(
                 raw_hit_damage,
@@ -33470,7 +33477,7 @@ def _monster_attack_hit_damage(
 
 
 def _modified_monster_attack_damage(
-    amount: int,
+    amount: int | Fraction,
     *,
     statuses: Mapping[str, int],
     relics: Sequence[str] = (),
