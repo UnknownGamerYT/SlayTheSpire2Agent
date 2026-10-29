@@ -20,6 +20,10 @@ def _enter(*relics, shop_relics=('orrery', 'dollys_mirror'), potions=()):
         'shop_relic_pool': [{'id': relic, 'kind': 'relic', 'rarity': 'shop', 'price': 100}
                             for relic in shop_relics],
         'shop_potion_pool': [{'id': 'fire_potion', 'kind': 'potion', 'rarity': 'common',
+                             'price': 30},
+                            {'id': 'skill_potion', 'kind': 'potion', 'rarity': 'uncommon',
+                             'price': 30},
+                            {'id': 'entropic_brew', 'kind': 'potion', 'rarity': 'rare',
                              'price': 30}],
     })
     state = state.model_copy(update={
