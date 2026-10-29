@@ -8,7 +8,7 @@ from sts2sim.live_relic_state import relic_runtime_projection
 def _project(relic_id: str, counter: object = None, **runtime: object) -> dict:
     player = {"relics": [{"id": relic_id, "counter": counter, "runtime_state": runtime}]}
     flags, metadata = relic_runtime_projection(player, {"round": 4, "player_turn": 5})
-    assert flags == metadata
+    assert flags["relic_counters"] == metadata["relic_counters"]
     return flags["relic_counters"]
 
 
@@ -17,7 +17,9 @@ def _project(relic_id: str, counter: object = None, **runtime: object) -> dict:
     [
         ("NUNCHAKU", 9, {"attacks_played": 29}, 9),
         ("PEN_NIB", 10, {"attacks_played": 0}, 0),
+        ("NUNCHAKU", 10, {"attacks_played": 21}, 1),
         ("IRON_CLUB", 3, {"cards_played": 43}, 43),
+        ("IRON_CLUB", 4, {"cards_played": 43}, 43),
         ("HAPPY_FLOWER", 2, {"turns_seen": 2}, 2),
         ("FAKE_HAPPY_FLOWER", 5, {"turns_seen": 0}, 0),
         ("JOSS_PAPER", 4, {"cards_exhausted": 4}, 4),
@@ -27,11 +29,11 @@ def _project(relic_id: str, counter: object = None, **runtime: object) -> dict:
         ("PAELS_LEGION", None, {"cooldown": 0}, 0),
         ("PAELS_LEGION", None, {"cooldown": -4}, 0),
         ("PAELS_LEGION", 2, {"cooldown": 2}, 2),
-        ("PENDULUM", 3, {}, 0),
+        ("PENDULUM", 3, {"turns_seen": 1}, 1),
         ("POLLINOUS_CORE", 3, {}, 3),
         ("FISHING_ROD", 2, {}, 2),
         ("BOOK_OF_FIVE_RINGS", 4, {}, 4),
-        ("WONGOS_MYSTERY_TICKET", None, {}, 0),
+        ("WONGOS_MYSTERY_TICKET", None, {"gave_relic": True}, 0),
     ],
 )
 def test_exact_relic_progress_and_saturation_contracts(
@@ -89,6 +91,18 @@ def test_conflicting_visible_counter_and_runtime_fails_closed() -> None:
         _project("paels_legion", 3, cooldown=3)
     with pytest.raises(ValueError, match="integer"):
         _project("iron_club", 3)
+    with pytest.raises(ValueError, match="activation display"):
+        _project("pendulum", 3)
+
+
+def test_spent_ticket_import_cannot_reinitialize_and_pay_again() -> None:
+    flags, metadata = relic_runtime_projection({"relics": [{
+        "id": "WONGOS_MYSTERY_TICKET", "counter": None,
+        "runtime_state": {"gave_relic": True},
+    }]}, {"round": 5})
+    assert flags["wongos_mystery_ticket_used_up"] is True
+    assert flags["initialized_relic_lifecycles"] == ("wongos_mystery_ticket",)
+    assert flags["relic_counters"] == metadata["relic_counters"] == {"wongos_mystery_ticket": 0}
 
 
 def test_noncombat_does_not_require_expired_combat_history_or_private_oracle() -> None:

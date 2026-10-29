@@ -49,6 +49,7 @@ def relic_runtime_projection(
     if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
         raise ValueError("Live relics must be a list of objects.")
     counters: dict[str, int] = {}
+    flags: dict[str, Any] = {}
     seen: set[str] = set()
     for row in rows:
         if not isinstance(row, Mapping):
@@ -67,6 +68,8 @@ def relic_runtime_projection(
         if relic_id in _PERIODIC:
             field, period = _PERIODIC[relic_id]
             raw = runtime.get(field, row.get("counter"))
+            if field not in runtime and raw == period:
+                raise ValueError(f"Live {relic_id} activation display requires {field} history.")
             value = _nonnegative(raw, f"{relic_id}.{field}") % period
             _check_display(row, value, period=period)
             counters[relic_id] = value
@@ -109,7 +112,10 @@ def relic_runtime_projection(
             # uses the same remaining-combats convention, not CombatsFinished.
             remaining = row.get("counter")
             counters[relic_id] = _nonnegative(0 if remaining is None else remaining, relic_id)
-    return {"relic_counters": dict(counters)}, {"relic_counters": dict(counters)}
+            flags["wongos_mystery_ticket_used_up"] = _boolean(runtime, "gave_relic", relic_id)
+            flags["initialized_relic_lifecycles"] = (relic_id,)
+    flags["relic_counters"] = dict(counters)
+    return flags, {"relic_counters": dict(counters)}
 
 
 def _nonnegative(raw: object, field: str) -> int:
@@ -130,5 +136,7 @@ def _check_display(row: Mapping[str, Any], value: int, *, period: int | None = N
     if raw is None:
         return
     display = _nonnegative(raw, f"{row.get('id')}.counter")
-    if display != value and not (period is not None and display == period and value == 0):
+    # Source activation animations can overlap the next owner's action. Explicit
+    # history remains authoritative even while the UI still shows the period.
+    if display != value and not (period is not None and display == period):
         raise ValueError(f"Live {row.get('id')} display disagrees with its observed runtime state.")
