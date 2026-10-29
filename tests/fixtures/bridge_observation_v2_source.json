@@ -243,6 +243,58 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FoulPotion.cs",
       "sha256": "dff3b7f714ea975f3bee9114a38fb13619fc7c8860ceea94cf43d8f76c506e48"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs",
+      "sha256": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PaelsWing.cs",
+      "sha256": "90908efdfa3e6686395fbdc3ae6987a299f1bcdad5e8e128de56c79fe7e977ca"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Pendulum.cs",
+      "sha256": "47555d0f5375d77d6d193c7e029b29f9fe8eb57f6dbbb1d1a86fb23a5a4438aa"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/PollinousCore.cs",
+      "sha256": "2cff220a8da9873f11751d2480aa5bef18edd74963b49f38b768db21649c5476"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/FishingRod.cs",
+      "sha256": "541ac89e243c0e3916d3b6cb4226a090b9e86f1ae5753640ffe3875507ed9938"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/BookOfFiveRings.cs",
+      "sha256": "6c04d5b94b3814d04454fc6ce981881272500601fbaf1326b42a581eda5be8f6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/WongosMysteryTicket.cs",
+      "sha256": "831872d73d4c25fca471afe636eb65d34677aba0a690239c471573ceb05b8cb9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/AttackIntent.cs",
+      "sha256": "4fcc072d4957ee7664c5ec292bf67a809c43846a0481b15cece51d706b905ad0"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/SingleAttackIntent.cs",
+      "sha256": "46df819021c729f3bbdc98295360a1b78275b25ae42e304298a54a1330dfdbff"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.MonsterMoves.Intents/MultiAttackIntent.cs",
+      "sha256": "25d3a02d5296677af58010a25b9fa14c4fc1b458f11e2b3b9deebae78c749af6"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Events.Custom.CrystalSphere/NCrystalSphereScreen.cs",
+      "sha256": "455ccf48d4611e544c0ba9b4e2161177f98e461f9c049b78744ce67e2d1b3f7b"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent/CrystalSphereMinigame.cs",
+      "sha256": "bba9ac39f9001a355ee409a5a780d4875cf403121cae33cad900bbdf84791729"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent/CrystalSphereItem.cs",
+      "sha256": "4415610b44c9f1678eb6a8b411f3cf3c7c8878996da75f3cf157963e7352617f"
     }
   ],
   "contracts": [
@@ -263,7 +315,11 @@
     "Owned DamageReceived history keeps per-player TurnNumber stamps, actual HP-loss sums/counts and independent !WasFullyBlocked counts",
     "EmotionChip checks !WasFullyBlocked in the prior player span, which can include zero-HP-loss or Buffer-prevented results",
     "Potion popup disables both use and discard when CanRemovePotions is false; queued or dead-owner potions cannot be removed",
-    "AnyTime potion usage is distinct from CombatOnly player-phase/card-selection restrictions; custom usability and target validity are observed explicitly"
+    "AnyTime potion usage is distinct from CombatOnly player-phase/card-selection restrictions; custom usability and target validity are observed explicitly",
+    "Ordinary reward rows expose source selector CanSkip/CanReroll flags without generating alternatives or revealing prepared cards; SpecialCardReward has no ordinary selector",
+    "AttackIntent.DamageCalc provides the current selected move raw base; GetSingleDamage applies all hooks and truncates before displaying the label",
+    "Crystal Sphere exports numeric remaining divinations and completed reveal history; partial cells do not expose full hidden item bounds",
+    "Additional owned periodic histories and Wongo payout state are source primitive fields, independent of transient display animations"
   ],
   "compiled_against_game": false,
   "installed_game_behavior_validated": false,
@@ -335,6 +391,22 @@
     },
     "UNSETTLING_LAMP": {
       "finished_triggering": "_isFinishedTriggering"
+    },
+    "PENDULUM": {
+      "turns_seen": "_turnsSeen"
+    },
+    "POLLINOUS_CORE": {
+      "turns_seen": "_turnsSeen"
+    },
+    "FISHING_ROD": {
+      "combats_seen": "_combatsSeen"
+    },
+    "BOOK_OF_FIVE_RINGS": {
+      "cards_added": "_cardsAdded"
+    },
+    "WONGOS_MYSTERY_TICKET": {
+      "combats_finished": "_combatsFinished",
+      "gave_relic": "_gaveRelic"
     }
   },
   "relic_public_history_fields_note": "Only bool/int progress from already observed actions/visible activations; private future random data excluded. Lamp uses triggering CardModel nullness plus finished flag, not TriggeringCardPlay."

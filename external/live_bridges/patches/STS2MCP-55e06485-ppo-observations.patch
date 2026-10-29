@@ -107,7 +107,7 @@ index 2553f3f..7eaa06d 100644
 +
      private static Dictionary<string, object?> ExecuteClaimTreasureRelic(Dictionary<string, JsonElement> data)
 diff --git a/McpMod.StateBuilder.cs b/McpMod.StateBuilder.cs
-index 76eee84..a35a441 100644
+index 76eee84..bf9ffcf 100644
 --- a/McpMod.StateBuilder.cs
 +++ b/McpMod.StateBuilder.cs
 @@ -3,2 +3,5 @@ using System.Collections.Generic;
@@ -193,7 +193,7 @@ index 76eee84..a35a441 100644
 +            };
 +        }
  
-@@ -1091,2 +1155,96 @@ public static partial class McpMod
+@@ -1091,2 +1155,110 @@ public static partial class McpMod
  
 +    private static int? BridgeHistoryPlayerTurn(DamageReceivedEntry entry, Player player)
 +    {
@@ -216,6 +216,20 @@ index 76eee84..a35a441 100644
 +        var state = new Dictionary<string, object?>();
 +        switch (relic.Id.Entry)
 +        {
++            case "PENDULUM":
++            case "POLLINOUS_CORE":
++                BridgeRelicHistoryField(state, relic, "turns_seen", "_turnsSeen");
++                break;
++            case "FISHING_ROD":
++                BridgeRelicHistoryField(state, relic, "combats_seen", "_combatsSeen");
++                break;
++            case "BOOK_OF_FIVE_RINGS":
++                BridgeRelicHistoryField(state, relic, "cards_added", "_cardsAdded");
++                break;
++            case "WONGOS_MYSTERY_TICKET":
++                BridgeRelicHistoryField(state, relic, "combats_finished", "_combatsFinished");
++                BridgeRelicHistoryField(state, relic, "gave_relic", "_gaveRelic");
++                break;
 +            case "NUNCHAKU":
 +                BridgeRelicHistoryField(state, relic, "attacks_played", "_attacksPlayed");
 +                break;
@@ -290,13 +304,13 @@ index 76eee84..a35a441 100644
 +    }
 +
      private static Dictionary<string, object?> BuildPlayerState(Player player)
-@@ -1098,2 +1256,5 @@ public static partial class McpMod
+@@ -1098,2 +1270,5 @@ public static partial class McpMod
          state["character"] = SafeGetText(() => player.Character.Title);
 +        state["character_id"] = player.Character.Id.Entry;
 +        // Exact identities for the simulator policy; combat piles can contain generated cards.
 +        state["master_deck"] = BuildPileCardList(player.Deck.Cards, PileType.None);
          state["hp"] = creature.CurrentHp;
-@@ -1110,7 +1271,6 @@ public static partial class McpMod
+@@ -1110,7 +1285,6 @@ public static partial class McpMod
  
 -            // Stars (The Regent's resource, conditionally shown)
 -            if (player.Character.ShouldAlwaysShowStarCounter || combatState.Stars > 0)
@@ -308,19 +322,19 @@ index 76eee84..a35a441 100644
 +            state["resources"] = new Dictionary<string, object?> { ["stars"] = combatState.Stars };
 +            state["turn_number"] = combatState.TurnNumber;
  
-@@ -1142,2 +1302,5 @@ public static partial class McpMod
+@@ -1142,2 +1316,5 @@ public static partial class McpMod
              var orbQueue = combatState.OrbQueue;
 +            state["orbs"] = new List<Dictionary<string, object?>>();
 +            state["orb_slots"] = orbQueue?.Capacity ?? 0;
 +            state["orb_empty_slots"] = orbQueue?.Capacity ?? 0;
              if (orbQueue != null && orbQueue.Capacity > 0)
-@@ -1164,2 +1327,5 @@ public static partial class McpMod
+@@ -1164,2 +1341,5 @@ public static partial class McpMod
                          ["evoke_val"] = orb.EvokeVal,
 +                        // Glass stores a raw accumulator separately from Focus-modified display.
 +                        ["base_value"] = orb.Id.Entry == "GLASS_ORB"
 +                            ? GetInstanceFieldValue(orb, "_passiveVal") : null,
                          ["keywords"] = BuildHoverTips(orb.HoverTips)
-@@ -1174,6 +1340,3 @@ public static partial class McpMod
+@@ -1174,6 +1354,3 @@ public static partial class McpMod
              var pets = BuildPetsState(player);
 -            if (pets.Count > 0)
 -            {
@@ -328,12 +342,12 @@ index 76eee84..a35a441 100644
 -            }
 +            state["pets"] = pets;
          }
-@@ -1195,2 +1358,4 @@ public static partial class McpMod
+@@ -1195,2 +1372,4 @@ public static partial class McpMod
                  ["counter"] = relic.ShowCounter ? relic.DisplayAmount : null,
 +                ["status"] = relic.Status.ToString(),
 +                ["runtime_state"] = BuildBridgeRelicRuntimeState(relic),
                  ["keywords"] = BuildHoverTips(relic.HoverTipsExcludingRelic)
-@@ -1214,2 +1379,8 @@ public static partial class McpMod
+@@ -1214,2 +1393,8 @@ public static partial class McpMod
                      ["can_use_in_combat"] = potion.Usage == PotionUsage.CombatOnly || potion.Usage == PotionUsage.AnyTime,
 +                    ["usage"] = potion.Usage.ToString(),
 +                    ["is_queued"] = potion.IsQueued,
@@ -342,11 +356,11 @@ index 76eee84..a35a441 100644
 +                        && !potion.IsQueued && player.Creature.IsAlive && potion.PassesCustomUsabilityCheck,
 +                    ["can_discard"] = player.CanRemovePotions && !potion.IsQueued && player.Creature.IsAlive,
                      ["target_type"] = potion.TargetType.ToString(),
-@@ -1222,2 +1393,3 @@ public static partial class McpMod
+@@ -1222,2 +1407,3 @@ public static partial class McpMod
          state["max_potion_slots"] = player.MaxPotionCount;
 +        state["can_remove_potions"] = player.CanRemovePotions;
  
-@@ -1252,2 +1424,34 @@ public static partial class McpMod
+@@ -1252,2 +1438,34 @@ public static partial class McpMod
              ["is_upgraded"] = card.IsUpgraded,
 +            ["upgrade_level"] = card.CurrentUpgradeLevel,
 +            ["has_enchantment"] = card.Enchantment != null,
@@ -381,7 +395,7 @@ index 76eee84..a35a441 100644
 +            ["local_cost_modifiers"] = BuildBridgeCostModifiers(card),
 +            ["temporary_star_costs"] = BuildBridgeTemporaryStarCosts(card),
              ["keywords"] = BuildHoverTips(card.HoverTips)
-@@ -1256,2 +1460,102 @@ public static partial class McpMod
+@@ -1256,2 +1474,102 @@ public static partial class McpMod
  
 +    // These opaque IDs correlate physical objects across captures; they do not alter game models.
 +    private sealed class BridgeCardIdentity
@@ -484,7 +498,7 @@ index 76eee84..a35a441 100644
 +    }
 +
      private static Dictionary<string, object?> BuildCardState(CardModel card, int index)
-@@ -1307,10 +1611,4 @@ public static partial class McpMod
+@@ -1307,10 +1625,4 @@ public static partial class McpMod
          {
 -            // Pile cards only need a subset - keep it lightweight
 -            list.Add(new Dictionary<string, object?>
@@ -497,34 +511,43 @@ index 76eee84..a35a441 100644
 +            // Keep IDs and upgrade state in every zone, including the permanent deck.
 +            list.Add(BuildCardInfo(card, pile));
          }
-@@ -1333,2 +1631,3 @@ public static partial class McpMod
+@@ -1333,2 +1645,3 @@ public static partial class McpMod
              ["entity_id"] = entityId,
 +            ["monster_id"] = monster?.Id.Entry,
              ["combat_id"] = creature.CombatId,
-@@ -1379,3 +1678,4 @@ public static partial class McpMod
+@@ -1353,2 +1666,8 @@ public static partial class McpMod
+                 {
++                    if (intent is AttackIntent attack && attack.DamageCalc != null)
++                    {
++                        // Raw base for the currently displayed move; keep the final label as observed.
++                        intentData["base_damage"] = attack.DamageCalc();
++                        intentData["repeats"] = attack.Repeats;
++                    }
+                     var targets = creature.CombatState?.PlayerCreatures;
+@@ -1379,3 +1698,4 @@ public static partial class McpMod
  
 -        var eventModel = eventRoom.CanonicalEvent;
 +        // Current mutable state supplies page text and values after the initial event page.
 +        var eventModel = eventRoom.LocalMutableEvent;
          bool isAncient = eventModel is AncientEventModel;
-@@ -1384,2 +1684,5 @@ public static partial class McpMod
+@@ -1384,2 +1704,5 @@ public static partial class McpMod
          state["is_ancient"] = isAncient;
 +        state["is_finished"] = eventModel.IsFinished;
 +        state["body_key"] = eventModel.Description?.LocEntryKey;
 +        state["dynamic_vars"] = eventModel.DynamicVars.ToDictionary(pair => pair.Key, pair => pair.Value.BaseValue);
  
-@@ -1415,4 +1718,6 @@ public static partial class McpMod
+@@ -1415,4 +1738,6 @@ public static partial class McpMod
                      ["title"] = SafeGetText(() => opt.Title),
 +                    ["option_id"] = opt.TextKey,
                      ["description"] = SafeGetText(() => opt.Description),
                      ["is_locked"] = opt.IsLocked,
 +                    ["is_enabled"] = button.IsEnabled,
                      ["is_proceed"] = opt.IsProceed,
-@@ -1422,2 +1727,3 @@ public static partial class McpMod
+@@ -1422,2 +1747,3 @@ public static partial class McpMod
                  {
 +                    optData["relic_id"] = opt.Relic.Id.Entry;
                      optData["relic_name"] = SafeGetText(() => opt.Relic.Title);
-@@ -1464,16 +1770,3 @@ public static partial class McpMod
+@@ -1464,16 +1790,3 @@ public static partial class McpMod
  
 -        // Auto-open the inventory if the merchant button is still available
 -        if (fakeMerchantNode != null)
@@ -542,21 +565,26 @@ index 76eee84..a35a441 100644
 -
 +        // Observation is read-only. The purchase executor opens the UI when required.
          // Build shop inventory from the FakeMerchant model
-@@ -1594,2 +1887,3 @@ public static partial class McpMod
+@@ -1594,2 +1907,3 @@ public static partial class McpMod
                  var cardInfo = BuildCardInfo(card);
 +                item["card"] = cardInfo;
                  item["card_id"] = cardInfo["id"];
-@@ -1837,2 +2131,4 @@ public static partial class McpMod
+@@ -1837,2 +2151,4 @@ public static partial class McpMod
                  ["type"] = GetRewardTypeName(reward),
 +                ["reward_class"] = reward.GetType().Name,
 +                ["is_enabled"] = button.IsEnabled,
                  ["description"] = SafeGetText(() => reward.Description)
-@@ -1850,2 +2146,15 @@ public static partial class McpMod
+@@ -1850,2 +2166,20 @@ public static partial class McpMod
  
 +            else if (reward is RelicReward relicReward && relicReward.Relic != null)
 +            {
 +                item["relic_id"] = relicReward.Relic.Id.Entry;
 +                item["relic_name"] = SafeGetText(() => relicReward.Relic.Title);
++            }
++            else if (reward is CardReward cardReward)
++            {
++                item["selector_can_skip"] = cardReward.CanSkip;
++                item["selector_can_reroll"] = cardReward.CanReroll;
 +            }
 +            else if (reward is SpecialCardReward && GetInstanceFieldValue(reward, "_card") is CardModel specialCard)
 +            {
@@ -567,7 +595,7 @@ index 76eee84..a35a441 100644
 +            // Ordinary unopened CardReward cards are deliberately not exposed here.
 +
              items.Add(item);
-@@ -1862,2 +2171,10 @@ public static partial class McpMod
+@@ -1862,2 +2196,10 @@ public static partial class McpMod
  
 +    private static IReadOnlyList<CardRewardAlternative> BridgeRewardAlternatives(NCardRewardSelectionScreen screen)
 +        => GetInstanceFieldValue(screen, "_extraOptions") as IReadOnlyList<CardRewardAlternative>
@@ -578,7 +606,7 @@ index 76eee84..a35a441 100644
 +            .Where(button => !button.IsQueuedForDeletion()).ToList();
 +
      private static Dictionary<string, object?> BuildCardRewardState(NCardRewardSelectionScreen cardScreen)
-@@ -1881,4 +2198,26 @@ public static partial class McpMod
+@@ -1881,4 +2223,26 @@ public static partial class McpMod
  
 -        var altButtons = FindAll<NCardRewardAlternativeButton>(cardScreen);
 -        state["can_skip"] = altButtons.Count > 0;
@@ -607,7 +635,31 @@ index 76eee84..a35a441 100644
 +            string.Equals(row["option_id"]?.ToString(), "Skip", StringComparison.OrdinalIgnoreCase)
 +            && row["is_enabled"] is true);
  
-@@ -2301,8 +2640,13 @@ public static partial class McpMod
+@@ -2192,2 +2556,8 @@ public static partial class McpMod
+         var state = new Dictionary<string, object?>();
++        var entity = GetInstanceFieldValue(screen, "_entity") as MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent.CrystalSphereMinigame;
++        if (entity != null)
++        {
++            state["divinations_left"] = entity.DivinationCount;
++            state["is_finished"] = entity.IsFinished;
++        }
+ 
+@@ -2247,6 +2617,6 @@ public static partial class McpMod
+         var revealedItems = new List<Dictionary<string, object?>>();
+-        foreach (var item in cells
+-                     .Where(c => !c.Entity.IsHidden && c.Entity.Item != null)
+-                     .Select(c => c.Entity.Item!)
+-                     .Distinct())
++        // A partially uncovered cell does not reveal the full item's hidden bounds.
++        var completedItems = entity == null ? null : GetInstanceFieldValue(entity, "_revealed")
++            as IEnumerable<MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent.CrystalSphereItem>;
++        foreach (var item in completedItems ?? Enumerable.Empty<MegaCrit.Sts2.Core.Events.Custom.CrystalSphereEvent.CrystalSphereItem>())
+         {
+@@ -2255,2 +2625,3 @@ public static partial class McpMod
+                 ["item_type"] = item.GetType().Name,
++                ["is_revealed"] = true,
+                 ["x"] = item.Position.X,
+@@ -2301,8 +2672,13 @@ public static partial class McpMod
  
 -        // Auto-open chest if not yet opened
 +        // GET state must not spend reward RNG or open an unchosen chest.
@@ -625,7 +677,7 @@ index 76eee84..a35a441 100644
 +            // Prepared relics are private until the opened collection is actually revealed.
 +            state["relics"] = new List<Dictionary<string, object?>>();
              return state;
-@@ -2388,3 +2732,4 @@ public static partial class McpMod
+@@ -2388,3 +2764,4 @@ public static partial class McpMod
                      ["name"] = SafeGetText(() => power.Title),
 -                    ["amount"] = power.DisplayAmount,
 +                    ["amount"] = power.Amount,
