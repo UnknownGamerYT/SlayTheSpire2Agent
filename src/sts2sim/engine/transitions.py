@@ -9815,6 +9815,12 @@ def _start_combat_for_node(
         key: value for key, value in _relic_counters_from_flags(state).items()
         if key not in COMBAT_ONLY_RELIC_COUNTERS
     }}
+    if is_source_rng(rng):
+        from .source_extra_rewards import KEY, initial_extra_rewards
+
+        metadata[KEY] = initial_extra_rewards(state)
+        metadata["source_reward_encounter"] = _normalized_id(
+            str(state.flags.get("combat_reward_encounter", node.kind.value)))
     if "player_facing" in state.flags:
         metadata["player_facing"] = state.flags["player_facing"]
     allies = _ally_states_from_source(state.flags.get("allies", state.flags.get("ally_players")))
@@ -24527,6 +24533,15 @@ def _apply_card_kill_outcomes(
                 metadata["fatal_card_reward_count"] = (
                     _metadata_int(metadata, "fatal_card_reward_count", 0) + rewards
                 )
+                if "source_extra_reward_queue" in metadata:
+                    from .source_extra_rewards import append_extra_reward
+
+                    for _ in range(rewards):
+                        metadata = append_extra_reward(metadata, {
+                            "kind": "card", "source_id": source_card.card_id,
+                            "defeated_monster_id": monster.monster_id,
+                            "encounter": metadata.get("source_reward_encounter", "inherit"),
+                        })
                 events.append(EffectEvent(
                     kind="card_reward_added", source_id=source_card.instance_id,
                     target_id=PLAYER_TARGET_ID, amount=rewards, metadata=trigger,
@@ -28493,6 +28508,7 @@ def _apply_monster_death_spawns(
     monsters = list(combat.monsters)
     player = combat.player
     pending_gold = list(_source_sequence(combat.metadata.get("pending_gold_rewards")))
+    extra_reward_metadata = dict(combat.metadata)
     events: list[EffectEvent] = list(stock_events)
     for parent_index, parent in enumerate(combat.monsters):
         source_id = _normalized_id(parent.metadata.get("source_monster_id", parent.monster_id))
@@ -28503,6 +28519,13 @@ def _apply_monster_death_spawns(
             if gold > 0:
                 pending_gold.append({"amount": gold, "source_id": "heist",
                                      "was_gold_stolen_back": True})
+                if is_source_rng(rng):
+                    from .source_extra_rewards import append_extra_reward
+
+                    extra_reward_metadata = append_extra_reward(extra_reward_metadata, {
+                        "kind": "gold", "amount": gold, "source_id": "heist",
+                        "was_gold_stolen_back": True,
+                    }, before_fatal_monster_id=parent.monster_id)
                 events.append(EffectEvent(kind="extra_gold_reward_added",
                     source_id=parent.monster_id, amount=gold,
                     metadata={"was_gold_stolen_back": True}))
@@ -28556,7 +28579,7 @@ def _apply_monster_death_spawns(
             ))
     return combat.model_copy(update={
         "monsters": tuple(monsters), "player": player,
-        "metadata": {**combat.metadata, "pending_gold_rewards": tuple(pending_gold)},
+        "metadata": {**extra_reward_metadata, "pending_gold_rewards": tuple(pending_gold)},
     }), tuple(events)
 
 
@@ -28914,9 +28937,12 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
         flags = dict(state.flags)
         flags["relic_counters"] = _combat_relic_counters(combat)
         rng = random_from_state(events_rng_state)
-        reward, _events, flags = _combat_reward_state(
-            state.model_copy(update={"combat": combat, "player": combat.player}), rng,
+        reward, reward_events, flags = _combat_reward_state(
+            state.model_copy(update={"combat": combat, "player": combat.player,
+                                     "flags": flags}), rng,
         )
+        if is_source_rng(rng) and reward_events:
+            combat = combat.model_copy(update={"last_events": combat.last_events + reward_events})
         returned_specs: dict[str, Any] = {}
         return_groups = list(reward.card_option_groups)
         for monster in combat.monsters:
@@ -28958,7 +28984,9 @@ def _state_after_combat(state: RunState, combat: CombatState, rng_state: RngStat
             combat = combat.model_copy(
                 update={"last_events": combat.last_events + delayed_reward_events}
             )
-        flags["relic_counters"] = _combat_relic_counters(combat)
+        flags["relic_counters"] = ({**_combat_relic_counters(combat),
+                                     **_mapping_from(flags.get("relic_counters"))}
+                                    if is_source_rng(rng) else _combat_relic_counters(combat))
         events_rng_state = capture_random_state(rng)
     elif phase != RunPhase.REWARD:
         reward = None
@@ -29088,6 +29116,10 @@ def _combat_reward_state(
 ) -> tuple[RewardState, tuple[EffectEvent, ...], dict[str, Any]]:
     if is_battleworn_fight(state):
         return empty_battleworn_rewards(state), (), dict(state.flags)
+    if is_source_rng(rng) and _normalized_id(state.character_id) in PLAYABLE_CARD_POOLS:
+        from .source_combat_rewards import build_source_combat_rewards
+
+        return build_source_combat_rewards(state, rng)
     rng = random_stream(rng, "rewards")
     flags = dict(state.flags)
     encounter = _combat_reward_encounter(state)
@@ -29501,6 +29533,13 @@ def _apply_due_delayed_event_rewards(
     events: list[EffectEvent] = []
     next_reward = reward
     for item in queue:
+        if ("source_reward_population_order" in reward.metadata
+                and _mapping_from(item.get("metadata")).get("source_relic_id")
+                == "wongos_mystery_ticket"):
+            # The source combat orchestrator already ticked this compatibility
+            # descriptor and populated due ticket rewards in listener order.
+            pending.append(item)
+            continue
         remaining = max(0, _nonnegative_int(item.get("remaining_combats"), 0) - 1)
         ticked = {**item, "remaining_combats": remaining}
         tick_metadata = _delayed_reward_event_metadata(ticked)
