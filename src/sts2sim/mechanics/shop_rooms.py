@@ -378,7 +378,8 @@ def _build_source_shop_inventory(
         priced.append(entry)
 
     def choose_card(
-        pool: Sequence[ShopItem], rarity: CardRarity, card_type: str | None = None
+        pool: Sequence[ShopItem], rarity: CardRarity, card_type: str | None = None,
+        *, fixed_rarity: bool = False,
     ) -> ShopItem | None:
         available = [
             item
@@ -388,7 +389,7 @@ def _build_source_shop_inventory(
         ]
         cycle = (CardRarity.COMMON, CardRarity.UNCOMMON, CardRarity.RARE)
         start = cycle.index(rarity)
-        for offset in range(3):
+        for offset in range(1 if fixed_rarity else 3):
             candidates = [item for item in available if item.rarity is cycle[(start + offset) % 3]]
             if candidates:
                 chosen = rng.choice(candidates)
@@ -396,7 +397,7 @@ def _build_source_shop_inventory(
                 # Merchant upgrade odds are forcibly negative, but still draw Rewards.
                 source_float(rewards)
                 return chosen
-        return None
+        raise ValueError(f"no valid source merchant card for {card_type or rarity.value}")
 
     sale_index = rng.randrange(plan.colored_cards) if plan.colored_cards else None
     for index in range(plan.colored_cards):
@@ -420,6 +421,7 @@ def _build_source_shop_inventory(
         item = choose_card(
             colorless_card_pool,
             COLORLESS_CARD_RARITY_SLOTS[index % len(COLORLESS_CARD_RARITY_SLOTS)],
+            fixed_rarity=True,
         )
         if item is not None:
             add(item)

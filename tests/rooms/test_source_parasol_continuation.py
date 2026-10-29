@@ -11,12 +11,18 @@ from sts2sim.engine.transitions import _apply_lords_parasol
 
 
 def _enter(*relics, shop_relics=('orrery', 'dollys_mirror'), potions=()):
+    # Courier populates before clearing the old CreationResult, so each
+    # fixture pool needs a second eligible model for the refill blacklist.
+    colored = ['anger', 'pommel_strike'] if 'the_courier' in relics else ['anger']
+    colorless = ['finesse', 'good_instincts'] if 'the_courier' in relics else ['finesse']
     state = new_run('PARASOL', 'IRONCLAD', 0, source_data={
         'shop_plan': {'colored_cards': 1, 'colorless_cards': 1, 'relics': len(shop_relics),
                       'potions': 1, 'include_card_removal': True},
-        'shop_card_pool': [{'id': 'anger', 'kind': 'card', 'rarity': 'common', 'price': 50}],
-        'shop_colorless_card_pool': [{'id': 'finesse', 'kind': 'colorless_card',
-                                     'rarity': 'uncommon', 'price': 100}],
+        'shop_card_pool': [{'id': card, 'kind': 'card', 'rarity': 'common', 'price': 50}
+                           for card in colored],
+        'shop_colorless_card_pool': [{'id': card, 'kind': 'colorless_card',
+                                     'rarity': 'uncommon', 'price': 100}
+                                    for card in colorless],
         'shop_relic_pool': [{'id': relic, 'kind': 'relic', 'rarity': 'shop', 'price': 100}
                             for relic in shop_relics],
         'shop_potion_pool': [{'id': 'fire_potion', 'kind': 'potion', 'rarity': 'common',

@@ -9226,6 +9226,8 @@ def _shop_item_state_from_priced(item_index: int, item: PricedShopItem) -> ShopI
         rarity=item.item.rarity.value if item.item.rarity is not None else None,
         price=item.price,
         base_price=item.base_price,
+        metadata={"on_sale": item.price < item.base_price}
+        if item.item.kind is ShopItemKind.CARD else {},
     )
 
 
@@ -9272,7 +9274,8 @@ def _modified_shop_price(state: RunState, item: ShopItemState) -> int:
         multiplier *= 0.5
     if _has_relic(state, "the_courier", "courier"):
         multiplier *= 0.8
-    return max(0, int(item.base_price * multiplier))
+    base_price = item.base_price // 2 if item.metadata.get("on_sale") else item.base_price
+    return max(0, int(base_price * multiplier))
 
 
 def _shop_room_state(state: RunState) -> ShopRoomState:
@@ -9356,6 +9359,10 @@ def _restock_shop_slot(
     flags = dict(state.flags)
     if shop is None:
         return None, None, flags
+    if is_source_rng(rng):
+        from .source_merchant_restock import restock
+
+        return restock(state, shop, item_index, kind, rng)
     existing_item_ids = {
         item.item_id
         for index, item in enumerate(shop.items)
