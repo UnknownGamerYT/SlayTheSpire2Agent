@@ -215,6 +215,34 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Rewards/SpecialCardReward.cs",
       "sha256": "b2a54906146ebb2caf8408f77dea557b43f3606d4916304bb604ebab10acd372"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Combat.History.Entries/DamageReceivedEntry.cs",
+      "sha256": "0d8cdee160d5b061f7eee200d5fb2b05654fe365b788537c65ef3c74afdffb70"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Entities.Creatures/DamageResult.cs",
+      "sha256": "33128b75cbb7863e8d56d116b0e517064500579284c1f9b668c07553b688dc49"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Commands/CreatureCmd.cs",
+      "sha256": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/EmotionChip.cs",
+      "sha256": "a9b1bcde4c7db01ab0fb71901ba431023b38ccdf74a3bb42df995b860dcdbc67"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models/PotionModel.cs",
+      "sha256": "78b161c2e578894935b57bc17a99349aeefd7509a094cc3534b406c40258b8a9"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Potions/NPotionPopup.cs",
+      "sha256": "f1f5364558bc17290c3549b26821ff7923336a91be1d4acdc806658e9c104443"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Potions/FoulPotion.cs",
+      "sha256": "dff3b7f714ea975f3bee9114a38fb13619fc7c8860ceea94cf43d8f76c506e48"
     }
   ],
   "contracts": [
@@ -231,7 +259,11 @@
     "Policy input must not receive validation RNG, odds or native hidden draw order",
     "RunState.ActFloor is the per-act entered-room counter; TotalFloor is cumulative map history",
     "Card reward alternatives retain source option identities and AfterSelected behavior; Skip is not the first arbitrary button",
-    "Observed relic runtime fields are explicit primitive counters/booleans derived from prior owned actions, not oracle RNG or future choices"
+    "Observed relic runtime fields are explicit primitive counters/booleans derived from prior owned actions, not oracle RNG or future choices",
+    "Owned DamageReceived history keeps per-player TurnNumber stamps, actual HP-loss sums/counts and independent !WasFullyBlocked counts",
+    "EmotionChip checks !WasFullyBlocked in the prior player span, which can include zero-HP-loss or Buffer-prevented results",
+    "Potion popup disables both use and discard when CanRemovePotions is false; queued or dead-owner potions cannot be removed",
+    "AnyTime potion usage is distinct from CombatOnly player-phase/card-selection restrictions; custom usability and target validity are observed explicitly"
   ],
   "compiled_against_game": false,
   "installed_game_behavior_validated": false,

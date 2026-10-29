@@ -1,5 +1,5 @@
 diff --git a/McpMod.Actions.cs b/McpMod.Actions.cs
-index 2553f3f..5408673 100644
+index 2553f3f..7eaa06d 100644
 --- a/McpMod.Actions.cs
 +++ b/McpMod.Actions.cs
 @@ -14,2 +14,3 @@ using MegaCrit.Sts2.Core.Nodes.Screens.TreasureRoomRelic;
@@ -14,7 +14,42 @@ index 2553f3f..5408673 100644
              "skip_relic_selection" => ExecuteSkipRelicSelection(),
 +            "open_chest" => ExecuteOpenChest(),
              "claim_treasure_relic" => ExecuteClaimTreasureRelic(data),
-@@ -526,7 +529,12 @@ public static partial class McpMod
+@@ -173,2 +176,4 @@ public static partial class McpMod
+     {
++        if (!player.CanRemovePotions)
++            return Error("Potion use is locked by the current event");
+         if (!data.TryGetValue("slot", out var slotElem))
+@@ -197,8 +202,9 @@ public static partial class McpMod
+                 return Error("Cannot use potions outside of play phase");
++            if (NPlayerHand.Instance?.IsInCardSelection == true || NOverlayStack.Instance?.Peek() is ICardSelector)
++                return Error("Cannot use combat-only potions during card selection");
++            if (CombatManager.Instance.PlayerActionsDisabled)
++                return Error("Player actions are currently disabled");
+         }
+-        else if (potion.Usage == PotionUsage.Automatic)
+-            return Error($"Potion '{SafeGetText(() => potion.Title)}' is automatic and cannot be manually used");
+-
+-        if (inCombat && CombatManager.Instance.PlayerActionsDisabled)
+-            return Error("Player actions are currently disabled");
++        else if (potion.Usage != PotionUsage.AnyTime)
++            return Error($"Potion '{SafeGetText(() => potion.Title)}' cannot be manually used");
+ 
+@@ -230,2 +236,4 @@ public static partial class McpMod
+ 
++        if (!potion.IsValidTarget(target))
++            return Error("The requested target is not valid for this potion");
+         potion.EnqueueManualUse(target);
+@@ -248,2 +256,4 @@ public static partial class McpMod
+     {
++        if (!player.CanRemovePotions)
++            return Error("Potion discard is locked by the current event");
+         if (!data.TryGetValue("slot", out var slotElem))
+@@ -259,2 +269,4 @@ public static partial class McpMod
+ 
++        if (potion.IsQueued || player.Creature.IsDead)
++            return Error("Cannot discard a queued potion or a dead player's potion");
+         string potionName = SafeGetText(() => potion.Title) ?? "unknown";
+@@ -526,7 +538,12 @@ public static partial class McpMod
  
 -        var altButtons = FindAll<NCardRewardAlternativeButton>(cardScreen);
 -        if (altButtons.Count == 0)
@@ -31,7 +66,7 @@ index 2553f3f..5408673 100644
 -        altButtons[0].ForceClick();
 +        buttons[index].ForceClick();
  
-@@ -539,2 +547,22 @@ public static partial class McpMod
+@@ -539,2 +556,22 @@ public static partial class McpMod
  
 +    private static Dictionary<string, object?> ExecuteCardRewardAlternative(Dictionary<string, JsonElement> data)
 +    {
@@ -54,7 +89,7 @@ index 2553f3f..5408673 100644
 +    }
 +
      private static Dictionary<string, object?> ExecuteProceed()
-@@ -932,2 +960,16 @@ public static partial class McpMod
+@@ -932,2 +969,16 @@ public static partial class McpMod
  
 +    private static Dictionary<string, object?> ExecuteOpenChest()
 +    {
@@ -72,7 +107,7 @@ index 2553f3f..5408673 100644
 +
      private static Dictionary<string, object?> ExecuteClaimTreasureRelic(Dictionary<string, JsonElement> data)
 diff --git a/McpMod.StateBuilder.cs b/McpMod.StateBuilder.cs
-index 76eee84..963b1e0 100644
+index 76eee84..a35a441 100644
 --- a/McpMod.StateBuilder.cs
 +++ b/McpMod.StateBuilder.cs
 @@ -3,2 +3,5 @@ using System.Collections.Generic;
@@ -106,7 +141,7 @@ index 76eee84..963b1e0 100644
 +        result["validation"] = BuildBridgeValidationState(runState);
 +
          // Always include full player data (relics, potions, deck, etc.) on every screen
-@@ -1087,2 +1102,32 @@ public static partial class McpMod
+@@ -1087,2 +1102,51 @@ public static partial class McpMod
          battle["enemies"] = enemies;
 +        var localPlayer = LocalContext.GetMe(runState);
 +        if (localPlayer != null)
@@ -117,6 +152,11 @@ index 76eee84..963b1e0 100644
 +                .Where(entry => entry.Actor == localPlayer.Creature).ToList();
 +            var thisTurn = finished.Where(entry => entry.HappenedThisTurn(combatState)).ToList();
 +            var osty = localPlayer.PlayerCombatState?.GetPet<Osty>();
++            int playerTurn = localPlayer.PlayerCombatState?.TurnNumber ?? 0;
++            var damageHistory = CombatManager.Instance.History.Entries.OfType<DamageReceivedEntry>()
++                .Where(entry => entry.Receiver == localPlayer.Creature).ToList();
++            var currentDamage = damageHistory.Where(entry => BridgeHistoryPlayerTurn(entry, localPlayer) == playerTurn).ToList();
++            var previousDamage = damageHistory.Where(entry => entry.HappenedLastPlayerTurn(localPlayer)).ToList();
 +            battle["cards_played_this_turn"] = thisTurn
 +                .Select(entry => BridgeCardId(entry.CardPlay.Card)).ToArray();
 +            battle["card_plays_this_turn"] = thisTurn.Select(entry => new Dictionary<string, object?>
@@ -134,13 +174,34 @@ index 76eee84..963b1e0 100644
 +                ["powers_played_this_turn"] = thisTurn.Count(entry => entry.CardPlay.Card.Type == CardType.Power),
 +                ["cards_played_this_combat"] = finished.Count,
 +                ["source_class_ethereal_plays"] = finished.Count(entry => entry.WasEthereal),
++                ["hp_lost_this_turn"] = currentDamage.Sum(entry => entry.Result.UnblockedDamage),
++                ["hp_loss_count_this_turn"] = currentDamage.Count(entry => entry.Result.UnblockedDamage > 0),
++                ["hp_loss_count_this_combat"] = damageHistory.Count(entry => entry.Result.UnblockedDamage > 0),
++                ["hp_lost_previous_turn"] = previousDamage.Sum(entry => entry.Result.UnblockedDamage),
++                // EmotionChip checks !WasFullyBlocked, even for a zero-HP-loss result.
++                ["damage_not_fully_blocked_count_this_turn"] = currentDamage.Count(entry => !entry.Result.WasFullyBlocked),
++                ["damage_not_fully_blocked_count_previous_turn"] = previousDamage.Count(entry => !entry.Result.WasFullyBlocked),
++                ["lost_hp_previous_turn"] = previousDamage.Any(entry => !entry.Result.WasFullyBlocked),
++                ["source_damage_received"] = damageHistory.Select(entry => new Dictionary<string, object?>
++                {
++                    ["player_turn"] = BridgeHistoryPlayerTurn(entry, localPlayer),
++                    ["hp_lost"] = entry.Result.UnblockedDamage,
++                    ["was_fully_blocked"] = entry.Result.WasFullyBlocked
++                }).ToList(),
 +                ["osty_attacks_this_turn"] = osty == null ? 0 : CombatManager.Instance.History.Entries
 +                    .OfType<CreatureAttackedEntry>().Count(entry => entry.Actor == osty && entry.HappenedThisTurn(combatState))
 +            };
 +        }
  
-@@ -1091,2 +1136,89 @@ public static partial class McpMod
+@@ -1091,2 +1155,96 @@ public static partial class McpMod
  
++    private static int? BridgeHistoryPlayerTurn(DamageReceivedEntry entry, Player player)
++    {
++        // The per-player turn stamp is past combat history, not a future outcome.
++        var turns = GetInstanceFieldValue(entry, "_playerTurnNumbers") as IReadOnlyDictionary<ulong, int>;
++        return turns != null && turns.TryGetValue(player.NetId, out int turn) ? turn : null;
++    }
++
 +    private static void BridgeRelicHistoryField(
 +        Dictionary<string, object?> state, RelicModel relic, string key, string field)
 +    {
@@ -229,13 +290,13 @@ index 76eee84..963b1e0 100644
 +    }
 +
      private static Dictionary<string, object?> BuildPlayerState(Player player)
-@@ -1098,2 +1230,5 @@ public static partial class McpMod
+@@ -1098,2 +1256,5 @@ public static partial class McpMod
          state["character"] = SafeGetText(() => player.Character.Title);
 +        state["character_id"] = player.Character.Id.Entry;
 +        // Exact identities for the simulator policy; combat piles can contain generated cards.
 +        state["master_deck"] = BuildPileCardList(player.Deck.Cards, PileType.None);
          state["hp"] = creature.CurrentHp;
-@@ -1110,7 +1245,6 @@ public static partial class McpMod
+@@ -1110,7 +1271,6 @@ public static partial class McpMod
  
 -            // Stars (The Regent's resource, conditionally shown)
 -            if (player.Character.ShouldAlwaysShowStarCounter || combatState.Stars > 0)
@@ -247,19 +308,19 @@ index 76eee84..963b1e0 100644
 +            state["resources"] = new Dictionary<string, object?> { ["stars"] = combatState.Stars };
 +            state["turn_number"] = combatState.TurnNumber;
  
-@@ -1142,2 +1276,5 @@ public static partial class McpMod
+@@ -1142,2 +1302,5 @@ public static partial class McpMod
              var orbQueue = combatState.OrbQueue;
 +            state["orbs"] = new List<Dictionary<string, object?>>();
 +            state["orb_slots"] = orbQueue?.Capacity ?? 0;
 +            state["orb_empty_slots"] = orbQueue?.Capacity ?? 0;
              if (orbQueue != null && orbQueue.Capacity > 0)
-@@ -1164,2 +1301,5 @@ public static partial class McpMod
+@@ -1164,2 +1327,5 @@ public static partial class McpMod
                          ["evoke_val"] = orb.EvokeVal,
 +                        // Glass stores a raw accumulator separately from Focus-modified display.
 +                        ["base_value"] = orb.Id.Entry == "GLASS_ORB"
 +                            ? GetInstanceFieldValue(orb, "_passiveVal") : null,
                          ["keywords"] = BuildHoverTips(orb.HoverTips)
-@@ -1174,6 +1314,3 @@ public static partial class McpMod
+@@ -1174,6 +1340,3 @@ public static partial class McpMod
              var pets = BuildPetsState(player);
 -            if (pets.Count > 0)
 -            {
@@ -267,16 +328,25 @@ index 76eee84..963b1e0 100644
 -            }
 +            state["pets"] = pets;
          }
-@@ -1195,2 +1332,4 @@ public static partial class McpMod
+@@ -1195,2 +1358,4 @@ public static partial class McpMod
                  ["counter"] = relic.ShowCounter ? relic.DisplayAmount : null,
 +                ["status"] = relic.Status.ToString(),
 +                ["runtime_state"] = BuildBridgeRelicRuntimeState(relic),
                  ["keywords"] = BuildHoverTips(relic.HoverTipsExcludingRelic)
-@@ -1222,2 +1361,3 @@ public static partial class McpMod
+@@ -1214,2 +1379,8 @@ public static partial class McpMod
+                     ["can_use_in_combat"] = potion.Usage == PotionUsage.CombatOnly || potion.Usage == PotionUsage.AnyTime,
++                    ["usage"] = potion.Usage.ToString(),
++                    ["is_queued"] = potion.IsQueued,
++                    ["passes_custom_usability_check"] = potion.PassesCustomUsabilityCheck,
++                    ["can_use_outside_combat"] = potion.Usage == PotionUsage.AnyTime && player.CanRemovePotions
++                        && !potion.IsQueued && player.Creature.IsAlive && potion.PassesCustomUsabilityCheck,
++                    ["can_discard"] = player.CanRemovePotions && !potion.IsQueued && player.Creature.IsAlive,
+                     ["target_type"] = potion.TargetType.ToString(),
+@@ -1222,2 +1393,3 @@ public static partial class McpMod
          state["max_potion_slots"] = player.MaxPotionCount;
 +        state["can_remove_potions"] = player.CanRemovePotions;
  
-@@ -1252,2 +1392,34 @@ public static partial class McpMod
+@@ -1252,2 +1424,34 @@ public static partial class McpMod
              ["is_upgraded"] = card.IsUpgraded,
 +            ["upgrade_level"] = card.CurrentUpgradeLevel,
 +            ["has_enchantment"] = card.Enchantment != null,
@@ -311,7 +381,7 @@ index 76eee84..963b1e0 100644
 +            ["local_cost_modifiers"] = BuildBridgeCostModifiers(card),
 +            ["temporary_star_costs"] = BuildBridgeTemporaryStarCosts(card),
              ["keywords"] = BuildHoverTips(card.HoverTips)
-@@ -1256,2 +1428,102 @@ public static partial class McpMod
+@@ -1256,2 +1460,102 @@ public static partial class McpMod
  
 +    // These opaque IDs correlate physical objects across captures; they do not alter game models.
 +    private sealed class BridgeCardIdentity
@@ -414,7 +484,7 @@ index 76eee84..963b1e0 100644
 +    }
 +
      private static Dictionary<string, object?> BuildCardState(CardModel card, int index)
-@@ -1307,10 +1579,4 @@ public static partial class McpMod
+@@ -1307,10 +1611,4 @@ public static partial class McpMod
          {
 -            // Pile cards only need a subset - keep it lightweight
 -            list.Add(new Dictionary<string, object?>
@@ -427,34 +497,34 @@ index 76eee84..963b1e0 100644
 +            // Keep IDs and upgrade state in every zone, including the permanent deck.
 +            list.Add(BuildCardInfo(card, pile));
          }
-@@ -1333,2 +1599,3 @@ public static partial class McpMod
+@@ -1333,2 +1631,3 @@ public static partial class McpMod
              ["entity_id"] = entityId,
 +            ["monster_id"] = monster?.Id.Entry,
              ["combat_id"] = creature.CombatId,
-@@ -1379,3 +1646,4 @@ public static partial class McpMod
+@@ -1379,3 +1678,4 @@ public static partial class McpMod
  
 -        var eventModel = eventRoom.CanonicalEvent;
 +        // Current mutable state supplies page text and values after the initial event page.
 +        var eventModel = eventRoom.LocalMutableEvent;
          bool isAncient = eventModel is AncientEventModel;
-@@ -1384,2 +1652,5 @@ public static partial class McpMod
+@@ -1384,2 +1684,5 @@ public static partial class McpMod
          state["is_ancient"] = isAncient;
 +        state["is_finished"] = eventModel.IsFinished;
 +        state["body_key"] = eventModel.Description?.LocEntryKey;
 +        state["dynamic_vars"] = eventModel.DynamicVars.ToDictionary(pair => pair.Key, pair => pair.Value.BaseValue);
  
-@@ -1415,4 +1686,6 @@ public static partial class McpMod
+@@ -1415,4 +1718,6 @@ public static partial class McpMod
                      ["title"] = SafeGetText(() => opt.Title),
 +                    ["option_id"] = opt.TextKey,
                      ["description"] = SafeGetText(() => opt.Description),
                      ["is_locked"] = opt.IsLocked,
 +                    ["is_enabled"] = button.IsEnabled,
                      ["is_proceed"] = opt.IsProceed,
-@@ -1422,2 +1695,3 @@ public static partial class McpMod
+@@ -1422,2 +1727,3 @@ public static partial class McpMod
                  {
 +                    optData["relic_id"] = opt.Relic.Id.Entry;
                      optData["relic_name"] = SafeGetText(() => opt.Relic.Title);
-@@ -1464,16 +1738,3 @@ public static partial class McpMod
+@@ -1464,16 +1770,3 @@ public static partial class McpMod
  
 -        // Auto-open the inventory if the merchant button is still available
 -        if (fakeMerchantNode != null)
@@ -472,16 +542,16 @@ index 76eee84..963b1e0 100644
 -
 +        // Observation is read-only. The purchase executor opens the UI when required.
          // Build shop inventory from the FakeMerchant model
-@@ -1594,2 +1855,3 @@ public static partial class McpMod
+@@ -1594,2 +1887,3 @@ public static partial class McpMod
                  var cardInfo = BuildCardInfo(card);
 +                item["card"] = cardInfo;
                  item["card_id"] = cardInfo["id"];
-@@ -1837,2 +2099,4 @@ public static partial class McpMod
+@@ -1837,2 +2131,4 @@ public static partial class McpMod
                  ["type"] = GetRewardTypeName(reward),
 +                ["reward_class"] = reward.GetType().Name,
 +                ["is_enabled"] = button.IsEnabled,
                  ["description"] = SafeGetText(() => reward.Description)
-@@ -1850,2 +2114,15 @@ public static partial class McpMod
+@@ -1850,2 +2146,15 @@ public static partial class McpMod
  
 +            else if (reward is RelicReward relicReward && relicReward.Relic != null)
 +            {
@@ -497,7 +567,7 @@ index 76eee84..963b1e0 100644
 +            // Ordinary unopened CardReward cards are deliberately not exposed here.
 +
              items.Add(item);
-@@ -1862,2 +2139,10 @@ public static partial class McpMod
+@@ -1862,2 +2171,10 @@ public static partial class McpMod
  
 +    private static IReadOnlyList<CardRewardAlternative> BridgeRewardAlternatives(NCardRewardSelectionScreen screen)
 +        => GetInstanceFieldValue(screen, "_extraOptions") as IReadOnlyList<CardRewardAlternative>
@@ -508,7 +578,7 @@ index 76eee84..963b1e0 100644
 +            .Where(button => !button.IsQueuedForDeletion()).ToList();
 +
      private static Dictionary<string, object?> BuildCardRewardState(NCardRewardSelectionScreen cardScreen)
-@@ -1881,4 +2166,26 @@ public static partial class McpMod
+@@ -1881,4 +2198,26 @@ public static partial class McpMod
  
 -        var altButtons = FindAll<NCardRewardAlternativeButton>(cardScreen);
 -        state["can_skip"] = altButtons.Count > 0;
@@ -537,7 +607,7 @@ index 76eee84..963b1e0 100644
 +            string.Equals(row["option_id"]?.ToString(), "Skip", StringComparison.OrdinalIgnoreCase)
 +            && row["is_enabled"] is true);
  
-@@ -2301,8 +2608,13 @@ public static partial class McpMod
+@@ -2301,8 +2640,13 @@ public static partial class McpMod
  
 -        // Auto-open chest if not yet opened
 +        // GET state must not spend reward RNG or open an unchosen chest.
@@ -555,7 +625,7 @@ index 76eee84..963b1e0 100644
 +            // Prepared relics are private until the opened collection is actually revealed.
 +            state["relics"] = new List<Dictionary<string, object?>>();
              return state;
-@@ -2388,3 +2700,4 @@ public static partial class McpMod
+@@ -2388,3 +2732,4 @@ public static partial class McpMod
                      ["name"] = SafeGetText(() => power.Title),
 -                    ["amount"] = power.DisplayAmount,
 +                    ["amount"] = power.Amount,

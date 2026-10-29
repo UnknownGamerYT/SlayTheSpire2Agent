@@ -28,6 +28,13 @@ source `RunState.ActFloor`; `run.total_floor` is cumulative map-point history.
 Local energy modifier expiration is the source numeric enum (0/2/4/6), distinct
 from the simulator's internal expiration representation.
 
+Owned damage history exports per-player turn stamps, actual HP-loss sums/counts
+and separate counts for damage not fully blocked. Emotion Chip uses the latter
+source predicate even when a result loses zero HP. Potion observations identify
+usage, queue state, custom usability and enabled removal. Both bridge potion
+commands honor the event's removal lock; automatic potions cannot be used as
+manual commands.
+
 Event data comes from the current mutable event rather than the canonical
 model. Current page/body key, values, stable option keys and offered relic IDs
 are exported, including enabled and already-chosen controls. Card-reward
