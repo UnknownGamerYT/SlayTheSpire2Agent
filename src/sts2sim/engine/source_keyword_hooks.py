@@ -139,6 +139,7 @@ def resolve_end_hand(
         combat,
         rng_state,
         relics=state.relics,
+        state=state,
     )
     events = list(passive_events)
     hand_effects = tuple(card for card in combat.hand if has_end_hand_effect(card))

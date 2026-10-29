@@ -9962,7 +9962,9 @@ def _start_combat_for_node(
     rng_state = capture_random_state(rng)
     from .source_orb_hooks import after_player_turn_start
 
-    combat, rng_state, orb_start_events = after_player_turn_start(combat, rng_state, state.relics)
+    combat, rng_state, orb_start_events = after_player_turn_start(
+        combat, rng_state, state.relics, state=state,
+    )
     combat = combat.model_copy(update={"metadata": {
         **combat.metadata, "player_turn_phase": "auto_pre_play",
     }})
@@ -14196,7 +14198,9 @@ def _begin_next_player_turn(
     )
     from .source_orb_hooks import after_energy_reset
 
-    combat, rng_state, spinner_events = after_energy_reset(combat, rng_state, state.relics)
+    combat, rng_state, spinner_events = after_energy_reset(
+        combat, rng_state, state.relics, state=state,
+    )
     events.extend(spinner_events)
     if _phase_after_combat(combat) != RunPhase.COMBAT:
         return combat, rng_state, tuple(events)
@@ -14399,7 +14403,7 @@ def _begin_next_player_turn(
         from .source_orb_hooks import after_player_turn_start
 
         combat, rng_state, orb_start_events = after_player_turn_start(
-            combat, rng_state, state.relics,
+            combat, rng_state, state.relics, state=state,
         )
         events.extend(orb_start_events)
         player, reflect_events = _tick_reflect_at_owner_turn_start(combat.player, PLAYER_TARGET_ID)
@@ -18201,6 +18205,7 @@ def _apply_effect_step(
         target_id=target_id,
         energy_spent=energy_spent,
         relics=relics,
+        state=state,
     )
     events.extend(orb_events)
     if "ally_channel_orb" in effect:
@@ -18217,6 +18222,7 @@ def _apply_effect_step(
             card,
             effect,
             relics=relics,
+            state=state,
         )
         events.extend(passive_orb_events)
 
@@ -18668,6 +18674,7 @@ def _apply_orb_effects(
     target_id: str | None,
     energy_spent: int = 0,
     relics: Sequence[str] = (),
+    state: RunState | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     events: list[EffectEvent] = []
 
@@ -18686,6 +18693,7 @@ def _apply_orb_effects(
                 orb_id,
                 target_id=target_id,
                 relics=relics,
+                state=state,
             )
             events.extend(channel_events)
 
@@ -18702,6 +18710,7 @@ def _apply_orb_effects(
                 orb_id,
                 target_id=target_id,
                 relics=relics,
+                state=state,
             )
             events.extend(channel_events)
 
@@ -18715,6 +18724,7 @@ def _apply_orb_effects(
             target_id=target_id,
             relics=relics,
             energy_spent=energy_spent,
+            state=state,
         )
         events.extend(evoke_events)
 
@@ -19449,6 +19459,7 @@ def _channel_orb(
     *,
     target_id: str | None,
     relics: Sequence[str],
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     orb = _new_orb(orb_id)
     events: list[EffectEvent] = []
@@ -19480,6 +19491,7 @@ def _channel_orb(
             target_id=target_id,
             relics=relics,
             metadata={"reason": "channel_overflow"},
+            state=state,
         )
         events.extend(evoke_events)
         orbs = list(combat.orbs)
@@ -19514,6 +19526,7 @@ def _evoke_orbs(
     target_id: str | None,
     relics: Sequence[str],
     energy_spent: int = 0,
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     selector = "leftmost"
     amount: object = 1
@@ -19538,6 +19551,7 @@ def _evoke_orbs(
                 target_id=target_id,
                 relics=relics,
                 metadata={"selector": "all"},
+                state=state,
             )
             events.extend(evoke_events)
         return combat, tuple(events)
@@ -19578,6 +19592,7 @@ def _evoke_orbs(
             target_id=target_id,
             relics=relics,
             metadata={"selector": selector, "repeat_count": repeats},
+            state=state,
         )
         events.extend(evoke_events)
     return combat, tuple(events)
@@ -19589,6 +19604,7 @@ def _apply_orb_passives(
     *,
     relics: Sequence[str] = (),
     at_turn_start: bool = False,
+    state: RunState | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     rng = random_from_state(rng_state)
     events: list[EffectEvent] = []
@@ -19604,7 +19620,9 @@ def _apply_orb_passives(
         for _ in range(repeats):
             if _phase_after_combat(combat) != RunPhase.COMBAT:
                 break
-            combat, passive_events, next_orb = _apply_orb_passive(combat, rng, orb, relics=relics)
+            combat, passive_events, next_orb = _apply_orb_passive(
+                combat, rng, orb, relics=relics, state=state,
+            )
             events.extend(passive_events)
             updated_orbs = list(combat.orbs)
             updated_orbs[index] = next_orb
@@ -19619,6 +19637,7 @@ def _apply_orb_passive(
     orb: OrbState,
     *,
     relics: Sequence[str],
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...], OrbState]:
     focus = _player_focus(combat.player)
     if orb.orb_id == "lightning":
@@ -19633,23 +19652,13 @@ def _apply_orb_passive(
         )
         return combat, events, orb
     if orb.orb_id == "frost":
-        amount = _unpowered_player_block_gain(combat.player, _orb_amount(2, focus))
-        player = combat.player.model_copy(update={
-            "block": min(999_999_999, combat.player.block + amount),
-        })
-        return (
-            combat.model_copy(update={"player": player}),
-            (
-                EffectEvent(
-                    kind="player_block",
-                    source_id="orb:frost",
-                    target_id=PLAYER_TARGET_ID,
-                    amount=amount,
-                    metadata={"orb": "frost", "trigger": "passive"},
-                ),
-            ),
-            orb,
+        combat, next_rng, events = _gain_player_block(
+            state, combat, capture_random_state(rng), _orb_amount(2, focus),
+            source_id="orb:frost", source_card=None, unpowered=True,
+            metadata={"orb": "frost", "trigger": "passive"},
         )
+        rng.setstate(random_from_state(next_rng).getstate())
+        return combat, events, orb
     if orb.orb_id == "dark":
         amount = _orb_amount(6, focus)
         next_orb = orb.model_copy(update={"value": orb.value + amount})
@@ -19697,6 +19706,7 @@ def _apply_orb_evoke(
     target_id: str | None,
     relics: Sequence[str],
     metadata: Mapping[str, Any] | None = None,
+    state: RunState | None = None,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     focus = _player_focus(combat.player)
     base_metadata = {"orb": orb.orb_id, "trigger": "evoke", **dict(metadata or {})}
@@ -19726,22 +19736,12 @@ def _apply_orb_evoke(
             }}) for event in thunder_events)
         return combat, lightning_events
     if orb.orb_id == "frost":
-        amount = _unpowered_player_block_gain(combat.player, _orb_amount(5, focus))
-        player = combat.player.model_copy(update={
-            "block": min(999_999_999, combat.player.block + amount),
-        })
-        return (
-            combat.model_copy(update={"player": player}),
-            (
-                EffectEvent(
-                    kind="player_block",
-                    source_id=source_id,
-                    target_id=PLAYER_TARGET_ID,
-                    amount=amount,
-                    metadata=base_metadata,
-                ),
-            ),
+        combat, next_rng, events = _gain_player_block(
+            state, combat, capture_random_state(rng), _orb_amount(5, focus),
+            source_id=source_id, source_card=None, unpowered=True, metadata=base_metadata,
         )
+        rng.setstate(random_from_state(next_rng).getstate())
+        return combat, events
     if orb.orb_id == "dark":
         target = _dark_orb_target(combat, target_id)
         if target is None:
@@ -22891,6 +22891,7 @@ def _apply_combat_trigger_effect_step(
             target_id=None,
             energy_spent=0,
             relics=state.relics,
+            state=state,
         )
 
     add_random = effect.get("add_random_card_to_hand")
@@ -22974,6 +22975,7 @@ def _apply_combat_trigger_effect_step(
             source_card,
             effect,
             relics=state.relics,
+            state=state,
         )
         return combat, rng_state, orb_events
 
@@ -24080,6 +24082,7 @@ def _trigger_orb_passive_from_effect(
     effect: Mapping[str, Any],
     *,
     relics: Sequence[str],
+    state: RunState | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     if not combat.orbs:
         return combat, rng_state, ()
@@ -24107,6 +24110,7 @@ def _trigger_orb_passive_from_effect(
                 rng,
                 orb,
                 relics=relics,
+                state=state,
             )
             orbs = list(combat.orbs)
             if index < len(orbs):
@@ -24758,7 +24762,7 @@ def _apply_stored_turn_powers(
                     break
                 combat, evoke_events = _evoke_orbs(
                     combat, rng, "consuming_shadow", {"selector": "rightmost", "amount": 1},
-                    target_id=None, relics=state.relics,
+                    target_id=None, relics=state.relics, state=state,
                 )
                 events.extend(evoke_events)
                 combat, rng_state, kill_events = _apply_monster_killed_relics_from_events(
@@ -26828,6 +26832,7 @@ def _apply_combat_relic_marker(
                 orb_id,
                 target_id=None,
                 relics=_string_tuple(metadata.get("item_relic_ids")),
+                state=state,
             )
             player = combat.player
             monsters = list(combat.monsters)
@@ -27108,6 +27113,7 @@ def _apply_combat_relic_marker(
             )
             combat, passive_events, next_orb = _apply_orb_passive(
                 combat, rng, orb, relics=_string_tuple(metadata.get("item_relic_ids")),
+                state=state,
             )
             orbs = list(combat.orbs)
             if index < len(orbs):

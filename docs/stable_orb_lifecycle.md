@@ -24,6 +24,10 @@ evokes per orb. Glass doubles its Focus-adjusted passive value for an evoke and
 only decreases its raw passive value when a positive passive fires. Dark breaks
 equal-HP ties by encounter order. A zero-damage Lightning evoke still returns its
 selected target to Thunder and consumes exactly the original target selection.
+Frost awaits the ordinary block callback pipeline after each passive or evoke.
+Juggernaut therefore resolves before the next orb, draw phase or retention
+choice, including Loop/Emotion Chip manual passives and channel overflow. A
+combat-ending block callback prevents later orb callbacks from running.
 
 Metronome activates once on the seventh successful channel and keeps recording
 later channels. A non-Defect character with zero orb capacity gains one slot on

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .models import CardInstance, CombatState, EffectEvent, RngState, RunPhase
+from .models import CardInstance, CombatState, EffectEvent, RngState, RunPhase, RunState
 from .rng import capture_random_state, random_from_state
 
 
@@ -34,6 +34,8 @@ def after_energy_reset(
     combat: CombatState,
     rng_state: RngState,
     relics: Sequence[str],
+    *,
+    state: RunState | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     from . import transitions as t
 
@@ -41,7 +43,13 @@ def after_energy_reset(
     events: list[EffectEvent] = []
     for _ in range(t._status_amount(combat.player.statuses, "spinner")):
         combat, resolved = t._channel_orb(
-            combat, rng, "spinner", "glass", target_id=None, relics=relics
+            combat,
+            rng,
+            "spinner",
+            "glass",
+            target_id=None,
+            relics=relics,
+            state=state,
         )
         events.extend(resolved)
     return combat, capture_random_state(rng), tuple(events)
@@ -51,6 +59,8 @@ def after_player_turn_start(
     combat: CombatState,
     rng_state: RngState,
     relics: Sequence[str],
+    *,
+    state: RunState | None = None,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     from . import transitions as t
 
@@ -65,6 +75,7 @@ def after_player_turn_start(
             CardInstance(instance_id="loop", card_id="loop"),
             {"trigger_orb_passive": {"selector": "leftmost", "amount": loop}},
             relics=relics,
+            state=state,
         )
         events.extend(resolved)
     if (
@@ -81,9 +92,14 @@ def after_player_turn_start(
             CardInstance(instance_id="emotion_chip", card_id="emotion_chip"),
             {"trigger_orb_passive": {"selector": "all"}},
             relics=relics,
+            state=state,
         )
         events.extend(resolved)
     combat, rng_state, resolved = t._apply_orb_passives(
-        combat, rng_state, relics=relics, at_turn_start=True
+        combat,
+        rng_state,
+        relics=relics,
+        at_turn_start=True,
+        state=state,
     )
     return combat, rng_state, tuple(events) + resolved
