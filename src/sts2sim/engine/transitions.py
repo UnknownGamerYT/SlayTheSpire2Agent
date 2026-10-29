@@ -9738,6 +9738,9 @@ def _complete_current_room(
 def _start_combat_for_node(
     state: RunState, node: MapNodeState
 ) -> tuple[RunState, CombatState, RngState, tuple[EffectEvent, ...]]:
+    from .source_tutorial_rewards import record_combat_entry
+
+    state = record_combat_entry(state, node)
     # Imported reward states may still hold the previous combat's player data.
     # Explicit source overrides for a run's first combat remain supported.
     if state.combat is not None and state.phase != RunPhase.COMBAT:
