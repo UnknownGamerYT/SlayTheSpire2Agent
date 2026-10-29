@@ -287,7 +287,8 @@ def _sim_projection(state: RunState) -> dict[str, Any]:
         result["native_draw_order"] = [_sim_card(card) for card in state.combat.draw_pile]
         result["orbs"] = [{"id": orb.orb_id, "value": orb.value} for orb in state.combat.orbs]
         result["orb_slots"] = state.combat.orb_slots
-        result["stars"] = state.combat.player.resources.get("stars", 0)
+        result["stars"] = state.combat.player.resources.get(
+            "star", state.combat.player.resources.get("stars", 0))
         osty = _mapping(state.combat.metadata.get("osty"))
         result["osty"] = {key: osty.get(key, 0) for key in ("hp", "max_hp", "block")}
     result["card_inventory"] = {}

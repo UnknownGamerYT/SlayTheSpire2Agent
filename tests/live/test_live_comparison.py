@@ -80,6 +80,26 @@ def test_missing_rng_evidence_is_unsupported_even_when_visible_outcome_matches()
     assert any("schema1" in reason for reason in result["unsupported_reasons"])
 
 
+def test_positive_regent_stars_use_canonical_resource_and_detect_a_real_difference() -> None:
+    case = _case()
+    sim = deepcopy(case.simulator_before)
+    sim["character_id"] = "REGENT"
+    sim["player"]["resources"] = {"star": 4}
+    sim["combat"]["player"]["resources"] = {"star": 4}
+    before, after = deepcopy(case.live_before), deepcopy(case.live_after)
+    for payload in (before, after):
+        payload["player"].update({"character": "The Regent", "character_id": "REGENT", "stars": 4})
+    regent = case.model_copy(update={
+        "simulator_before": sim, "live_before": before, "live_after": after,
+    })
+    assert compare_live_comparison(regent)["matched"] is True
+    after["player"]["stars"] = 5
+    mismatched = compare_live_comparison(regent.model_copy(update={"live_after": after}))
+    assert mismatched["matched"] is False
+    assert any(row["stage"] == "after" and "stars" in row["path"]
+               for row in mismatched["mismatches"])
+
+
 def _rng_case() -> LiveComparisonCase:
     case = _case()
     rng = case.simulator_before["rng"]
