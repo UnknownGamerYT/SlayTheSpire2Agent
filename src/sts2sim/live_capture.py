@@ -52,6 +52,7 @@ DEFAULT_ACTION_PATHS = (
 STS2MCP_ACTION_NAMES = frozenset(
     {
         "advance_dialogue",
+        "cancel_abandon_run",
         "cancel_bundle_selection",
         "cancel_selection",
         "choose_event_option",
@@ -61,6 +62,7 @@ STS2MCP_ACTION_NAMES = frozenset(
         "claim_treasure_relic",
         "combat_confirm_selection",
         "combat_select_card",
+        "confirm_abandon_run",
         "confirm_bundle_selection",
         "confirm_selection",
         "crystal_sphere_click_cell",
@@ -172,6 +174,10 @@ class LiveApiClient:
         )
 
     def actions(self, state_payload: Mapping[str, Any] | None = None) -> list[Any]:
+        source = _unwrap_payload(state_payload or {})
+        if source.get("state_type") == "abandon_run_confirmation":
+            # An empty modal action set must not fall back to underlying endpoints.
+            return _extract_sts2mcp_actions(source)
         from_state = _extract_actions(state_payload or {})
         if from_state:
             return from_state
@@ -705,6 +711,9 @@ def _choose_action(
 
 
 def _extract_actions(payload: Mapping[str, Any]) -> list[Any]:
+    source = _unwrap_payload(payload)
+    if source.get("state_type") == "abandon_run_confirmation":
+        return _extract_sts2mcp_actions(source)
     sts2mcp_actions = _extract_sts2mcp_actions(payload)
     if sts2mcp_actions:
         return sts2mcp_actions
@@ -741,6 +750,14 @@ def _extract_sts2mcp_actions(payload: Mapping[str, Any]) -> list[dict[str, Any]]
     if state_type is None:
         return []
     actions: list[dict[str, Any]] = []
+
+    if state_type == "abandon_run_confirmation":
+        popup = _first_mapping(payload, "abandon_run_confirmation") or {}
+        return [
+            {"action": f"{choice}_abandon_run"}
+            for choice in ("confirm", "cancel")
+            if popup.get(f"can_{choice}") is True
+        ]
 
     if state_type in {"menu", "game_over"}:
         options = _first_sequence(payload, "options")

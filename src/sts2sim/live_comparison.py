@@ -223,7 +223,7 @@ def _live_projection(
     screen = str(raw.get("state_type", ""))
     aliases = {"rest_site": "rest", "card_reward": "reward", "rewards": "reward",
                "relic_select": "reward", "crystal_sphere": "event", "fake_merchant": "event",
-               "hand_select": "combat"}
+               "hand_select": "combat", "abandon_run_confirmation": "event"}
     if screen in {"card_select", "bundle_select"}:
         aliases[screen] = "combat" if _mapping(raw.get("run")).get("in_combat") else "event"
     if screen == "event" and _mapping(raw.get("event")).get("is_ancient"):
@@ -231,6 +231,15 @@ def _live_projection(
     if screen == "game_over" and isinstance(_mapping(raw.get("game_over")).get("won"), bool):
         aliases[screen] = "complete" if _mapping(raw["game_over"])["won"] else "failed"
     result["phase"] = (phase_map or {}).get(screen, aliases.get(screen, result.get("phase")))
+    if screen == "abandon_run_confirmation":
+        popup = _mapping(raw.get(screen))
+        result["event_confirmation"] = {
+            "kind": "abandon_run", "event_id": _name(str(popup.get("event_id", ""))),
+            "page_id": "ABANDON_CONFIRMATION",
+            "can_confirm": popup.get("can_confirm"), "can_cancel": popup.get("can_cancel"),
+            "enabled_options": [f"{choice.upper()}_ABANDON" for choice in ("confirm", "cancel")
+                                if popup.get(f"can_{choice}") is True],
+        }
     battle = _mapping(raw.get("battle"))
     if isinstance(result.get("combat"), dict):
         if "player_turn" in battle:
@@ -286,6 +295,17 @@ def _sim_projection(state: RunState) -> dict[str, Any]:
         for slot, identifier in occupied_potion_slots(state.potions, state.flags)
     ]
     result["total_floor"] = source_total_floor(state)
+    if state.event is not None and state.event.page_id == "ABANDON_CONFIRMATION":
+        result["event_confirmation"] = {
+            "kind": "abandon_run", "event_id": _name(state.event.event_id),
+            "page_id": state.event.page_id,
+            "can_confirm": any(option.option_id == "CONFIRM_ABANDON" and not option.disabled
+                               for option in state.event.options),
+            "can_cancel": any(option.option_id == "CANCEL_ABANDON" and not option.disabled
+                              for option in state.event.options),
+            "enabled_options": [option.option_id for option in state.event.options
+                                if not option.disabled],
+        }
     inventories: dict[str, Any] = {"master_deck": list(state.master_deck)}
     if state.combat is not None:
         inventories.update({zone: list(getattr(state.combat, zone)) for zone in (
@@ -323,6 +343,9 @@ def simulator_validation_snapshot(state: RunState) -> dict[str, Any]:
 
 def _settled(raw: Mapping[str, Any]) -> bool:
     screen = str(raw.get("state_type", ""))
+    if screen == "abandon_run_confirmation":
+        popup = _mapping(raw.get(screen))
+        return any(popup.get(f"can_{choice}") is True for choice in ("confirm", "cancel"))
     if screen in {"card_select", "hand_select", "bundle_select", "relic_select",
                   "card_reward", "rewards", "crystal_sphere"}:
         return True  # A source action may legitimately await a visible mandatory choice.
@@ -365,6 +388,11 @@ def _evidence_errors(case: LiveComparisonCase) -> list[str]:
             errors.append(f"{label}: enriched bridge observation schema2 is required")
         if not raw.get("state_type") or not isinstance(raw.get("run"), Mapping):
             errors.append(f"{label}: explicit screen and run observations are required")
+        if raw.get("state_type") == "abandon_run_confirmation":
+            popup = _mapping(raw.get("abandon_run_confirmation"))
+            if any(not isinstance(popup.get(f"can_{choice}"), bool)
+                   for choice in ("confirm", "cancel")):
+                errors.append(f"{label}: explicit abandon confirmation controls are required")
         player = _mapping(raw.get("player"))
         for key in ("hp", "max_hp", "block", "gold", "status", "relics", "potions"):
             if key not in player:

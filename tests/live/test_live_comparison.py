@@ -355,3 +355,89 @@ def test_client_keeps_repeatable_chosen_event_options_after_confirmation_cancel(
         client = LiveApiClient(LiveApiConfig(base_url="http://bridge"), client=http)
         assert client.actions(raw) == (
             [{"action": "choose_event_option", "index": 1}] if expected else [])
+
+
+@pytest.mark.parametrize("can_confirm,can_cancel", [(True, True), (True, False),
+                                                 (False, True), (False, False)])
+def test_abandon_modal_client_exposes_only_its_controls_and_never_underlying_actions(
+    can_confirm: bool, can_cancel: bool,
+) -> None:
+    raw = {
+        "state_type": "abandon_run_confirmation",
+        "abandon_run_confirmation": {"event_id": "TRIAL", "can_confirm": can_confirm,
+                                     "can_cancel": can_cancel},
+        "event": {"options": [{"index": 0, "is_locked": False, "can_choose": True}]},
+        "player": {"can_remove_potions": True, "potions": [{"id": "FRUIT_JUICE", "slot": 0}]},
+        "actions": [{"action": "proceed"}, {"action": "use_potion", "slot": 0}],
+    }
+    requests = []
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            raise AssertionError("Disabled modal controls must not probe underlying actions")
+        return httpx.Response(200, json={"status": "ok"})
+    expected = ([{"action": "confirm_abandon_run"}] if can_confirm else []) + (
+        [{"action": "cancel_abandon_run"}] if can_cancel else [])
+    with httpx.Client(transport=httpx.MockTransport(handler), base_url="http://bridge") as http:
+        client = LiveApiClient(LiveApiConfig(base_url="http://bridge"), client=http)
+        assert client.actions(raw) == expected
+        assert not requests
+        for command in expected:
+            client.apply_action(command)
+    assert [json.loads(request.content) for request in requests] == expected
+
+
+def test_abandon_modal_projection_uses_event_phase_and_is_a_settled_visible_choice() -> None:
+    from sts2sim.live_comparison import _settled, live_validation_snapshot
+
+    raw = {"state_type": "abandon_run_confirmation", "run": {"action_running": True},
+           "abandon_run_confirmation": {"can_confirm": True, "can_cancel": True}}
+    assert live_validation_snapshot(raw)["phase"] == "event"
+    assert _settled(raw) is True
+
+
+def test_public_trial_double_down_matches_the_explicit_modal_checkpoint_projection() -> None:
+    from events.test_trial_abandon_confirmation import _trial
+
+    from sts2sim import step
+    from sts2sim.engine.models import Action, ActionType
+    from sts2sim.mechanics.run_progress import source_total_floor
+
+    rejected = step(_trial(), Action(type=ActionType.CHOOSE_EVENT, target_id="REJECT"))
+    action = Action(type=ActionType.CHOOSE_EVENT, target_id="DOUBLE_DOWN")
+    popup = step(rejected, action)
+    assert popup.event.page_id == "ABANDON_CONFIRMATION"
+
+    def observed(state, screen):
+        return {
+            "observation_schema_version": 2, "state_type": screen,
+            "run": {"act": state.act, "floor": source_total_floor(state),
+                    "act_floor": state.floor, "ascension": state.ascension},
+            "player": {"hp": state.player.hp, "max_hp": state.player.max_hp,
+                       "block": state.player.block, "gold": state.player.gold,
+                       "status": [{"id": key.upper() + "_POWER", "amount": value}
+                                  for key, value in state.player.statuses.items()],
+                       "relics": [{"id": value.upper()} for value in state.relics],
+                       "potions": [{"id": value.upper(), "slot": index}
+                                   for index, value in enumerate(state.potions)]},
+        }
+
+    before = observed(rejected, "event")
+    before["event"] = {"event_id": "TRIAL", "page_id": "REJECT"}
+    after = observed(popup, "abandon_run_confirmation")
+    after["abandon_run_confirmation"] = {
+        "event_id": "TRIAL", "page_id": "ABANDON_CONFIRMATION",
+        "can_confirm": True, "can_cancel": True,
+    }
+    case = LiveComparisonCase(
+        case_id="source-trial-double-down-modal", simulator_before=serialize(rejected),
+        simulator_action=action.model_dump(mode="json"),
+        external_action={"action": "choose_event_option", "index": 1},
+        live_before=before, live_after=after, compare_rng=False,
+    )
+    assert compare_live_comparison(case)["matched"] is True
+    missing_cancel = deepcopy(after)
+    missing_cancel["abandon_run_confirmation"]["can_cancel"] = False
+    mismatch = compare_live_comparison(case.model_copy(update={"live_after": missing_cancel}))
+    assert mismatch["matched"] is False
+    assert any(row["path"].startswith("event_confirmation") for row in mismatch["mismatches"])

@@ -32,7 +32,7 @@
       "ppo_observation_ready": false,
       "source_reviewed_at": "2026-10-28",
       "ppo_patch": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations.patch",
-      "ppo_patch_sha256": "1df38bdacffe835d4c266785cbc9646af767b58ca6bf5f6a93175bc671bd79b1",
+      "ppo_patch_sha256": "0a61072b33e2ae4614b3811fcd29691cba647ef00b5cb0cc257830c420313b98",
       "previous_ppo_patches": [
         {
           "path": "external/live_bridges/patches/STS2MCP-55e06485-ppo-observations-v1.patch",

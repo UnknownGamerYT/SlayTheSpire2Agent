@@ -255,7 +255,55 @@ def import_policy_view(
     )
     view = LivePolicyView(state)
     screen = str(live.get("state_type", "")).lower()
-    if screen == "map":
+    if screen == "abandon_run_confirmation":
+        from sts2sim.engine.transitions import _event_flow_option_states
+        from sts2sim.mechanics.event_flows import current_event_flow_page, event_flow_state
+
+        payload = _map(live.get(screen))
+        flow = event_flow_state(
+            "TRIAL",
+            hp=state.player.hp,
+            max_hp=state.player.max_hp,
+            gold=state.player.gold,
+            page_id="ABANDON_CONFIRMATION",
+            data={"source_runtime": True},
+        )
+        canonical = {
+            option.option_id: option
+            for option in _event_flow_option_states(
+                current_event_flow_page(flow),
+                state.player.gold,
+            )
+        }
+        options = []
+        for choice in ("confirm", "cancel"):
+            field_name = f"can_{choice}"
+            if not isinstance(payload.get(field_name), bool):
+                raise ValueError(f"Invalid visible abandon confirmation {field_name} boolean")
+            option_id = f"{choice.upper()}_ABANDON"
+            options.append(
+                canonical[option_id].model_copy(update={"disabled": not payload[field_name]})
+            )
+            if payload[field_name] is True:
+                view.add(
+                    Action(type=ActionType.CHOOSE_EVENT, target_id=option_id),
+                    {"action": f"{choice}_abandon_run"},
+                )
+        view.state = state.model_copy(
+            update={
+                "event": EventState(
+                    event_id=str(payload.get("event_id") or "abandon_run"),
+                    name=str(
+                        payload.get("event_name")
+                        or _map(live.get("event")).get("event_name")
+                        or "Abandon run confirmation"
+                    ),
+                    page_id="ABANDON_CONFIRMATION",
+                    options=tuple(options),
+                )
+            }
+        )
+    elif screen == "map":
         payload = _map(live.get("map"))
         rows = _rows(payload.get("nodes"), "map.nodes")
         nodes, edges = [], []
@@ -715,6 +763,7 @@ def import_policy_view(
             "relic_select",
             "card_reward",
             "crystal_sphere",
+            "abandon_run_confirmation",
         }
         and player.get("can_remove_potions") is True
     ):

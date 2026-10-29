@@ -307,6 +307,26 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Nodes.Events/NEventOptionButton.cs",
       "sha256": "0c8c339b34c803763d5bd445514144039baa8122d95016d1c04001b6a932e048"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NAbandonRunConfirmPopup.cs",
+      "sha256": "fa28d8b3e99f76f4bf0d9a549baf866ddd9307dc54f5ee148759fd19307446fd"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NModalContainer.cs",
+      "sha256": "57d419b540ae618796a2f1623e9ee3a608733892c416ac47bbaa85a5876e6685"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NVerticalPopup.cs",
+      "sha256": "e03f435cb68b6989606453edb7f672b2324d3e6caf88e36c070f8fdab70e4877"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.CommonUi/NPopupYesNoButton.cs",
+      "sha256": "f216f627eb2ccbf22d483d85022809b14063c0083eab5ca6558b16b516cca586"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Nodes.GodotExtensions/NButton.cs",
+      "sha256": "b05de61992df3fd388895e9bea07a44ec5c648622efb2b1dbd6c25b112d134eb"
     }
   ],
   "contracts": [
@@ -332,7 +352,8 @@
     "AttackIntent.DamageCalc provides the current selected move raw base; GetSingleDamage applies all hooks and truncates before displaying the label",
     "Crystal Sphere exports numeric remaining divinations and completed reveal history; partial cells do not expose full hidden item bounds",
     "Additional owned periodic histories and Wongo payout state are source primitive fields, independent of transient display animations",
-    "EventOption.WasChosen records every successful callback entry; DisableOnChosen=false permits repeated choices after a canceled confirmation, including Trial DoubleDown and Architect Proceed"
+    "EventOption.WasChosen records every successful callback entry; DisableOnChosen=false permits repeated choices after a canceled confirmation, including Trial DoubleDown and Architect Proceed",
+    "Trial DoubleDown opens the owned NAbandonRunConfirmPopup in NModalContainer; its visible enabled Yes/No controls take priority over underlying rooms, and explicit commands invoke the actual confirmation callbacks"
   ],
   "compiled_against_game": false,
   "installed_game_behavior_validated": false,
@@ -428,5 +449,21 @@
     "source_chosen_gate": "OnChosen != null && (!DisableOnChosen || !WasChosen)",
     "exported_effective_gate": "button.IsEnabled && !Option.IsLocked && (!DisableOnChosen || !Option.WasChosen)",
     "legacy_without_repeatability_flag": "chosen options remain blocked"
+  },
+  "trial_abandon_confirmation": {
+    "screen": "abandon_run_confirmation",
+    "headless_page": "ABANDON_CONFIRMATION",
+    "headless_options": [
+      "CONFIRM_ABANDON",
+      "CANCEL_ABANDON"
+    ],
+    "commands": [
+      "confirm_abandon_run",
+      "cancel_abandon_run"
+    ],
+    "confirm_callback": "NAbandonRunConfirmPopup.OnYesButtonPressed -> RunManager.Abandon",
+    "cancel_callback": "NAbandonRunConfirmPopup.OnNoButtonPressed -> QueueFreeSafely",
+    "underlying_gameplay_and_menu_commands": "blocked while this owned popup is visible",
+    "state_get": "observes button enablement without invoking either callback"
   }
 }

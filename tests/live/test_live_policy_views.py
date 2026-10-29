@@ -259,6 +259,113 @@ def test_event_selection_gate_rejects_non_boolean_flags(field):
         import_policy_view(raw)
 
 
+@pytest.mark.parametrize("choice", ["confirm", "cancel"])
+def test_saved_policy_handles_abandon_confirmation_with_only_the_enabled_modal_control(
+    live_checkpoint,
+    choice,
+):
+    raw = _screen(
+        "abandon_run_confirmation",
+        {
+            "can_confirm": choice == "confirm",
+            "can_cancel": choice == "cancel",
+            "event_id": "TRIAL",
+        },
+    )
+    _, info, commands = import_policy_view(raw).inputs()
+    assert commands == {0: {"action": f"{choice}_abandon_run"}}
+    descriptor = info["action_space"][0]
+    assert descriptor["type"] == "choose_event"
+    assert descriptor["target_id"] == f"{choice.upper()}_ABANDON"
+    assert descriptor["event_option"]["page_id"] == "ABANDON_CONFIRMATION"
+    bridge = Bridge(raw, {"state_type": "game_over"})
+    result = _play(bridge, live_checkpoint)
+    assert bridge.actions == [commands[0]]
+    assert result.steps_taken == 1
+    assert result.steps[0].decision.policy == "masked_ppo"
+
+
+def test_abandon_modal_hides_underlying_event_card_potion_reward_and_proceed_controls():
+    raw = _screen(
+        "abandon_run_confirmation",
+        {
+            "can_confirm": True,
+            "can_cancel": True,
+            "event_id": "TRIAL",
+            "can_proceed": True,
+        },
+    )
+    raw["event"] = {
+        "event_id": "TRIAL",
+        "options": [
+            {"index": 0, "option_id": "ACCEPT", "is_enabled": True},
+        ],
+    }
+    raw["rewards"] = {
+        "items": [{"index": 0, "type": "gold", "gold_amount": 99}],
+        "can_proceed": True,
+    }
+    raw["card_reward"] = {"cards": [_card()], "can_skip": True}
+    raw["player"]["potions"] = [
+        {
+            "id": "FRUIT_JUICE",
+            "slot": 2,
+            "can_discard": True,
+            "can_use_outside_combat": True,
+            "passes_custom_usability_check": True,
+        }
+    ]
+    observation, info, commands = import_policy_view(raw).inputs()
+    assert observation["counts"]["legal_actions"] == 2
+    assert {command["action"] for command in commands.values()} == {
+        "confirm_abandon_run",
+        "cancel_abandon_run",
+    }
+    assert {descriptor["target_id"] for descriptor in info["action_space"]} == {
+        "CONFIRM_ABANDON",
+        "CANCEL_ABANDON",
+    }
+    assert all(
+        descriptor["event_option"]["page_id"] == "ABANDON_CONFIRMATION"
+        for descriptor in info["action_space"]
+    )
+
+
+@pytest.mark.parametrize("invalid", [{"can_confirm": True}, {"can_confirm": 1, "can_cancel": True}])
+def test_abandon_modal_rejects_missing_or_non_boolean_control_states(invalid):
+    with pytest.raises(ValueError, match="abandon confirmation.*boolean"):
+        import_policy_view(_screen("abandon_run_confirmation", invalid))
+
+
+def test_abandon_modal_option_features_match_the_headless_trial_confirmation():
+    from events.test_trial_abandon_confirmation import _choose, _trial
+
+    from sts2sim.agent_api import action_space
+
+    headless = _choose(_choose(_trial(), "REJECT"), "DOUBLE_DOWN")
+    raw = _screen(
+        "abandon_run_confirmation",
+        {
+            "can_confirm": True,
+            "can_cancel": True,
+            "event_id": "TRIAL",
+        },
+    )
+    _, info, _ = import_policy_view(raw).inputs()
+    expected = {
+        descriptor["target_id"]: descriptor["event_option"] for descriptor in action_space(headless)
+    }
+    actual = {
+        descriptor["target_id"]: descriptor["event_option"] for descriptor in info["action_space"]
+    }
+    assert actual == expected
+    assert actual["CONFIRM_ABANDON"]["metadata"] == {
+        "confirmation_kind": "abandon_run",
+        "confirmation_choice": True,
+        "markers": ["run_death"],
+    }
+
+
 def test_visible_item_and_card_features_retain_actual_prices_modifiers_and_gold():
     raw = _screen(
         "shop",
