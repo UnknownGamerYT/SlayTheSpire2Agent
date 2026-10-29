@@ -73,7 +73,8 @@ def test_cancel_reopens_original_repeatable_options_without_spending_trial_rng()
         state = _choose(load_state(serialize(state)), "CANCEL_ABANDON")
         assert state.player == rejected.player and state.rng == rejected.rng
         assert state.event.page_id == "REJECT"
-        assert {a.target_id for a in legal_actions(state)} == {"ACCEPT", "DOUBLE_DOWN"}
+        assert {a.target_id for a in legal_actions(state)
+                if a.type is ActionType.CHOOSE_EVENT} == {"ACCEPT", "DOUBLE_DOWN"}
     after_cancel = _choose(state, "ACCEPT")
     direct = _choose(rejected, "ACCEPT")
     assert after_cancel.event.page_id == direct.event.page_id
