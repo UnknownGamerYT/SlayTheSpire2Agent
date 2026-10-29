@@ -246,6 +246,14 @@ def preserve_changes(card: CardInstance, updated: CardInstance) -> CardInstance:
 
 
 def prepare_count_card(combat: CombatState, card: CardInstance) -> CardInstance:
+    if card.card_id == "banshees_cry":
+        count = int(combat.metadata.get("source_class_ethereal_plays", 0))
+        seen = int(card.custom.get("source_local_banshee_seen", 0))
+        if count > seen:
+            card = add_local_energy_cost(card, -2 * (count - seen), "combat")
+        return card.model_copy(update={"custom": {
+            **card.custom, "source_local_banshee_seen": count,
+        }})
     key = {"stomp": "attacks_played_this_turn", "pinpoint": "skills_played_this_turn"}.get(
         card.card_id,
     )
@@ -259,8 +267,10 @@ def prepare_count_card(combat: CombatState, card: CardInstance) -> CardInstance:
 
 def synchronize_count_cards(combat: CombatState) -> CombatState:
     if not any(
-        card.card_id in {"stomp", "pinpoint"}
-        and card.custom.get("source_local_count_turn") != combat.turn
+        (card.card_id in {"stomp", "pinpoint"}
+         and card.custom.get("source_local_count_turn") != combat.turn)
+        or (card.card_id == "banshees_cry" and card.custom.get("source_local_banshee_seen")
+            != int(combat.metadata.get("source_class_ethereal_plays", 0)))
         for zone in (combat.hand, combat.draw_pile, combat.discard_pile, combat.exhaust_pile)
         for card in zone
     ):

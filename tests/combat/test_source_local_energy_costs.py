@@ -142,3 +142,29 @@ def test_public_pinpoint_cost_reduction_after_absolute_set_preserves_source_orde
     before = state.player.energy
     state = _play(state, "pinpoint")
     assert state.player.energy == before - 1
+
+
+def test_banshees_cry_earlier_ethereal_discount_is_overridden_by_later_absolute_cost():
+    from combat.test_card_play_status_runtime import _reload, _source, _state
+    from combat.test_glam import _play
+
+    ethereal = _simple("ghost", custom={"ethereal": True})
+    setter = _simple("setter", effects={"set_hand_cost": {"cost": 5, "duration": "combat"}})
+    state = _play(_state(ethereal, setter, _source("BANSHEES_CRY")), "ghost")
+    state = _play(state, "setter")
+    before = state.player.energy
+    state = _play(_reload(state), "banshees_cry")
+    assert state.player.energy == before - 5
+
+
+def test_banshees_cry_later_ethereal_discount_follows_absolute_cost_in_source_order():
+    from combat.test_card_play_status_runtime import _reload, _source, _state
+    from combat.test_glam import _play
+
+    ethereal = _simple("ghost", custom={"ethereal": True})
+    setter = _simple("setter", effects={"set_hand_cost": {"cost": 5, "duration": "combat"}})
+    state = _play(_state(ethereal, setter, _source("BANSHEES_CRY")), "setter")
+    state = _play(state, "ghost")
+    before = state.player.energy
+    state = _play(_reload(state), "banshees_cry")
+    assert state.player.energy == before - 3

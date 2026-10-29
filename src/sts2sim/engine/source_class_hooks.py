@@ -729,8 +729,6 @@ def energy_cost(card: CardInstance, combat: CombatState | None, cost: int) -> in
 
     if combat is None:
         return cost
-    if card.card_id.lower() == "banshees_cry":
-        cost -= 2 * t._metadata_int(combat.metadata, "source_class_ethereal_plays", 0)
     if card.type == CardType.POWER and cost > 0:
         cost = max(
             0,
@@ -817,6 +815,9 @@ def after_play(combat: CombatState, card: CardInstance) -> CombatState:
                 }
             }
         )
+        # Banshee's Cry appends AddThisCombat(-2), preserving its position
+        # relative to later absolute and relative energy-cost modifiers.
+        combat = t.source_cost_hooks.synchronize_count_cards(combat)
     skills = t._metadata_int(combat.metadata, "skills_played_this_turn", 0)
     candidates = []
     for item in combat.discard_pile:

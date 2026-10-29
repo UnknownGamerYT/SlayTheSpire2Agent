@@ -13,6 +13,10 @@
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Entities.Cards/LocalCostModifierExpiration.cs",
       "sha256": "c2675d7e4a53b6d2bb1a0d0ed481daf94f6c9ba79522682e804339534a1e5aef"
+    },
+    {
+      "path": "decompiled/MegaCrit.Sts2.Core.Models.Cards/BansheesCry.cs",
+      "sha256": "1f6e03cb66c77146b694dc4f2ac831691136de781615006eef08a58001fe2c83"
     }
   ],
   "contracts": [
@@ -20,7 +24,8 @@
     "TemporaryCardCost UntilPlayed clears on play; ThisTurn clears on play or turn end; ThisCombat clears at combat end",
     "GetStarCostWithModifiers resolves HasStarCostX before temporary scalar costs",
     "SetToFreeThisTurn applies both local-energy until-played and temporary-star until-played-or-turn costs",
-    "Legacy free_energy_consumed must prevent re-adoption of an expired star-free marker"
+    "Legacy free_energy_consumed must prevent re-adoption of an expired star-free marker",
+    "BansheesCry reduces energy through ordered AddThisCombat entries after Ethereal plays, and later absolute cost setters override earlier reductions"
   ],
   "scope": "Independent functional implementation and public/serialization tests; no installed-game execution claimed"
 }
