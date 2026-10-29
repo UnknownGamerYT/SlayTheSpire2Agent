@@ -4,7 +4,7 @@ from sts2sim import legal_actions, load_state, new_run, serialize, step
 from sts2sim.engine import Action, ActionType, CardInstance, RewardState, RunPhase
 
 
-def _special_reward(ordinary):
+def _special_reward(ordinary, alternatives=("paels_wing", "driftwood")):
     state = new_run("special-card-reward", "IRONCLAD", 0)
     returned = CardInstance(instance_id="stolen:bash", card_id="bash", type="attack",
                             effects={"damage": 8}, cost=2)
@@ -16,12 +16,15 @@ def _special_reward(ordinary):
                   "upgrade_card_rewards": True},
     )
     return state.model_copy(update={"phase": RunPhase.REWARD, "reward": reward,
-        "relics": ("silver_crucible", "silken_tress", "wing_charm", "paels_wing", "driftwood")})
+        "relics": ("silver_crucible", "silken_tress", "wing_charm", *alternatives)})
 
 
 @pytest.mark.parametrize("ordinary", [False, True])
-def test_returned_special_card_never_receives_card_reward_modifiers_or_alternatives(ordinary):
-    state = _special_reward(ordinary)
+@pytest.mark.parametrize("alternative_relic", ["paels_wing", "driftwood"])
+def test_returned_special_card_never_receives_card_reward_modifiers_or_alternatives(
+    ordinary, alternative_relic,
+):
+    state = _special_reward(ordinary, (alternative_relic,))
     result = step(load_state(serialize(state)), Action(
         type=ActionType.TAKE_REWARD_GOLD, target_id="reward:gold",
     ))
@@ -44,3 +47,14 @@ def test_returned_special_card_never_receives_card_reward_modifiers_or_alternati
     assert serialize(returned) == serialize(step(load_state(serialize(result)), Action(
         type=ActionType.TAKE_REWARD_CARD, target_id="reward:card_group:0:0",
     )))
+
+
+def test_returned_special_card_bypasses_the_normal_card_alternative_overflow():
+    from sts2sim import inspect_reward_alternative_fault
+
+    state = _special_reward(True)
+    with pytest.raises(ValueError, match="no source alternative-count fault"):
+        inspect_reward_alternative_fault(state, "group:0")
+    assert inspect_reward_alternative_fault(state, "primary")["normal_transition"] is False
+    assert any(action.target_id == "reward:card_group:0:0" for action in legal_actions(state))
+    assert not any(action.target_id == "reward:card:0" for action in legal_actions(state))

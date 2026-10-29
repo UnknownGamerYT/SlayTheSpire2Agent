@@ -21,6 +21,11 @@ def source_reward_alternatives(state: RunState, group: str) -> tuple[str, ...]:
     reward = state.reward
     if reward is None or not _group_ids(reward, group):
         return ()
+    if (group.startswith("group:") and group.split(":", 1)[1]
+            in reward.metadata.get("returned_card_option_specs", {})):
+        # Swipe returns a SpecialCardReward, not a CardReward. The flat state
+        # stores that physical card in a group but the source has no selector.
+        return ()
     context = reward_reroll_contexts(reward).get(group, {})
     alternatives = ["Skip"] if context.get("can_skip", True) else []
     if ("driftwood" in state.relics
