@@ -11,6 +11,7 @@ from typing import Any
 
 from sts2sim.mechanics.triggers import GameTrigger
 
+from . import source_cost_hooks
 from .models import CardInstance, CardType, CombatState, EffectEvent, RngState, RunState, TargetType
 from .rng import capture_random_state, random_from_state, random_stream
 from .source_cost_hooks import set_local_energy_cost
@@ -817,7 +818,7 @@ def after_play(combat: CombatState, card: CardInstance) -> CombatState:
         )
         # Banshee's Cry appends AddThisCombat(-2), preserving its position
         # relative to later absolute and relative energy-cost modifiers.
-        combat = t.source_cost_hooks.synchronize_count_cards(combat)
+        combat = source_cost_hooks.synchronize_count_cards(combat)
     skills = t._metadata_int(combat.metadata, "skills_played_this_turn", 0)
     candidates = []
     for item in combat.discard_pile:
