@@ -5,17 +5,17 @@
     "selection": "user-confirmed",
     "installed_build_verified": false
   },
-  "reviewed_base_revision": "source_implementation_followup",
+  "reviewed_base_revision": "675da70f6f3726ed2708cf85960821c4deaa487f",
   "conclusion": {
     "certifies_game_parity": false,
     "nearly_identical_confirmed": false,
     "overall_fidelity_percentage": null
   },
   "online_snapshot_check": {
-    "checked_at_utc": "2026-10-28T19:21:43.065949+00:00",
+    "checked_at_utc": "2026-10-29T08:03:13.305211+00:00",
     "endpoints": 17,
     "all_match_cached_hashes": true,
-    "scope": "Live stable payload byte-equivalence to cached snapshot; not behavioral or executable-build parity"
+    "scope": "Read-only API canonical bytes compared with existing stable cache; no executable build or behavior certification"
   },
   "card_findings": [
     {
@@ -86,12 +86,13 @@
     }
   ],
   "remaining_boundaries": [
-    "No installed Windows game fingerprint or complete stable game action trace validated in cloud",
-    "Whole-run source RNG routing/consumption and all nested effect ordering not exhaustively compared to executable",
-    "Complete multiplayer protocol and co-op interactions not certified",
-    "Kaleidoscope/Driftwood empty custom reroll is explicit unsupported source edge, masked for training",
+    "No installed Windows game fingerprint or compiled/loaded patched bridge has been validated in this cloud workspace",
+    "Whole-run source RNG routing/consumption and all nested effect ordering have not been exhaustively compared to the executable",
+    "Complete multiplayer protocol and co-op interactions are outside the verified singleplayer scope",
+    "Kaleidoscope/Driftwood empty custom reroll exception prefix is modeled by an oracle inspector and intentionally masked for training; actual UI/task recovery requires a game trace",
+    "Driftwood/PaelsWing alternative-count exception prefix is modeled by an oracle inspector and the faulting group selections are intentionally masked; actual UI/task recovery requires a game trace",
     "Finite method/metadata/fixture review is not complete behavioral or interaction certification",
-    "Trial Double Down abandon-confirmation UI is represented by an explicit abandon action; Windows UI sequence not validated"
+    "Trial Double Down has serialized confirmation and cancellation; rendered Windows UI sequence remains unvalidated"
   ],
   "sources": [
     "https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2868840&count=50&maxlength=1500&format=json",
@@ -118,8 +119,20 @@
     "docs/stable_class_card_audit.md",
     "docs/source_enchantment_audit.json",
     "tests/fixtures/source_modifier_audit.json",
-    "tests/fixtures/stable_ascension_source.json"
+    "tests/fixtures/stable_ascension_source.json",
+    "docs/source_edge_closure_2026_10_29.json",
+    "docs/source_reward_faults.md",
+    "tests/fixtures/source_trial_confirmation.json",
+    "tests/fixtures/source_native_event_completion.json"
   ],
   "validation_machine": "Windows with Steam installed, supplied by user",
-  "completed_training_validation": "docs/validation/stable_source_training_2026_10_28.json"
+  "finite_followup_ledger": "docs/source_edge_closure_2026_10_29.json",
+  "historical_training_validation": "docs/validation/stable_source_training_2026_10_28.json",
+  "current_training_validation": "docs/validation/stable_source_training_2026_10_29.json",
+  "historical_online_snapshot_check": {
+    "checked_at_utc": "2026-10-28T19:21:43.065949+00:00",
+    "endpoints": 17,
+    "all_match_cached_hashes": true,
+    "scope": "Live stable payload byte-equivalence to cached snapshot; not behavioral or executable-build parity"
+  }
 }

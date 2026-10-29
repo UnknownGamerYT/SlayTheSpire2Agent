@@ -46,7 +46,7 @@ single-player implementations or as verified game parity:
 | Area | Remaining limitation |
 | --- | --- |
 | Multiplayer | Ally dictionaries are not a complete multi-player combat model. Glimpse Beyond and Legion of Bone still require complete teammate pile/Osty ownership and per-player RNG behavior; targeted ally cards and simultaneous choices need live validation. |
-| Trigger ordering | Existing general power/relic dispatch is not an exact implementation of the game's hook priority graph. Nested draws, deaths, generated cards and multiple simultaneous powers require captured traces. |
+| Trigger ordering | Retained fixtures cover the stated power/relic dispatch boundaries. Nested draws, deaths, generated cards and simultaneous powers beyond those fixtures have not been independently compared to installed-game traces. |
 | Randomness | Source named streams, shuffle/selection ordering and draw counts are integrated for the retained source contracts. Independent Windows traces are still needed to certify displayed-seed parity and combined runtime ordering. |
 | Physical card rebuilding | Upgrade/downgrade adapters retain the covered growth, cost and enchantment state. Unrecorded historical state from older snapshots and combinations absent from the retained fixtures are not independently certified. |
 | Noncombat cards | This document's review scope is OnPlay and related card callbacks. Separate event, rest, item and source-pool fixtures cover their stated lifecycle contracts; this document does not expand its scope to certify them all. |

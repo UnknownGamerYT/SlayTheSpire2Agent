@@ -9,11 +9,14 @@ live in [HANDOFF.md](HANDOFF.md).
 
 The simulator is still undergoing game-fidelity validation. See the
 [current stable parity review](docs/stable_game_parity_review.md) for confirmed
-source-rule corrections and remaining equivalence gaps.
+source-rule corrections and the finite
+[source edge closure ledger](docs/source_edge_closure_2026_10_29.md) for the
+latest implementation and regression scope.
 
-The [October 2026 status report](docs/project_status_2026_10_28.md) records the
-stable data refresh and remaining fidelity gaps. The simulator targets stable
-v0.107.1; the v0.111.0 beta is a separate data/game channel.
+The [28 October baseline report](docs/project_status_2026_10_28.md) records its
+original data refresh and validation revision. Later source changes have their
+own validation evidence. The selected target remains stable v0.107.1; beta is
+a separate data/game channel.
 
 Normal runs use the source xoshiro256** RNG streams and stable run-generation
 rules. [Per-item source reviews](docs/item_source_audit/README.md) and action
@@ -122,8 +125,8 @@ from sts2sim import legal_actions, load_state, new_run, serialize, step
 
 state = new_run(seed=1, character_id="IRONCLAD", ascension=0)
 action = legal_actions(state)[0]
-transition = step(state, action)
-payload = serialize(transition.state)
+state = step(state, action)
+payload = serialize(state)
 restored = load_state(payload)
 ```
 
@@ -241,7 +244,7 @@ The report records each actual episode seed and leaves checkpoint bytes unchange
 To use saved weights with the game, follow the
 [live bridge setup guide](docs/live_bridge_setup.md) to download the pinned bridge,
 apply its observation patch, and build/install it against your game. Once a
-supported Ironclad or Silent combat turn is visible:
+supported game decision is visible:
 
 ```powershell
 uv run sts2sim doctor-live-bridge --base-url http://localhost:15526

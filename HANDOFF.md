@@ -1,6 +1,6 @@
 # SlayTheSpire2Agent Handoff
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 
 ## Current fidelity status
 
@@ -10,11 +10,25 @@ The [current fidelity review](docs/stable_game_parity_review.md) links retained
 card, modifier, enemy, item, event and RNG evidence. Source review is separate
 from installed-game equivalence; no overall fidelity percentage is claimed.
 
-The known single-player discrepancies in the finite item ledger are corrected.
-Completed public-action, reload and training checks are recorded in
-[the bounded validation report](docs/validation/stable_source_training_2026_10_28.json). Per-ID audits state finite method and test scope,
-including remaining interaction and multiplayer qualifications. `TEST` is an
-explicit synthetic fixture, and saved MT19937 states remain compatible.
+The [source edge closure ledger](docs/source_edge_closure_2026_10_29.md) tracks
+the finite discrepancies found after the original source review, including
+physical potion slots, reward/event continuations, card costs, turn timing,
+merchant/chest flows and observed policy inputs. Its status and linked evidence
+determine whether that known queue is closed. Per-ID item audits retain their
+finite method/test scope and interaction/multiplayer qualifications. `TEST` is
+an explicit synthetic fixture, and saved MT19937 states remain compatible.
+
+The [28 October bounded report](docs/validation/stable_source_training_2026_10_28.json)
+is historical evidence for its recorded runtime revisions. It does not validate
+later simulator changes. Use the current ledger's linked frozen validation
+report and pull-request CI for the latest integrated code.
+
+The [29 October report](docs/validation/stable_source_training_2026_10_29.json)
+binds 6,419 passing core tests, CPU continuation and bounded QA to `91e7869`.
+The bridge-only repeatable-control follow-up at `675da70` has 206 passing
+live-tooling tests, static checks and unchanged engine logic checksum. The
+final published head's all-tests CI and distribution audit remain distinct
+from those earlier revision-bound results.
 
 The training pipeline uses legal masks and policy-visible observations, validates
 source/logic/architecture provenance, supports deterministic CPU continuation,

@@ -2422,18 +2422,20 @@
         "src/sts2sim/mechanics/source_ancients.py:generate_source_ancient_offers",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
         "src/sts2sim/engine/source_reward_reroll.py:legal_reward_rerolls",
-        "src/sts2sim/engine/source_reward_reroll.py:reroll_card_reward"
+        "src/sts2sim/engine/source_reward_reroll.py:reroll_card_reward",
+        "src/sts2sim/engine/source_reward_faults.py:inspect_reward_reroll_fault"
       ],
       "retained_tests": [
         "tests/content/test_relic_handlers.py::test_pickup_passive_reward_relics_register_no_immediate_effect_markers",
         "tests/content/test_relic_handlers.py::test_registry_includes_new_pickup_deck_mutation_relic_markers",
         "tests/rewards/test_source_reward_reroll.py::test_combat_driftwood_public_reroll_consumes_factory_draws_once_and_updates_pity",
         "tests/rewards/test_source_reward_reroll.py::test_nonempty_manual_custom_reroll_still_uses_its_original_explicit_pool",
-        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary"
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary",
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_fault_diagnostic_records_exact_source_prefix_without_ui_guess"
       ],
       "notes": [
         "One-use public reroll actions preserve each CardReward creation context, option count and source RNG, including nonempty custom pools.",
-        "Kaleidoscope supplies an explicit empty custom reroll pool in the pinned source. Its source exception/UI behavior requires installed-game comparison; this known boundary is serialized with an unsupported diagnostic and its action is unavailable."
+        "Explicit empty Kaleidoscope RerollOptions have a modeled_source_fault context. The oracle inspector records the source-defined exception prefix, partial reward/history and RNG without a normal successor; training deliberately masks the faulting reroll. Installed-game UI/task recovery remains unverified."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"
@@ -4331,7 +4333,8 @@
         "src/sts2sim/mechanics/source_ancients.py:_neow",
         "src/sts2sim/mechanics/relics.py:_default_relic_hook_rules",
         "src/sts2sim/engine/transitions.py:_apply_relic_pickup_effects",
-        "src/sts2sim/engine/source_kaleidoscope.py:pickup"
+        "src/sts2sim/engine/source_kaleidoscope.py:pickup",
+        "src/sts2sim/engine/source_reward_faults.py:inspect_reward_reroll_fault"
       ],
       "retained_tests": [
         "tests/content/test_source_ancient_offers.py::test_neow_matches_independent_c_reference_and_native_normal_run",
@@ -4342,11 +4345,12 @@
         "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_offers_two_usable_rewards_from_other_characters",
         "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_uses_two_pool_shuffles_and_six_full_factories",
         "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary",
-        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_manual_groups_apply_silver_crucible_once_per_group"
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_manual_groups_apply_silver_crucible_once_per_group",
+        "tests/rewards/test_kaleidoscope.py::test_kaleidoscope_fault_diagnostic_records_exact_source_prefix_without_ui_guess"
       ],
       "notes": [
         "Two manual reward groups now each draw one reward from three distinct other unlocked character pools, using source Niche shuffle and full rarity/selection/upgrade factory draws. Per-factory and manual-group modifier callbacks are preserved.",
-        "Explicit empty custom RerollOptions are serialized and unavailable with source_empty_custom_card_pool diagnostic; source exception/UI handling remains unverified against installed Windows game."
+        "Explicit empty Kaleidoscope RerollOptions have a modeled_source_fault context. The oracle inspector records the source-defined exception prefix, partial reward/history and RNG without a normal successor; training deliberately masks the faulting reroll. Installed-game UI/task recovery remains unverified."
       ],
       "multiplayer": "not independently validated",
       "source_rarity": "Ancient"

@@ -1,5 +1,10 @@
 # Project status — 28 October 2026
 
+This is a historical baseline. Its test totals and rollout results apply only
+to the revisions recorded below and in its JSON report. See the
+[current source edge ledger](source_edge_closure_2026_10_29.md) and
+[current fidelity review](stable_game_parity_review.md) for the later update.
+
 The training-readiness baseline below is supplemented by the later
 [stable game parity review](stable_game_parity_review.md). That review found
 additional rule mismatches and explicitly does not certify game equivalence.
@@ -92,7 +97,7 @@ certification or installed-game parity.
 
 ## Validation and limits
 
-The frozen source revision passed 6,071 tests, with one expected skip and two
+The historical frozen source revision passed 6,071 tests, with one expected skip and two
 Gymnasium checker warnings. Ruff, strict mypy (175 source files), source/wheel
 builds, exact CPU continuation, repeated evaluation and legal inference passed.
 The [bounded validation report](validation/stable_source_training_2026_10_28.json)
