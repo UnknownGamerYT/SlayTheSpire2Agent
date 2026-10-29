@@ -69,7 +69,10 @@ def after_player_turn_start(
         events.extend(resolved)
     if (
         t._has_relic_id(relics, "emotion_chip")
-        and combat.metadata.get("lost_hp_previous_turn")
+        and combat.metadata.get(
+            "damage_not_fully_blocked_count_previous_turn",
+            combat.metadata.get("lost_hp_previous_turn"),
+        )
         and t._phase_after_combat(combat) == RunPhase.COMBAT
     ):
         combat, rng_state, resolved = t._trigger_orb_passive_from_effect(

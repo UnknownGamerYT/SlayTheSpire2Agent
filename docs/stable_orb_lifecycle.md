@@ -10,8 +10,13 @@ install a delayed energy power during the previous turn. Gold Plated Cables
 adds one trigger to the first orb in automatic start/end callbacks. Manual
 passives from Loop, Emotion Chip and card effects do not receive that bonus.
 Loop and Emotion Chip run after hand draw; Spinner channels after energy reset,
-before hand draw. Emotion Chip reads HP damage since the previous player turn
-started, including enemy damage, and ignores fully blocked hits.
+before hand draw. Emotion Chip reads damage history since the previous player
+turn started, including enemy damage, and tests `!DamageResult.WasFullyBlocked`.
+This source predicate can qualify a zero-HP result: a zero-damage hit without
+Block, or damage prevented by Buffer/Tungsten Rod without Block. A zero result
+with existing or consumed Block is fully blocked unless it is unblockable.
+Actual HP sums stay separate from this history count. Old saves without the
+new count retain their prior HP-loss fallback.
 
 Dualcast, Quadcast and Multi-Cast repeatedly evoke the front orb, removing it on
 the final evoke. Shatter processes each original orb from front to back with two

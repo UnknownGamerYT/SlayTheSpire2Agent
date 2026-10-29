@@ -13443,6 +13443,9 @@ def _apply_end_turn_hand_card_effects(
             combat = _record_player_hp_loss(
                 combat.model_copy(update={"player": player}), hp_before - player.hp,
             )
+            combat = _record_player_damage_received(
+                combat, was_fully_blocked=bool(event.metadata["was_fully_blocked"]),
+            )
             combat, loss_events = _apply_player_turn_hp_loss_powers(
                 combat, hp_before - player.hp, relics=relics,
             )
@@ -13467,6 +13470,9 @@ def _apply_end_turn_hand_card_effects(
             )
             combat = _record_player_hp_loss(
                 combat.model_copy(update={"player": player}), event.amount or 0,
+            )
+            combat = _record_player_damage_received(
+                combat, was_fully_blocked=bool(event.metadata["was_fully_blocked"]),
             )
             combat, loss_events = _apply_player_turn_hp_loss_powers(
                 combat, event.amount or 0, relics=relics,
@@ -24656,6 +24662,16 @@ def _record_player_hp_loss(combat: CombatState, amount: int) -> CombatState:
     return combat.model_copy(update={"metadata": metadata})
 
 
+def _record_player_damage_received(
+    combat: CombatState, *, was_fully_blocked: bool,
+) -> CombatState:
+    """Emotion Chip queries DamageReceivedEntry, including zero-HP results."""
+    metadata = dict(combat.metadata)
+    key = "damage_not_fully_blocked_count_this_turn"
+    metadata[key] = _metadata_int(metadata, key, 0) + int(not was_fully_blocked)
+    return combat.model_copy(update={"metadata": metadata})
+
+
 def _lose_player_hp(
     player: PlayerState,
     amount: int,
@@ -25517,6 +25533,9 @@ def _damage_combat_player(
             target_id=PLAYER_TARGET_ID, amount=buffer_prevented,
         ))
     effective_unblocked = hp_loss
+    was_fully_blocked = (
+        not unblockable and (blocked > 0 or player.block > 0) and effective_unblocked == 0
+    )
     overkill_damage = max(0, effective_unblocked - player.hp)
     hp_loss = min(player.hp, effective_unblocked)
     plated_armor_lost = 0
@@ -25552,6 +25571,7 @@ def _damage_combat_player(
         ))
         player = player.model_copy(update={"hp": 0})
     combat = _record_player_hp_loss(combat.model_copy(update={"player": player}), hp_loss)
+    combat = _record_player_damage_received(combat, was_fully_blocked=was_fully_blocked)
     events.append(
         EffectEvent(
             kind="player_damaged",
@@ -25568,6 +25588,7 @@ def _damage_combat_player(
                 "osty_absorbed": osty_absorbed,
                 "osty_died": osty_died,
                 "unblockable": unblockable,
+                "was_fully_blocked": was_fully_blocked,
                 "unblocked_damage": effective_unblocked,
                 "overkill_damage": overkill_damage,
                 "total_damage_including_overkill": blocked + effective_unblocked,
@@ -25607,6 +25628,9 @@ def _damage_player(
         tungsten_rod_reduction = min(1, hp_loss)
         hp_loss -= tungsten_rod_reduction
     hp_loss, statuses, buffer_prevented = _player_hp_loss_after_buffer(player, hp_loss)
+    was_fully_blocked = (
+        not unblockable and (blocked > 0 or player.block > 0) and hp_loss == 0
+    )
     overkill_damage = max(0, hp_loss - player.hp)
     hp_loss = min(player.hp, hp_loss)
     plated_armor_lost = 0
@@ -25628,6 +25652,7 @@ def _damage_player(
                 "base": _damage_amount_for_metadata(amount),
                 "blocked": blocked,
                 "unblockable": unblockable,
+                "was_fully_blocked": was_fully_blocked,
                 "overkill_damage": overkill_damage,
                 "intangible": intangible_applied,
                 "tungsten_rod_reduction": tungsten_rod_reduction,
@@ -27576,7 +27601,13 @@ def _reset_turn_combat_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
     updated["energy_spent_this_turn"] = 0
     updated["stars_gained_this_turn"] = 0
     updated["hp_lost_previous_turn"] = _metadata_int(metadata, "hp_lost_this_turn", 0)
-    updated["lost_hp_previous_turn"] = updated["hp_lost_previous_turn"] > 0
+    # Older saves only recorded actual HP loss. New states keep the source
+    # DamageReceivedEntry predicate, which can be true even with zero HP loss.
+    damage_count = _metadata_int(metadata, "damage_not_fully_blocked_count_this_turn",
+                                 int(updated["hp_lost_previous_turn"] > 0))
+    updated["damage_not_fully_blocked_count_previous_turn"] = damage_count
+    updated["damage_not_fully_blocked_count_this_turn"] = 0
+    updated["lost_hp_previous_turn"] = damage_count > 0
     updated["hp_lost_this_turn"] = 0
     updated["hp_loss_count_this_turn"] = 0
     updated["osty_attacks_this_turn"] = 0

@@ -22,7 +22,10 @@
     "MegaCrit.Sts2.Core.Models.Powers/ThunderPower.cs": "ea3e41f31e078fec1f90828ac24d40806d3d3c998f926ad4f33edce10a9cbfe7",
     "MegaCrit.Sts2.Core.Models.Relics/GoldPlatedCables.cs": "c810d6025cb0b8d026b9f6aa8d7f728788b539fa570b4740fd6385b4e7ff80e8",
     "MegaCrit.Sts2.Core.Models.Relics/EmotionChip.cs": "a9b1bcde4c7db01ab0fb71901ba431023b38ccdf74a3bb42df995b860dcdbc67",
-    "MegaCrit.Sts2.Core.Models.Relics/Metronome.cs": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28"
+    "MegaCrit.Sts2.Core.Models.Relics/Metronome.cs": "ec079b03b3014e4074ad4f6a386ea81951b08f0670b41c3d8e93d579328e0e28",
+    "MegaCrit.Sts2.Core.Commands/CreatureCmd.cs": "d0a68f1fa60d3c1d05cc87f9e8585a6f6f6529c7e078a856c032a0c1a94f73e8",
+    "MegaCrit.Sts2.Core.Entities.Creatures/DamageResult.cs": "33128b75cbb7863e8d56d116b0e517064500579284c1f9b668c07553b688dc49",
+    "MegaCrit.Sts2.Core.Models.Powers/BufferPower.cs": "bf95bf58bf220b5e5dfe112a32834d857be8f9ce44c0ebbebb69a6caef805231"
   },
   "contracts_document": "docs/stable_orb_lifecycle.md",
   "regressions": "tests/combat/test_source_orb_lifecycle.py",
@@ -36,6 +39,8 @@
     "glass": "evoke twice Focus-adjusted passive; zero passive does not decay raw value",
     "lightning_thunder": "zero evoke retains target and uses no extra target RNG for Thunder",
     "dark_ties": "first encounter-order minimum HP",
-    "zero_capacity_channel": "non-Defect base0 gains1; Defect base3 at0 remains blocked; explicit synthetic TEST legacy remains blocked"
-  }
+    "zero_capacity_channel": "non-Defect base0 gains1; Defect base3 at0 remains blocked; explicit synthetic TEST legacy remains blocked",
+    "emotion_chip": "Prior player-turn DamageReceivedEntry receiver==owner and !Result.WasFullyBlocked; independent of actual HP loss. WasFullyBlocked=!Unblockable&&(blocked>0||remainingBlock>0)&&unblocked==0. Preserve zero/Buffer/Tungsten results in history."
+  },
+  "additional_regressions": "tests/combat/test_source_emotion_damage_history.py"
 }
