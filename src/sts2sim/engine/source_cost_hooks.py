@@ -14,6 +14,8 @@ from .models import CardInstance, CombatState
 
 _KEY = "source_local_energy_modifiers"
 _BASE = "source_local_energy_base"
+_STAR_KEY = "source_local_star_modifiers"
+_STAR_BASE = "source_local_star_base"
 _PLAYED = 1
 _TURN = 2
 _COMBAT = 4
@@ -136,6 +138,7 @@ def set_base_energy_cost(
 
 def free_to_play(card: CardInstance, *, combat: bool = False) -> CardInstance:
     card = set_local_energy_cost(card, 0, "combat" if combat else "turn_or_played")
+    card = set_local_star_cost(card, 0, "combat" if combat else "turn_or_played")
     flag = "free_to_play_this_combat" if combat else "free_to_play_this_turn"
     custom = {**card.custom, flag: True}
     if not combat:
@@ -143,15 +146,67 @@ def free_to_play(card: CardInstance, *, combat: bool = False) -> CardInstance:
     return card.model_copy(update={"custom": custom})
 
 
+def _adopt_star_legacy(card: CardInstance) -> CardInstance:
+    """Older free-card saves stored star expiry alongside the energy flags."""
+    if _STAR_KEY in card.custom:
+        return card
+    entries: list[dict[str, int]] = []
+    if card.custom.get("free_to_play_this_combat"):
+        entries.append({"amount": 0, "expiration": _COMBAT})
+    if card.custom.get("free_to_play_this_turn") and not card.custom.get("free_energy_consumed"):
+        entries.append({"amount": 0, "expiration": _TURN | _PLAYED})
+    if not entries:
+        return card
+    return card.model_copy(update={"custom": {
+        **card.custom, _STAR_BASE: card.custom.get("star_cost", 0), _STAR_KEY: entries,
+    }})
+
+
+def local_star_cost(card: CardInstance) -> int | str:
+    """CardModel.CurrentStarCost uses the last surviving temporary cost.
+
+    ResolveStarCost handles X first, so temporary zero costs never erase X.
+    """
+    card = _adopt_star_legacy(card)
+    base = card.custom.get(_STAR_BASE, card.custom.get("star_cost", 0))
+    if str(base).lower() == "x":
+        return "X"
+    value = int(base or 0)
+    entries = card.custom.get(_STAR_KEY, ())
+    if isinstance(entries, Sequence) and entries:
+        last = entries[-1]
+        if isinstance(last, Mapping):
+            amount = int(last["amount"])
+            return value if amount == 0 and value < 0 else amount
+    return value
+
+
+def set_local_star_cost(card: CardInstance, amount: int, expiration: str) -> CardInstance:
+    card = _adopt_star_legacy(card)
+    entries = list(card.custom.get(_STAR_KEY, ()))
+    entries.append({"amount": max(0, amount), "expiration": _EXPIRY[expiration]})
+    return card.model_copy(update={"custom": {
+        **card.custom, _STAR_BASE: card.custom.get(_STAR_BASE, card.custom.get("star_cost", 0)),
+        _STAR_KEY: entries,
+    }})
+
+
 def expire(
     card: CardInstance, *, when_played: bool = False, turn_end: bool = False,
+    combat_end: bool = False,
 ) -> CardInstance:
-    card = adopt_legacy(card)
-    if _KEY not in card.custom:
+    card = _adopt_star_legacy(adopt_legacy(card))
+    if _KEY not in card.custom and _STAR_KEY not in card.custom:
         return card
     mask = (_PLAYED if when_played else 0) | (_TURN if turn_end else 0)
+    if combat_end:
+        mask |= _PLAYED | _TURN | _COMBAT
     custom = dict(card.custom)
-    custom[_KEY] = [m for m in _mods(card) if not int(m.get("expiration", 0)) & mask]
+    if _KEY in card.custom:
+        custom[_KEY] = [m for m in _mods(card) if not int(m.get("expiration", 0)) & mask]
+    if _STAR_KEY in card.custom:
+        custom[_STAR_KEY] = [m for m in card.custom[_STAR_KEY]
+                             if not int(m.get("expiration", 0)) & mask]
     if when_played and custom.get("free_to_play_this_turn"):
         custom["free_energy_consumed"] = True
     if turn_end:
@@ -166,6 +221,12 @@ def expire(
 
 
 def preserve_changes(card: CardInstance, updated: CardInstance) -> CardInstance:
+    if _STAR_KEY in card.custom:
+        old_base = card.custom.get(_STAR_BASE, card.custom.get("star_cost", 0))
+        new_base = updated.custom.get("star_cost", old_base)
+        updated = updated.model_copy(update={"custom": {
+            **updated.custom, _STAR_BASE: new_base, _STAR_KEY: card.custom[_STAR_KEY],
+        }})
     if _KEY not in card.custom:
         return updated
     modifiers = _mods(card)

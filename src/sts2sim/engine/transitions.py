@@ -30487,20 +30487,18 @@ def _pay_card_resource_costs(
 
 
 def _card_resource_costs(card: CardInstance, *, available_star: int) -> dict[str, int]:
-    raw_star_cost = card.custom.get("star_cost", 0)
+    raw_star_cost = source_cost_hooks.local_star_cost(card)
+    if isinstance(raw_star_cost, str) and raw_star_cost.strip().lower() == "x":
+        return {"star": max(0, available_star)}
     if card.custom.get("brilliant_scarf_free") and str(raw_star_cost).lower() != "x":
-        return {}
-    if (_truthy(card.custom.get("free_to_play_this_turn"))
-            or _truthy(card.custom.get("free_to_play_this_combat"))):
         return {}
     if card.custom.get("void_form_free") and str(raw_star_cost).lower() != "x":
         return {}
     if raw_star_cost in (None, "", 0):
         return {}
-    if isinstance(raw_star_cost, str) and raw_star_cost.strip().lower() == "x":
-        return {"star": max(0, available_star)}
     try:
-        return {"star": max(0, int(raw_star_cost))}
+        amount = max(0, int(raw_star_cost))
+        return {"star": amount} if amount else {}
     except (TypeError, ValueError):
         return {}
 

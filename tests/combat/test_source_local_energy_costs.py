@@ -6,6 +6,7 @@ from sts2sim.engine.source_cost_hooks import (
     expire,
     free_to_play,
     local_cost,
+    local_star_cost,
     preserve_changes,
     set_local_energy_cost,
 )
@@ -29,11 +30,12 @@ def test_source_reduce_only_modifier_remains_available_after_an_older_modifier_e
     assert local_cost(expire(card, turn_end=True)) == 1
 
 
-def test_source_free_energy_expires_after_play_but_star_free_marker_lasts_turn():
+def test_source_free_costs_expire_after_play_and_allow_later_reapplication():
     card = free_to_play(_simple("card", cost=2, custom={"star_cost": 3}))
     assert local_cost(card) == 0
     card = expire(card, when_played=True)
     assert local_cost(card) == 2
+    assert local_star_cost(card) == 3
     assert card.custom["free_to_play_this_turn"]
     assert card.custom["free_energy_consumed"]
     card = free_to_play(card)
