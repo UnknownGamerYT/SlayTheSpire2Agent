@@ -577,6 +577,47 @@ def test_combat_spawns_source_monster_with_scaled_initial_intent() -> None:
     assert ascension_monster.intent_damage == 14
 
 
+def test_multi_hit_intent_agrees_with_actor_belief_rewards_and_actual_damage() -> None:
+    from sts2sim.agent_api import action_space, encode_observation
+    from sts2sim.learning.rewards import aggression_weights, learning_reward_breakdown
+    from sts2sim.mechanics.belief import belief_summary
+    from sts2sim.mechanics.enemy_traits import enemy_trait_summary
+
+    state = _enter_training_combat()
+    assert state.combat is not None
+    before_player = state.combat.player.model_copy(update={"potions": ("block_potion",)})
+    state = state.model_copy(
+        update={
+            "player": before_player,
+            "potions": ("block_potion",),
+            "combat": state.combat.model_copy(update={"player": before_player}),
+        }
+    )
+    before = state.model_dump(mode="json")
+    potion = next(row for row in action_space(state) if row["type"] == "use_potion")
+    assert potion["potion_strategy"]["incoming_damage"] == 10
+    assert encode_observation(state)["combat"]["incoming_damage"] == 10
+    assert belief_summary(before)["likely_damage_taken_after_end_turn"] == 10
+    trait = enemy_trait_summary(before["combat"]["monsters"][0])
+    assert (trait["single_hit_damage"], trait["incoming_damage"]) == (5, 10)
+
+    blocked_player = before_player.model_copy(update={"block": 3})
+    blocked = state.model_copy(
+        update={
+            "player": blocked_player,
+            "combat": state.combat.model_copy(update={"player": blocked_player}),
+        }
+    )
+    payload = blocked.model_dump(mode="json")
+    assert belief_summary(payload)["likely_damage_taken_after_end_turn"] == 7
+    breakdown = learning_reward_breakdown(before, payload)
+    expected_weight = aggression_weights(breakdown.aggression_pressure)["prevented_hp_weight"]
+    assert abs(breakdown.prevented_hp_reward - 3 * expected_weight) < 0.000002
+    after = step(blocked, _end_turn_action(blocked))
+    assert after.combat is not None
+    assert blocked_player.hp - after.combat.player.hp == 7
+
+
 def test_stranded_won_combat_can_proceed_to_reward() -> None:
     state = _enter_training_combat()
     assert state.combat is not None

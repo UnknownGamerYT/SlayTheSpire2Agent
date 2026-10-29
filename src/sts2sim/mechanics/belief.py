@@ -235,11 +235,10 @@ def _has_any_token(card: Mapping[str, Any], tokens: Sequence[str]) -> bool:
 
 def _monster_incoming_damage(monster: Mapping[str, Any]) -> int:
     damage = _int(monster.get("intent_damage"))
-    hit_count = max(1, _int(monster.get("hit_count"), 1))
     metadata = _mapping(monster.get("metadata"))
     if metadata.get("intent_damage_total") is not None:
         return _int(metadata.get("intent_damage_total"))
-    return damage * hit_count
+    return max(0, damage)
 
 
 def _turns_to_kill_estimate(

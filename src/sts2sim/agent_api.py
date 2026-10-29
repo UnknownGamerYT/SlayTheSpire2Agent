@@ -2136,13 +2136,10 @@ def _incoming_combat_damage(combat: Any) -> int:
     for monster in getattr(combat, "monsters", ()):
         if _int(getattr(monster, "hp", 0)) <= 0:
             continue
-        intent = str(getattr(monster, "intent", "") or "")
+        intent = str(getattr(monster, "intent", "") or "").lower()
         if "attack" not in intent:
             continue
-        total += _int(getattr(monster, "intent_damage", 0)) * max(
-            1,
-            _int(getattr(monster, "hit_count", 1)),
-        )
+        total += max(0, _int(getattr(monster, "intent_damage", 0)))
     return total
 
 

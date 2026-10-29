@@ -150,8 +150,8 @@ def enemy_trait_summary(monster: Mapping[str, Any]) -> dict[str, Any]:
     max_hp = max(0, _int(monster.get("max_hp")))
     block = max(0, _int(monster.get("block")))
     hit_count = max(1, _int(monster.get("hit_count"), 1))
-    single_hit_damage = max(0, _int(monster.get("intent_damage")))
-    incoming_damage = _incoming_damage(monster, single_hit_damage, hit_count)
+    incoming_damage = _incoming_damage(monster)
+    single_hit_damage = incoming_damage / hit_count
     intent = _normalized(monster.get("intent"))
     token_text = _token_text(monster, metadata)
 
@@ -335,11 +335,7 @@ def _behavior_profile(
         }
 
     intent = _normalized(monster.get("intent"))
-    incoming_damage = _incoming_damage(
-        monster,
-        max(0, _int(monster.get("intent_damage"))),
-        max(1, _int(monster.get("hit_count"), 1)),
-    )
+    incoming_damage = _incoming_damage(monster)
     return {
         "behavior_attack_frequency": _flag(incoming_damage > 0 or _has_any(intent, _ATTACK_TOKENS)),
         "behavior_defend_frequency": _flag(
@@ -390,17 +386,13 @@ def _move_has(move: Mapping[str, Any], tokens: Sequence[str]) -> bool:
     return _has_any(text, tokens)
 
 
-def _incoming_damage(
-    monster: Mapping[str, Any],
-    single_hit_damage: int,
-    hit_count: int,
-) -> int:
+def _incoming_damage(monster: Mapping[str, Any]) -> int:
     metadata = _mapping(monster.get("metadata"))
     if metadata.get("intent_damage_total") is not None:
         return max(0, _int(metadata.get("intent_damage_total")))
     if metadata.get("incoming_damage") is not None:
         return max(0, _int(metadata.get("incoming_damage")))
-    return single_hit_damage * hit_count
+    return max(0, _int(monster.get("intent_damage")))
 
 
 def _metadata_has_power(metadata: Mapping[str, Any], *, target: str) -> bool:
