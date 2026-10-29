@@ -1,0 +1,16 @@
+{
+  "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
+  "scope": "Manual CardReward constructor lifecycle and Options/RerollOptions split; source-derived, not installed-game evidence",
+  "source_files": {
+    "decompiled/MegaCrit.Sts2.Core.Rewards/CardReward.cs": "937a512def94d408efa9f06849658fde845918be76a144fb832b30335c03523d",
+    "decompiled/MegaCrit.Sts2.Core.Hooks/Hook.cs": "c75c8e9d5c5015b9e3b230af72e47c585e8d42bde412633e910cc68cc0be6588",
+    "decompiled/MegaCrit.Sts2.Core.Runs/CardCreationOptions.cs": "43324913a01bc45c6599f18cc07b4e6fc99aa503e7f58d759a79eb4df6b0dbce"
+  },
+  "facts": {
+    "manual_constructor": "Initial Options include IsCardReward; RerollOptions are preserved unchanged; does not subscribe RelicObtained",
+    "regular_constructor": "Both Options and RerollOptions add IsCardReward and constructor subscribes RelicObtained",
+    "Populate": "Manual initial list still runs Hook.TryModifyCardRewardOptions; reroll populates from RerollOptions",
+    "Hook.TryModifyCardRewardOptions": "Includes both regular and late callback passes",
+    "OnRelicObtained": "Regular subscribed reward invokes hooks with initial Options even after a reroll"
+  }
+}

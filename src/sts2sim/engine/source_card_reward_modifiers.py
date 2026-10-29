@@ -161,13 +161,16 @@ def apply_card_reward_modifiers(
     for key, ids in _groups(reward):
         if group_keys is not None and key not in group_keys:
             continue
+        context = dict(t._mapping_from(contexts.get(key)))
         previous = set(t._string_items(prior_relics.get(key)))
         newly_obtained = tuple(
             relic for relic in state.relics if t._normalized_id(relic) not in previous
         )
         if key in applied and not force and not newly_obtained:
             continue
-        context = dict(t._mapping_from(contexts.get(key)))
+        if key in applied and not force and context.get('updates_on_relic_obtain') is False:
+            # The manual CardReward constructor never subscribes RelicObtained.
+            continue
         context['group_key'] = key
         if key == 'primary':
             upgrades = primary_upgrades
@@ -181,7 +184,8 @@ def apply_card_reward_modifiers(
                 current_modifiers[str(i)] = {'enchantments': tuple(legacy)}
         state, upgrades, updated_mods, modified_events = modify_generated_cards(
             state, rng, ids, upgrades,
-            is_card_reward=bool(context.get('is_card_reward', True)),
+            is_card_reward=bool(context.get('is_card_reward', True) if force else
+                context.get('initial_is_card_reward', context.get('is_card_reward', True))),
             context=context, current_modifiers=current_modifiers,
             relic_ids=None if force or key not in applied else newly_obtained,
         )
