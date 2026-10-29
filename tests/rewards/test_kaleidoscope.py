@@ -5,9 +5,10 @@ from typing import Any
 
 import pytest
 
-from sts2sim import legal_actions, load_state, new_run, serialize, step
+from sts2sim import inspect_reward_reroll_fault, legal_actions, load_state, new_run, serialize, step
 from sts2sim.engine import AncientOptionState, AncientState, RewardState, RunPhase, RunState
 from sts2sim.engine.rng import RunRng, capture_random_state
+from sts2sim.mechanics.source_factory_errors import SourceCardFactoryError
 
 CARD_POOL: tuple[dict[str, Any], ...] = (
     *(
@@ -121,10 +122,11 @@ def test_kaleidoscope_does_not_substitute_own_character_when_source_pool_is_empt
         for card in CARD_POOL
         if card["id"] not in {value.upper() for value in OTHER_CHARACTER_IDS}
     )
-    state = _pickup(_before_pickup(ancient=ancient, cards=cards), ancient=ancient)
-
-    assert _groups(state) == ()
-    assert not any(action.type == "take_reward_card" for action in legal_actions(state))
+    state = _before_pickup(ancient=ancient, cards=cards)
+    before = serialize(state)
+    with pytest.raises(SourceCardFactoryError, match="no_valid_rarity"):
+        _pickup(state, ancient=ancient)
+    assert serialize(state) == before
 
 
 @pytest.mark.parametrize("ancient", [False, True])
@@ -160,8 +162,48 @@ def test_kaleidoscope_persists_explicit_empty_custom_reroll_boundary() -> None:
     for key in ("primary", "group:0"):
         assert contexts[key]["custom_pool"] is True
         assert tuple(contexts[key]["pools"]) == tuple(contexts[key]["card_ids"]) == ()
-        assert contexts[key]["unsupported_reason"] == "source_empty_custom_card_pool"
-        assert contexts[key]["availability"] == "unsupported"
+        assert contexts[key]["source_fault_reason"] == "empty_custom_card_pool"
+        assert contexts[key]["availability"] == "modeled_source_fault"
+
+
+@pytest.mark.parametrize("group", ["primary", "group:0"])
+def test_kaleidoscope_fault_diagnostic_records_exact_source_prefix_without_ui_guess(group):
+    state = _before_pickup(ancient=False)
+    state = state.model_copy(update={"relics": (*state.relics, "driftwood", "prismatic_gem",
+                                                "dingy_rug", "silver_crucible")})
+    state = _pickup(state, ancient=False)
+    before = serialize(state)
+    trace = inspect_reward_reroll_fault(state, group)
+    assert serialize(state) == before
+    assert inspect_reward_reroll_fault(load_state(before), group) == trace
+    assert json.loads(json.dumps(trace))["source_exception"]["type"] == "InvalidOperationException"
+    assert trace["normal_transition"] is False
+    assert trace["continuation_requires_live_ui_observation"] is True
+    assert trace["factory_returned"] is False
+    assert trace["after_generated_invoked"] is False
+    assert trace["reward_taken_hooks_invoked"] is False
+    assert trace["rarity_offset_changed"] is False
+    assert trace["rng_after"]["streams"]["rewards"]["draws"] == (
+        trace["rng_before"]["streams"]["rewards"]["draws"] + 1)
+    for stream, position in trace["rng_before"]["streams"].items():
+        if stream != "rewards":
+            assert trace["rng_after"]["streams"][stream] == position
+    expected = (state.reward.card_options if group == "primary"
+                else state.reward.card_option_groups[0])
+    assert trace["history_append"] == tuple({"card_id": card, "was_picked": False}
+                                            for card in expected)
+    partial = trace["partial_reward_model"]
+    assert partial["metadata"]["card_reward_rerolled_groups"] == [group]
+    if group == "primary":
+        assert partial["card_options"] == []
+        assert partial["card_option_groups"] == [list(state.reward.card_option_groups[0])]
+    else:
+        assert partial["card_options"] == list(state.reward.card_options)
+        assert partial["card_option_groups"] == [[]]
+    # The original normal reward remains usable. Inspecting an oracle fault did
+    # not silently take/skip cards, spend its reroll or rerun Crucible callbacks.
+    assert len([a for a in legal_actions(state) if a.type == "take_reward_card"]) == 6
+    assert not any(a.type == "reroll_reward" for a in legal_actions(state))
 
 
 def test_kaleidoscope_manual_groups_apply_silver_crucible_once_per_group() -> None:

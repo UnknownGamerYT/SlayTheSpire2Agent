@@ -1,6 +1,6 @@
 """Kaleidoscope's two manual rewards, each from three distinct character pools.
 
-Source model/file hashes and the empty-custom-pool reroll boundary are recorded
+Source model/file hashes and the empty-custom-pool reroll failure are recorded
 in tests/fixtures/source_kaleidoscope.json. Game-source code is not bundled.
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ def pickup(state: RunState, rng: Random) -> tuple[RunState, tuple[EffectEvent, .
     option_modifiers = dict(t._mapping_from(metadata.get("card_reward_option_modifiers")))
     applied = set(t._string_items(metadata.get("source_modified_card_reward_groups")))
     modified_relics = dict(t._mapping_from(metadata.get("source_card_reward_modified_relics")))
-    unsupported = dict(t._mapping_from(metadata.get("source_unsupported_card_reward_rerolls")))
+    faults = dict(t._mapping_from(metadata.get("source_card_reward_faults")))
     pool_groups: list[tuple[str, ...]] = []
     events: list[EffectEvent] = []
     for group_number in range(2):
@@ -100,14 +100,17 @@ def pickup(state: RunState, rng: Random) -> tuple[RunState, tuple[EffectEvent, .
         applied.add(key)
         modified_relics[key] = tuple(t._normalized_id(relic) for relic in state.relics)
         # Source passes an explicit empty custom pool as RerollOptions. It is
-        # not the owning character's pool. Keep the unsupported boundary visible.
-        reason = "source_empty_custom_card_pool"
+        # not the owning character's pool. The explicit oracle diagnostic models
+        # the factory exception; training avoids this source-faulting action.
+        reason = "empty_custom_card_pool"
         contexts[key] = card_reroll_context(
             mode="noncombat", pools=(), count=len(identifiers), card_ids=(),
-            custom_pool=True, no_upgrade_roll=True, unsupported_reason=reason,
-            availability="unsupported",
+            custom_pool=True, no_upgrade_roll=True, is_card_reward=False,
+            initial_is_card_reward=True, updates_on_relic_obtain=False,
+            source_fault_reason=reason,
         )
-        unsupported[key] = {"reason": reason, "source": "Kaleidoscope.AfterObtained"}
+        faults[key] = {"reason": reason, "source": "Kaleidoscope.AfterObtained",
+                       "classification": "modeled_source_fault"}
         pool_groups.append(selected_pools)
         events.append(EffectEvent(
             kind="relic_card_reward_generated", source_id="kaleidoscope",
@@ -122,7 +125,7 @@ def pickup(state: RunState, rng: Random) -> tuple[RunState, tuple[EffectEvent, .
         card_reward_option_modifiers=option_modifiers,
         source_modified_card_reward_groups=tuple(sorted(applied)),
         source_card_reward_modified_relics=modified_relics,
-        source_unsupported_card_reward_rerolls=unsupported,
+        source_card_reward_faults=faults,
         kaleidoscope_character_pool_groups=tuple(pool_groups),
         card_reward_group_count=bool(primary) + len(groups),
     )

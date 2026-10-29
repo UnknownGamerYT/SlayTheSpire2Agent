@@ -56,6 +56,17 @@ def step(state: Any, action: Any) -> Any:
     return step_state(state, action)
 
 
+def inspect_reward_reroll_fault(state: Any, group: str = "primary") -> dict[str, Any]:
+    """Return an explicit oracle trace for a known source-faulting reroll.
+
+    This never advances the input run or supplies a normal successor. The
+    trace contains hidden RNG data and is excluded from policy observations.
+    """
+    from sts2sim.engine.source_reward_faults import inspect_reward_reroll_fault as inspect
+
+    return inspect(_load_state(state), group)
+
+
 def serialize(state: Any) -> dict[str, Any]:
     """Serialize a run state to a JSON-compatible payload."""
     payload = serialize_state(state)

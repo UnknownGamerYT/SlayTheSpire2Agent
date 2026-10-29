@@ -18,6 +18,7 @@ from .rewards import (
     RewardPityState,
     weighted_choice,
 )
+from .source_factory_errors import SourceCardFactoryError
 from .source_rng import draw_source_potion as draw_source_potion
 from .source_rng import float32, is_source_rng, source_float
 from .treasure import TreasureRelic
@@ -534,6 +535,14 @@ def _choose_card_by_rarity(
 ) -> CombatRewardCard | None:
     available = [card for card in card_pool if card.card_id not in excluded]
     candidates = [card for card in available if card.rarity is rarity]
+    if is_source_rng(rng):
+        order = (CardRarity.COMMON, CardRarity.UNCOMMON, CardRarity.RARE)
+        for offset in range(len(order)):
+            selected_rarity = order[(order.index(rarity) + offset) % len(order)]
+            candidates = [card for card in available if card.rarity is selected_rarity]
+            if candidates:
+                return rng.choice(candidates)
+        raise SourceCardFactoryError("no_valid_rarity", rolled_rarity=rarity.value)
     if not candidates:
         candidates = available
     return rng.choice(candidates) if candidates else None

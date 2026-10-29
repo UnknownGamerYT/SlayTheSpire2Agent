@@ -6,7 +6,8 @@ from decimal import Decimal
 from random import Random
 
 from .combat_rewards import CombatRewardCard
-from .source_rng import float32, named_stream, source_float
+from .source_factory_errors import SourceCardFactoryError
+from .source_rng import float32, is_source_rng, named_stream, source_float
 
 
 def source_noncombat_cards(
@@ -27,8 +28,9 @@ def source_noncombat_cards(
     rarities: list[str] = []
     upgrades: list[bool] = []
     for _ in range(max(0, count)):
-        if not candidates:
+        if not candidates and not is_source_rng(rng):
             break
+        rarity: str | None = None
         if uniform:
             eligible = [card for card in candidates
                         if card.rarity.value not in {"basic", "ancient"}]
@@ -43,6 +45,12 @@ def source_noncombat_cards(
                     break
                 rarity = {"common": "uncommon", "uncommon": "rare", "rare": "common"}[rarity]
         if not eligible:
+            if is_source_rng(rng):
+                raise SourceCardFactoryError(
+                    "no_valid_card" if uniform else "no_valid_rarity",
+                    rolled_rarity=rarity,
+                    generated_card_ids=tuple(cards),
+                )
             break
         card = selection_rng.choice(eligible)
         cards.append(card.card_id)

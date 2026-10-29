@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from sts2sim import legal_actions, load_state, new_run, serialize, step
+from sts2sim import inspect_reward_reroll_fault, legal_actions, load_state, new_run, serialize, step
 from sts2sim.agent_api import action_space
 from sts2sim.engine import ActionType, RoomKind, RunPhase
 from sts2sim.engine import transitions as e
 from sts2sim.engine.errors import IllegalActionError
 from sts2sim.engine.models import RewardState
 from sts2sim.engine.rng import capture_random_state, random_from_state
-from sts2sim.engine.source_reward_reroll import card_reroll_context
+from sts2sim.engine.source_reward_reroll import card_reroll_context, reward_reroll_contexts
 
 
 def _event(event_id):
@@ -133,6 +133,13 @@ def test_known_source_empty_custom_reroll_is_masked_and_keeps_its_diagnostic():
     from sts2sim.engine import Action
     with pytest.raises(IllegalActionError):
         step(state, Action(type=ActionType.REROLL_REWARD, target_id='reward:reroll:primary'))
+    normalized = reward_reroll_contexts(state.reward)['primary']
+    assert normalized['availability'] == 'modeled_source_fault'
+    assert normalized['source_fault_reason'] == 'empty_custom_card_pool'
+    before = serialize(state)
+    trace = inspect_reward_reroll_fault(state)
+    assert trace['source_exception']['reason'] == 'no_valid_rarity'
+    assert serialize(state) == before
 
 
 def test_nonempty_manual_custom_reroll_still_uses_its_original_explicit_pool():

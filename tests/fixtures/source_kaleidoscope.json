@@ -4,7 +4,6 @@
   "source_commit": "5d874e855ae1d0550d5c30416fadd7dbb0d133b7",
   "certifies_game_parity": false,
   "scope": "Kaleidoscope: two manual rewards, each one default-odds reward from three distinct shuffled other unlocked character pools; factory and manual-group modifier boundaries; serialized source RNG.",
-  "known_runtime_boundary": "Source supplies an explicit empty custom reroll pool. Its installed-game exception/UI handling needs Windows comparison. Simulator preserves this descriptor and masks only these unsupported reroll actions.",
   "source_files": [
     {
       "path": "decompiled/MegaCrit.Sts2.Core.Models.Relics/Kaleidoscope.cs",
@@ -22,5 +21,13 @@
       "path": "decompiled/MegaCrit.Sts2.Core.Factories/CardFactory.cs",
       "sha256": "69bba37c3d0ea3efc423264dd796fc4d22a49dcff3290c56ba9813365e8030dd"
     }
-  ]
+  ],
+  "source_defined_failure": "Empty custom reroll pool is modeled as a factory InvalidOperationException after disabling reroll, recording unpicked history, clearing the underlying cards and consuming one Rewards rarity draw. inspect_reward_reroll_fault returns the oracle prefix without mutating the input state; training intentionally masks the faulting action.",
+  "runtime_validation_boundary": "The installed build UI/task continuation after the modeled source exception needs Windows observation; no successful continuation or terminal loss is invented.",
+  "manual_constructor_flags": {
+    "initial_is_card_reward": true,
+    "reroll_is_card_reward": false,
+    "updates_on_relic_obtain": false
+  },
+  "additional_source_contract": "tests/fixtures/source_factory_edges.json"
 }

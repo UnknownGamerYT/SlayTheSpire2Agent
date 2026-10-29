@@ -19,7 +19,9 @@ def card_reroll_context(
 ) -> dict[str, Any]:
     """Serializable CardCreationOptions subset; explicit manual offers use this too."""
     context = {'mode': mode, 'pools': tuple(pools), 'count': count, **options}
-    if options.get('unsupported_reason'):
+    if options.get('source_fault_reason'):
+        context['availability'] = 'modeled_source_fault'
+    elif options.get('unsupported_reason'):
         context['availability'] = 'unsupported'
     return context
 
@@ -40,6 +42,15 @@ def reward_reroll_contexts(reward: RewardState) -> dict[str, Mapping[str, Any]]:
     raw = reward.metadata.get('card_reroll_contexts', {})
     contexts = ({str(key): value for key, value in raw.items() if isinstance(value, Mapping)}
                 if isinstance(raw, Mapping) else {})
+    # Old snapshots classified this confirmed source exception as unimplemented.
+    # The source prefix can now be inspected without guessing a UI successor.
+    for key, context in tuple(contexts.items()):
+        if context.get('unsupported_reason') == 'source_empty_custom_card_pool':
+            converted = dict(context)
+            converted.pop('unsupported_reason', None)
+            converted.update(source_fault_reason='empty_custom_card_pool',
+                             availability='modeled_source_fault')
+            contexts[key] = converted
     # Older combat snapshots have sufficient persisted source/encounter information.
     if reward.source == 'combat':
         for key in ('primary', *(f'group:{index}' for index in
@@ -61,7 +72,8 @@ def legal_reward_rerolls(state: RunState) -> tuple[Action, ...]:
     return tuple(Action(type=ActionType.REROLL_REWARD, target_id=f'reward:reroll:{key}')
                  for key, context in reward_reroll_contexts(reward).items()
                  if key not in used and _group_ids(reward, key)
-                 and not context.get('unsupported_reason'))
+                 and not context.get('unsupported_reason')
+                 and not context.get('source_fault_reason'))
 
 
 def _pool(state: RunState, context: Mapping[str, Any]) -> tuple[Any, ...]:
