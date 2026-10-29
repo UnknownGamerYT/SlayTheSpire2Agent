@@ -3,6 +3,7 @@
 from sts2sim.agent_api import action_mask, action_space, decode_action, encode_observation
 from sts2sim.agents import StrategicAgent, analyze_run, play_strategic_run
 from sts2sim.api import (
+    inspect_reward_alternative_fault,
     inspect_reward_reroll_fault,
     legal_actions,
     load_state,
@@ -70,6 +71,7 @@ __all__ = [
     "evaluate_agent_baselines",
     "evaluate_learning_agent",
     "import_run_file",
+    "inspect_reward_alternative_fault",
     "inspect_reward_reroll_fault",
     "legal_actions",
     "live_play",

@@ -11,9 +11,81 @@ from sts2sim.mechanics.source_card_factory import source_noncombat_cards
 from sts2sim.mechanics.source_factory_errors import SourceCardFactoryError
 from sts2sim.mechanics.source_rng import is_source_rng
 
-from .models import RunState
+from .models import Action, ActionType, RunState
 from .rng import capture_random_state, random_from_state
 from .source_reward_reroll import _group_ids, _pool, reward_reroll_contexts
+
+
+def source_reward_alternatives(state: RunState, group: str) -> tuple[str, ...]:
+    """Source Generate list before its explicit two-alternative limit."""
+    reward = state.reward
+    if reward is None or not _group_ids(reward, group):
+        return ()
+    context = reward_reroll_contexts(reward).get(group, {})
+    alternatives = ["Skip"] if context.get("can_skip", True) else []
+    if ("driftwood" in state.relics
+            and group not in reward.metadata.get("card_reward_rerolled_groups", ())):
+        alternatives.append("REROLL")
+    if "paels_wing" in state.relics:
+        alternatives.append("SACRIFICE")
+    return tuple(alternatives)
+
+
+def action_opens_faulting_reward(state: RunState, action: Action) -> bool:
+    """Whether a flat card action would cross a source-faulting selection screen.
+
+    The reward-set's ordinary Proceed/skip-all path is separate and remains
+    usable. This predicate never changes cards, flags, relic counters or RNG.
+    """
+    if not is_source_rng(state.rng):
+        return False
+    target = action.target_id or ""
+    group: str | None = None
+    if action.type == ActionType.TAKE_REWARD_CARD:
+        if target.startswith("reward:card:"):
+            group = "primary"
+        elif target.startswith("reward:card_group:"):
+            group = "group:" + target.split(":")[2]
+    elif action.type == ActionType.REROLL_REWARD:
+        group = target.removeprefix("reward:reroll:")
+    elif action.type == ActionType.SACRIFICE_REWARD:
+        group = target.removeprefix("reward:sacrifice:")
+    elif action.type == ActionType.SKIP_REWARD:
+        if target == "reward:card_options":
+            group = "primary"
+        elif target.startswith("reward:card_group:"):
+            group = "group:" + target.split(":")[2]
+    return group is not None and len(source_reward_alternatives(state, group)) > 2
+
+
+def inspect_reward_alternative_fault(state: RunState, group: str = "primary") -> dict[str, Any]:
+    """Inspect the pre-selection overflow fault without guessing UI recovery."""
+    if not is_source_rng(state.rng):
+        raise ValueError("A stable-source state is required for this oracle trace")
+    alternatives = source_reward_alternatives(state, group)
+    if len(alternatives) <= 2 or state.reward is None:
+        raise ValueError("This group has no source alternative-count fault")
+    return {
+        "classification": "modeled_source_fault",
+        "normal_transition": False,
+        "group": group,
+        "original_state_unchanged": True,
+        "source_exception": {
+            "type": "InvalidOperationException",
+            "member": "CardRewardAlternative.Generate",
+            "reason": "more_than_two_card_reward_alternatives",
+        },
+        "source_prefix": ("append_skip", "append_reroll", "run_alternative_hooks",
+                          "append_sacrifice", "throw_alternative_count_limit"),
+        "alternatives": alternatives,
+        "card_selection_screen_opened": False,
+        "player_choice_id_reserved": False,
+        "history_append": (),
+        "partial_reward_model": state.reward.model_dump(mode="json"),
+        "rng_before": state.rng.model_dump(mode="json"),
+        "rng_after": state.rng.model_dump(mode="json"),
+        "continuation_requires_live_ui_observation": True,
+    }
 
 
 def inspect_reward_reroll_fault(state: RunState, group: str = "primary") -> dict[str, Any]:
@@ -32,6 +104,8 @@ def inspect_reward_reroll_fault(state: RunState, group: str = "primary") -> dict
     used = tuple(reward.metadata.get("card_reward_rerolled_groups", ()))
     if not previous or group in used:
         raise ValueError("The source card reward can no longer be rerolled")
+    if len(source_reward_alternatives(state, group)) > 2:
+        raise ValueError("Source alternative generation faults before the reroll can be selected")
     rng = random_from_state(state.rng)
     if not is_source_rng(rng):
         raise ValueError("A stable-source RNG snapshot is required for this oracle trace")

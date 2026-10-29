@@ -67,6 +67,13 @@ def inspect_reward_reroll_fault(state: Any, group: str = "primary") -> dict[str,
     return inspect(_load_state(state), group)
 
 
+def inspect_reward_alternative_fault(state: Any, group: str = "primary") -> dict[str, Any]:
+    """Return an oracle trace for the source's card-alternative overflow fault."""
+    from sts2sim.engine.source_reward_faults import inspect_reward_alternative_fault as inspect
+
+    return inspect(_load_state(state), group)
+
+
 def serialize(state: Any) -> dict[str, Any]:
     """Serialize a run state to a JSON-compatible payload."""
     payload = serialize_state(state)

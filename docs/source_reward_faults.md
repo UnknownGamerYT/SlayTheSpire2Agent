@@ -14,8 +14,8 @@ successor**. No cards, victory, loss or UI recovery are fabricated.
 
 This is an explicit oracle diagnostic: its RNG snapshots must not enter policy
 observations. The training action mask deliberately avoids the source-faulting
-reroll. Original card selection and skipping remain available in the untouched
-input state. Older snapshots which called the source fault unsupported are
+reroll. With Kaleidoscope and Driftwood alone, original card selection and
+skipping remain available in the untouched input state. Older snapshots which called the fault unsupported are
 recognized by the diagnostic without rewriting their saved bytes.
 
 The installed build's visible screen and task recovery after this exception
@@ -27,3 +27,18 @@ and fail explicitly when a real source pool is exhausted, instead of silently
 returning a short reward. Synthetic legacy RNG fixtures retain their documented
 short-pool behavior. Source paths, hashes and finite contracts are retained in
 `tests/fixtures/source_factory_edges.json` and `source_kaleidoscope.json`.
+
+## Card alternative-count fault
+
+Driftwood and Pael's Wing together create three source alternatives: Skip,
+Reroll, and Sacrifice. `CardRewardAlternative.Generate` throws when more than
+two alternatives exist. On ordinary reward selection this occurs before the
+card-selection screen opens, before a player-choice ID is reserved, and without
+changing cards, history, relic counters or RNG. Both relics have distinct
+Ancient sources; the simulator does not pretend that three choices are valid.
+
+`inspect_reward_alternative_fault(state, group="primary")` exposes that oracle
+trace. The normal training mask avoids only flat actions that would open the
+faulting group's card-selection screen. Other rewards and the ordinary
+reward-set Proceed/skip-all path remain available; the inspector does not assert
+how the installed UI recovers after a player actually opens the faulting screen.

@@ -6649,7 +6649,9 @@ def _legal_reward_actions(state: RunState) -> tuple[Action, ...]:
             Action(type=ActionType.SKIP_REWARD, target_id=target_id)
             for target_id, _kind, _content_id in _unclaimed_reward_skip_targets(reward)
         )
-    return tuple(actions)
+    from .source_reward_faults import action_opens_faulting_reward
+
+    return tuple(action for action in actions if not action_opens_faulting_reward(state, action))
 
 
 def _reward_has_forced_pending_items(state: RunState) -> bool:
