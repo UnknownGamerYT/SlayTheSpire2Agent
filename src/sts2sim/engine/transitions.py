@@ -9,7 +9,7 @@ from functools import lru_cache
 from itertools import combinations
 from pathlib import Path
 from random import Random
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 from sts2sim.content.card_pool_selection import PLAYABLE_CARD_POOLS, source_card_pool_rows
 from sts2sim.content.source_card_pools import (
@@ -13705,12 +13705,9 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
     events.extend(loss_relic_events)
     player = combat.player
 
-    metadata = dict(combat.metadata)
-    ritual = source_combat_item_hooks.power_amount(
-        metadata, "strength", _status_amount(player.statuses, "ritual"), PLAYER_TARGET_ID,
-    )
-    combat = combat.model_copy(update={"metadata": metadata})
-    player, status_block_events = _apply_player_end_turn_status_block(player, ritual_amount=ritual)
+    # Ritual is an AfterSideTurnEnd listener, ordered with temporary stat
+    # recovery below; regular end-of-turn Block is a distinct earlier hook.
+    player, status_block_events = _apply_player_end_turn_status_block(player, ritual_amount=0)
     events.extend(status_block_events)
     combat = combat.model_copy(update={"player": player})
     combat, block_rng_state, block_power_events = _apply_block_gain_status_triggers(
@@ -13793,6 +13790,26 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
             kind="temporary_status_expired", source_id="shadowmeld", target_id=PLAYER_TARGET_ID,
             amount=-shadowmeld, metadata={"status": "shadowmeld"},
         ))
+    combat, owner_end_events = _tick_player_side_end_statuses(combat)
+    events.extend(owner_end_events)
+    pending_extra_turns = _metadata_int(combat.metadata, "extra_turns", 0)
+    if pending_extra_turns > 0 and _phase_after_combat(combat) == RunPhase.COMBAT:
+        metadata = dict(combat.metadata)
+        if pending_extra_turns > 1:
+            metadata["extra_turns"] = pending_extra_turns - 1
+        else:
+            metadata.pop("extra_turns", None)
+        combat = combat.model_copy(update={"metadata": metadata})
+        events.append(EffectEvent(
+            kind="extra_turn_started", source_id="paels_eye", target_id=PLAYER_TARGET_ID,
+            amount=1, metadata={"enemy_side_skipped": True},
+        ))
+        combat, extra_rng, extra_events = _begin_next_player_turn(
+            state, combat, capture_random_state(rng), after_enemy_turn=False,
+        )
+        event_tuple = tuple(events) + extra_events
+        combat = combat.model_copy(update={"last_events": event_tuple})
+        return _finalize_state_after_combat(state, combat, extra_rng, event_tuple)
     player = combat.player
     monster_definitions = _monster_definitions(state)
     # v0.107.1 resets Skulking Colony's budget at both turn starts, so Poison
@@ -13815,9 +13832,14 @@ def _end_turn(state: RunState) -> tuple[RunState, tuple[EffectEvent, ...]]:
                 target_id=monster.monster_id, amount=monster.block,
             ))
             monster = monster.model_copy(update={"block": 0})
-        if combat.turn > 1:
+        if _metadata_int(combat.metadata, "source_round_number", combat.turn) > 1:
             monster, plating_events = _apply_monster_plating_start(monster)
             events.extend(plating_events)
+        monster_metadata = dict(monster.metadata)
+        monster_metadata.pop("slow_cards_played", None)
+        monster = monster.model_copy(update={"metadata": monster_metadata})
+        monster, reflect_events = _tick_reflect_at_owner_turn_start(monster, monster.monster_id)
+        events.extend(reflect_events)
         combat = _combat_with_monster(combat, index, monster)
     monsters = list(combat.monsters)
     for monster_index in range(len(monsters)):
@@ -13944,6 +13966,8 @@ def _begin_next_player_turn(
     state: RunState,
     combat: CombatState,
     rng_state: RngState,
+    *,
+    after_enemy_turn: bool = True,
 ) -> tuple[CombatState, RngState, tuple[EffectEvent, ...]]:
     combat, vital_turn_events = source_affliction_hooks.synchronize(combat)
     rng = random_from_state(rng_state)
@@ -13958,41 +13982,42 @@ def _begin_next_player_turn(
             kind="temporary_status_expired", target_id=PLAYER_TARGET_ID,
             amount=-amount, metadata={"status": "diamond_diadem"},
         ))
-    combat, early_end_events = _apply_enemy_side_end_early(combat)
-    events.extend(early_end_events)
-    # Ritual, Territorial, High Voltage and Escape Artist all implement
-    # AfterSideTurnEnd; resolve after every enemy has finished acting.
-    for index in range(len(combat.monsters)):
-        monster, side_events = _apply_monster_end_turn_strength(combat.monsters[index])
-        combat = _combat_with_monster(combat, index, monster)
-        events.extend(side_events)
-    for index, monster in enumerate(combat.monsters):
-        if monster.hp > 0 and _status_amount(monster.statuses, "slumber") > 0:
-            monster = monster.model_copy(update={"metadata": {
-                **monster.metadata, "slumber_pending_hp_losses": 1,
-            }})
+    if after_enemy_turn:
+        combat, early_end_events = _apply_enemy_side_end_early(combat)
+        events.extend(early_end_events)
+        # Ritual, Territorial, High Voltage and Escape Artist all implement
+        # AfterSideTurnEnd; resolve after every enemy has finished acting.
+        for index in range(len(combat.monsters)):
+            monster, side_events = _apply_monster_end_turn_strength(combat.monsters[index])
             combat = _combat_with_monster(combat, index, monster)
-            combat, wake_events = _resolve_pending_slumber(state, combat, index)
-            events.extend(wake_events)
-    # HatchPower.AfterSideTurnEnd sees the enemy-side roster after summons.
-    # Eggs created during that side receive 2, then display 1 until they hatch.
-    hatch_monsters = []
-    for monster in combat.monsters:
-        hatch = _status_amount(monster.statuses, "hatch")
-        if monster.hp > 0 and hatch > 0:
-            statuses = dict(monster.statuses)
-            if hatch > 1:
-                statuses["hatch"] = hatch - 1
-            else:
-                statuses.pop("hatch", None)
-            monster = monster.model_copy(update={"statuses": statuses})
-            events.append(EffectEvent(
-                kind="hatch_counter_ticked", target_id=monster.monster_id, amount=hatch - 1,
-            ))
-        hatch_monsters.append(monster)
-    combat = combat.model_copy(update={"monsters": tuple(hatch_monsters)})
-    combat, tick_events = _tick_end_turn_statuses(combat)
-    events.extend(tick_events)
+            events.extend(side_events)
+        for index, monster in enumerate(combat.monsters):
+            if monster.hp > 0 and _status_amount(monster.statuses, "slumber") > 0:
+                monster = monster.model_copy(update={"metadata": {
+                    **monster.metadata, "slumber_pending_hp_losses": 1,
+                }})
+                combat = _combat_with_monster(combat, index, monster)
+                combat, wake_events = _resolve_pending_slumber(state, combat, index)
+                events.extend(wake_events)
+        # HatchPower.AfterSideTurnEnd sees the enemy-side roster after summons.
+        # Eggs created during that side receive 2, then display 1 until they hatch.
+        hatch_monsters = []
+        for monster in combat.monsters:
+            hatch = _status_amount(monster.statuses, "hatch")
+            if monster.hp > 0 and hatch > 0:
+                statuses = dict(monster.statuses)
+                if hatch > 1:
+                    statuses["hatch"] = hatch - 1
+                else:
+                    statuses.pop("hatch", None)
+                monster = monster.model_copy(update={"statuses": statuses})
+                events.append(EffectEvent(
+                    kind="hatch_counter_ticked", target_id=monster.monster_id, amount=hatch - 1,
+                ))
+            hatch_monsters.append(monster)
+        combat = combat.model_copy(update={"monsters": tuple(hatch_monsters)})
+        combat, tick_events = _tick_end_turn_statuses(combat)
+        events.extend(tick_events)
     statuses = dict(combat.player.statuses)
     if statuses.pop("no_energy_gain_this_turn", 0):
         events.append(EffectEvent(
@@ -14018,14 +14043,18 @@ def _begin_next_player_turn(
             "max_energy": turn_max_energy,
         }
     )
+    metadata = _reset_turn_combat_metadata(combat.metadata)
+    if not after_enemy_turn or "source_round_number" in metadata:
+        metadata["source_round_number"] = _metadata_int(
+            combat.metadata, "source_round_number", combat.turn,
+        ) + int(after_enemy_turn)
     combat = combat.model_copy(
         update={
             "turn": combat.turn + 1,
             "player": player,
             "monsters": tuple(monsters),
             "cards_played_this_turn": (),
-            "metadata": {**_reset_turn_combat_metadata(combat.metadata), "turn_owner": "player",
-                         "player_turn_phase": "start"},
+            "metadata": {**metadata, "turn_owner": "player", "player_turn_phase": "start"},
         }
     )
     radiance = _status_amount(combat.player.statuses, "radiance")
@@ -14139,9 +14168,12 @@ def _begin_next_player_turn(
     )
     events.extend(stored_power_events)
     rng = random_from_state(rng_state)
-    combat, nemesis_events = _apply_monster_nemesis_player_turn_start(combat)
-    events.extend(nemesis_events)
-    combat, monster_turn_start_events = _apply_monster_player_turn_start(combat)
+    if after_enemy_turn:
+        combat, nemesis_events = _apply_monster_nemesis_player_turn_start(combat)
+        events.extend(nemesis_events)
+    combat, monster_turn_start_events = _apply_monster_player_turn_start(
+        combat, is_extra_turn=not after_enemy_turn,
+    )
     events.extend(monster_turn_start_events)
 
     phase = _phase_after_combat(combat)
@@ -14220,6 +14252,9 @@ def _begin_next_player_turn(
             draw_events,
         )
         events.extend(drawn_trigger_events)
+        player, reflect_events = _tick_reflect_at_owner_turn_start(combat.player, PLAYER_TARGET_ID)
+        combat = combat.model_copy(update={"player": player})
+        events.extend(reflect_events)
         combat, rng_state, turn_timed_events = _apply_timed_card_triggers(
             state.model_copy(update={"combat": combat, "player": combat.player}),
             combat,
@@ -14983,24 +15018,25 @@ def _refresh_monster_intent_from_metadata(
 
 
 def _apply_monster_player_turn_start(
-    combat: CombatState,
+    combat: CombatState, *, is_extra_turn: bool = False,
 ) -> tuple[CombatState, tuple[EffectEvent, ...]]:
     """Reset turn-scoped defenses and execute Living Shield's Rampart power."""
     monsters = []
     for monster in combat.monsters:
         metadata = dict(monster.metadata)
         metadata.pop("hardened_shell_hp_lost_this_turn", None)
-        metadata.pop("slow_cards_played", None)
         monsters.append(monster.model_copy(update={"metadata": metadata}))
     events: list[EffectEvent] = []
-    if combat.turn == 1:
+    if _metadata_int(combat.metadata, "source_round_number", combat.turn) == 1:
         for index, monster in enumerate(monsters):
             amount = _status_amount(monster.statuses, "plating")
-            if monster.hp <= 0 or amount <= 0 or monster.metadata.get("initial_plating_given"):
+            if (monster.hp <= 0 or amount <= 0
+                    or monster.metadata.get("initial_plating_given_turn") == combat.turn):
                 continue
             monster, block_amount = _gain_monster_block(monster, amount, powered_move=False)
             monsters[index] = monster.model_copy(update={
-                "metadata": {**monster.metadata, "initial_plating_given": True},
+                "metadata": {**monster.metadata, "initial_plating_given": True,
+                             "initial_plating_given_turn": combat.turn},
             })
             events.append(EffectEvent(
                 kind="monster_plating_block", source_id=monster.monster_id,
@@ -15009,7 +15045,7 @@ def _apply_monster_player_turn_start(
             ))
     for source in monsters:
         amount = _status_amount(source.statuses, "rampart")
-        if source.hp <= 0 or amount <= 0:
+        if source.hp <= 0 or amount <= 0 or is_extra_turn:
             continue
         for index, target in enumerate(monsters):
             if (
@@ -24932,14 +24968,90 @@ def _tick_monster_statuses(monster: MonsterState) -> tuple[MonsterState, tuple[E
     return monster, events
 
 
+def _tick_player_side_end_statuses(
+    combat: CombatState,
+) -> tuple[CombatState, tuple[EffectEvent, ...]]:
+    metadata = dict(combat.metadata)
+    player = combat.player
+    events: list[EffectEvent] = []
+    # Creature.Powers preserves application order. In particular, Ritual and
+    # negative temporary Strength recovery compete for Ruined Helmet's first gain.
+    for power_id in tuple(combat.player.statuses):
+        if _normalized_status_id(power_id) == "ritual":
+            amount = source_combat_item_hooks.power_amount(
+                metadata, "strength", _status_amount(player.statuses, "ritual"),
+                PLAYER_TARGET_ID,
+            )
+            statuses, event = _apply_status_value(
+                player.statuses, "strength", amount, source_id="ritual", target_id=PLAYER_TARGET_ID,
+            )
+            player = player.model_copy(update={"statuses": statuses})
+            if event is not None:
+                events.append(event)
+            continue
+        updated, emitted = _tick_status_map(
+            player, PLAYER_TARGET_ID, ended_side="player", item_metadata=metadata,
+            only_status=power_id,
+        )
+        if not isinstance(updated, PlayerState):
+            raise EngineError("player-side cleanup changed actor type")
+        player = updated
+        events.extend(emitted)
+    monsters = []
+    for monster in combat.monsters:
+        updated, emitted = _tick_status_map(monster, monster.monster_id, ended_side="player")
+        if not isinstance(updated, MonsterState):
+            raise EngineError("player-side cleanup changed enemy type")
+        monsters.append(updated)
+        events.extend(emitted)
+    return combat.model_copy(update={
+        "player": player, "monsters": tuple(monsters), "metadata": metadata,
+    }), tuple(events)
+
+
+_CombatActor = TypeVar("_CombatActor", PlayerState, MonsterState)
+
+
+def _tick_reflect_at_owner_turn_start(
+    combatant: _CombatActor, target_id: str,
+) -> tuple[_CombatActor, tuple[EffectEvent, ...]]:
+    amount = _status_amount(combatant.statuses, "reflect")
+    if amount <= 0:
+        return combatant, ()
+    statuses = dict(combatant.statuses)
+    if amount > 1:
+        statuses["reflect"] = amount - 1
+    else:
+        statuses.pop("reflect", None)
+    return combatant.model_copy(update={"statuses": statuses}), (EffectEvent(
+        kind="status_ticked", target_id=target_id, amount=-1,
+        metadata={"status": "reflect", "remaining": amount - 1, "trigger": "owner_turn_start"},
+    ),)
+
+
 def _tick_status_map(
     combatant: PlayerState | MonsterState,
     target_id: str,
+    *,
+    ended_side: str = "monster",
+    item_metadata: dict[str, Any] | None = None,
+    only_status: str | None = None,
 ) -> tuple[PlayerState | MonsterState, tuple[EffectEvent, ...]]:
     statuses = dict(combatant.statuses)
     events: list[EffectEvent] = []
+    owner_side = "player" if target_id == PLAYER_TARGET_ID else "monster"
+    owner_ended = ended_side == owner_side
+    enemy_ended = ended_side == "monster"
     for status in ("weak", "vulnerable", "frail", "intangible", "retain_hand", "debilitate",
-                   "no_card_block_gain", "reflect", "conqueror"):
+                   "no_card_block_gain", "conqueror", "source_core_double_damage",
+                   "source_core_colossus"):
+        if only_status is not None and status != only_status:
+            continue
+        if status in {"retain_hand", "debilitate", "conqueror", "source_core_double_damage"}:
+            if not owner_ended:
+                continue
+        elif not enemy_ended:
+            continue
         amount = statuses.get(status, 0)
         if amount <= 0:
             continue
@@ -24960,8 +25072,6 @@ def _tick_status_map(
         "temporary_strength",
         "temporary_dexterity",
         "temporary_focus",
-        "source_core_double_damage",
-        "source_core_colossus",
         "flame_barrier",
         "sicem",
         "sic_em",
@@ -24976,11 +25086,38 @@ def _tick_status_map(
         "flanking",
         "knockdown",
     ):
+        if only_status is not None and temporary_status != only_status:
+            continue
+        if temporary_status == "flame_barrier":
+            if ended_side == owner_side:
+                continue
+        elif temporary_status == "tainted":
+            if not enemy_ended:
+                continue
+        elif temporary_status == "oblivion":
+            if ended_side != "player":
+                continue
+        elif not owner_ended:
+            continue
         amount = statuses.pop(temporary_status, 0)
         temporary_stat = {
             "temporary_strength": "strength", "temporary_dexterity": "dexterity",
             "temporary_focus": "focus",
         }.get(temporary_status)
+        if temporary_stat is not None and amount < 0 and item_metadata is not None:
+            recovery = source_combat_item_hooks.power_amount(
+                item_metadata, temporary_stat, -amount, target_id,
+            )
+            bonus = recovery + amount
+            if bonus:
+                statuses, recovery_event = _apply_status_value(
+                    statuses, temporary_stat, bonus,
+                    source_id=temporary_status, target_id=target_id,
+                )
+                if recovery_event is not None:
+                    events.append(recovery_event.model_copy(update={"metadata": {
+                        **recovery_event.metadata, "temporary_stat_recovery_bonus": True,
+                    }}))
         if temporary_stat is not None and amount > 0 and _status_amount(statuses, "artifact") > 0:
             # Inline temporary modifiers represent a real signed stat plus its
             # wrapper. Its expiry removes the wrapper, then applies a negative
@@ -25011,7 +25148,8 @@ def _tick_status_map(
     ):
         # Player temporary powers expire at their own side end. A Fairy can
         # grant Reptile Trinket's power during the enemy side, after that point.
-        if target_id == PLAYER_TARGET_ID:
+        if (target_id == PLAYER_TARGET_ID or not owner_ended
+                or only_status is not None and down_status != only_status):
             continue
         amount = statuses.pop(down_status, 0)
         if amount:
@@ -25027,11 +25165,15 @@ def _tick_status_map(
                 )
             )
     for power_id, amount in tuple(statuses.items()):
+        if not owner_ended or only_status is not None and power_id != only_status:
+            continue
         expiry = source_temporary_power_expiry(power_id, amount)
         if expiry is None:
             continue
         statuses.pop(power_id, None)
         stat, delta = expiry
+        if item_metadata is not None:
+            delta = source_combat_item_hooks.power_amount(item_metadata, stat, delta, target_id)
         statuses, event = _apply_status_value(
             statuses, stat, delta, source_id=power_id, target_id=target_id,
         )

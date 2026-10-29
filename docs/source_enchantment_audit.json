@@ -119,7 +119,7 @@
         "CanEnchantCardType",
         "AfterAutoPrePlayPhaseEntered"
       ],
-      "combat_rule": "Skill eligibility; starts at bottom; first-turn automatic preplay before opening hand draw.",
+      "combat_rule": "Skill eligibility; starts at bottom; first-turn automatic preplay after opening hand draw.",
       "implementation": [
         "src/sts2sim/engine/source_enchantment_hooks.py",
         "src/sts2sim/engine/transitions.py"
